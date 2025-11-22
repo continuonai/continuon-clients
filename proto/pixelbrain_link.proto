@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package continuonxr.pixelbrain.v1;
 
-import "proto/rlds_episode.proto";
+import "rlds_episode.proto";
 
 // Draft bridge API between ContinuonXR and PixelBrain/OS.
 
@@ -31,4 +31,3 @@ message CommandAck {
   bool accepted = 1;
   string message = 2;
 }
-

@@ -8,7 +8,7 @@ import com.continuonxr.app.config.GloveConfig
  */
 class GloveBleClient(private val config: GloveConfig) {
     fun connect(onFrame: (GloveFrame) -> Unit, onDiagnostics: (GloveDiagnostics) -> Unit) {
-        // TODO: Request MTU, subscribe to notifications, emit frames.
+        // TODO: Request MTU, subscribe to notifications, parse payloads via GloveFrameParser, emit frames.
     }
 
     fun disconnect() {
@@ -30,4 +30,3 @@ data class GloveDiagnostics(
     val dropCount: Int,
     val rssi: Int?,
 )
-

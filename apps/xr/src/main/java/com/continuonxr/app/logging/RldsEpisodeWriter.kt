@@ -28,6 +28,8 @@ class RldsEpisodeWriter(private val config: LoggingConfig) {
     fun completeEpisode() {
         // TODO: Flush and optionally upload.
     }
+
+    fun recordedCount(): Int = steps.size
 }
 
 data class EpisodeMetadata(
@@ -82,4 +84,3 @@ data class Step(
     val action: Action,
     val isTerminal: Boolean = false,
 )
-

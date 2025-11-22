@@ -7,3 +7,7 @@ Use this directory to host a lightweight mock of PixelBrain/OS for Phase 1 lab d
 
 Suggested tooling: Kotlin/JVM or Node/TypeScript gRPC server generated from `proto/` definitions with canned trajectories for testing teleop.
 
+## Quick start ideas
+- Kotlin: Generate stubs via `./gradlew :apps:xr:generateDebugProto` (uses shared `proto/` folder), then create a small Ktor/gRPC server that streams `RobotStateEnvelope` messages.
+- TypeScript: Generate via `buf` + `ts-proto` or `grpc-tools` and serve canned trajectories from a Node process.
+- Add a flag to jitter latency/drop rate to validate XR-side resilience.

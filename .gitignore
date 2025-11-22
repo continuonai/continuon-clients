@@ -1,0 +1,16 @@
+# Gradle / Android builds
+/.gradle/
+**/build/
+**/.gradle/
+**/.cxx/
+/local.properties
+*.iml
+.idea/
+/apps/xr/src/main/generated/
+
+# Generated protobufs
+**/build/generated/**
+
+# OS artifacts
+.DS_Store
+Thumbs.db

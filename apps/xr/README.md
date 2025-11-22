@@ -10,10 +10,15 @@ This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. It is inte
 - `teleop/` — input fusion and command mapping for Mode A teleop; records RLDS steps.
 - `logging/` — RLDS schema enforcement and local persistence hooks.
 
+## Build/test quickstart
+- Requires Android Studio Koala or later (AGP 8.5) and a local Gradle install or wrapper.
+- Build app: `./gradlew :apps:xr:assembleDebug`
+- Run unit tests: `./gradlew :apps:xr:testDebugUnitTest`
+- Generate proto stubs: `./gradlew :apps:xr:generateDebugProto`
+
 ## Next steps
-1. Add Gradle build files with Jetpack XR/Compose, coroutines, and protobuf dependencies.
+1. Add Jetpack XR/SceneCore dependencies and hook up Compose scenes for XR panels.
 2. Implement PixelBrain/OS Robot API proto stubs from `proto/`.
 3. Flesh out RLDS writer to persist to disk and perform schema validation.
 4. Wire real XR input (head/hand pose, voice) into `InputFusion` and `CommandMapper`.
-5. Add unit tests for schema validation, glove parsing, and teleop command mapping.
-
+5. Expand unit tests for schema validation, glove parsing, and teleop command mapping.
