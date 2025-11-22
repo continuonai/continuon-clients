@@ -1,6 +1,7 @@
 package com.continuonxr.app.connectivity
 
 import com.continuonxr.app.config.ConnectivityConfig
+import kotlinx.serialization.Serializable
 
 /**
  * Stub for the PixelBrain/OS bridge client.
@@ -20,6 +21,7 @@ class PixelBrainClient(private val config: ConnectivityConfig) {
     }
 }
 
+@Serializable
 data class RobotState(
     val timestampNanos: Long,
     val jointPositions: FloatArray = floatArrayOf(),
@@ -27,8 +29,8 @@ data class RobotState(
     val gripperOpen: Boolean = false,
 )
 
+@Serializable
 data class Pose(
     val position: FloatArray = floatArrayOf(0f, 0f, 0f),
     val orientationQuat: FloatArray = floatArrayOf(0f, 0f, 0f, 1f),
 )
-

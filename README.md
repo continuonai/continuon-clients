@@ -20,9 +20,9 @@ ContinuonXR is the human-facing XR application that powers Continuon's self-lear
 ## Next steps (tracking)
 - Add Jetpack XR/SceneCore dependencies and Compose scenes for XR panels in `apps/xr`.
 - Finalize PixelBrain/OS Robot API fields in `proto/` and implement gRPC/WebRTC client plus mock server.
-- Implement glove BLE frame parsing and diagnostics in `GloveBleClient`/`GloveFrameParser`.
-- Persist RLDS episodes to disk with validation/upload in `RldsEpisodeWriter`.
-- Expand tests (schema validation, teleop mapping, glove parsing) and add a Gradle wrapper for reproducible builds.
+- Glove BLE: wire MTU/notification flow in `GloveBleClient`; parser draft + test lives in `GloveFrameParser`.
+- RLDS logging: file sink stub is in place; add schema validation and upload pipeline in `RldsEpisodeWriter`.
+- Testing/tooling: expand coverage (schema validation, teleop mapping, BLE parsing) and add a Gradle wrapper for reproducible builds.
 
 ## Phase alignment
 - **Phase 0 (contracts):** The documentation in `docs/` captures the RLDS schema and XR app spec.

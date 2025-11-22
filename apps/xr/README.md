@@ -1,6 +1,6 @@
 # Android XR App Scaffold
 
-This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. It is intentionally light-weight and does not include Gradle wiring yet.
+This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. Gradle wiring is present; XR dependencies remain to be added.
 
 ## Modules
 - `MainActivity.kt` — entry point, routes to mode-specific shells (trainer/workstation/observer).
@@ -18,7 +18,7 @@ This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. It is inte
 
 ## Next steps
 1. Add Jetpack XR/SceneCore dependencies and hook up Compose scenes for XR panels.
-2. Implement PixelBrain/OS Robot API proto stubs from `proto/`.
-3. Flesh out RLDS writer to persist to disk and perform schema validation.
+2. Implement PixelBrain/OS Robot API proto stubs from `proto/` and a mock bridge.
+3. Extend RLDS writer (file sink added) with schema validation and upload/export.
 4. Wire real XR input (head/hand pose, voice) into `InputFusion` and `CommandMapper`.
-5. Expand unit tests for schema validation, glove parsing, and teleop command mapping.
+5. Expand unit tests for schema validation, BLE parsing, and teleop command mapping.

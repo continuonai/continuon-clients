@@ -1,6 +1,7 @@
 package com.continuonxr.app.glove
 
 import com.continuonxr.app.config.GloveConfig
+import kotlinx.serialization.Serializable
 
 /**
  * BLE ingest stub for Continuon Glove v0.
@@ -16,6 +17,7 @@ class GloveBleClient(private val config: GloveConfig) {
     }
 }
 
+@Serializable
 data class GloveFrame(
     val timestampNanos: Long,
     val flex: FloatArray,          // size 5, normalized 0..1
@@ -24,6 +26,7 @@ data class GloveFrame(
     val accel: FloatArray,         // size 3, m/s^2
 )
 
+@Serializable
 data class GloveDiagnostics(
     val mtu: Int,
     val sampleRateHz: Float,
