@@ -1,29 +1,112 @@
 package com.continuonxr.app.glove
 
+import android.annotation.SuppressLint
+import android.bluetooth.*
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.continuonxr.app.config.GloveConfig
 import kotlinx.serialization.Serializable
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * BLE ingest stub for Continuon Glove v0.
  * Handles MTU negotiation, frame parsing, and diagnostics.
  */
-class GloveBleClient(private val config: GloveConfig) {
+class GloveBleClient(
+    private val context: Context,
+    private val config: GloveConfig,
+) {
+    private val handler = Handler(Looper.getMainLooper())
+    private var gatt: BluetoothGatt? = null
+    private var dropCount = AtomicInteger(0)
+    private var diagnosticsCallback: ((GloveDiagnostics) -> Unit)? = null
+    private var frameCallback: ((GloveFrame) -> Unit)? = null
+
+    @SuppressLint("MissingPermission")
     fun connect(onFrame: (GloveFrame) -> Unit, onDiagnostics: (GloveDiagnostics) -> Unit) {
-        // TODO: Request MTU, subscribe to notifications, parse payloads via GloveFrameParser, emit frames.
+        frameCallback = onFrame
+        diagnosticsCallback = onDiagnostics
+        val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+        val device = adapter.bondedDevices.firstOrNull { it.name == config.bleDeviceName }
+        device?.connectGatt(context, false, gattCallback)
     }
 
+    @SuppressLint("MissingPermission")
     fun disconnect() {
-        // TODO: Close BLE connection and clean up resources.
+        gatt?.close()
+        gatt = null
+    }
+
+    private val gattCallback = object : BluetoothGattCallback() {
+        @SuppressLint("MissingPermission")
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                gatt.requestMtu(config.minMtu)
+                gatt.discoverServices()
+                this@GloveBleClient.gatt = gatt
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                diagnosticsCallback?.invoke(
+                    GloveDiagnostics(
+                        mtu = config.minMtu,
+                        sampleRateHz = 0f,
+                        dropCount = dropCount.get(),
+                        rssi = null,
+                    )
+                )
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            if (mtu < config.minMtu) {
+                dropCount.incrementAndGet()
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            val characteristic = findDataCharacteristic(gatt) ?: return
+            gatt.setCharacteristicNotification(characteristic, true)
+            characteristic.descriptors.forEach {
+                it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                gatt.writeDescriptor(it)
+            }
+        }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+        ) {
+            val payload = characteristic.value ?: return
+            val frame = GloveFrameParser.parse(payload, System.nanoTime()) ?: GloveFrame(
+                timestampNanos = System.nanoTime(),
+                flex = emptyList(),
+                fsr = emptyList(),
+                orientationQuat = emptyList(),
+                accel = emptyList(),
+                valid = false,
+            )
+            frameCallback?.invoke(frame)
+        }
+    }
+
+    private fun findDataCharacteristic(gatt: BluetoothGatt): BluetoothGattCharacteristic? {
+        val serviceUuid = UUID.fromString(config.serviceUuid)
+        val characteristicUuid = UUID.fromString(config.characteristicUuid)
+        return gatt.getService(serviceUuid)?.getCharacteristic(characteristicUuid)
     }
 }
 
 @Serializable
 data class GloveFrame(
     val timestampNanos: Long,
-    val flex: FloatArray,          // size 5, normalized 0..1
-    val fsr: FloatArray,           // size 8, normalized 0..1
-    val orientationQuat: FloatArray, // size 4
-    val accel: FloatArray,         // size 3, m/s^2
+    val flex: List<Float>,          // size 5, normalized 0..1
+    val fsr: List<Float>,           // size 8, normalized 0..1
+    val orientationQuat: List<Float>, // size 4
+    val accel: List<Float>,         // size 3, m/s^2
+    val valid: Boolean = true,
 )
 
 @Serializable

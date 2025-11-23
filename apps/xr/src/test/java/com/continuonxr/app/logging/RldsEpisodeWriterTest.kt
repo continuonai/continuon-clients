@@ -17,6 +17,7 @@ class RldsEpisodeWriterTest {
             LoggingConfig(
                 episodeOutputDir = outputDir.toString(),
                 uploadOnComplete = false,
+                validateRlds = true,
             )
         )
         writer.startEpisode(
@@ -32,16 +33,16 @@ class RldsEpisodeWriterTest {
             leftHandPose = null,
             gloveFrame = GloveFrame(
                 timestampNanos = 1L,
-                flex = floatArrayOf(0f, 0f, 0f, 0f, 0f),
-                fsr = floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
-                orientationQuat = floatArrayOf(0f, 0f, 0f, 1f),
-                accel = floatArrayOf(0f, 0f, 0f),
+                flex = listOf(0f, 0f, 0f, 0f, 0f),
+                fsr = listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
+                orientationQuat = listOf(0f, 0f, 0f, 1f),
+                accel = listOf(0f, 0f, 0f),
             ),
             robotState = RobotState(timestampNanos = 1L),
             videoFrameId = "frame-1",
             depthFrameId = null,
         )
-        val action = Action(command = floatArrayOf(0.1f, 0.2f), source = "human_teleop_xr")
+        val action = Action(command = listOf(0.1f, 0.2f), source = "human_teleop_xr")
 
         writer.recordStep(observation = observation, action = action)
         assertEquals(1, writer.recordedCount())
@@ -54,6 +55,7 @@ class RldsEpisodeWriterTest {
             LoggingConfig(
                 episodeOutputDir = outputDir.toString(),
                 uploadOnComplete = false,
+                validateRlds = true,
             )
         )
         writer.startEpisode(
@@ -70,11 +72,38 @@ class RldsEpisodeWriterTest {
             gloveFrame = null,
             robotState = RobotState(timestampNanos = 1L),
         )
-        val action = Action(command = floatArrayOf(0.1f), source = "human_teleop_xr")
+        val action = Action(command = listOf(0.1f), source = "human_teleop_xr")
         writer.recordStep(observation = observation, action = action)
         writer.completeEpisode()
 
         assertTrue(Files.exists(outputDir.resolve("metadata.json")))
         assertTrue(Files.exists(outputDir.resolve("steps.jsonl")))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun failsValidationWhenCommandMissing() {
+        val writer = RldsEpisodeWriter(
+            LoggingConfig(
+                episodeOutputDir = Files.createTempDirectory("rlds-writer-validation").toString(),
+                uploadOnComplete = false,
+                validateRlds = true,
+                failOnValidationError = true,
+            )
+        )
+        writer.startEpisode(
+            EpisodeMetadata(
+                xrMode = "trainer",
+                controlRole = "human_teleop",
+                environmentId = "test",
+            )
+        )
+        val observation = Observation(
+            headsetPose = Pose(),
+            rightHandPose = Pose(),
+            leftHandPose = null,
+            gloveFrame = null,
+            robotState = RobotState(timestampNanos = 1L),
+        )
+        writer.recordStep(observation = observation, action = Action(command = emptyList(), source = ""))
     }
 }

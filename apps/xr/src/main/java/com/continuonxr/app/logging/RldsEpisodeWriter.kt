@@ -15,12 +15,18 @@ import java.io.File
 class RldsEpisodeWriter(
     private val config: LoggingConfig,
     private val sink: EpisodeSink = FileEpisodeSink(config),
+    private val validator: RldsValidator = RldsValidator(),
+    private val uploader: RldsUploader = defaultUploader(config),
 ) {
     private val steps = mutableListOf<Step>()
     private var started = false
 
     fun startEpisode(metadata: EpisodeMetadata) {
         steps.clear()
+        if (config.validateRlds) {
+            val issues = validator.validateEpisodeMetadata(metadata)
+            handleIssues(issues)
+        }
         sink.onStart(metadata)
         started = true
     }
@@ -29,9 +35,14 @@ class RldsEpisodeWriter(
         observation: Observation,
         action: Action,
         isTerminal: Boolean = false,
+        stepMetadata: Map<String, String> = emptyMap(),
     ) {
         check(started) { "Episode not started" }
-        val step = Step(observation, action, isTerminal)
+        val step = Step(observation, action, isTerminal, stepMetadata)
+        if (config.validateRlds) {
+            val issues = validator.validateStep(step)
+            handleIssues(issues)
+        }
         steps.add(step)
         sink.onStep(step)
     }
@@ -39,27 +50,42 @@ class RldsEpisodeWriter(
     fun completeEpisode() {
         if (!started) return
         sink.onComplete()
+        if (config.uploadOnComplete) {
+            sink.episodeDir()?.let { uploader.upload(it) }
+        }
         started = false
     }
 
     fun recordedCount(): Int = steps.size
+
+    private fun handleIssues(issues: List<ValidationIssue>) {
+        val errors = issues.filter { it.severity == ValidationIssue.Severity.ERROR }
+        if (errors.isNotEmpty() && config.failOnValidationError) {
+            val message = errors.joinToString("; ") { it.message }
+            throw IllegalArgumentException("RLDS validation failed: $message")
+        }
+    }
 }
 
 interface EpisodeSink {
     fun onStart(metadata: EpisodeMetadata)
     fun onStep(step: Step)
     fun onComplete()
+    fun episodeDir(): File?
 }
 
 private class FileEpisodeSink(private val config: LoggingConfig) : EpisodeSink {
     private val json = Json { encodeDefaults = true }
     private var stepsWriter: BufferedWriter? = null
+    private var dir: File? = null
 
     override fun onStart(metadata: EpisodeMetadata) {
-        val dir = File(config.episodeOutputDir)
-        dir.mkdirs()
-        File(dir, "metadata.json").writeText(json.encodeToString(metadata))
-        stepsWriter = File(dir, "steps.jsonl").bufferedWriter()
+        dir = File(config.episodeOutputDir)
+        dir?.mkdirs()
+        dir?.let {
+            File(it, "metadata.json").writeText(json.encodeToString(metadata))
+            stepsWriter = File(it, "steps.jsonl").bufferedWriter()
+        }
     }
 
     override fun onStep(step: Step) {
@@ -73,6 +99,16 @@ private class FileEpisodeSink(private val config: LoggingConfig) : EpisodeSink {
         stepsWriter?.flush()
         stepsWriter?.close()
         stepsWriter = null
+    }
+
+    override fun episodeDir(): File? = dir
+}
+
+private fun defaultUploader(config: LoggingConfig): RldsUploader {
+    return if (config.uploadOnComplete && config.uploadEndpoint != null) {
+        HttpRldsUploader(config)
+    } else {
+        NoopRldsUploader()
     }
 }
 
@@ -89,16 +125,19 @@ data class Observation(
     val headsetPose: Pose,
     val rightHandPose: Pose,
     val leftHandPose: Pose?,
+    val gaze: Gaze? = null,
     val gloveFrame: GloveFrame?,
     val robotState: RobotState?,
     val videoFrameId: String? = null,
     val depthFrameId: String? = null,
+    val audio: Audio? = null,
+    val uiContext: UiContext? = null,
     val diagnostics: Diagnostics = Diagnostics(),
 )
 
 @Serializable
 data class Action(
-    val command: FloatArray,
+    val command: List<Float>,
     val source: String,
     val annotation: Annotation? = null,
     val uiAction: UiAction? = null,
@@ -106,8 +145,8 @@ data class Action(
 
 @Serializable
 data class Pose(
-    val position: FloatArray = floatArrayOf(0f, 0f, 0f),
-    val orientationQuat: FloatArray = floatArrayOf(0f, 0f, 0f, 1f),
+    val position: List<Float> = listOf(0f, 0f, 0f),
+    val orientationQuat: List<Float> = listOf(0f, 0f, 0f, 1f),
     val valid: Boolean = true,
 )
 
@@ -131,8 +170,33 @@ data class UiAction(
 )
 
 @Serializable
+data class Gaze(
+    val origin: List<Float>,
+    val direction: List<Float>,
+    val confidence: Float = 0f,
+    val targetId: String? = null,
+)
+
+@Serializable
 data class Step(
     val observation: Observation,
     val action: Action,
     val isTerminal: Boolean = false,
+    val stepMetadata: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class Audio(
+    val uri: String,
+    val sampleRateHz: Int,
+    val numChannels: Int,
+    val format: String? = null,
+    val frameId: String? = null,
+)
+
+@Serializable
+data class UiContext(
+    val activePanel: String? = null,
+    val layout: Map<String, String> = emptyMap(),
+    val focusContext: Map<String, String> = emptyMap(),
 )

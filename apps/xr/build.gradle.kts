@@ -1,3 +1,8 @@
+import com.google.protobuf.gradle.*
+import com.android.build.api.dsl.AndroidSourceSet
+import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.plugins.ExtensionAware
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -23,7 +28,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
+        kotlinCompilerExtensionVersion = "1.5.15"
     }
 
     packaging {
@@ -41,7 +46,13 @@ android {
         jvmTarget = "17"
     }
 
-    sourceSets["main"].proto.srcDir("../../proto")
+    sourceSets {
+        getByName("main") {
+            proto {
+                srcDir("../../proto")
+            }
+        }
+    }
 }
 
 dependencies {
@@ -59,7 +70,12 @@ dependencies {
     // TODO: Add Jetpack XR / SceneCore dependencies once coordinates are finalized.
 
     implementation("com.google.protobuf:protobuf-javalite:3.25.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("io.grpc:grpc-okhttp:1.64.0")
+    implementation("io.grpc:grpc-protobuf-lite:1.64.0")
+    implementation("io.grpc:grpc-stub:1.64.0")
+    implementation("javax.annotation:javax.annotation-api:1.3.2")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
@@ -73,11 +89,29 @@ protobuf {
     protoc {
         artifact = "com.google.protobuf:protoc:3.25.3"
     }
+    plugins {
+        id("grpc") {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.64.0"
+        }
+    }
     generateProtoTasks {
-        all().forEach { task ->
-            task.builtins {
+        all().configureEach {
+            builtins {
                 maybeCreate("java").option("lite")
+            }
+            plugins {
+                id("grpc") {
+                    option("lite")
+                }
             }
         }
     }
+}
+
+fun AndroidSourceSet.proto(action: SourceDirectorySet.() -> Unit) {
+    (this as ExtensionAware)
+        .extensions
+        .getByName("proto")
+        .let { it as SourceDirectorySet }
+        .action()
 }

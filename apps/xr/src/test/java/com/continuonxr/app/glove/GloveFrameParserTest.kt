@@ -54,4 +54,3 @@ class GloveFrameParserTest {
         assertEquals(9.80665f, frame.accel[0], 1e-3f) // 1000 mg -> 9.80665 m/s^2
     }
 }
-

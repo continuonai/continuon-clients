@@ -20,14 +20,14 @@ object GloveFrameParser {
 
         buffer.get() // flags/version, currently unused
 
-        val flex = FloatArray(5) { normalizeUInt16(buffer.short) }
-        val fsr = FloatArray(8) { normalizeUInt16(buffer.short) }
+        val flex = List(5) { normalizeUInt16(buffer.short) }
+        val fsr = List(8) { normalizeUInt16(buffer.short) }
 
-        val orientationQuat = FloatArray(4) {
+        val orientationQuat = List(4) {
             buffer.short.toFloat() / ORIENTATION_SCALE
         }.normalizeQuat()
 
-        val accel = FloatArray(3) {
+        val accel = List(3) {
             val mg = buffer.short.toFloat() / 1000f
             mg * GRAVITY
         }
@@ -48,8 +48,8 @@ object GloveFrameParser {
         return (unsigned / MAX_SENSOR_VALUE).coerceIn(0f, 1f)
     }
 
-    private fun FloatArray.normalizeQuat(): FloatArray {
+    private fun List<Float>.normalizeQuat(): List<Float> {
         val norm = sqrt(this.fold(0.0) { acc, f -> acc + (f * f) })
-        return if (norm > 0.0) this.map { (it / norm).toFloat() }.toFloatArray() else this
+        return if (norm > 0.0) this.map { (it / norm).toFloat() } else this
     }
 }

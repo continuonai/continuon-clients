@@ -14,21 +14,30 @@ data class AppConfig(
 enum class Mode { TRAINER, WORKSTATION, OBSERVER }
 
 data class ConnectivityConfig(
-    val pixelBrainHost: String,
-    val pixelBrainPort: Int,
+    val continuonBrainHost: String,
+    val continuonBrainPort: Int,
     val useWebRtc: Boolean,
     val cloudBaseUrl: String,
+    val useMockContinuonBrain: Boolean = true,
+    val useTls: Boolean = false,
+    val authToken: String? = null,
 )
 
 data class LoggingConfig(
     val episodeOutputDir: String,
     val uploadOnComplete: Boolean,
+    val validateRlds: Boolean = true,
+    val failOnValidationError: Boolean = true,
+    val uploadEndpoint: String? = null,
+    val uploadAuthToken: String? = null,
 )
 
 data class GloveConfig(
     val bleDeviceName: String,
     val minMtu: Int = 64,
     val targetSampleRateHz: Int = 100,
+    val serviceUuid: String = "0000feed-0000-1000-8000-00805f9b34fb",
+    val characteristicUuid: String = "0000beef-0000-1000-8000-00805f9b34fb",
 )
 
 object AppConfigLoader {
@@ -37,8 +46,8 @@ object AppConfigLoader {
         return AppConfig(
             mode = Mode.TRAINER,
             connectivity = ConnectivityConfig(
-                pixelBrainHost = "127.0.0.1",
-                pixelBrainPort = 50051,
+                continuonBrainHost = "127.0.0.1",
+                continuonBrainPort = 50051,
                 useWebRtc = false,
                 cloudBaseUrl = "https://api.continuon.ai",
             ),
@@ -52,4 +61,3 @@ object AppConfigLoader {
         )
     }
 }
-

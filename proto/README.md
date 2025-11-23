@@ -2,11 +2,11 @@
 
 Draft proto files for the XR data loop:
 - `rlds_episode.proto` — RLDS episode contract for ContinuonXR logging and export.
-- `pixelbrain_link.proto` — gRPC bridge between XR client and PixelBrain/OS.
+- `continuonbrain_link.proto` — gRPC bridge between XR client and ContinuonBrain/OS.
 
 Next steps:
-1. Finalize Robot API fields and align `RobotState` with PixelBrain/OS contracts.
-2. Generate Kotlin/JVM and TypeScript stubs for the XR app and mock PixelBrain server.
+1. Finalize Robot API fields and align `RobotState` with ContinuonBrain/OS contracts.
+2. Generate Kotlin/JVM and TypeScript stubs for the XR app and mock ContinuonBrain server.
 3. Add auth/versioning metadata to RPC requests once Cloud/API requirements are known.
 
 ## Codegen
@@ -14,3 +14,6 @@ Next steps:
 - TypeScript (mock server / tooling) suggestion: use `buf` + `ts-proto` or `@grpc/grpc-js`. Example:
   - `buf generate --template buf.gen.yaml` (template not included yet).
   - Or `npx protoc --ts_out src --grpc_out=grpc_js --plugin=protoc-gen-grpc=$(npm bin)/grpc_tools_node_protoc_plugin proto/*.proto`
+
+Schema highlights:
+- Observation now supports gaze, audio, UI context, and glove validity flags, plus per-step metadata map for contextual tagging.

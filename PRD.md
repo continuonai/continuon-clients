@@ -60,8 +60,8 @@ ContinuonXR includes applications for non-XR devices:
 
 ### 3.1 Core Platform & Architecture
 *   **Platform:** Native Android XR app built with **Kotlin + Jetpack XR (Compose for XR + SceneCore)** on Galaxy XR hardware.
-*   **Communication:** Must establish a local **gRPC/WebRTC link** to the **PixelBrain/OS** running on the docked Pixel 10 for real-time state and command exchange. Must use HTTPS/WebSockets to communicate with **Continuon Cloud**.
-*   **Edge Integration:** Must respect and use the stable **Robot API** exposed by PixelBrain/OS.
+*   **Communication:** Must establish a local **gRPC/WebRTC link** to the **ContinuonBrain/OS** running on the docked Pixel 10 for real-time state and command exchange. Must use HTTPS/WebSockets to communicate with **Continuon Cloud**.
+*   **Edge Integration:** Must respect and use the stable **Robot API** exposed by ContinuonBrain/OS.
 
 ### 3.2 RLDS Data Contract (Must be Strictly Implemented)
 ContinuonXR must log all experiences into a standardized RLDS-style schema.
@@ -96,7 +96,7 @@ The initial MVP must achieve the core function of data capture and interface.
 | Phase | Goal | Key Deliverable |
 | :--- | :--- | :--- |
 | **Phase 0** | **Contracts** | Define `RLDS schema` and `xr-app-spec.md` in the documentation folder. |
-| **Phase 1 (MVP)** | **Lab Prototype** | Jetpack XR MVP with basic panels + functional teleop (Mode A) to a mock PixelBrain/OS instance. Single local service saving RLDS episodes. |
+| **Phase 1 (MVP)** | **Lab Prototype** | Jetpack XR MVP with basic panels + functional teleop (Mode A) to a mock ContinuonBrain/OS instance. Single local service saving RLDS episodes. |
 
 ### 4.3 Success Metrics (KPIs)
 

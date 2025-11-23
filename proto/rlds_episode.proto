@@ -15,7 +15,7 @@ message EpisodeMetadata {
 
 message SoftwareVersions {
   string xr_app = 1;
-  string pixelbrain_os = 2;
+  string continuonbrain_os = 2;
   string glove_firmware = 3;
 }
 
@@ -24,22 +24,19 @@ message Episode {
   repeated Step steps = 2;
 }
 
-message Step {
-  Observation observation = 1;
-  Action action = 2;
-  bool is_terminal = 3;
-}
-
 message Observation {
   Pose headset_pose = 1;
   Pose right_hand_pose = 2;
   Pose left_hand_pose = 3;
-  RobotState robot_state = 4;
-  GloveFrame glove = 5;
+  Gaze gaze = 4;
+  RobotState robot_state = 5;
+  GloveFrame glove = 6;
 
-  string video_frame_id = 6;
-  string depth_frame_id = 7;
-  Diagnostics diagnostics = 8;
+  string video_frame_id = 7;
+  string depth_frame_id = 8;
+  Diagnostics diagnostics = 9;
+  Audio audio = 10;
+  UiContext ui_context = 11;
 }
 
 message Action {
@@ -68,6 +65,7 @@ message GloveFrame {
   repeated float fsr = 3;  // size 8, normalized
   repeated float orientation_quat = 4; // size 4
   repeated float accel = 5; // size 3, m/s^2
+  bool valid = 6;
 }
 
 message Diagnostics {
@@ -87,3 +85,30 @@ message UiAction {
   map<string, string> context = 2;
 }
 
+message Audio {
+  string uri = 1;
+  int32 sample_rate_hz = 2;
+  int32 num_channels = 3;
+  string format = 4; // e.g., pcm16le
+  string frame_id = 5;
+}
+
+message UiContext {
+  string active_panel = 1;
+  map<string, string> layout = 2;
+  map<string, string> focus_context = 3;
+}
+
+message Gaze {
+  repeated float origin = 1;    // [x, y, z]
+  repeated float direction = 2; // normalized vector [x, y, z]
+  float confidence = 3;         // 0..1
+  string target_id = 4;         // optional UI/scene object id
+}
+
+message Step {
+  Observation observation = 1;
+  Action action = 2;
+  bool is_terminal = 3;
+  map<string, string> step_metadata = 4;
+}
