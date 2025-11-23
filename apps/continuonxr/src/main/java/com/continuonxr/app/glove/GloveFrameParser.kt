@@ -6,10 +6,10 @@ import kotlin.math.sqrt
 
 /**
  * Parses raw BLE payloads into `GloveFrame`.
- * The format is documented in docs/glove-ble.md and will be finalized with firmware.
+ * The format is documented in docs/glove-ble.md.
  */
 object GloveFrameParser {
-    private const val EXPECTED_MIN_BYTES = 45
+    private const val EXPECTED_MIN_BYTES = 56
     private const val MAX_SENSOR_VALUE = 1023f
     private const val ORIENTATION_SCALE = 1e4f
     private const val GRAVITY = 9.80665f
@@ -18,7 +18,12 @@ object GloveFrameParser {
         if (raw.size < EXPECTED_MIN_BYTES) return null
         val buffer = ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN)
 
-        buffer.get() // flags/version, currently unused
+        val version = buffer.get().toInt() and 0xFF
+        val statusFlags = buffer.get().toInt() and 0xFF
+        val sequence = buffer.short.toInt() and 0xFFFF
+        val sampleTimeMicros = buffer.int.toLong() and 0xFFFFFFFFL
+
+        if (version != 0x01) return null
 
         val flex = List(5) { normalizeUInt16(buffer.short) }
         val fsr = List(8) { normalizeUInt16(buffer.short) }
@@ -32,7 +37,8 @@ object GloveFrameParser {
             mg * GRAVITY
         }
 
-        // Remaining bytes (CRC) are ignored for now.
+        val temperatureCentiDegrees = buffer.short.toInt() and 0xFFFF
+        val batteryMv = buffer.short.toInt() and 0xFFFF
 
         return GloveFrame(
             timestampNanos = timestampNanos,
@@ -40,6 +46,12 @@ object GloveFrameParser {
             fsr = fsr,
             orientationQuat = orientationQuat,
             accel = accel,
+            valid = true,
+            sequence = sequence,
+            statusFlags = statusFlags,
+            sampleTimeMicros = sampleTimeMicros,
+            batteryMv = batteryMv,
+            temperatureC = temperatureCentiDegrees / 100f,
         )
     }
 

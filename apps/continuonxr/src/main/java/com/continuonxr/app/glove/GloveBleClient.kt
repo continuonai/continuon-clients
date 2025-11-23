@@ -8,7 +8,6 @@ import android.os.Looper
 import com.continuonxr.app.config.GloveConfig
 import kotlinx.serialization.Serializable
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * BLE ingest stub for Continuon Glove v0.
@@ -19,8 +18,8 @@ class GloveBleClient(
     private val config: GloveConfig,
 ) {
     private val handler = Handler(Looper.getMainLooper())
+    private val diagnosticsTracker = GloveDiagnosticsTracker(config.minMtu, config.targetSampleRateHz)
     private var gatt: BluetoothGatt? = null
-    private var dropCount = AtomicInteger(0)
     private var diagnosticsCallback: ((GloveDiagnostics) -> Unit)? = null
     private var frameCallback: ((GloveFrame) -> Unit)? = null
 
@@ -47,22 +46,13 @@ class GloveBleClient(
                 gatt.discoverServices()
                 this@GloveBleClient.gatt = gatt
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                diagnosticsCallback?.invoke(
-                    GloveDiagnostics(
-                        mtu = config.minMtu,
-                        sampleRateHz = 0f,
-                        dropCount = dropCount.get(),
-                        rssi = null,
-                    )
-                )
+                diagnosticsCallback?.invoke(diagnosticsTracker.snapshot())
             }
         }
 
         @SuppressLint("MissingPermission")
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-            if (mtu < config.minMtu) {
-                dropCount.incrementAndGet()
-            }
+            diagnosticsCallback?.invoke(diagnosticsTracker.onMtuNegotiated(mtu).snapshot())
         }
 
         @SuppressLint("MissingPermission")
@@ -80,8 +70,9 @@ class GloveBleClient(
             characteristic: BluetoothGattCharacteristic,
         ) {
             val payload = characteristic.value ?: return
-            val frame = GloveFrameParser.parse(payload, System.nanoTime()) ?: GloveFrame(
-                timestampNanos = System.nanoTime(),
+            val now = System.nanoTime()
+            val frame = GloveFrameParser.parse(payload, now) ?: GloveFrame(
+                timestampNanos = now,
                 flex = emptyList(),
                 fsr = emptyList(),
                 orientationQuat = emptyList(),
@@ -89,6 +80,7 @@ class GloveBleClient(
                 valid = false,
             )
             frameCallback?.invoke(frame)
+            diagnosticsCallback?.invoke(diagnosticsTracker.onFrame(frame, now))
         }
     }
 
@@ -107,6 +99,11 @@ data class GloveFrame(
     val orientationQuat: List<Float>, // size 4
     val accel: List<Float>,         // size 3, m/s^2
     val valid: Boolean = true,
+    val sequence: Int? = null,
+    val statusFlags: Int? = null,
+    val sampleTimeMicros: Long? = null,
+    val batteryMv: Int? = null,
+    val temperatureC: Float? = null,
 )
 
 @Serializable
