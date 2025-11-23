@@ -221,6 +221,26 @@ platform/linux_sbc/ # V4L2/GPIO for Raspberry Pi
 
 ---
 
+## Robot Platform Coverage
+
+This repository primarily ships the XR-side tooling, but it must stay aligned with the fleet of robots supported by the continuonos HAL. The table below tracks current coverage and obvious gaps so contributors know where to help.
+
+| Robot Platform | HAL Interfaces Available | Current Coverage | Known Gaps |
+|----------------|--------------------------|------------------|------------|
+| **Hello Robot Stretch 3** | `ActuatorInterface` (arm + lift), `SensorInterface` (RGB-D), `SafetyHead` hooks | Teleop verified with mock backend; RLDS logging validated | Gripper force control missing; depth → point cloud conversion still stubbed; e-stop feedback not plumbed |
+| **Unitree Go2** | `ActuatorInterface` (locomotion), `SensorInterface` (stereo, IMU), `TimeInterface` | Locomotion skill replay in sim; waypoint streaming | Manipulator/gripper HAL unimplemented; onboard perception passthrough to cloud missing |
+| **Franka Emika Panda** | `ActuatorInterface` (arm), `SensorInterface` (RGB), `StorageInterface` | Offline teleop playback via mock brain | Real-time torque mode not exposed; tactile pads unsupported; workspace safety envelopes manual only |
+| **ROS 2 Generic** | `continuonbrain_link.proto` bridge | Command/feedback bridge tested in bag replay | Sensor discovery limited to RGB; depth/point cloud topics ignored; no standard gripper mapping |
+
+### Action List for Missing Integrations
+- Implement **gripper drivers** for Stretch 3 (force + slip sensing) and Panda (torque-aware grasping) under `continuonos` HAL adapters; validate end-to-end through XR teleop.
+- Add **depth/point cloud ingestion** for Stretch 3 and ROS 2 generic bridge, wiring conversions into RLDS logging and VisionCore calibration.
+- Expose **perception passthrough** on Unitree Go2 (stereo + IMU) to the XR client so spatial UI mirrors robot state.
+- Wire **safety systems** (e-stop feedback and workspace bounds) into `SafetyHead` for Stretch 3 and Panda, surfacing alerts in the XR HUD.
+- Extend **manipulator interfaces** for Unitree Go2 when an arm is present, including gripper mapping and calibration flows.
+
+---
+
 ## Building the Ecosystem: Phased Development Plan
 
 ### Phase 0: Contracts & Architecture ✓
