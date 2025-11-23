@@ -2,6 +2,13 @@
 
 **Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**
 
+## Build & CI Status
+
+[![Android XR CI](https://github.com/continuonai/ContinuonXR/actions/workflows/android-xr.yml/badge.svg)](https://github.com/continuonai/ContinuonXR/actions/workflows/android-xr.yml)
+[![Scheduled Smoke Tests](https://github.com/continuonai/ContinuonXR/actions/workflows/scheduled-smoke-tests.yml/badge.svg?event=schedule)](https://github.com/continuonai/ContinuonXR/actions/workflows/scheduled-smoke-tests.yml)
+
+The Android XR pipeline runs `assembleDebug`, unit tests, and proto generation to mirror the coverage used across other Continuon repos. Scheduled smoke tests validate critical XR flows on a regular cadence.
+
 ---
 
 ## Overview
