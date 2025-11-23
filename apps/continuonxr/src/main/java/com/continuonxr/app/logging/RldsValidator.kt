@@ -9,8 +9,15 @@ import com.continuonxr.app.connectivity.GripperMode
 class RldsValidator {
     fun validateEpisodeMetadata(metadata: EpisodeMetadata): List<ValidationIssue> {
         val issues = mutableListOf<ValidationIssue>()
-        if (metadata.xrMode.isBlank()) issues += ValidationIssue.error("xrMode is required")
-        if (metadata.controlRole.isBlank()) issues += ValidationIssue.error("controlRole is required")
+        if (metadata.xrMode.isBlank()) issues += ValidationIssue.error("xr_mode is required")
+        if (metadata.controlRole.isBlank()) issues += ValidationIssue.error("control_role is required")
+        if (!ALLOWED_XR_MODES.contains(metadata.xrMode)) {
+            issues += ValidationIssue.error("xr_mode must be one of ${ALLOWED_XR_MODES.joinToString()}")
+        }
+        if (!ALLOWED_CONTROL_ROLES.contains(metadata.controlRole)) {
+            issues += ValidationIssue.error("control_role must be one of ${ALLOWED_CONTROL_ROLES.joinToString()}")
+        }
+        if (metadata.environmentId.isBlank()) issues += ValidationIssue.error("environment_id is required")
         return issues
     }
 
@@ -34,6 +41,13 @@ class RldsValidator {
         observation.gaze?.let {
             if (it.origin.size != 3) issues += ValidationIssue.error("gaze.origin must have 3 elements")
             if (it.direction.size != 3) issues += ValidationIssue.error("gaze.direction must have 3 elements")
+            val magnitude = kotlin.math.sqrt(it.direction.map { value -> value * value }.sum())
+            if (magnitude == 0f) {
+                issues += ValidationIssue.error("gaze.direction must be normalized (non-zero)")
+            } else {
+                val normalized = kotlin.math.abs(magnitude - 1f) < 1e-3
+                if (!normalized) issues += ValidationIssue.error("gaze.direction must be normalized to unit length")
+            }
         }
         observation.robotState?.let { robot ->
             if (robot.wallTimeMillis == null) {
@@ -113,3 +127,5 @@ data class ValidationIssue(
 }
 
 private const val ALIGNMENT_TOLERANCE_NANOS = 5_000_000L
+private val ALLOWED_XR_MODES = setOf("trainer", "workstation", "observer")
+private val ALLOWED_CONTROL_ROLES = setOf("human_teleop", "human_supervisor", "human_dev_xr")

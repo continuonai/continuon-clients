@@ -28,10 +28,13 @@ data class ConnectivityConfig(
 data class LoggingConfig(
     val episodeOutputDir: String,
     val uploadOnComplete: Boolean,
+    val writeEpisodesToDisk: Boolean = true,
     val validateRlds: Boolean = true,
     val failOnValidationError: Boolean = true,
     val uploadEndpoint: String? = null,
     val uploadAuthToken: String? = null,
+    val maxUploadRetries: Int = 3,
+    val uploadRetryBackoffMs: Long = 1_000,
 )
 
 data class GloveConfig(
