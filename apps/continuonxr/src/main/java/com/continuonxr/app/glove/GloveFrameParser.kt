@@ -9,7 +9,7 @@ import kotlin.math.sqrt
  * The format is documented in docs/glove-ble.md.
  */
 object GloveFrameParser {
-    private const val EXPECTED_MIN_BYTES = 56
+    private const val EXPECTED_MIN_BYTES = 45
     private const val MAX_SENSOR_VALUE = 1023f
     private const val ORIENTATION_SCALE = 1e4f
     private const val GRAVITY = 9.80665f
@@ -21,7 +21,6 @@ object GloveFrameParser {
         val version = buffer.get().toInt() and 0xFF
         val statusFlags = buffer.get().toInt() and 0xFF
         val sequence = buffer.short.toInt() and 0xFFFF
-        val sampleTimeMicros = buffer.int.toLong() and 0xFFFFFFFFL
 
         if (version != 0x01) return null
 
@@ -37,9 +36,6 @@ object GloveFrameParser {
             mg * GRAVITY
         }
 
-        val temperatureCentiDegrees = buffer.short.toInt() and 0xFFFF
-        val batteryMv = buffer.short.toInt() and 0xFFFF
-
         return GloveFrame(
             timestampNanos = timestampNanos,
             flex = flex,
@@ -49,9 +45,9 @@ object GloveFrameParser {
             valid = true,
             sequence = sequence,
             statusFlags = statusFlags,
-            sampleTimeMicros = sampleTimeMicros,
-            batteryMv = batteryMv,
-            temperatureC = temperatureCentiDegrees / 100f,
+            sampleTimeMicros = null,
+            batteryMv = null,
+            temperatureC = null,
         )
     }
 

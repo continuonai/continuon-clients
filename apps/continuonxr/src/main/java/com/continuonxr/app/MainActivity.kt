@@ -51,18 +51,46 @@ class MainActivity : ComponentActivity() {
                                 Button(
                                     onClick = {
                                         if (PermissionManager.hasAllPermissions(this@MainActivity)) {
-                                            teleopController.startTeleopSession()
-                                            xrInputProvider.start()
-                                            started.value = true
+                                            if (started.value) {
+                                                teleopController.stopTeleopSession()
+                                                started.value = false
+                                            } else {
+                                                teleopController.startTeleopSession()
+                                                xrInputProvider.start()
+                                                started.value = true
+                                            }
                                         } else {
                                             PermissionManager.requestMissingPermissions(this@MainActivity)
                                         }
                                     },
-                                    enabled = !started.value,
-                                ) { Text("Start Teleop Session") }
+                                ) { Text(if (started.value) "Stop Teleop Session" else "Start Teleop Session") }
                             }
-                            Mode.WORKSTATION -> startWorkstationShell()
-                            Mode.OBSERVER -> startObserverShell()
+                            Mode.WORKSTATION -> {
+                                Button(
+                                    onClick = {
+                                        if (started.value) {
+                                            stopWorkstationShell()
+                                            started.value = false
+                                        } else {
+                                            startWorkstationShell()
+                                            started.value = true
+                                        }
+                                    },
+                                ) { Text(if (started.value) "Stop Workstation Streams" else "Start Workstation Streams") }
+                            }
+                            Mode.OBSERVER -> {
+                                Button(
+                                    onClick = {
+                                        if (started.value) {
+                                            stopObserverShell()
+                                            started.value = false
+                                        } else {
+                                            startObserverShell()
+                                            started.value = true
+                                        }
+                                    },
+                                ) { Text(if (started.value) "Stop Observer Streams" else "Start Observer Streams") }
+                            }
                         }
                     }
                 }
@@ -71,10 +99,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startWorkstationShell() {
-        // TODO: Launch workstation panels and attach RLDS UI event logging.
+        continuonBrainClient.connect()
+        gloveBleClient.connect(onFrame = { /* Workstation glove warmup */ }, onDiagnostics = { })
+    }
+
+    private fun stopWorkstationShell() {
+        continuonBrainClient.close()
+        gloveBleClient.disconnect()
     }
 
     private fun startObserverShell() {
-        // TODO: Render safety overlays and annotation tools.
+        continuonBrainClient.connect()
+        continuonBrainClient.observeState { /* passive state stream for overlays */ }
+    }
+
+    private fun stopObserverShell() {
+        continuonBrainClient.close()
     }
 }

@@ -80,8 +80,15 @@ class RldsEpisodeWriterTest {
             headsetPose = Pose(),
             rightHandPose = Pose(),
             leftHandPose = null,
-            gloveFrame = null,
+            gloveFrame = GloveFrame(
+                timestampNanos = 1L,
+                flex = List(5) { 0f },
+                fsr = List(8) { 0f },
+                orientationQuat = listOf(0f, 0f, 0f, 1f),
+                accel = listOf(0f, 0f, 0f),
+            ),
             robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
+            videoFrameId = "frame-1",
         )
         val action = Action(
             command = ControlCommand.Gripper(
@@ -124,8 +131,15 @@ class RldsEpisodeWriterTest {
             headsetPose = Pose(),
             rightHandPose = Pose(),
             leftHandPose = null,
-            gloveFrame = null,
+            gloveFrame = GloveFrame(
+                timestampNanos = 1L,
+                flex = List(5) { 0f },
+                fsr = List(8) { 0f },
+                orientationQuat = listOf(0f, 0f, 0f, 1f),
+                accel = listOf(0f, 0f, 0f),
+            ),
             robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
+            videoFrameId = "frame-1",
         )
         writer.recordStep(
             observation = observation,
