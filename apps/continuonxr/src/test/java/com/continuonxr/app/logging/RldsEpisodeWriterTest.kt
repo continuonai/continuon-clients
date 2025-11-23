@@ -38,7 +38,7 @@ class RldsEpisodeWriterTest {
                 orientationQuat = listOf(0f, 0f, 0f, 1f),
                 accel = listOf(0f, 0f, 0f),
             ),
-            robotState = RobotState(timestampNanos = 1L),
+            robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
             videoFrameId = "frame-1",
             depthFrameId = null,
         )
@@ -70,7 +70,7 @@ class RldsEpisodeWriterTest {
             rightHandPose = Pose(),
             leftHandPose = null,
             gloveFrame = null,
-            robotState = RobotState(timestampNanos = 1L),
+            robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
         )
         val action = Action(command = listOf(0.1f), source = "human_teleop_xr")
         writer.recordStep(observation = observation, action = action)
@@ -108,7 +108,7 @@ class RldsEpisodeWriterTest {
             rightHandPose = Pose(),
             leftHandPose = null,
             gloveFrame = null,
-            robotState = RobotState(timestampNanos = 1L),
+            robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
         )
         writer.recordStep(observation = observation, action = Action(command = emptyList(), source = ""))
     }

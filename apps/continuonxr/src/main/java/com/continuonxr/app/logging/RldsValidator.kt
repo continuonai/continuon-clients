@@ -32,6 +32,24 @@ class RldsValidator {
             if (it.origin.size != 3) issues += ValidationIssue.error("gaze.origin must have 3 elements")
             if (it.direction.size != 3) issues += ValidationIssue.error("gaze.direction must have 3 elements")
         }
+        observation.robotState?.let { robot ->
+            if (robot.wallTimeMillis == null) {
+                issues += ValidationIssue.error("robotState.wallTimeMillis is required for alignment")
+            }
+            if (robot.frameId.isNullOrBlank()) {
+                issues += ValidationIssue.error("robotState.frameId is required for alignment")
+            }
+            observation.videoFrameId?.let { videoFrameId ->
+                if (robot.frameId != null && robot.frameId != videoFrameId) {
+                    issues += ValidationIssue.error("robotState.frameId must match videoFrameId when both are set")
+                }
+            }
+            observation.depthFrameId?.let { depthFrameId ->
+                if (robot.frameId != null && robot.frameId != depthFrameId) {
+                    issues += ValidationIssue.error("robotState.frameId must match depthFrameId when both are set")
+                }
+            }
+        }
         observation.gloveFrame?.let { glove ->
             if (glove.flex.size != 5) issues += ValidationIssue.error("glove.flex must have 5 elements")
             if (glove.fsr.size != 8) issues += ValidationIssue.error("glove.fsr must have 8 elements")
@@ -41,6 +59,14 @@ class RldsValidator {
         observation.audio?.let { audio ->
             if (audio.sampleRateHz <= 0) issues += ValidationIssue.error("audio.sampleRateHz must be > 0")
             if (audio.numChannels <= 0) issues += ValidationIssue.error("audio.numChannels must be > 0")
+        }
+        if (observation.robotState != null && observation.gloveFrame != null) {
+            val delta = kotlin.math.abs(
+                observation.robotState.timestampNanos - observation.gloveFrame.timestampNanos,
+            )
+            if (delta > ALIGNMENT_TOLERANCE_NANOS) {
+                issues += ValidationIssue.error("robotState and gloveFrame must align within 5 ms (delta=${'$'}delta ns)")
+            }
         }
         return issues
     }
@@ -64,3 +90,5 @@ data class ValidationIssue(
         fun warn(msg: String) = ValidationIssue(Severity.WARNING, msg)
     }
 }
+
+private const val ALIGNMENT_TOLERANCE_NANOS = 5_000_000L
