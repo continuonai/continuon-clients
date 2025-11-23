@@ -25,7 +25,10 @@ class TeleopController(
     private val commandMapper: CommandMapper = DefaultCommandMapper(),
     private val timestampProvider: () -> Long = { System.nanoTime() },
 ) {
+    private var running = false
+
     fun startTeleopSession() {
+        if (running) return
         continuonBrainClient.connect()
         rldsWriter.startEpisode(
             EpisodeMetadata(
@@ -37,6 +40,16 @@ class TeleopController(
         gloveBleClient.connect(onFrame = { onGloveFrame(it) }, onDiagnostics = { /* TODO */ })
         audioCapture.start { onAudio(it) }
         continuonBrainClient.observeState { onRobotState(it) }
+        running = true
+    }
+
+    fun stopTeleopSession() {
+        if (!running) return
+        gloveBleClient.disconnect()
+        audioCapture.stop()
+        continuonBrainClient.close()
+        rldsWriter.completeEpisode()
+        running = false
     }
 
     private fun onGloveFrame(frame: GloveFrame) {
@@ -120,12 +133,22 @@ data class FusedObservation(
         rightHandPose = rightHandPose,
         leftHandPose = leftHandPose,
         gaze = gaze,
-        gloveFrame = gloveFrame,
+        gloveFrame = gloveFrame ?: robotState?.let { emptyGlove(it.timestampNanos) },
         audio = audio,
         uiContext = activeUiContext ?: uiContext,
         robotState = robotState,
+        videoFrameId = robotState?.frameId,
     )
 }
+
+private fun emptyGlove(timestampNanos: Long): GloveFrame = GloveFrame(
+    timestampNanos = timestampNanos,
+    flex = List(5) { 0f },
+    fsr = List(8) { 0f },
+    orientationQuat = listOf(0f, 0f, 0f, 1f),
+    accel = listOf(0f, 0f, 0f),
+    valid = false,
+)
 
 private class DefaultInputFusion : InputFusion {
     private val staleThresholdNs = TimeUnit.MILLISECONDS.toNanos(250)

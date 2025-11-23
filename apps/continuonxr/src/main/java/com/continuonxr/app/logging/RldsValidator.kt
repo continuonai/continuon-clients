@@ -30,6 +30,9 @@ class RldsValidator {
 
     private fun validateObservation(observation: Observation): List<ValidationIssue> {
         val issues = mutableListOf<ValidationIssue>()
+        if (observation.robotState == null) {
+            issues += ValidationIssue.error("robotState is required for synchronization")
+        }
         if (observation.headsetPose.position.size != 3) issues += ValidationIssue.error("headsetPose.position must have 3 elements")
         if (observation.headsetPose.orientationQuat.size != 4) issues += ValidationIssue.error("headsetPose.orientationQuat must have 4 elements")
         if (observation.rightHandPose.position.size != 3) issues += ValidationIssue.error("rightHandPose.position must have 3 elements")
@@ -56,6 +59,9 @@ class RldsValidator {
             if (robot.frameId.isNullOrBlank()) {
                 issues += ValidationIssue.error("robotState.frameId is required for alignment")
             }
+            if (observation.videoFrameId.isNullOrBlank()) {
+                issues += ValidationIssue.error("videoFrameId is required when robotState is present")
+            }
             observation.videoFrameId?.let { videoFrameId ->
                 if (robot.frameId != null && robot.frameId != videoFrameId) {
                     issues += ValidationIssue.error("robotState.frameId must match videoFrameId when both are set")
@@ -72,7 +78,7 @@ class RldsValidator {
             if (glove.fsr.size != 8) issues += ValidationIssue.error("glove.fsr must have 8 elements")
             if (glove.orientationQuat.size != 4) issues += ValidationIssue.error("glove.orientationQuat must have 4 elements")
             if (glove.accel.size != 3) issues += ValidationIssue.error("glove.accel must have 3 elements")
-        }
+        } ?: issues.add(ValidationIssue.error("gloveFrame is required by PRD 3.2"))
         observation.audio?.let { audio ->
             if (audio.sampleRateHz <= 0) issues += ValidationIssue.error("audio.sampleRateHz must be > 0")
             if (audio.numChannels <= 0) issues += ValidationIssue.error("audio.numChannels must be > 0")

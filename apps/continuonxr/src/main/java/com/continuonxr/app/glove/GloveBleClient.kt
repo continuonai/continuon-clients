@@ -22,6 +22,7 @@ class GloveBleClient(
     private var gatt: BluetoothGatt? = null
     private var diagnosticsCallback: ((GloveDiagnostics) -> Unit)? = null
     private var frameCallback: ((GloveFrame) -> Unit)? = null
+    private var mtuSatisfied: Boolean = false
 
     @SuppressLint("MissingPermission")
     fun connect(onFrame: (GloveFrame) -> Unit, onDiagnostics: (GloveDiagnostics) -> Unit) {
@@ -52,11 +53,16 @@ class GloveBleClient(
 
         @SuppressLint("MissingPermission")
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            mtuSatisfied = mtu >= config.minMtu
             diagnosticsCallback?.invoke(diagnosticsTracker.onMtuNegotiated(mtu).snapshot())
+            if (!mtuSatisfied) {
+                gatt.disconnect()
+            }
         }
 
         @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            if (!mtuSatisfied) return
             val characteristic = findDataCharacteristic(gatt) ?: return
             gatt.setCharacteristicNotification(characteristic, true)
             characteristic.descriptors.forEach {

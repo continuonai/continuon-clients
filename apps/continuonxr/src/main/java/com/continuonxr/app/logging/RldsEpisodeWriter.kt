@@ -145,8 +145,8 @@ private class NoopEpisodeSink : EpisodeSink {
 
 @Serializable
 data class EpisodeMetadata(
-    @SerialName("xr_mode") val xrMode: String,
-    @SerialName("control_role") val controlRole: String,
+    @SerialName("continuon.xr_mode") val xrMode: String,
+    @SerialName("continuon.control_role") val controlRole: String,
     @SerialName("environment_id") val environmentId: String,
     val software: SoftwareInfo? = null,
     val tags: List<String> = emptyList(),
