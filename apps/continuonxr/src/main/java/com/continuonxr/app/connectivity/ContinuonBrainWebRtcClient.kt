@@ -6,7 +6,7 @@ class ContinuonBrainWebRtcClient(private val config: ConnectivityConfig) {
     fun connect() {
         // TODO: Implement WebRTC signaling using config.signalingUrl and config.iceServers.
     }
-    fun sendCommand(command: List<Float>) {
+    fun sendCommand(command: ControlCommand) {
         // TODO: Send command over data channel.
     }
     fun observeState(onState: (RobotState) -> Unit) {

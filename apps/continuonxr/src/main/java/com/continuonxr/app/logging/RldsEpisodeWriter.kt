@@ -1,6 +1,7 @@
 package com.continuonxr.app.logging
 
 import com.continuonxr.app.config.LoggingConfig
+import com.continuonxr.app.connectivity.ControlCommand
 import com.continuonxr.app.connectivity.RobotState
 import com.continuonxr.app.glove.GloveFrame
 import kotlinx.serialization.Serializable
@@ -139,7 +140,7 @@ data class Observation(
 
 @Serializable
 data class Action(
-    val command: List<Float>,
+    val command: ControlCommand?,
     val source: String,
     val annotation: Annotation? = null,
     val uiAction: UiAction? = null,

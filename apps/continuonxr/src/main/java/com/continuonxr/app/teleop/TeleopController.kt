@@ -2,7 +2,10 @@ package com.continuonxr.app.teleop
 
 import com.continuonxr.app.audio.AudioCapture
 import com.continuonxr.app.connectivity.ContinuonBrainClient
+import com.continuonxr.app.connectivity.ControlCommand
 import com.continuonxr.app.connectivity.RobotState
+import com.continuonxr.app.connectivity.ReferenceFrame
+import com.continuonxr.app.connectivity.Vector3
 import com.continuonxr.app.glove.GloveBleClient
 import com.continuonxr.app.glove.GloveFrame
 import com.continuonxr.app.logging.*
@@ -78,7 +81,7 @@ class TeleopController(
         val snapshot = inputFusion.snapshot()
         rldsWriter.recordStep(
             observation = snapshot.toObservation(uiContextTracker.current()),
-            action = Action(command = emptyList(), source = "human_dev_xr", uiAction = uiAction),
+            action = Action(command = null, source = "human_dev_xr", uiAction = uiAction),
         )
     }
 }
@@ -96,7 +99,7 @@ interface InputFusion {
 }
 
 interface CommandMapper {
-    fun map(fused: FusedObservation): List<Float>
+    fun map(fused: FusedObservation): ControlCommand
 }
 
 data class FusedObservation(
@@ -187,8 +190,13 @@ private class DefaultInputFusion : InputFusion {
 }
 
 private class DefaultCommandMapper : CommandMapper {
-    override fun map(fused: FusedObservation): List<Float> {
+    override fun map(fused: FusedObservation): ControlCommand {
         // TODO: Map pose/gesture to normalized command vector expected by Robot API.
-        return listOf(0f, 0f, 0f, 0f, 0f, 0f) // placeholder to satisfy validation
+        return ControlCommand.EndEffectorVelocity(
+            linearMps = Vector3(0f, 0f, 0f),
+            angularRadS = Vector3(0f, 0f, 0f),
+            referenceFrame = ReferenceFrame.BASE,
+            targetFrequencyHz = 20.0,
+        )
     }
 }

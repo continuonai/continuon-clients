@@ -1,7 +1,11 @@
 package com.continuonxr.app.logging
 
 import com.continuonxr.app.config.LoggingConfig
+import com.continuonxr.app.connectivity.ControlCommand
+import com.continuonxr.app.connectivity.GripperMode
+import com.continuonxr.app.connectivity.ReferenceFrame
 import com.continuonxr.app.connectivity.RobotState
+import com.continuonxr.app.connectivity.Vector3
 import com.continuonxr.app.glove.GloveFrame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -42,7 +46,14 @@ class RldsEpisodeWriterTest {
             videoFrameId = "frame-1",
             depthFrameId = null,
         )
-        val action = Action(command = listOf(0.1f, 0.2f), source = "human_teleop_xr")
+        val action = Action(
+            command = ControlCommand.EndEffectorVelocity(
+                linearMps = Vector3(0.1f, 0.2f, 0.0f),
+                angularRadS = Vector3(0f, 0f, 0f),
+                referenceFrame = ReferenceFrame.BASE,
+            ),
+            source = "human_teleop_xr",
+        )
 
         writer.recordStep(observation = observation, action = action)
         assertEquals(1, writer.recordedCount())
@@ -72,7 +83,13 @@ class RldsEpisodeWriterTest {
             gloveFrame = null,
             robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
         )
-        val action = Action(command = listOf(0.1f), source = "human_teleop_xr")
+        val action = Action(
+            command = ControlCommand.Gripper(
+                mode = GripperMode.POSITION,
+                positionM = 0.1f,
+            ),
+            source = "human_teleop_xr",
+        )
         writer.recordStep(observation = observation, action = action)
         writer.completeEpisode()
 
@@ -110,6 +127,9 @@ class RldsEpisodeWriterTest {
             gloveFrame = null,
             robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
         )
-        writer.recordStep(observation = observation, action = Action(command = emptyList(), source = ""))
+        writer.recordStep(
+            observation = observation,
+            action = Action(command = null, source = ""),
+        )
     }
 }
