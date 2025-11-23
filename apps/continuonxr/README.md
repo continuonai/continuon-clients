@@ -1,6 +1,6 @@
 # Android XR App Scaffold
 
-This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. Gradle wiring is present; XR dependencies remain to be added.
+This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. Gradle wiring ships with Jetpack XR/SceneCore dependencies enabled.
 
 ## Modules
 - `MainActivity.kt` — entry point, routes to mode-specific shells (trainer/workstation/observer).
@@ -19,8 +19,8 @@ This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. Gradle wir
 - Generate proto stubs: `./gradlew :apps:xr:generateDebugProto`
 
 ## Next steps
-1. Add Jetpack XR/SceneCore dependencies and hook up Compose scenes for XR panels. Use `XrInputProvider`/`SceneCoreInputManager` to feed pose/gaze/audio into teleop.
-2. Implement ContinuonBrain/OS Robot API proto stubs from `proto/` and replace the mock stream in `ContinuonBrainClient`.
+1. Hook up Compose XR panels to live SceneCore input streams. Use `XrInputProvider`/`SceneCoreInputManager` (now streaming pose/gaze/audio) to drive the teleop shell.
+2. Harden ContinuonBrain/OS connectivity (retries/backpressure) on both gRPC and WebRTC once a production endpoint is available.
 3. Extend RLDS writer (file sink added) with schema validation and upload/export.
 4. Wire real XR input (head/hand pose, gaze ray, voice/audio, UI events) into `InputFusion` and `CommandMapper`.
 5. Expand unit tests for schema validation, BLE parsing, and teleop command mapping.

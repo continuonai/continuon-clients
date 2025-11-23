@@ -9,6 +9,7 @@ import com.continuonxr.app.connectivity.Vector3
 import com.continuonxr.app.glove.GloveBleClient
 import com.continuonxr.app.glove.GloveFrame
 import com.continuonxr.app.logging.*
+import java.util.concurrent.TimeUnit
 import com.continuonxr.app.ui.UiContextTracker
 
 /**
@@ -45,6 +46,8 @@ class TeleopController(
     private fun onAudio(audio: Audio) {
         inputFusion.updateAudio(audio)
     }
+
+    fun onAudioUpdate(audio: Audio) = onAudio(audio)
 
     fun onGazeUpdate(gaze: Gaze) {
         inputFusion.updateGaze(gaze)
@@ -125,69 +128,96 @@ data class FusedObservation(
 }
 
 private class DefaultInputFusion : InputFusion {
-    private var latestGlove: GloveFrame? = null
-    private var latestGaze: Gaze? = null
-    private var latestAudio: Audio? = null
-    private var latestUiContext: UiContext? = null
-    private var latestHeadsetPose: Pose = Pose()
-    private var latestRightHandPose: Pose = Pose()
-    private var latestLeftHandPose: Pose? = null
+    private val staleThresholdNs = TimeUnit.MILLISECONDS.toNanos(250)
+
+    private var latestGlove: TimedValue<GloveFrame?> = TimedValue(null, 0L)
+    private var latestGaze: TimedValue<Gaze?> = TimedValue(null, 0L)
+    private var latestAudio: TimedValue<Audio?> = TimedValue(null, 0L)
+    private var latestUiContext: TimedValue<UiContext?> = TimedValue(null, 0L)
+    private var latestHeadsetPose: TimedValue<Pose> = TimedValue(Pose(), 0L)
+    private var latestRightHandPose: TimedValue<Pose> = TimedValue(Pose(), 0L)
+    private var latestLeftHandPose: TimedValue<Pose?> = TimedValue(null, 0L)
     private var latestRobotState: RobotState? = null
 
     override fun updateGlove(frame: GloveFrame) {
-        latestGlove = frame
+        latestGlove = TimedValue(frame, System.nanoTime())
     }
 
     override fun updateAudio(audio: Audio) {
-        latestAudio = audio
+        latestAudio = TimedValue(audio, System.nanoTime())
     }
 
     override fun updateGaze(gaze: Gaze) {
-        latestGaze = gaze
+        latestGaze = TimedValue(gaze, System.nanoTime())
     }
 
     override fun updateHeadsetPose(pose: Pose) {
-        latestHeadsetPose = pose
+        latestHeadsetPose = TimedValue(pose, System.nanoTime())
     }
 
     override fun updateRightHandPose(pose: Pose) {
-        latestRightHandPose = pose
+        latestRightHandPose = TimedValue(pose, System.nanoTime())
     }
 
     override fun updateLeftHandPose(pose: Pose?) {
-        latestLeftHandPose = pose
+        latestLeftHandPose = TimedValue(pose, System.nanoTime())
     }
 
     override fun updateUiContext(uiContext: UiContext) {
-        latestUiContext = uiContext
+        latestUiContext = TimedValue(uiContext, System.nanoTime())
     }
 
     override fun currentObservation(robotState: RobotState, timestampNanos: Long): FusedObservation {
-        // TODO: Add headset/hand poses from XR runtime.
         latestRobotState = robotState
+        val now = timestampNanos
         return FusedObservation(
-            gloveFrame = latestGlove,
+            gloveFrame = latestGlove.valueIfFresh(now),
             robotState = robotState,
-            gaze = latestGaze,
-            audio = latestAudio,
-            uiContext = latestUiContext,
-            headsetPose = latestHeadsetPose,
-            rightHandPose = latestRightHandPose,
-            leftHandPose = latestLeftHandPose,
+            gaze = latestGaze.valueIfFresh(now),
+            audio = latestAudio.valueIfFresh(now),
+            uiContext = latestUiContext.valueIfFresh(now),
+            headsetPose = latestHeadsetPose.poseIfFresh(now),
+            rightHandPose = latestRightHandPose.poseIfFresh(now),
+            leftHandPose = latestLeftHandPose.poseIfFresh(now),
         )
     }
 
-    override fun snapshot(): FusedObservation = FusedObservation(
-        gloveFrame = latestGlove,
-        robotState = latestRobotState,
-        gaze = latestGaze,
-        audio = latestAudio,
-        uiContext = latestUiContext,
-        headsetPose = latestHeadsetPose,
-        rightHandPose = latestRightHandPose,
-        leftHandPose = latestLeftHandPose,
-    )
+    override fun snapshot(): FusedObservation {
+        val now = System.nanoTime()
+        return FusedObservation(
+            gloveFrame = latestGlove.valueIfFresh(now),
+            robotState = latestRobotState,
+            gaze = latestGaze.valueIfFresh(now),
+            audio = latestAudio.valueIfFresh(now),
+            uiContext = latestUiContext.valueIfFresh(now),
+            headsetPose = latestHeadsetPose.poseIfFresh(now),
+            rightHandPose = latestRightHandPose.poseIfFresh(now),
+            leftHandPose = latestLeftHandPose.poseIfFresh(now),
+        )
+    }
+
+    private fun <T> TimedValue<T>.valueIfFresh(now: Long): T? {
+        if (timestampNanos == 0L) return value
+        val isStale = now - timestampNanos > staleThresholdNs
+        return if (isStale) null else value
+    }
+
+    private fun TimedValue<Pose>.poseIfFresh(now: Long): Pose {
+        val base = value
+        if (timestampNanos == 0L) return base
+        val isStale = now - timestampNanos > staleThresholdNs
+        return if (isStale) base.copy(valid = false) else base
+    }
+
+    private fun TimedValue<Pose?>.poseIfFresh(now: Long): Pose? {
+        val pose = value ?: return null
+        if (timestampNanos == 0L) return pose
+        val isStale = now - timestampNanos > staleThresholdNs
+        return if (isStale) pose.copy(valid = false) else pose
+    }
 }
+
+private data class TimedValue<T>(val value: T, val timestampNanos: Long)
 
 private class DefaultCommandMapper : CommandMapper {
     override fun map(fused: FusedObservation): ControlCommand {
