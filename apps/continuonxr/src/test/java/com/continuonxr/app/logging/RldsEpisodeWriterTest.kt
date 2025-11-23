@@ -97,7 +97,7 @@ class RldsEpisodeWriterTest {
             .filter { it.fileName.toString() == "metadata.json" }
             .findFirst()
         val steps = Files.walk(outputDir)
-            .filter { it.fileName.toString() == "steps.jsonl" }
+            .filter { it.fileName.toString() == "000000.jsonl" }
             .findFirst()
         assertTrue(metadata.isPresent)
         assertTrue(steps.isPresent)

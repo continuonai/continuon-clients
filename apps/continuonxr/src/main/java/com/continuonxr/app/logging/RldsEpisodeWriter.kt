@@ -4,6 +4,7 @@ import com.continuonxr.app.config.LoggingConfig
 import com.continuonxr.app.connectivity.ControlCommand
 import com.continuonxr.app.connectivity.RobotState
 import com.continuonxr.app.glove.GloveFrame
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -15,12 +16,13 @@ import java.io.File
  */
 class RldsEpisodeWriter(
     private val config: LoggingConfig,
-    private val sink: EpisodeSink = FileEpisodeSink(config),
+    private val sink: EpisodeSink = defaultSink(config),
     private val validator: RldsValidator = RldsValidator(),
     private val uploader: RldsUploader = defaultUploader(config),
 ) {
     private val steps = mutableListOf<Step>()
     private var started = false
+    private var currentMetadata: EpisodeMetadata? = null
 
     fun startEpisode(metadata: EpisodeMetadata) {
         steps.clear()
@@ -30,6 +32,7 @@ class RldsEpisodeWriter(
         }
         sink.onStart(metadata)
         started = true
+        currentMetadata = metadata
     }
 
     fun recordStep(
@@ -51,10 +54,12 @@ class RldsEpisodeWriter(
     fun completeEpisode() {
         if (!started) return
         sink.onComplete()
-        if (config.uploadOnComplete) {
-            sink.episodeDir()?.let { uploader.upload(it) }
+        val metadata = currentMetadata
+        if (config.uploadOnComplete && metadata != null) {
+            sink.episodeDir()?.let { uploader.enqueueUpload(it, metadata) }
         }
         started = false
+        currentMetadata = null
     }
 
     fun recordedCount(): Int = steps.size
@@ -81,13 +86,17 @@ private class FileEpisodeSink(private val config: LoggingConfig) : EpisodeSink {
     private var dir: File? = null
 
     override fun onStart(metadata: EpisodeMetadata) {
+        if (!config.writeEpisodesToDisk) return
         val root = File(config.episodeOutputDir)
         root.mkdirs()
         dir = File(root, "episode-${System.currentTimeMillis()}")
         dir?.mkdirs()
         dir?.let {
             File(it, "metadata.json").writeText(json.encodeToString(metadata))
-            stepsWriter = File(it, "steps.jsonl").bufferedWriter()
+            val stepsDir = File(it, "steps")
+            stepsDir.mkdirs()
+            val stepsFile = File(stepsDir, stepsFileName())
+            stepsWriter = stepsFile.bufferedWriter()
         }
     }
 
@@ -105,22 +114,49 @@ private class FileEpisodeSink(private val config: LoggingConfig) : EpisodeSink {
     }
 
     override fun episodeDir(): File? = dir
+
+    private fun stepsFileName(): String {
+        return "000000.jsonl"
+    }
 }
 
 private fun defaultUploader(config: LoggingConfig): RldsUploader {
     return if (config.uploadOnComplete && config.uploadEndpoint != null) {
-        HttpRldsUploader(config)
+        QueueingRldsUploader(
+            transport = HttpRldsUploader(config),
+            maxRetries = config.maxUploadRetries,
+            retryBackoffMs = config.uploadRetryBackoffMs,
+        )
     } else {
         NoopRldsUploader()
     }
 }
 
+private fun defaultSink(config: LoggingConfig): EpisodeSink {
+    return if (config.writeEpisodesToDisk) FileEpisodeSink(config) else NoopEpisodeSink()
+}
+
+private class NoopEpisodeSink : EpisodeSink {
+    override fun onStart(metadata: EpisodeMetadata) {}
+    override fun onStep(step: Step) {}
+    override fun onComplete() {}
+    override fun episodeDir(): File? = null
+}
+
 @Serializable
 data class EpisodeMetadata(
-    val xrMode: String,
-    val controlRole: String,
-    val environmentId: String,
+    @SerialName("xr_mode") val xrMode: String,
+    @SerialName("control_role") val controlRole: String,
+    @SerialName("environment_id") val environmentId: String,
+    val software: SoftwareInfo? = null,
     val tags: List<String> = emptyList(),
+)
+
+@Serializable
+data class SoftwareInfo(
+    val xrAppVersion: String? = null,
+    val brainVersion: String? = null,
+    val gloveFirmwareVersion: String? = null,
 )
 
 @Serializable
