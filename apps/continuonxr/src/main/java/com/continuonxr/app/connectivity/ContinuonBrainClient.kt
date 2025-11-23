@@ -88,6 +88,11 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
                     orientationQuat = listOf(0f, 0f, 0f, 1f),
                 ),
                 gripperOpen = (mockTick % 20L) < 10L,
+                frameId = "mock-frame-$mockTick",
+                jointVelocities = listOf(0f, 0f, 0f, 0f, 0f, 0f),
+                jointEfforts = listOf(0f, 0f, 0f, 0f, 0f, 0f),
+                endEffectorTwist = listOf(0f, 0f, 0f, 0f, 0f, 0f),
+                wallTimeMillis = System.currentTimeMillis(),
             )
         )
         mockTick++
@@ -138,6 +143,11 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
                 orientationQuat = proto.endEffectorPose.orientationQuatList.map { it },
             ),
             gripperOpen = proto.gripperOpen,
+            frameId = proto.frameId,
+            jointVelocities = proto.jointVelocitiesList.map { it },
+            jointEfforts = proto.jointEffortsList.map { it },
+            endEffectorTwist = proto.endEffectorTwistList.map { it },
+            wallTimeMillis = proto.wallTimeMillis,
         )
     }
 }
@@ -148,6 +158,11 @@ data class RobotState(
     val jointPositions: List<Float> = emptyList(),
     val endEffectorPose: Pose = Pose(),
     val gripperOpen: Boolean = false,
+    val frameId: String? = null,
+    val jointVelocities: List<Float> = emptyList(),
+    val jointEfforts: List<Float> = emptyList(),
+    val endEffectorTwist: List<Float> = emptyList(),
+    val wallTimeMillis: Long? = null,
 )
 
 @Serializable

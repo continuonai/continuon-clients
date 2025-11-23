@@ -57,6 +57,11 @@ message RobotState {
   repeated float joint_positions = 2;
   Pose end_effector_pose = 3;
   bool gripper_open = 4;
+  string frame_id = 5;
+  repeated float joint_velocities = 6;
+  repeated float joint_efforts = 7;
+  repeated float end_effector_twist = 8; // [vx, vy, vz, wx, wy, wz]
+  int64 wall_time_millis = 9; // wall-clock for alignment checks
 }
 
 message GloveFrame {
