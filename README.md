@@ -11,6 +11,20 @@ The Android XR pipeline runs `assembleDebug`, unit tests, and proto generation t
 
 ---
 
+## Project Status & Milestones
+
+The roadmap below highlights where the Android XR app and data capture stack stand today, what is actively in-flight, and what is targeted next. Owners reflect day-to-day accountability for delivery.
+
+| Area | Current Status | Owner | Target Date |
+| --- | --- | --- | --- |
+| XR App Shell & Navigation | Core shell, spatial panels, and input routing shipped in dogfood build; stability fixes in progress | XR Client Team | 2024-08-16 |
+| Glove BLE Parser & Telemetry | BLE link stable with flex/force streaming; expanding reconnection safeguards | XR Client Team | 2024-08-09 |
+| RLDS Logging on Device | Proto generation complete and logging enabled for head/hand poses; optimizing write batching | XR + Data Infra | 2024-08-23 |
+| Data Capture Rig (Sensors + Video) | Depth + RGB capture validated; synchronized audio alignment underway | XR + Sensors | 2024-08-30 |
+| Cloud Ingestion Hooks | Upload path wired to staging bucket; signed upload & provenance tagging next | Cloud Ingestion | 2024-09-06 |
+
+---
+
 ## Overview
 
 Continuon is an end-to-end platform that overcomes the static nature of traditional AI models by creating a continuous learning loop where every human interaction becomes training data. The platform decouples robot intelligence from physical form factors, enabling a single AI brain to control diverse robotic platforms while continuously improving through real-world experience.
