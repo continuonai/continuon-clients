@@ -34,6 +34,6 @@ This note captures how ContinuonXR feeds unified RLDS episodes across all human-
 
 ## Implementation hints (repo touchpoints)
 - Schema: `docs/rlds-schema.md`, `proto/rlds_episode.proto`.
-- App wiring: `apps/xr/src/main/java/com/continuonxr/app/` (teleop, logging, glove, connectivity).
+- App wiring: `apps/continuonxr/src/main/java/com/continuonxr/app/` (teleop, logging, glove, connectivity).
 - Validation and file sink: `RldsEpisodeWriter` + `RldsValidator`.
 - Next additions: Jetpack XR/SceneCore input for poses/gaze, audio capture pipeline, and ContinuonBrain/OS gRPC client/mock.

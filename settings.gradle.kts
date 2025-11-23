@@ -15,5 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ContinuonXR"
-include(":apps:xr")
-
+include(":apps:continuonxr")
