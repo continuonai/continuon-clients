@@ -9,6 +9,7 @@ import io.grpc.ClientInterceptors
 import io.grpc.okhttp.OkHttpChannelBuilder
 import io.grpc.stub.StreamObserver
 import kotlinx.serialization.Serializable
+import java.lang.IllegalArgumentException
 import java.util.Timer
 import kotlin.concurrent.scheduleAtFixedRate
 
@@ -20,7 +21,7 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
     private var stateCallback: ((RobotState) -> Unit)? = null
     private var mockTimer: Timer? = null
     private var mockTick: Long = 0
-    private var lastCommand: List<Float> = emptyList()
+    private var lastCommand: ControlCommand? = null
     private var channel: ManagedChannel? = null
     private var stub: ContinuonBrainBridgeGrpc.ContinuonBrainBridgeStub? = null
     private val clientId = "xr-client"
@@ -35,16 +36,14 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
         }
     }
 
-    fun sendCommand(command: List<Float>) {
+    fun sendCommand(command: ControlCommand) {
         lastCommand = command
         if (config.useWebRtc) {
             webRtcClient.sendCommand(command)
         } else {
+            val envelope = command.toProto(clientId)
             stub?.sendCommand(
-                ContinuonbrainLink.CommandEnvelope.newBuilder()
-                    .setClientId(clientId)
-                    .addAllCommand(command)
-                    .build(),
+                envelope,
                 object : StreamObserver<ContinuonbrainLink.CommandAck> {
                     override fun onNext(value: ContinuonbrainLink.CommandAck) {}
                     override fun onError(t: Throwable) {}
@@ -140,6 +139,64 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
             gripperOpen = proto.gripperOpen,
         )
     }
+}
+
+private fun ControlCommand.toProto(clientId: String): ContinuonbrainLink.CommandEnvelope {
+    val builder = ContinuonbrainLink.CommandEnvelope.newBuilder().setClientId(clientId)
+    targetFrequencyHz?.let { builder.targetFrequencyHz = it }
+    safety?.let {
+        builder.safety = ContinuonbrainLink.SafetyStatus.newBuilder()
+            .setEstopReleasedAck(it.estopReleasedAck)
+            .apply { it.safetyToken?.let { token -> safetyToken = token } }
+            .build()
+    }
+    return when (this) {
+        is ControlCommand.EndEffectorVelocity -> {
+            builder.controlMode = ContinuonbrainLink.ControlMode.CONTROL_MODE_EE_VELOCITY
+            builder.eeVelocity = ContinuonbrainLink.EeVelocityCommand.newBuilder()
+                .setLinearMps(linearMps.toProto())
+                .setAngularRadS(angularRadS.toProto())
+                .setReferenceFrame(referenceFrame.toProto())
+                .build()
+            builder.build()
+        }
+        is ControlCommand.JointDelta -> {
+            require(deltaRadians.isNotEmpty()) { "Joint delta command requires at least one joint" }
+            builder.controlMode = ContinuonbrainLink.ControlMode.CONTROL_MODE_JOINT_DELTA
+            builder.jointDelta = ContinuonbrainLink.JointDeltaCommand.newBuilder()
+                .addAllDeltaRadians(deltaRadians)
+                .build()
+            builder.build()
+        }
+        is ControlCommand.Gripper -> {
+            builder.controlMode = ContinuonbrainLink.ControlMode.CONTROL_MODE_GRIPPER
+            builder.gripper = ContinuonbrainLink.GripperCommand.newBuilder()
+                .setMode(mode.toProto())
+                .apply {
+                    when (mode) {
+                        GripperMode.POSITION -> positionM?.let { positionM = it }
+                            ?: throw IllegalArgumentException("Gripper position mode requires positionM")
+                        GripperMode.VELOCITY -> velocityMps?.let { velocityMps = it }
+                            ?: throw IllegalArgumentException("Gripper velocity mode requires velocityMps")
+                    }
+                }
+                .build()
+            builder.build()
+        }
+    }
+}
+
+private fun Vector3.toProto(): ContinuonbrainLink.Vector3 =
+    ContinuonbrainLink.Vector3.newBuilder().setX(x).setY(y).setZ(z).build()
+
+private fun ReferenceFrame.toProto(): ContinuonbrainLink.ReferenceFrame = when (this) {
+    ReferenceFrame.BASE -> ContinuonbrainLink.ReferenceFrame.REFERENCE_FRAME_BASE
+    ReferenceFrame.TOOL -> ContinuonbrainLink.ReferenceFrame.REFERENCE_FRAME_TOOL
+}
+
+private fun GripperMode.toProto(): ContinuonbrainLink.GripperMode = when (this) {
+    GripperMode.POSITION -> ContinuonbrainLink.GripperMode.GRIPPER_MODE_POSITION
+    GripperMode.VELOCITY -> ContinuonbrainLink.GripperMode.GRIPPER_MODE_VELOCITY
 }
 
 @Serializable

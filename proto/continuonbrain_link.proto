@@ -5,7 +5,7 @@ package continuonxr.continuonbrain.v1;
 import "rlds_episode.proto";
 
 // Draft bridge API between ContinuonXR and ContinuonBrain/OS.
-
+// Provides typed control commands instead of raw numeric vectors.
 service ContinuonBrainBridge {
   // XR subscribes to robot state for rendering/teleop feedback.
   rpc StreamRobotState(StateRequest) returns (stream RobotStateEnvelope);
@@ -14,20 +14,96 @@ service ContinuonBrainBridge {
   rpc SendCommand(CommandEnvelope) returns (CommandAck);
 }
 
+// Identify the XR client in upstream streams.
 message StateRequest {
   string client_id = 1;
 }
 
+// Encapsulated robot state for rendering and logging.
 message RobotStateEnvelope {
   continuonxr.rlds.v1.RobotState state = 1;
 }
 
+// Supported control modes for ContinuonBrain/OS.
+enum ControlMode {
+  CONTROL_MODE_UNSPECIFIED = 0;
+  // End-effector Cartesian twist in meters/second and radians/second.
+  CONTROL_MODE_EE_VELOCITY = 1;
+  // Joint-space delta in radians to be applied at the requested rate.
+  CONTROL_MODE_JOINT_DELTA = 2;
+  // Gripper-specific command (position/velocity depending on payload).
+  CONTROL_MODE_GRIPPER = 3;
+}
+
+// Reference frame used for Cartesian commands.
+enum ReferenceFrame {
+  REFERENCE_FRAME_UNSPECIFIED = 0;
+  REFERENCE_FRAME_BASE = 1;
+  REFERENCE_FRAME_TOOL = 2;
+}
+
+// Modes available for the gripper controller.
+enum GripperMode {
+  GRIPPER_MODE_UNSPECIFIED = 0;
+  GRIPPER_MODE_POSITION = 1; // meters of opening
+  GRIPPER_MODE_VELOCITY = 2; // meters/second opening velocity
+}
+
+message Vector3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message EeVelocityCommand {
+  // Linear velocity in meters/second in the selected reference frame.
+  Vector3 linear_mps = 1;
+  // Angular velocity in radians/second in the selected reference frame.
+  Vector3 angular_rad_s = 2;
+  ReferenceFrame reference_frame = 3;
+}
+
+message JointDeltaCommand {
+  // Joint deltas in radians matching the robot's DoF ordering.
+  repeated float delta_radians = 1;
+}
+
+message GripperCommand {
+  GripperMode mode = 1;
+  // Target opening width in meters (required for POSITION mode).
+  float position_m = 2;
+  // Target opening velocity in meters/second (required for VELOCITY mode).
+  float velocity_mps = 3;
+}
+
+message SafetyStatus {
+  // True when the operator acknowledges that estop has been released and control can resume.
+  bool estop_released_ack = 1;
+  // Optional token for OEM safety-interlock implementations.
+  string safety_token = 2;
+}
+
 message CommandEnvelope {
   string client_id = 1;
-  repeated float command = 2; // normalized vector matching Robot API expectation
+  // Desired control mode for this command.
+  ControlMode control_mode = 2;
+  // Target command publishing rate in Hz; used by the receiver to enforce rate limits.
+  double target_frequency_hz = 3;
+  // Safety/estop acknowledgement flags accompanying the control request.
+  SafetyStatus safety = 4;
+
+  oneof command {
+    EeVelocityCommand ee_velocity = 10;
+    JointDeltaCommand joint_delta = 11;
+    GripperCommand gripper = 12;
+  }
 }
 
 message CommandAck {
   bool accepted = 1;
   string message = 2;
+  // Receiver indicates whether the command was dropped due to estop or safety interlock.
+  bool estop_engaged = 3;
+  // True when the requested rate exceeded the controller budget and was throttled.
+  bool rate_limited = 4;
 }

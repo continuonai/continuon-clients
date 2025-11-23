@@ -1,5 +1,8 @@
 package com.continuonxr.app.logging
 
+import com.continuonxr.app.connectivity.ControlCommand
+import com.continuonxr.app.connectivity.GripperMode
+
 /**
  * Lightweight validator to enforce required RLDS fields before persistence.
  */
@@ -47,7 +50,25 @@ class RldsValidator {
 
     private fun validateAction(action: Action): List<ValidationIssue> {
         val issues = mutableListOf<ValidationIssue>()
-        if (action.command.isEmpty() && action.uiAction == null) issues += ValidationIssue.error("action.command must not be empty unless uiAction is set")
+        if (action.command == null && action.uiAction == null) {
+            issues += ValidationIssue.error("action.command must be provided unless uiAction is set")
+        }
+        action.command?.let { command ->
+            when (command) {
+                is ControlCommand.EndEffectorVelocity -> {
+                    // No additional validation beyond presence.
+                }
+                is ControlCommand.JointDelta -> {
+                    if (command.deltaRadians.isEmpty()) issues += ValidationIssue.error("jointDelta.deltaRadians must not be empty")
+                }
+                is ControlCommand.Gripper -> {
+                    when (command.mode) {
+                        GripperMode.POSITION -> if (command.positionM == null) issues += ValidationIssue.error("gripper.positionM is required for POSITION mode")
+                        GripperMode.VELOCITY -> if (command.velocityMps == null) issues += ValidationIssue.error("gripper.velocityMps is required for VELOCITY mode")
+                    }
+                }
+            }
+        }
         if (action.source.isBlank()) issues += ValidationIssue.error("action.source must not be blank")
         return issues
     }
