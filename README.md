@@ -1,34 +1,527 @@
-# ContinuonXR
+# Continuon: Self-Learning Robotics Ecosystem
 
-ContinuonXR is the human-facing XR application that powers Continuon's self-learning loop by turning every interaction into training data. This repository holds the documentation, schemas, and stubs for the Android XR app, companion clients, and data ingestion services described in `PRD.md`.
+**Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**
 
-## Repository layout
-- `docs/` - architecture notes, RLDS schema contract, and the XR app specification (Phase 0 deliverables).
-- `apps/continuonxr/` - Android XR app scaffold and stubs.
-- `proto/` - protobuf definitions for the Continuon XR <-> ContinuonBrain/OS link and RLDS ingestion.
-- `docs/monorepo-structure.md` - how this repo fits into the decoupled `@continuonai` architecture ("One Brain, Many Shells").
-- `continuonbrain/`, `continuon-cloud/`, `continuonai/`, `worldtapeai.com/` - placeholders noting separate repos in the decoupled architecture.
+---
 
-## Getting started
-1. Read `docs/rlds-schema.md` and `docs/xr-app-spec.md` to understand required contracts.
-2. Review `apps/continuonxr/README.md` for the proposed Android module breakdown and the Kotlin stubs in `apps/continuonxr/src/main/java/`.
-3. Extend the protobufs in `proto/` to match the Robot API exposed by ContinuonBrain/OS.
-4. See `docs/human-centric-data.md` for how modes map into RLDS and the “One Brain, Many Shells” data flow.
-5. See `docs/dev-setup.md` for local build/test prerequisites.
+## Overview
 
-## Build (draft)
-- Requires Android Studio Koala or later, Android SDK 35. Gradle wrapper included (Gradle 8.7).
-- Build XR app: `./gradlew :apps:continuonxr:assembleDebug`
-- Generate Kotlin proto stubs: `./gradlew :apps:continuonxr:generateDebugProto`
+Continuon is an end-to-end platform that overcomes the static nature of traditional AI models by creating a continuous learning loop where every human interaction becomes training data. The platform decouples robot intelligence from physical form factors, enabling a single AI brain to control diverse robotic platforms while continuously improving through real-world experience.
 
-## Next steps (tracking)
-- Jetpack XR/SceneCore: add real dependencies and wire live pose/gaze/audio streams into `XrInputProvider`/teleop (currently stubbed and gated by ENABLE_XR_DEPS).
-- ContinuonBrain link: wire live gRPC/WebRTC endpoints with TLS/auth and turn off mock in prod; current client/stubs are placeholders.
-- Glove BLE: swap placeholder service/characteristic UUIDs for real firmware values; improve runtime permission UX and MTU/notification robustness.
-- Audio/UI logging: implement microphone capture pipeline and workstation UI event logging to populate `observation.audio`/`ui_action`.
-- RLDS logging/upload: add durable storage, retries, and production upload flow beyond current file sink + HTTP scaffold.
-- Testing/tooling: expand coverage (schema validation, teleop mapping, BLE parsing/audio) and keep wrapper-based builds reproducible.
+### Core Philosophy: "One Brain, Many Shells"
 
-## Phase alignment
-- **Phase 0 (contracts):** The documentation in `docs/` captures the RLDS schema and XR app spec.
-- **Phase 1 (MVP):** Use `apps/continuonxr/` to bootstrap the Jetpack XR MVP (Mode A teleop to a mock ContinuonBrain/OS, local RLDS writer).
+The central intelligence (the "Brain") is morphology-agnostic and can inhabit any robotic platform (the "Shells"). This separation enables:
+- **Unified Learning**: All robots contribute to and benefit from a shared learning system
+- **Rapid Deployment**: New robot platforms can be supported by implementing a standard Hardware Abstraction Layer
+- **Continuous Improvement**: The brain evolves through multi-modal data from diverse deployment contexts
+
+---
+
+## Architectural Overview
+
+### The HOPE Architecture: Hierarchical Optimizer, Perpetual Engine
+
+Continuon's AI is built on the **Nested Learning (NL)** paradigm, treating the Vision-Language-Action (VLA) model as a system of nested, multi-level optimization problems that update at different frequencies to prevent catastrophic forgetting.
+
+#### Continuum Memory System (CMS): Multi-Timescale Learning
+
+The CMS structures learning into three loops:
+
+| Loop | Timescale | Responsibility | Update Mechanism |
+|------|-----------|----------------|------------------|
+| **Fast Loop** | 50-100 ms | Low-level motor skills, reflexive safety, teleop mirroring | Online gradient steps, safety overrides |
+| **Mid Loop** | 0.5-10 s | Skill sequencing, intent inference, short-horizon world modeling | Episodic fine-tuning, contextual bandits |
+| **Slow Loop** | Minutes-Hours | High-level planning, semantic alignment, world model training | Corpus-scale training, generative pre-training |
+
+#### VLA Stack: Unified Multi-Task Architecture
+
+The robot's intelligence comprises five specialized heads sharing a common perception backbone:
+
+1. **VisionCore**: World-aligned perception with 3D scene understanding
+2. **LanguagePlanner**: Next-token generation, reasoning, and high-level planning
+3. **World Model Head**: Predictive simulation and foresight (0.5-1s lookahead)
+4. **SkillPolicies**: Manipulation and locomotion primitives
+5. **SafetyHead**: Reflexive hazard detection and policy guardrails
+
+---
+
+## The Continuon Ecosystem: Repository Architecture
+
+The project follows a **fully decoupled** multi-repository structure to ensure strict modular boundaries and API independence:
+
+### Repository Roles
+
+| Repository | Purpose | Core Artifacts | Status |
+|------------|---------|----------------|--------|
+| **[ContinuonXR](https://github.com/continuonai/ContinuonXR)** | Spatial UI & Data Capture Rig | Android XR app, glove BLE parsing, RLDS logging | **This Repo** |
+| **[continuonos](https://github.com/continuonai/continuonos)** | Robot OS / Edge Runtime | C++/Rust brain runtime, HAL interfaces, OTA client | Separate |
+| **[Continuon-Cloud](https://github.com/continuonai/Continuon-Cloud)** | Data Ingestion & Training Factory | RLDS pipelines, VLA training, edge bundle packaging | Separate |
+| **[ContinuonAI](https://github.com/continuonai/ContinuonAI)** | Organizational Core & Orchestrator | System-wide contracts, CI/CD orchestration scripts | Separate |
+| **[worldtapeai.com](https://github.com/continuonai/worldtapeai.com)** | RLDS Video Explorer | Web UI for browsing and annotating robot episodes | Separate |
+
+### Inter-Repository Contracts
+
+**RLDS Schema** (`episode-schema.md`): Versioned data contract for all robot experiences  
+**Robot API** (`continuonbrain_link.proto`): gRPC/WebRTC interface between XR and robot runtime  
+**Edge Bundles** (`bundle_manifest.md`): Signed, versioned AI model deployment packages  
+
+---
+
+## Data Flow: From XR Capture to Deployed Intelligence
+
+### 1. Data Capture (ContinuonXR & continuonos)
+
+ContinuonXR captures high-fidelity human demonstrations across multiple modes:
+
+#### Mode A: XR Trainer (Direct Robot Control)
+- **What**: Human teleoperates robot through XR headset
+- **Data Logged**: 
+  - XR head/hand poses (100 Hz)
+  - Egocentric video + depth
+  - Continuon Glove telemetry (flex, force, orientation)
+  - Robot state feedback (joints, end-effector pose)
+  - Synchronized audio
+- **RLDS Tags**: `xr_mode="trainer"`, `control_role="human_teleop"`
+
+#### Mode B: Spatial Workstation (Workflow Context)
+- **What**: Developer uses XR as PC replacement while managing robots
+- **Data Logged**:
+  - UI context (active panels, file focus, dashboard state)
+  - Gaze fixation points
+  - Workflow actions (run tests, deploy, label runs)
+  - Voice commands
+- **RLDS Tags**: `xr_mode="workstation"`, `source="human_dev_xr"`
+
+#### Mode C: Observer (Annotation & Supervision)
+- **What**: User adds safety boundaries and quality labels
+- **Data Logged**:
+  - Polygon/mask annotations
+  - Safety zone definitions
+  - Success/failure labels
+- **RLDS Tags**: `xr_mode="observer"`, annotations in `action.annotation`
+
+#### Mode D: YouTube/Cloud TV (Internet Data)
+- **What**: Curated internet videos normalized to RLDS
+- **Data Logged**:
+  - Video with synthetic pose estimation
+  - ASR-derived audio transcripts
+  - Vision-derived depth and affordances
+- **RLDS Tags**: `xr_mode="youtube_tv"`, provenance metadata
+
+### 2. Cloud Ingestion & Augmentation (Continuon-Cloud)
+
+**Data Pipeline Flow:**
+
+```
+Raw Episodes → RawLake → Scizor/Golden Cleaning → Standardized RLDS
+                                                         ↓
+                                              NeRF Synthesis (multi-view)
+                                              Tactile Hallucination Networks
+                                                         ↓
+                                              Augmented Training Corpus
+```
+
+**Key Capabilities:**
+- **NeRF Scene Reconstruction**: Generate synthetic viewpoints to supervise state encoders
+- **Visuo-Tactile Hallucination**: Predict missing tactile feedback when glove data absent
+- **Quality Stratification**: Tag episodes by source confidence (XR gold data vs internet video)
+- **Handling Missing Data**: Preserve `valid` flags and provenance for uncertainty-aware training
+
+### 3. Multi-Task Training (Continuon-Cloud)
+
+**Nested Optimization Training Loss:**
+
+```
+L_total = L_world_model + L_policy + L_language + L_safety
+```
+
+**Training Infrastructure:**
+- Platform: Google Cloud (Vertex AI / GKE)
+- Data: RLDS episodes from all sources
+- Co-Training: VisionCore backbone updates require synchronized retraining of all dependent heads
+- Output: Quantized TFLite models with INT8 precision
+
+### 4. Edge Bundle Creation (Continuon-Cloud)
+
+**Edge Bundle Contents:**
+- **Model Files**: Quantized TFLite models for each VLA head
+- **Manifest**: Version, compatibility constraints, preferred hardware backends
+- **Gemma Weights**: Language model parameters
+- **Digital Signature**: Cryptographic verification payload
+
+**Manifest Example:**
+```json
+{
+  "bundle_version": "2.1.0",
+  "models": {
+    "vision_core": "vision_core_v2.1.0_int8.tflite",
+    "skill_policy": "skills_v2.1.0_int8.tflite"
+  },
+  "preferred_backends": ["nnapi", "xnnpack"],
+  "compatibility": {
+    "min_continuonos_version": "1.5.0"
+  }
+}
+```
+
+### 5. Secure Deployment (continuonos OTA)
+
+**Deployment Process:**
+
+1. **Authentication**: Robot OTA client authenticates with Cloud
+2. **Download**: Fetch signed Edge Bundle over HTTPS
+3. **Verification**: 
+   - Signature validation
+   - Integrity checksums
+   - Compatibility checks
+4. **Hot-Swap**: 
+   - Load new model while old model continues running
+   - Atomic switch after functional verification
+   - Maintain last-known-good model for instant rollback
+5. **Telemetry**: Report deployment success/failure to Cloud
+
+**Safety Guarantees:**
+- No downtime during updates
+- Automatic rollback on verification failure
+- Coordinated updates for co-dependent models
+
+### 6. Edge Runtime Execution (continuonos)
+
+**Platform-Agnostic Brain Runtime:**
+
+```
+src/core/           # Platform-neutral control loop, scheduler, TFLite loader
+platform/android/   # NNAPI delegate for Pixel TPU acceleration
+platform/linux_sbc/ # V4L2/GPIO for Raspberry Pi
+```
+
+**Hardware Abstraction Layer (HAL):**
+- `SensorInterface`: Camera, depth, IMU abstractions
+- `ActuatorInterface`: Motor/servo control
+- `TimeInterface`: Monotonic clocks for synchronization
+- `StorageInterface`: Episode logging and caching
+
+**Dynamic Backend Selection:**
+- Same TFLite model adapts to available hardware
+- Pixel NPU via NNAPI
+- ARM CPU via XNNPACK
+- x86 desktop via CPU interpreter
+
+**Real-Time Execution:**
+- **Fast Loop**: On-device inference at 50-100 Hz for reactive control
+- **Mid Loop**: World model imagination at 0.5-1 Hz for proactive planning
+- **Slow Loop**: LLM reasoning invoked event-driven (5-60s or on-demand)
+
+---
+
+## Building the Ecosystem: Phased Development Plan
+
+### Phase 0: Contracts & Architecture ✓
+
+**Deliverables:**
+- [x] RLDS schema definition (`docs/rlds-schema.md`)
+- [x] XR app specification (`docs/xr-app-spec.md`)
+- [x] HOPE/CMS architecture (`docs/hope-cms-vla.md`)
+- [x] Repository boundaries (`docs/monorepo-structure.md`)
+- [x] Ecosystem alignment (`docs/ecosystem-alignment.md`)
+
+### Phase 1: MVP Data Capture (Current)
+
+**Goals:**
+- [ ] Jetpack XR app with basic spatial UI
+- [ ] Mode A teleop to mock ContinuonBrain/OS
+- [ ] Continuon Glove BLE integration (100 Hz)
+- [ ] Local RLDS episode writer with schema validation
+- [ ] Manual upload to Cloud
+
+**Key Metrics:**
+- 95% of Mode A sessions → valid RLDS episodes
+- 100 Hz reliable glove data streaming
+- Bidirectional gRPC with continuonos mock
+
+### Phase 2: Cloud Integration
+
+**Goals:**
+- [ ] Automated RLDS upload with retry logic
+- [ ] Scizor/Golden cleaning pipeline
+- [ ] Basic VLA training loop (VisionCore + SkillPolicy)
+- [ ] First edge bundle deployment
+
+### Phase 3: Closed-Loop Learning
+
+**Goals:**
+- [ ] OTA updates from Cloud to continuonos
+- [ ] Hot-swap with rollback capability
+- [ ] Telemetry feedback loop
+- [ ] Multi-timescale training (Fast/Mid/Slow)
+
+### Phase 4: Production Scale
+
+**Goals:**
+- [ ] Fleet management dashboard
+- [ ] worldtapeai.com annotation tools
+- [ ] Full VLA stack (all 5 heads)
+- [ ] Continuous self-improvement metrics
+
+---
+
+## ContinuonXR Repository: Getting Started
+
+This repository contains the **spatial UI and data capture rig** component of the Continuon ecosystem.
+
+### Repository Structure
+
+```
+ContinuonXR/
+├── apps/
+│   ├── continuonxr/          # Android XR application (Kotlin + Jetpack XR)
+│   └── mock-continuonbrain/  # Mock robot backend for testing
+├── docs/                     # Architecture and contract documentation
+│   ├── rlds-schema.md       # RLDS data contract
+│   ├── hope-cms-vla.md      # HOPE architecture details
+│   ├── ecosystem-alignment.md
+│   └── xr-app-spec.md
+├── proto/                   # Protobuf definitions
+│   ├── rlds_episode.proto   # RLDS schema
+│   └── continuonbrain_link.proto  # Robot API
+├── continuonbrain/          # Placeholder (separate repo)
+├── continuon-cloud/         # Placeholder (separate repo)
+├── continuonai/             # Placeholder (separate repo)
+└── worldtapeai.com/         # Placeholder (separate repo)
+```
+
+### Prerequisites
+
+- **Android Studio**: Koala or later
+- **Android SDK**: Level 35
+- **Gradle**: 8.7 (wrapper included)
+- **Galaxy XR Device**: For production deployment
+- **Continuon Glove v0**: For tactile data capture (optional for testing)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/continuonai/ContinuonXR.git
+cd ContinuonXR
+
+# Make gradlew executable
+chmod +x gradlew
+
+# Build the XR app
+./gradlew :apps:continuonxr:assembleDebug
+
+# Generate protobuf stubs
+./gradlew :apps:continuonxr:generateDebugProto
+
+# Run tests
+./gradlew :apps:continuonxr:testDebugUnitTest
+```
+
+### Development Workflow
+
+1. **Read the Contracts**: Start with `docs/rlds-schema.md` and `docs/xr-app-spec.md`
+2. **Review Code Structure**: Explore `apps/continuonxr/src/main/java/com/continuonxr/app/`
+3. **Understand Data Flow**: Read `docs/human-centric-data.md`
+4. **Setup Environment**: Follow `docs/dev-setup.md`
+
+### Key Components
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| Glove BLE | `app/glove/` | Parse Continuon Glove telemetry |
+| XR Input | `app/xr/` | SceneCore pose/gaze integration |
+| Teleop | `app/teleop/` | Map XR inputs → robot commands |
+| RLDS Logging | `app/logging/` | Write/validate/upload episodes |
+| Connectivity | `app/connectivity/` | gRPC/WebRTC to continuonos |
+
+### Current Implementation Status
+
+**✓ Completed:**
+- RLDS schema and validation framework
+- Glove BLE parser with MTU negotiation
+- Mock ContinuonBrain/OS for testing
+- Basic RLDS episode writer
+
+**⚠ In Progress:**
+- Jetpack XR/SceneCore integration (stubbed, gated by `ENABLE_XR_DEPS`)
+- Live gRPC/WebRTC endpoints (mocked in dev)
+- Audio capture pipeline
+- Production upload with retry logic
+
+**🔜 Planned:**
+- Mode B workstation UI panels
+- Mode C annotation tools
+- Real-time episode preview
+- Fleet configuration management
+
+---
+
+## RLDS Data Contract: The Universal Training Format
+
+All data in the Continuon ecosystem flows through the **RLDS (Reinforcement Learning Dataset)** schema, a standardized format that unifies human demonstrations, robot telemetry, and internet data.
+
+### Episode Structure
+
+```
+episode/
+├── metadata.json           # Episode-level tags and config
+└── steps/
+    ├── 000000.jsonl       # Timestamped observations + actions
+    ├── 000001.jsonl
+    └── ...
+```
+
+### Critical Fields for HOPE/CMS
+
+| RLDS Block | Fast Loop Use | Mid Loop Use | Slow Loop Use |
+|------------|---------------|--------------|---------------|
+| **Poses** (`xr_headset_pose`, `xr_hand_*_pose`) | Stabilize teleop, visual servoing | Calibration drift correction | Scene graph alignment |
+| **Gaze** (`gaze.origin`, `direction`, `target_id`) | Attention gating for SafetyHead | Intent decoding | Saliency maps for VisionCore |
+| **Vision** (`egocentric_video`, `egocentric_depth`) | Obstacle detection | Object affordance refresh | 3D world model training |
+| **Audio** (`audio.uri`, `sample_rate_hz`) | Wake-word reflexes | Dialogue grounding | Multimodal alignment |
+| **Glove** (`glove.flex`, `fsr`, `orientation_quat`) | Force reflexes, gripper mirroring | Slip detection | Haptic priors for manipulation |
+| **Robot State** (joints, EE pose, velocities) | Safety envelope checks | State estimation fusion | Dynamics model fitting |
+
+### Handling Missing Data
+
+- All sensor blocks optional with `valid` flags
+- Cloud can hallucinate missing modalities (tactile, audio)
+- Provenance metadata preserved for uncertainty-aware training
+- Quality tags enable stratified sampling during training
+
+---
+
+## CI/CD for AI Models: From Data to Deployment
+
+### Model Lifecycle
+
+```
+Human Demos (XR) ─┬─→ RLDS Episodes ─→ Cloud Training ─→ Edge Bundle
+Robot Telemetry   ─┤                          ↓
+Internet Videos   ─┘                   Signed Package
+                                              ↓
+                              continuonos OTA Client
+                                              ↓
+                              ┌──────────────────────┐
+                              │ Signature Verify     │
+                              │ Hot-Swap (no downtime)│
+                              │ Rollback on Failure  │
+                              └──────────────────────┘
+```
+
+### Bundle Signing & Verification
+
+**Cloud (Continuon-Cloud):**
+```python
+# Package and sign edge bundle
+bundle = create_edge_bundle(
+    models={"vision_core": vision_model, "skills": skill_model},
+    version="2.1.0",
+    backends=["nnapi", "xnnpack"]
+)
+signed_bundle = sign_bundle(bundle, private_key)
+upload_to_cdn(signed_bundle)
+```
+
+**Edge (continuonos):**
+```cpp
+// OTA client downloads and verifies
+EdgeBundle bundle = download_from_cloud(bundle_id);
+if (!verify_signature(bundle, public_key)) {
+    log_error("Signature verification failed");
+    return ROLLBACK;
+}
+if (!check_compatibility(bundle)) {
+    return REJECT_INCOMPATIBLE;
+}
+hot_swap_models(bundle);  // Atomic switch
+```
+
+### Coordinated Updates
+
+When updating shared components like VisionCore:
+1. **Cloud**: Co-train VisionCore + SkillPolicies + SafetyHead together
+2. **Packaging**: Bundle all dependent models with matching version tags
+3. **Deployment**: continuonos verifies all models present before hot-swap
+4. **Validation**: Run functional tests on new model ensemble
+5. **Rollback**: If any test fails, instantly revert to previous bundle
+
+---
+
+## Security & Safety
+
+### Data Privacy
+- RLDS episodes encrypted at rest and in transit
+- PII scrubbing in audio/video streams
+- User consent for data upload (opt-in per session)
+
+### Model Security
+- All edge bundles cryptographically signed
+- Public key pinning in continuonos
+- Version pinning prevents downgrade attacks
+
+### Operational Safety
+- SafetyHead provides reflex-level overrides (Fast Loop)
+- Latency monitoring triggers safe-stop on degraded performance
+- Anomaly detection in deployment telemetry
+
+---
+
+## Contributing
+
+We welcome contributions across all repositories in the Continuon ecosystem. Please:
+
+1. Read the relevant repository's `CONTRIBUTING.md`
+2. Follow the RLDS schema contract for data-related changes
+3. Maintain platform-agnostic design in shared components
+4. Add tests for new functionality
+5. Update documentation to match code changes
+
+### Key Principles
+
+- **Minimal Changes**: Surgical modifications only
+- **Contract Adherence**: Never break RLDS schema or API contracts without version bumps
+- **Safety First**: All policy changes must pass SafetyHead regression tests
+- **Reproducibility**: Document build/deployment steps thoroughly
+
+---
+
+## Documentation Index
+
+**Architecture:**
+- `docs/hope-cms-vla.md` - HOPE architecture and CMS timescales
+- `docs/ecosystem-alignment.md` - Multi-repo alignment guide
+- `docs/architecture.md` - System overview
+
+**Data Contracts:**
+- `docs/rlds-schema.md` - Canonical RLDS schema
+- `docs/human-centric-data.md` - Mode-specific data capture
+
+**Implementation:**
+- `docs/xr-app-spec.md` - XR application specification
+- `docs/glove-ble.md` - Glove integration details
+- `docs/dev-setup.md` - Development environment setup
+
+**Project Management:**
+- `PRD.md` - Product Requirements Document
+- `docs/monorepo-structure.md` - Repository boundaries
+
+---
+
+## Learn More
+
+- **Website**: [continuon.ai](https://continuon.ai) *(in development)*
+- **RLDS Browser**: [worldtapeai.com](https://worldtapeai.com) *(planned)*
+- **Research**: See `docs/hope-cms-vla.md` for technical details
+- **Community**: Discord server *(coming soon)*
+
+---
+
+## License
+
+[To be determined - placeholder]
+
+---
+
+**Continuon**: Building robots that learn from every interaction, one episode at a time.
