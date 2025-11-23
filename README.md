@@ -511,10 +511,10 @@ We welcome contributions across all repositories in the Continuon ecosystem. Ple
 
 ## Learn More
 
-- **Website**: [continuon.ai](https://continuon.ai)
-- **RLDS Browser**: [worldtapeai.com](https://worldtapeai.com)
+- **Website**: [continuon.ai](https://continuon.ai) *(in development)*
+- **RLDS Browser**: [worldtapeai.com](https://worldtapeai.com) *(planned)*
 - **Research**: See `docs/hope-cms-vla.md` for technical details
-- **Community**: Join our Discord for discussions
+- **Community**: Discord server *(coming soon)*
 
 ---
 
