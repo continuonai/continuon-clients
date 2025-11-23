@@ -5,19 +5,18 @@ import com.continuonxr.app.logging.Pose
 import com.continuonxr.app.teleop.TeleopController
 
 /**
- * Stub XR input provider. Replace with Jetpack XR/SceneCore integrations to push head/hand poses and gaze.
+ * Entry point for XR runtimes to forward pose/gaze/audio into teleop.
  */
 class XrInputProvider(
     private val teleopController: TeleopController,
+    private val sceneCoreInputManager: SceneCoreInputManager = SceneCoreInputManager(teleopController),
 ) {
-    // TODO: Inject SceneCore/Jetpack XR runtime once available.
-
-    fun start() {
-        // TODO: Hook into SceneCore pose/gaze/audio streams and call the handlers below.
+    fun start(streams: SceneCoreStreams = SceneCoreStreams.stub()) {
+        sceneCoreInputManager.start(streams)
     }
 
     fun stop() {
-        // TODO: Unregister from XR runtime callbacks.
+        sceneCoreInputManager.stop()
     }
 
     fun onHeadsetPose(pose: Pose) = teleopController.onHeadsetPose(pose)

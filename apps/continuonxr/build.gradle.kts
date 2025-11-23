@@ -75,23 +75,20 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
 
-    // TODO: Add Jetpack XR / SceneCore dependencies once coordinates are finalized.
-
     implementation("com.google.protobuf:protobuf-javalite:3.25.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("io.grpc:grpc-okhttp:1.64.0")
     implementation("io.grpc:grpc-protobuf-lite:1.64.0")
     implementation("io.grpc:grpc-stub:1.64.0")
     implementation("javax.annotation:javax.annotation-api:1.3.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    val enableXrDeps = providers.environmentVariable("ENABLE_XR_DEPS").orElse("false").map { it.toBoolean() }.get()
-    if (enableXrDeps) {
-        // Jetpack XR / SceneCore (update versions when newer drops)
-        implementation("androidx.xr:runtime:1.0.0-alpha04")
-        implementation("androidx.xr.compose:compose-runtime:1.0.0-alpha04")
-        implementation("androidx.xr:scenecore:1.0.0-alpha04")
-    }
+    // Jetpack XR / SceneCore (update versions when newer drops)
+    implementation("androidx.xr:runtime:1.0.0-alpha04")
+    implementation("androidx.xr.compose:compose-runtime:1.0.0-alpha04")
+    implementation("androidx.xr:scenecore:1.0.0-alpha04")
+    implementation("org.webrtc:google-webrtc:1.0.32006")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

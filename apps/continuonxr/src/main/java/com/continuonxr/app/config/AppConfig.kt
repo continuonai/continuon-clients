@@ -18,7 +18,6 @@ data class ConnectivityConfig(
     val continuonBrainPort: Int,
     val useWebRtc: Boolean,
     val cloudBaseUrl: String,
-    val useMockContinuonBrain: Boolean = true,
     val useTls: Boolean = false,
     val authToken: String? = null,
     val signalingUrl: String? = null,

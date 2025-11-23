@@ -3,15 +3,13 @@ package com.continuonxr.app.connectivity
 import com.continuonxr.app.config.ConnectivityConfig
 import continuonxr.continuonbrain.v1.ContinuonBrainBridgeGrpc
 import continuonxr.continuonbrain.v1.ContinuonbrainLink
+import io.grpc.ClientInterceptors
 import io.grpc.ManagedChannel
 import io.grpc.Metadata
-import io.grpc.ClientInterceptors
 import io.grpc.okhttp.OkHttpChannelBuilder
 import io.grpc.stub.StreamObserver
 import kotlinx.serialization.Serializable
 import java.lang.IllegalArgumentException
-import java.util.Timer
-import kotlin.concurrent.scheduleAtFixedRate
 
 /**
  * Stub for the ContinuonBrain/OS bridge client.
@@ -19,85 +17,57 @@ import kotlin.concurrent.scheduleAtFixedRate
  */
 class ContinuonBrainClient(private val config: ConnectivityConfig) {
     private var stateCallback: ((RobotState) -> Unit)? = null
-    private var mockTimer: Timer? = null
-    private var mockTick: Long = 0
-    private var lastCommand: ControlCommand? = null
     private var channel: ManagedChannel? = null
     private var stub: ContinuonBrainBridgeGrpc.ContinuonBrainBridgeStub? = null
+    private var stateStreamStarted: Boolean = false
     private val clientId = "xr-client"
     private val authHeaderKey = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
-    private val webRtcClient = ContinuonBrainWebRtcClient(config)
+    private val webRtcClient = ContinuonBrainWebRtcClient(config, clientId)
 
     fun connect() {
-        when {
-            config.useMockContinuonBrain -> startMockStream()
-            config.useWebRtc -> webRtcClient.connect()
-            else -> startGrpcStream()
+        if (config.useWebRtc) {
+            webRtcClient.connect()
+        } else {
+            connectGrpc()
+            startStateStreamIfReady()
         }
     }
 
     fun sendCommand(command: ControlCommand) {
-        lastCommand = command
         if (config.useWebRtc) {
             webRtcClient.sendCommand(command)
-        } else {
-            val envelope = command.toProto(clientId)
-            stub?.sendCommand(
-                envelope,
-                object : StreamObserver<ContinuonbrainLink.CommandAck> {
-                    override fun onNext(value: ContinuonbrainLink.CommandAck) {}
-                    override fun onError(t: Throwable) {}
-                    override fun onCompleted() {}
-                }
-            )
+            return
         }
+
+        val envelope = command.toProto(clientId)
+        val commandStub = stub ?: throw IllegalStateException("connect() must be called before sendCommand")
+        commandStub.sendCommand(
+            envelope,
+            object : StreamObserver<ContinuonbrainLink.CommandAck> {
+                override fun onNext(value: ContinuonbrainLink.CommandAck) {}
+                override fun onError(t: Throwable) {}
+                override fun onCompleted() {}
+            }
+        )
     }
 
     fun observeState(onState: (RobotState) -> Unit) {
         stateCallback = onState
-        if (config.useWebRtc && !config.useMockContinuonBrain) {
+        if (config.useWebRtc) {
             webRtcClient.observeState(onState)
+        } else {
+            startStateStreamIfReady()
         }
     }
 
     fun close() {
-        mockTimer?.cancel()
         channel?.shutdownNow()
         if (config.useWebRtc) {
             webRtcClient.close()
         }
     }
 
-    private fun startMockStream() {
-        mockTimer?.cancel()
-        mockTimer = Timer("pb-mock", true).apply {
-            scheduleAtFixedRate(0L, 50L) {
-                emitMockState()
-            }
-        }
-    }
-
-    private fun emitMockState() {
-        stateCallback?.invoke(
-            RobotState(
-                timestampNanos = System.nanoTime(),
-                jointPositions = listOf(0.1f * (mockTick % 10), 0f, 0f, 0f, 0f, 0f),
-                endEffectorPose = Pose(
-                    position = listOf(0.0f, 0.0f, 0.5f),
-                    orientationQuat = listOf(0f, 0f, 0f, 1f),
-                ),
-                gripperOpen = (mockTick % 20L) < 10L,
-                frameId = "mock-frame-$mockTick",
-                jointVelocities = listOf(0f, 0f, 0f, 0f, 0f, 0f),
-                jointEfforts = listOf(0f, 0f, 0f, 0f, 0f, 0f),
-                endEffectorTwist = listOf(0f, 0f, 0f, 0f, 0f, 0f),
-                wallTimeMillis = System.currentTimeMillis(),
-            )
-        )
-        mockTick++
-    }
-
-    private fun startGrpcStream() {
+    private fun connectGrpc() {
         channel = OkHttpChannelBuilder
             .forAddress(config.continuonBrainHost, config.continuonBrainPort)
             .apply {
@@ -116,42 +86,35 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
         } else {
             baseStub
         }
-        stub?.streamRobotState(
+        startStateStreamIfReady()
+    }
+
+    private fun startStateStreamIfReady() {
+        val callback = stateCallback ?: return
+        val stateStub = stub ?: return
+        if (stateStreamStarted) return
+        stateStreamStarted = true
+        stateStub.streamRobotState(
             ContinuonbrainLink.StateRequest.newBuilder().setClientId(clientId).build(),
             object : StreamObserver<ContinuonbrainLink.RobotStateEnvelope> {
                 override fun onNext(value: ContinuonbrainLink.RobotStateEnvelope) {
-                    stateCallback?.invoke(value.toDomain())
+                    callback.invoke(value.toDomain())
                 }
 
                 override fun onError(t: Throwable) {
                     // TODO: add retry/backoff
+                    stateStreamStarted = false
                 }
 
-                override fun onCompleted() {}
+                override fun onCompleted() {
+                    stateStreamStarted = false
+                }
             }
-        )
-    }
-
-    private fun ContinuonbrainLink.RobotStateEnvelope.toDomain(): RobotState {
-        val proto = this.state
-        return RobotState(
-            timestampNanos = proto.timestampNanos,
-            jointPositions = proto.jointPositionsList.map { it },
-            endEffectorPose = Pose(
-                position = proto.endEffectorPose.positionList.map { it },
-                orientationQuat = proto.endEffectorPose.orientationQuatList.map { it },
-            ),
-            gripperOpen = proto.gripperOpen,
-            frameId = proto.frameId,
-            jointVelocities = proto.jointVelocitiesList.map { it },
-            jointEfforts = proto.jointEffortsList.map { it },
-            endEffectorTwist = proto.endEffectorTwistList.map { it },
-            wallTimeMillis = proto.wallTimeMillis,
         )
     }
 }
 
-private fun ControlCommand.toProto(clientId: String): ContinuonbrainLink.CommandEnvelope {
+internal fun ControlCommand.toProto(clientId: String): ContinuonbrainLink.CommandEnvelope {
     val builder = ContinuonbrainLink.CommandEnvelope.newBuilder().setClientId(clientId)
     targetFrequencyHz?.let { builder.targetFrequencyHz = it }
     safety?.let {
@@ -196,15 +159,33 @@ private fun ControlCommand.toProto(clientId: String): ContinuonbrainLink.Command
     }
 }
 
-private fun Vector3.toProto(): ContinuonbrainLink.Vector3 =
+internal fun ContinuonbrainLink.RobotStateEnvelope.toDomain(): RobotState {
+    val proto = this.state
+    return RobotState(
+        timestampNanos = proto.timestampNanos,
+        jointPositions = proto.jointPositionsList.map { it },
+        endEffectorPose = Pose(
+            position = proto.endEffectorPose.positionList.map { it },
+            orientationQuat = proto.endEffectorPose.orientationQuatList.map { it },
+        ),
+        gripperOpen = proto.gripperOpen,
+        frameId = proto.frameId,
+        jointVelocities = proto.jointVelocitiesList.map { it },
+        jointEfforts = proto.jointEffortsList.map { it },
+        endEffectorTwist = proto.endEffectorTwistList.map { it },
+        wallTimeMillis = proto.wallTimeMillis,
+    )
+}
+
+internal fun Vector3.toProto(): ContinuonbrainLink.Vector3 =
     ContinuonbrainLink.Vector3.newBuilder().setX(x).setY(y).setZ(z).build()
 
-private fun ReferenceFrame.toProto(): ContinuonbrainLink.ReferenceFrame = when (this) {
+internal fun ReferenceFrame.toProto(): ContinuonbrainLink.ReferenceFrame = when (this) {
     ReferenceFrame.BASE -> ContinuonbrainLink.ReferenceFrame.REFERENCE_FRAME_BASE
     ReferenceFrame.TOOL -> ContinuonbrainLink.ReferenceFrame.REFERENCE_FRAME_TOOL
 }
 
-private fun GripperMode.toProto(): ContinuonbrainLink.GripperMode = when (this) {
+internal fun GripperMode.toProto(): ContinuonbrainLink.GripperMode = when (this) {
     GripperMode.POSITION -> ContinuonbrainLink.GripperMode.GRIPPER_MODE_POSITION
     GripperMode.VELOCITY -> ContinuonbrainLink.GripperMode.GRIPPER_MODE_VELOCITY
 }
