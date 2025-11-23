@@ -38,8 +38,8 @@ data class GloveConfig(
     val bleDeviceName: String,
     val minMtu: Int = 64,
     val targetSampleRateHz: Int = 100,
-    val serviceUuid: String = "0000feed-0000-1000-8000-00805f9b34fb",
-    val characteristicUuid: String = "0000beef-0000-1000-8000-00805f9b34fb",
+    val serviceUuid: String = "7d0e1000-5c86-4c84-9c72-6fa4cbb8a9c5",
+    val characteristicUuid: String = "7d0e1001-5c86-4c84-9c72-6fa4cbb8a9c5",
 )
 
 object AppConfigLoader {
