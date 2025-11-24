@@ -1,8 +1,8 @@
 # Protobuf Definitions (Draft)
 
 Draft proto files for the XR data loop:
-- `rlds_episode.proto` — RLDS episode contract for ContinuonXR logging and export.
-- `continuonbrain_link.proto` — gRPC bridge between XR client and ContinuonBrain/OS.
+- `continuonxr/rlds/v1/rlds_episode.proto` — RLDS episode contract for ContinuonXR logging and export.
+- `continuonxr/continuonbrain/v1/continuonbrain_link.proto` — gRPC bridge between XR client and ContinuonBrain/OS.
 
 Next steps:
 1. Finalize Robot API fields and align `RobotState` with ContinuonBrain/OS contracts.
@@ -10,10 +10,9 @@ Next steps:
 3. Add auth/versioning metadata to RPC requests once Cloud/API requirements are known.
 
 ## Codegen
-- Kotlin/JVM (used by `apps/continuonxr`): `./gradlew :apps:continuonxr:generateDebugProto`
-- TypeScript (mock server / tooling) suggestion: use `buf` + `ts-proto` or `@grpc/grpc-js`. Example:
-  - `buf generate --template buf.gen.yaml` (template not included yet).
-  - Or `npx protoc --ts_out src --grpc_out=grpc_js --plugin=protoc-gen-grpc=$(npm bin)/grpc_tools_node_protoc_plugin proto/*.proto`
+- Kotlin/JVM (used by `apps/continuonxr`): `./gradlew generateProtoKotlin`
+- TypeScript (mock server / tooling): `./gradlew generateProtoTypescript` (uses the checked-in `buf.gen.yaml`).
+- Schema lint: `./gradlew validateProtoSchemas`
 
 Schema highlights:
 - Observation now supports gaze, audio, UI context, and glove validity flags, plus per-step metadata map for contextual tagging.

@@ -2,25 +2,25 @@ syntax = "proto3";
 
 package continuonxr.continuonbrain.v1;
 
-import "rlds_episode.proto";
+import "continuonxr/rlds/v1/rlds_episode.proto";
 
 // Draft bridge API between ContinuonXR and ContinuonBrain/OS.
 // Provides typed control commands instead of raw numeric vectors.
-service ContinuonBrainBridge {
+service ContinuonBrainBridgeService {
   // XR subscribes to robot state for rendering/teleop feedback.
-  rpc StreamRobotState(StateRequest) returns (stream RobotStateEnvelope);
+  rpc StreamRobotState(StreamRobotStateRequest) returns (stream StreamRobotStateResponse);
 
   // XR sends normalized commands derived from teleop input.
-  rpc SendCommand(CommandEnvelope) returns (CommandAck);
+  rpc SendCommand(SendCommandRequest) returns (SendCommandResponse);
 }
 
 // Identify the XR client in upstream streams.
-message StateRequest {
+message StreamRobotStateRequest {
   string client_id = 1;
 }
 
 // Encapsulated robot state for rendering and logging.
-message RobotStateEnvelope {
+message StreamRobotStateResponse {
   continuonxr.rlds.v1.RobotState state = 1;
 }
 
@@ -83,7 +83,7 @@ message SafetyStatus {
   string safety_token = 2;
 }
 
-message CommandEnvelope {
+message SendCommandRequest {
   string client_id = 1;
   // Desired control mode for this command.
   ControlMode control_mode = 2;
@@ -99,7 +99,7 @@ message CommandEnvelope {
   }
 }
 
-message CommandAck {
+message SendCommandResponse {
   bool accepted = 1;
   string message = 2;
   // Receiver indicates whether the command was dropped due to estop or safety interlock.
