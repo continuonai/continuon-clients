@@ -19,8 +19,8 @@ This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. Gradle wir
 - Generate proto stubs: `./gradlew :apps:xr:generateDebugProto`
 
 ## Next steps
-1. Hook up Compose XR panels to live SceneCore input streams. Use `XrInputProvider`/`SceneCoreInputManager` (now streaming pose/gaze/audio) to drive the teleop shell.
-2. Harden ContinuonBrain/OS connectivity (retries/backpressure) on both gRPC and WebRTC once a production endpoint is available.
-3. Extend RLDS writer (file sink added) with schema validation and upload/export.
-4. Wire real XR input (head/hand pose, gaze ray, voice/audio, UI events) into `InputFusion` and `CommandMapper`.
-5. Expand unit tests for schema validation, BLE parsing, and teleop command mapping.
+1. Implement the Raspberry Pi 5 ContinuonBrain/OS bridge client, normalizing Donkey Car steering/throttle into `action.command` and logging drivetrain state into `observation.robot_state` with ≤5 ms timestamp alignment.
+2. Add Flutter companion hooks for quick teleop and RLDS episode emission (tagged `xr_mode="trainer"` and `action.source="human_teleop_xr"`), including buffered uploads with `metadata.json` + `steps/*.jsonl` packaging.
+3. Wire Compose XR/SceneCore inputs plus iPhone sensor proxies into `InputFusion` and `CommandMapper` so both XR and phone shells drive the same teleop surface.
+4. Extend the RLDS writer with schema validation, provenance tags (environment IDs, software versions), and media blob handling for Cloud ingestion.
+5. Expand unit tests for schema validation, BLE parsing, teleop command mapping, and OTA bundle handoff triggers once the edge bundle path is plumbed.
