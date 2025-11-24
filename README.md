@@ -339,22 +339,24 @@ This repository contains the **spatial UI and data capture rig** component of th
 
 ```
 ContinuonXR/
-├── apps/
-│   ├── continuonxr/          # Android XR application (Kotlin + Jetpack XR)
-│   └── mock-continuonbrain/  # Mock robot backend for testing
-├── docs/                     # Architecture and contract documentation
-│   ├── rlds-schema.md       # RLDS data contract
-│   ├── hope-cms-vla.md      # HOPE architecture details
-│   ├── ecosystem-alignment.md
-│   └── xr-app-spec.md
-├── proto/                   # Protobuf definitions
-│   ├── rlds_episode.proto   # RLDS schema
-│   └── continuonbrain_link.proto  # Robot API
-├── continuonbrain/          # Placeholder (separate repo)
-├── continuon-cloud/         # Placeholder (separate repo)
-├── continuonai/             # Placeholder (separate repo)
-└── worldtapeai.com/         # Placeholder (separate repo)
+  apps/
+    continuonxr/          # Android XR application (Kotlin + Jetpack XR)
+    mock-continuonbrain/  # Mock robot backend for testing
+  docs/                   # Architecture and contract documentation
+    rlds-schema.md        # RLDS data contract
+    hope-cms-vla.md       # HOPE architecture details
+    ecosystem-alignment.md
+    xr-app-spec.md
+  proto/                  # Protobuf definitions
+    rlds_episode.proto    # RLDS schema
+    continuonbrain_link.proto  # Robot API
+  continuonbrain/         # Placeholder (separate repo)
+  continuon-cloud/        # Placeholder (separate repo)
+  continuonai/            # Placeholder (separate repo)
+  worldtapeai.com/        # Placeholder (separate repo)
 ```
+
+Note: `continuonbrain/trainer/` contains an offline Pi/Jetson LoRA adapter-training scaffold (bounded jobs, RLDS-only inputs, safety-gated promotion) to stay aligned with ContinuonBrain/OS goals. Production runtime lives in the `continuonos` repo.
 
 ### Prerequisites
 

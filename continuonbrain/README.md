@@ -1,4 +1,7 @@
-# ContinuonBrain (placeholder)
+# ContinuonBrain (scaffolding only)
 
-This monorepo keeps ContinuonXR code. The ContinuonBrain/OS runtime belongs in its own repo (`continuonos`) with platform-agnostic core, HAL adapters, backends, and configs. Keep shared contracts in `proto/continuonbrain_link.proto` and mirror them downstream. No runtime code lives here.
+ContinuonBrain/OS runtime lives in the separate `continuonos` repo (platform-agnostic core, HAL adapters, backends, configs). This folder only carries **scaffolding and contracts** used by ContinuonXR:
+- `proto/continuonbrain_link.proto` (shared contract; mirror downstream).
+- `trainer/` offline Pi/Jetson adapter-training scaffold (bounded, RLDS-only, safety-gated) to align with ContinuonBrain/OS goals.
 
+No production runtime should live here; wire real implementations inside `continuonos` while keeping the interface consistent.
