@@ -90,6 +90,31 @@ The project follows a **fully decoupled** multi-repository structure to ensure s
 
 ## Data Flow: From XR Capture to Deployed Intelligence
 
+### Quickstart: Donkey Car + Flutter Companion → Continuon Cloud
+
+Use this path to run the continuous learning loop on a Raspberry Pi 5–powered Donkey Car with an iPhone 16 Pro companion app:
+
+1. **Edge bridge on Pi (ContinuonBrain/OS)**
+   - Run the lightweight ContinuonBrain/OS bridge to expose the Robot API over gRPC/WebRTC.
+   - Normalize Donkey Car steering/throttle into `action.command` and log drivetrain + sensor feedback into `observation.robot_state` per RLDS.
+   - Keep camera/IMU/encoder timestamps aligned within **≤5 ms** so video and robot state stay synchronized for training.
+
+2. **Flutter companion as XR shell**
+   - Use the iPhone app for setup, quick teleop, and data review; emit RLDS episodes tagged with `xr_mode="trainer"` and `action.source="human_teleop_xr"`.
+   - Capture substitute head/hand/gaze signals from phone sensors plus on-screen joystick commands, then buffer locally before forwarding episodes + media to Cloud over HTTPS/WebSocket using the `metadata.json` + `steps/*.jsonl` layout.
+
+3. **Cloud ingestion + training loop**
+   - Land uploads in RawLake → cleaning → standardized RLDS to preserve provenance and handle intermittent sensors.
+   - Train the multi-head VLA stack (world model, policy, language, safety) on new episodes and export quantized TFLite heads into an edge bundle.
+
+4. **Deployment back to Pi**
+   - Deliver signed edge bundles via continuonos OTA; authenticate, download, verify, and hot-swap models while keeping a local fallback policy.
+   - Continue logging RLDS during autonomous follow-me runs to fuel the next training round.
+
+5. **Operational checklist**
+   - Verify sensor sync (≤5 ms), populate `episode_metadata` with environment IDs (e.g., `donkey-pi5`) and software versions, and tag modes correctly for follow-me demonstrations.
+   - Use the repo split intentionally: **ContinuonXR**/companion for capture, **Continuon-Cloud** for training, **continuonos** for deployment.
+
 ### 1. Data Capture (ContinuonXR & continuonos)
 
 ContinuonXR captures high-fidelity human demonstrations across multiple modes:
