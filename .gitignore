@@ -10,6 +10,9 @@
 
 # Generated protobufs
 **/build/generated/**
+apps/mock-continuonbrain/src/generated/
+apps/mock-continuonbrain/dist/
+apps/mock-continuonbrain/node_modules/
 
 # OS artifacts
 .DS_Store

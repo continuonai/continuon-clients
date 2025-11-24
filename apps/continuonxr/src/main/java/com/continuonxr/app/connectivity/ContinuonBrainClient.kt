@@ -1,7 +1,7 @@
 package com.continuonxr.app.connectivity
 
 import com.continuonxr.app.config.ConnectivityConfig
-import continuonxr.continuonbrain.v1.ContinuonBrainBridgeGrpc
+import continuonxr.continuonbrain.v1.ContinuonBrainBridgeServiceGrpc
 import continuonxr.continuonbrain.v1.ContinuonbrainLink
 import io.grpc.ClientInterceptors
 import io.grpc.ManagedChannel
@@ -18,7 +18,7 @@ import java.lang.IllegalArgumentException
 class ContinuonBrainClient(private val config: ConnectivityConfig) {
     private var stateCallback: ((RobotState) -> Unit)? = null
     private var channel: ManagedChannel? = null
-    private var stub: ContinuonBrainBridgeGrpc.ContinuonBrainBridgeStub? = null
+    private var stub: ContinuonBrainBridgeServiceGrpc.ContinuonBrainBridgeServiceStub? = null
     private var stateStreamStarted: Boolean = false
     private val clientId = "xr-client"
     private val authHeaderKey = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
@@ -43,8 +43,8 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
         val commandStub = stub ?: throw IllegalStateException("connect() must be called before sendCommand")
         commandStub.sendCommand(
             envelope,
-            object : StreamObserver<ContinuonbrainLink.CommandAck> {
-                override fun onNext(value: ContinuonbrainLink.CommandAck) {}
+            object : StreamObserver<ContinuonbrainLink.SendCommandResponse> {
+                override fun onNext(value: ContinuonbrainLink.SendCommandResponse) {}
                 override fun onError(t: Throwable) {}
                 override fun onCompleted() {}
             }
@@ -78,11 +78,11 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
                 }
             }
             .build()
-        val baseStub = ContinuonBrainBridgeGrpc.newStub(channel)
+        val baseStub = ContinuonBrainBridgeServiceGrpc.newStub(channel)
         stub = if (config.authToken != null) {
             val headers = Metadata()
             headers.put(authHeaderKey, "Bearer ${config.authToken}")
-            ContinuonBrainBridgeGrpc.newStub(ClientInterceptors.intercept(channel, MetadataClientInterceptor(headers)))
+            ContinuonBrainBridgeServiceGrpc.newStub(ClientInterceptors.intercept(channel, MetadataClientInterceptor(headers)))
         } else {
             baseStub
         }
@@ -95,9 +95,9 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
         if (stateStreamStarted) return
         stateStreamStarted = true
         stateStub.streamRobotState(
-            ContinuonbrainLink.StateRequest.newBuilder().setClientId(clientId).build(),
-            object : StreamObserver<ContinuonbrainLink.RobotStateEnvelope> {
-                override fun onNext(value: ContinuonbrainLink.RobotStateEnvelope) {
+            ContinuonbrainLink.StreamRobotStateRequest.newBuilder().setClientId(clientId).build(),
+            object : StreamObserver<ContinuonbrainLink.StreamRobotStateResponse> {
+                override fun onNext(value: ContinuonbrainLink.StreamRobotStateResponse) {
                     callback.invoke(value.toDomain())
                 }
 
@@ -114,8 +114,8 @@ class ContinuonBrainClient(private val config: ConnectivityConfig) {
     }
 }
 
-internal fun ControlCommand.toProto(clientId: String): ContinuonbrainLink.CommandEnvelope {
-    val builder = ContinuonbrainLink.CommandEnvelope.newBuilder().setClientId(clientId)
+internal fun ControlCommand.toProto(clientId: String): ContinuonbrainLink.SendCommandRequest {
+    val builder = ContinuonbrainLink.SendCommandRequest.newBuilder().setClientId(clientId)
     targetFrequencyHz?.let { builder.targetFrequencyHz = it }
     safety?.let {
         builder.safety = ContinuonbrainLink.SafetyStatus.newBuilder()
@@ -159,7 +159,7 @@ internal fun ControlCommand.toProto(clientId: String): ContinuonbrainLink.Comman
     }
 }
 
-internal fun ContinuonbrainLink.RobotStateEnvelope.toDomain(): RobotState {
+internal fun ContinuonbrainLink.StreamRobotStateResponse.toDomain(): RobotState {
     val proto = this.state
     return RobotState(
         timestampNanos = proto.timestampNanos,

@@ -120,3 +120,11 @@ protobuf {
         }
     }
 }
+
+tasks.matching { it.name == "preBuild" }.configureEach {
+    dependsOn(rootProject.tasks.named("validateProtoSchemas"))
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(rootProject.tasks.named("generateProtoKotlin"))
+}

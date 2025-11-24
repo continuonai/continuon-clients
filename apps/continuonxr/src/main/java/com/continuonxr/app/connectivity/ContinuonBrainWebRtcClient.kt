@@ -52,7 +52,7 @@ class ContinuonBrainWebRtcClient(
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         super.onOpen(webSocket, response)
-        val subscription = ContinuonbrainLink.StateRequest.newBuilder().setClientId(clientId).build()
+        val subscription = ContinuonbrainLink.StreamRobotStateRequest.newBuilder().setClientId(clientId).build()
         webSocket.send(ByteString.of(*subscription.toByteArray()))
     }
 
@@ -77,9 +77,9 @@ class ContinuonBrainWebRtcClient(
 
     private fun handleIncoming(bytes: ByteString) {
         runCatching {
-            ContinuonbrainLink.RobotStateEnvelope.parseFrom(bytes.toByteArray())
-        }.onSuccess { envelope ->
-            stateCallback?.invoke(envelope.toDomain())
+            ContinuonbrainLink.StreamRobotStateResponse.parseFrom(bytes.toByteArray())
+        }.onSuccess { response ->
+            stateCallback?.invoke(response.toDomain())
         }.onFailure {
             Log.w(TAG, "Failed to decode robot state envelope", it)
         }
