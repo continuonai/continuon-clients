@@ -6,6 +6,7 @@ This expands the initial plan to make it actionable. Goal: get a Pi 5 Donkey Car
 - Robot runs ContinuonOS fully offline; no dependency on cloud schedulers.
 - Fast/Mid/Slow learning loops all live on-robot with strict budgets and safety/rollback.
 - RLDS logging is local; uploads/sharing are manual/opt-in only.
+- HOPE architecture stays on-device: Fast/Medium/Slow loops execute locally on Pi 5 without internet.
 
 ## Hardware layout
 - **Pi 5**: primary host running ContinuonBrain/OS (continuonos), vehicle control, RLDS logger.
@@ -150,5 +151,13 @@ for batch in make_batch_iterator(files, cfg.batch_size):
 - [x] RLDS loader dispatcher for JSON/JSONL + TFRecord helper: `continuonbrain/trainer/rlds_loader.py`.
 - [x] Basic safety heuristics for shadow eval: `continuonbrain/trainer/safety.py`.
 - [x] Integration scaffold for Pi 5 wiring: `continuonbrain/trainer/examples/pi5_integration.py`.
-- [ ] Wire real model hooks (Torch/TFLite) in continuonos runtime and replace stub hooks; move scaffold there.
+- [x] Config now carries `base_model_path` (e.g., `/opt/continuonos/brain/model/base_policy.pt`) for Pi 5.
+- [x] Gemma Pi 5 plan with `flutter_gemma` runtime + sidecar trainer: `continuonbrain/trainer/GEMMA_PI5.md`.
+- [x] Sample runtime manifest for Pi: `continuonbrain/model/manifest.pi5.example.json` (base + adapter paths for `flutter_gemma`).
+- [x] Gemma LoRA hooks and gating helpers: `continuonbrain/trainer/gemma_hooks.py`, `continuonbrain/trainer/gating_continuonos.py`; config lora layers set to Gemma proj targets.
+- [x] Safety placeholder + manifest example with safety head: `continuonbrain/trainer/safety_head_stub.py`, `continuonbrain/model/manifest.pi5.safety.example.json`.
+- [x] Integration checklist for continuonos: `continuonbrain/trainer/INTEGRATION_CHECKLIST.md`.
+- [ ] Wire real model hooks (Torch/TFLite) in continuonos runtime and replace scaffold.
 - [ ] Swap stub safety heuristics with device-specific checks; gate scheduler with real battery/thermal/teleop signals.
+- [ ] Collect and stage RLDS episodes locally (>= `min_episodes`) before running trainer; ensure base checkpoint present.
+- [x] Document cloud export path (zip RLDS episodes, upload, train on TPU/Colab, repackage adapters) in `continuonbrain/trainer/CLOUD_EXPORT.md`.

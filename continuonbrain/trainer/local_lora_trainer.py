@@ -39,6 +39,7 @@ class LocalTrainerJobConfig:
     log_dir: Path = Path("/opt/continuonos/brain/trainer/logs")
     shuffle_buffer_multiplier: int = 4
     log_every_steps: int = 10
+    base_model_path: Optional[Path] = None
 
     @staticmethod
     def from_json(path: Path) -> "LocalTrainerJobConfig":
@@ -47,6 +48,8 @@ class LocalTrainerJobConfig:
         data["rlds_dir"] = Path(data["rlds_dir"])
         data["adapters_out_dir"] = Path(data.get("adapters_out_dir", LocalTrainerJobConfig.adapters_out_dir))
         data["log_dir"] = Path(data.get("log_dir", LocalTrainerJobConfig.log_dir))
+        if "base_model_path" in data and data["base_model_path"] is not None:
+            data["base_model_path"] = Path(data["base_model_path"])
         return LocalTrainerJobConfig(**data)
 
     def to_json(self, path: Path) -> None:
@@ -54,6 +57,8 @@ class LocalTrainerJobConfig:
         payload["rlds_dir"] = str(self.rlds_dir)
         payload["adapters_out_dir"] = str(self.adapters_out_dir)
         payload["log_dir"] = str(self.log_dir)
+        if self.base_model_path is not None:
+            payload["base_model_path"] = str(self.base_model_path)
         path.write_text(json.dumps(payload, indent=2))
 
     @property

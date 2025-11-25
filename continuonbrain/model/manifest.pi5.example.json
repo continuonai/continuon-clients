@@ -1,0 +1,18 @@
+{
+  "model_name": "gemma-3n",
+  "runtime": {
+    "engine": "flutter_gemma",
+    "backend": "xnnpack",
+    "quantization": "int8"
+  },
+  "paths": {
+    "base_model": "/opt/continuonos/brain/model/base_model/gemma-3n.tflite",
+    "adapter": "/opt/continuonos/brain/model/adapters/current/lora_adapters.pt"
+  },
+  "adapter_meta": {
+    "type": "lora",
+    "rank": 8,
+    "alpha": 16
+  },
+  "notes": "Sample manifest for Pi 5 runtime: flutter_gemma loads base + LoRA adapter from these paths."
+}

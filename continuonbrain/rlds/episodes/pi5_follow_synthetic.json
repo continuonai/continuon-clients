@@ -1,0 +1,137 @@
+{
+  "episode_metadata": {
+    "episode_id": "synthetic_pi5_follow_0001",
+    "environment_id": "house_a",
+    "robot": "donkeycar_pi5",
+    "task": "follow_human",
+    "camera": {
+      "sensor": "rgb_front",
+      "shutter": "rolling",
+      "resolution": "1280x720",
+      "fps": 30
+    },
+    "notes": "Synthetic episode: Pi 5 rolling-shutter RGB cam following a human around a house."
+  },
+  "steps": [
+    {
+      "timestamp_micros": 0,
+      "observation": {
+        "rgb_front": {
+          "uri": "synthetic://frame_0000.jpg",
+          "width": 1280,
+          "height": 720,
+          "format": "rgb"
+        },
+        "robot_state": {
+          "pose": {"x": 0.0, "y": 0.0, "theta": 0.0},
+          "linear_velocity": 0.0,
+          "angular_velocity": 0.0
+        }
+      },
+      "action": {
+        "steering": 0.05,
+        "throttle": 0.1
+      },
+      "step_metadata": {
+        "human_visible": true,
+        "human_distance_m": 3.5
+      }
+    },
+    {
+      "timestamp_micros": 100000,
+      "observation": {
+        "rgb_front": {
+          "uri": "synthetic://frame_0001.jpg",
+          "width": 1280,
+          "height": 720,
+          "format": "rgb"
+        },
+        "robot_state": {
+          "pose": {"x": 0.05, "y": 0.0, "theta": 0.01},
+          "linear_velocity": 0.12,
+          "angular_velocity": 0.02
+        }
+      },
+      "action": {
+        "steering": 0.06,
+        "throttle": 0.12
+      },
+      "step_metadata": {
+        "human_visible": true,
+        "human_distance_m": 3.2
+      }
+    },
+    {
+      "timestamp_micros": 200000,
+      "observation": {
+        "rgb_front": {
+          "uri": "synthetic://frame_0002.jpg",
+          "width": 1280,
+          "height": 720,
+          "format": "rgb"
+        },
+        "robot_state": {
+          "pose": {"x": 0.12, "y": 0.01, "theta": 0.03},
+          "linear_velocity": 0.14,
+          "angular_velocity": 0.03
+        }
+      },
+      "action": {
+        "steering": 0.05,
+        "throttle": 0.14
+      },
+      "step_metadata": {
+        "human_visible": true,
+        "human_distance_m": 2.9
+      }
+    },
+    {
+      "timestamp_micros": 300000,
+      "observation": {
+        "rgb_front": {
+          "uri": "synthetic://frame_0003.jpg",
+          "width": 1280,
+          "height": 720,
+          "format": "rgb"
+        },
+        "robot_state": {
+          "pose": {"x": 0.20, "y": 0.02, "theta": 0.04},
+          "linear_velocity": 0.16,
+          "angular_velocity": 0.04
+        }
+      },
+      "action": {
+        "steering": 0.04,
+        "throttle": 0.16
+      },
+      "step_metadata": {
+        "human_visible": true,
+        "human_distance_m": 2.6
+      }
+    },
+    {
+      "timestamp_micros": 400000,
+      "observation": {
+        "rgb_front": {
+          "uri": "synthetic://frame_0004.jpg",
+          "width": 1280,
+          "height": 720,
+          "format": "rgb"
+        },
+        "robot_state": {
+          "pose": {"x": 0.30, "y": 0.03, "theta": 0.05},
+          "linear_velocity": 0.17,
+          "angular_velocity": 0.04
+        }
+      },
+      "action": {
+        "steering": 0.03,
+        "throttle": 0.17
+      },
+      "step_metadata": {
+        "human_visible": true,
+        "human_distance_m": 2.4
+      }
+    }
+  ]
+}

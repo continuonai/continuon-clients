@@ -1,0 +1,25 @@
+{
+  "model_name": "gemma-3n",
+  "runtime": {
+    "engine": "flutter_gemma",
+    "backend": "xnnpack",
+    "quantization": "int8"
+  },
+  "paths": {
+    "base_model": "/opt/continuonos/brain/model/base_model/gemma-3n.tflite",
+    "adapter": "/opt/continuonos/brain/model/adapters/current/lora_adapters.pt",
+    "safety_head": "/opt/continuonos/brain/model/safety/current/safety_head.tflite"
+  },
+  "adapter_meta": {
+    "type": "lora",
+    "rank": 8,
+    "alpha": 16
+  },
+  "safety": {
+    "clamp_bounds": {
+      "steering": [-1.0, 1.0],
+      "throttle": [-1.0, 1.0]
+    }
+  },
+  "notes": "Sample manifest including a safety head path; adjust to your actual safety model or keep using heuristics."
+}

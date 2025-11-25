@@ -17,11 +17,11 @@ The roadmap below highlights where the Android XR app and data capture stack sta
 
 | Area | Current Status | Owner | Target Date |
 | --- | --- | --- | --- |
-| XR App Shell & Navigation | Core shell, spatial panels, and input routing shipped in dogfood build; stability fixes in progress | XR Client Team | 2024-08-16 |
-| Glove BLE Parser & Telemetry | BLE link stable with flex/force streaming; expanding reconnection safeguards | XR Client Team | 2024-08-09 |
-| RLDS Logging on Device | Proto generation complete and logging enabled for head/hand poses; optimizing write batching | XR + Data Infra | 2024-08-23 |
-| Data Capture Rig (Sensors + Video) | Depth + RGB capture validated; synchronized audio alignment underway | XR + Sensors | 2024-08-30 |
-| Cloud Ingestion Hooks | Upload path wired to staging bucket; signed upload & provenance tagging next | Cloud Ingestion | 2024-09-06 |
+| XR App Shell & Navigation | Core shell, spatial panels, and input routing shipped in dogfood build; stability fixes in progress | XR Client Team | 2025-11-24 |
+| Glove BLE Parser & Telemetry | BLE link stable with flex/force streaming; expanding reconnection safeguards | XR Client Team | 2025-11-24 |
+| RLDS Logging on Device | Proto generation complete and logging enabled for head/hand poses; optimizing write batching | XR + Data Infra | 2025-11-24 |
+| Data Capture Rig (Sensors + Video) | Depth + RGB capture validated; synchronized audio alignment underway | XR + Sensors | 2025-11-24 |
+| Cloud Ingestion Hooks | Upload path wired to staging bucket; signed upload & provenance tagging next | Cloud Ingestion | 2025-11-24 |
 
 ---
 
@@ -358,6 +358,55 @@ ContinuonXR/
 
 Note: `continuonbrain/trainer/` contains an offline Pi/Jetson LoRA adapter-training scaffold (bounded jobs, RLDS-only inputs, safety-gated promotion) to stay aligned with ContinuonBrain/OS goals. Production runtime lives in the `continuonos` repo.
 
+Quick Pi 5 migration tips (Jetson → Pi):
+- Copy RLDS episodes to `/opt/continuonos/brain/rlds/episodes`.
+- Place your Gemma base model (non-quantized edge build if it fits) and point `base_model_path` in `pi5-donkey.json`.
+- Use `continuonbrain/model/manifest.pi5.example.json` as a template for `flutter_gemma` to load base + LoRA.
+- For smoke tests, you can duplicate a few episodes to meet `min_episodes`, then replace with real runs before training.
+## Pi 5 Offline Brain Setup (Gemma + LoRA, no quant)
+
+1) Clone on Pi  ```bash
+cd /opt/continuonos/brain
+git clone https://github.com/continuonai/ContinuonXR.git pi5-brain
+cd pi5-brain
+```
+
+2) Create dirs & place models  ```bash
+sudo mkdir -p /opt/continuonos/brain/model/{base_model,adapters/current,adapters/candidate,adapters/history}
+sudo mkdir -p /opt/continuonos/brain/rlds/episodes
+sudo mkdir -p /opt/continuonos/brain/train
+```
+- Put Gemma 3n base (non-quant edge build if it fits) at `/opt/continuonos/brain/model/base_model/gemma-3n.tflite`.
+- If you have current adapters, place `/opt/continuonos/brain/model/adapters/current/lora_adapters.pt`.
+- Stage RLDS episodes (JSON/JSONL/TFRecord) under `/opt/continuonos/brain/rlds/episodes/`.
+
+3) Config paths  ```bash
+cp continuonbrain/configs/pi5-donkey.json /opt/continuonos/brain/train/pi5-donkey.json
+# edit base_model_path/rlds_dir/budgets as needed
+```
+
+4) Python deps (venv recommended)  ```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install torch  # choose the Pi build you use
+```
+
+5) Optional: runtime manifest for flutter_gemma  ```bash
+cp continuonbrain/model/manifest.pi5.safety.example.json /opt/continuonos/brain/model/manifest.json
+# edit base/adapter/safety paths
+```
+
+6) Run trainer (Gemma hooks + gating scaffold)  ```bash
+python -m continuonbrain.trainer.examples.pi5_integration --config /opt/continuonos/brain/train/pi5-donkey.json
+```
+- Fails fast if `base_model_path` or `min_episodes` not met.
+- Saves adapters to `adapters/candidate/`, promotes to `adapters/current/` on safety pass.
+
+7) Wire gating & safety (replace stubs in continuonos)  - `gating_continuonos.py`: connect idle/battery/thermal/teleop to real signals; set thresholds (e.g., battery ≥40%, CPU ≤75C).  - `safety_head_stub.py`: clamp/log violations; swap in your safety head; log safety flags to RLDS.  - `gemma_hooks.py`: in-place LoRA for Gemma proj layers (`q_proj/k_proj/v_proj/o_proj`); plug in your real loader/loss.
+
+8) Offline guarantee  - No internet for any loop; uploads are manual/opt-in (see `continuonbrain/trainer/CLOUD_EXPORT.md`).
+
+
 ### Prerequisites
 
 - **Android Studio**: Koala or later
@@ -593,3 +642,55 @@ We welcome contributions across all repositories in the Continuon ecosystem. Ple
 ---
 
 **Continuon**: Building robots that learn from every interaction, one episode at a time.
+## Pi 5 Offline Brain Setup (Gemma + LoRA, no quant)
+
+1) Clone on Pi  
+```bash
+cd /opt/continuonos/brain
+git clone https://github.com/continuonai/ContinuonXR.git pi5-brain
+cd pi5-brain
+```
+
+2) Create dirs & place models  
+```bash
+sudo mkdir -p /opt/continuonos/brain/model/{base_model,adapters/current,adapters/candidate,adapters/history}
+sudo mkdir -p /opt/continuonos/brain/rlds/episodes
+sudo mkdir -p /opt/continuonos/brain/train
+```
+- Put Gemma 3n base (non-quant edge build if it fits) at `/opt/continuonos/brain/model/base_model/gemma-3n.tflite`.
+- If you have current adapters, place `/opt/continuonos/brain/model/adapters/current/lora_adapters.pt`.
+- Stage RLDS episodes (JSON/JSONL/TFRecord) under `/opt/continuonos/brain/rlds/episodes/`.
+
+3) Config paths  
+```bash
+cp continuonbrain/configs/pi5-donkey.json /opt/continuonos/brain/train/pi5-donkey.json
+# edit base_model_path/rlds_dir/budgets as needed
+```
+
+4) Python deps (venv recommended)  
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install torch  # choose the Pi build you use
+```
+
+5) Optional: runtime manifest for flutter_gemma  
+```bash
+cp continuonbrain/model/manifest.pi5.safety.example.json /opt/continuonos/brain/model/manifest.json
+# edit base/adapter/safety paths
+```
+
+6) Run trainer (Gemma hooks + gating scaffold)  
+```bash
+python -m continuonbrain.trainer.examples.pi5_integration --config /opt/continuonos/brain/train/pi5-donkey.json
+```
+- Fails fast if `base_model_path` or `min_episodes` not met.
+- Saves adapters to `adapters/candidate/`, promotes to `adapters/current/` on safety pass.
+
+7) Wire gating & safety (replace stubs in continuonos)  
+- `gating_continuonos.py`: connect idle/battery/thermal/teleop to real signals; set thresholds (e.g., battery ≥40%, CPU ≤75C).  
+- `safety_head_stub.py`: clamp/log violations; swap in your safety head; log safety flags to RLDS.  
+- `gemma_hooks.py`: in-place LoRA for Gemma proj layers (`q_proj/k_proj/v_proj/o_proj`); plug in your real loader/loss.
+
+8) Offline guarantee  
+- No internet for any loop; uploads are manual/opt-in (see `continuonbrain/trainer/CLOUD_EXPORT.md`).

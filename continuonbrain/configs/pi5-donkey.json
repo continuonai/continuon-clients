@@ -6,14 +6,17 @@
   "max_wall_time_s": 300,
   "batch_size": 32,
   "lora_layers": [
-    "policy.transformer.blocks.10",
-    "policy.transformer.blocks.11"
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj"
   ],
   "learning_rate": 5e-5,
   "weight_decay": 0.0,
   "adapters_out_dir": "/opt/continuonos/brain/model/adapters/candidate",
   "adapter_filename": "lora_adapters.pt",
   "log_dir": "/opt/continuonos/brain/trainer/logs",
+  "base_model_path": "/opt/continuonos/brain/model/base_policy.pt",
   "shuffle_buffer_multiplier": 4,
   "log_every_steps": 10
 }
