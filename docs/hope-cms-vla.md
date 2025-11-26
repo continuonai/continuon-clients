@@ -3,9 +3,11 @@
 This note explains how XR-produced RLDS observations flow into the HOPE/CMS Fast–Mid–Slow learning loops and how each VLA head consumes the signals. It ties concrete RLDS fields to timescales and optimizers so contributors can wire data pipelines correctly.
 
 ## Timescale overview
-- **Fast loop (ms–100 ms, online/reactive):** Runs on-device for teleop mirroring and reflexive safety. Optimizes short-horizon control and immediate hazard detection.
-- **Mid loop (0.5–10 s, session-level):** Runs in edge/cloud during an episode. Optimizes skill sequencing, intent inference, and UI adaptation.
-- **Slow loop (minutes–hours, corpus-level):** Runs in cloud training. Optimizes generative world models, semantic alignment, and new skill synthesis.
+- **Fast loop (ms–100 ms, online/reactive):** Runs on-device for teleop mirroring and reflexive safety, and is replayed in the cloud for distillation/regression during retraining. Optimizes short-horizon control and immediate hazard detection.
+- **Mid loop (0.5–10 s, session-level):** Runs in edge/cloud during an episode and is mirrored in cloud training to refresh adapters and guardrails. Optimizes skill sequencing, intent inference, and UI adaptation.
+- **Slow loop (minutes–hours, corpus-level):** Runs in cloud training and can cache summaries on-device for offline refreshes. Optimizes generative world models, semantic alignment, and new skill synthesis.
+
+**Shared distillation path:** Cloud Slow-loop checkpoints are treated as the "core" that is distilled into Fast/Mid bundles for devices, while device-collected Fast/Mid traces feed back into the next cloud retrain. Distillation therefore happens in both directions—cloud-to-device for deployment and device-to-cloud for preserving low-latency behaviors during corpus-scale updates.
 
 ## Observation blocks → HOPE/CMS loops
 | RLDS observation block | Field examples | Fast loop use | Mid loop use | Slow loop use |
