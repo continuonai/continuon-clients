@@ -54,6 +54,8 @@ The CMS structures learning into three loops:
 | **Mid Loop** | 0.5-10 s | Skill sequencing, intent inference, short-horizon world modeling | Episodic fine-tuning, contextual bandits |
 | **Slow Loop** | Minutes-Hours | High-level planning, semantic alignment, world model training | Corpus-scale training, generative pre-training |
 
+All three loops run in both places: on-device/edge execution keeps latency low, while cloud retraining replays the same loops for regression and distillation. The Slow loop produces the "core" checkpoints that distill into Fast/Mid edge bundles, and on-device Fast/Mid traces flow back into the next cloud retrain to preserve reflexes and UI/session adaptations.
+
 #### VLA Stack: Unified Multi-Task Architecture
 
 The robot's intelligence comprises five specialized heads sharing a common perception backbone:
