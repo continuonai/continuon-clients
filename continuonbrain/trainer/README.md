@@ -16,6 +16,7 @@ This directory hosts **offline-first** scaffolding for local adapter training on
 - `gemma_hooks.py`: in-place LoRA injector for Gemma models (torch) compatible with the trainer interface.
 - `gating_continuonos.py`: helper to wire trainer gating to continuonos runtime signals (idle/battery/thermals/teleop).
 - `safety_head_stub.py`: simple clamp/violation logger for steering/throttle; replace with your real safety head.
+- `vla_adapter.py`: routes WaveCore `encode_for_policy()` outputs plus RLDS metadata into minimal VLA heads (SkillPolicies/LanguagePlanner) with switchable routing modes.
 - `INTEGRATION_CHECKLIST.md`: step-by-step to drop the scaffold into continuonos (model loader, safety, gating, manifest, RLDS).
 
 ## Usage (examples)
@@ -29,6 +30,7 @@ Integrate real Torch model:
 ```python
 from continuonbrain.trainer import build_torch_hooks, make_episode_loader, SafetyGateConfig, LocalTrainerJobConfig, maybe_run_local_training
 from continuonbrain.trainer.safety import build_simple_action_guards
+from continuonbrain.trainer.vla_adapter import AdapterRoutingConfig, build_policy_request, forward_to_vla_head
 
 cfg = LocalTrainerJobConfig.from_json(Path("continuonbrain/configs/pi5-donkey.json"))
 action_distance, violates = build_simple_action_guards(
@@ -45,6 +47,15 @@ hooks = build_torch_hooks(
 )
 episode_loader = make_episode_loader()  # or a tfrecord loader
 result = maybe_run_local_training(cfg, hooks, SafetyGateConfig(), gating=None, episode_loader=episode_loader)
+
+# Route WaveCore embeddings + RLDS metadata into a VLA head with configurable routing
+wavecore_output = wave_model.encode_for_policy(rlds_obs["egocentric_video"])  # user-supplied WaveCore call
+sample = build_policy_request(
+    wavecore_output=wavecore_output,
+    rlds_observation=rlds_obs,  # RLDS observation dict with poses/gaze/audio/glove/diagnostics
+    routing=AdapterRoutingConfig(mode="hybrid"),  # switch to "wave_only" or "attention_only" without changing inputs
+)
+action = forward_to_vla_head(language_planner_head, sample)
 ```
 
 ## Notes
