@@ -8,7 +8,7 @@
 ## I. Strategic Foundations & Goals
 
 ### 1.1 Product Vision
-ContinuonXR is the human-facing application that serves as the secure, spatial workstation, trainer interface, and the **primary data ingestion point** for the Continuon self-learning ecosystem. It overcomes the "static" nature of traditional models by continually supplying high-quality, human-generated **RLDS episodes** (gold data) to the **Continuon Cloud Factory**.
+ContinuonXR is the human-facing application that serves as the secure, spatial workstation, trainer interface, and the **primary data ingestion point** for the Continuon self-learning ecosystem. It overcomes the "static" nature of traditional models by continually supplying high-quality, human-generated **RLDS episodes** (gold data) to the **Continuon Cloud Factory**. All Continuon products and services (XR, Cloud, ContinuonBrain/OS runtime, web explorer, and orchestration) are built and shipped from this repository to keep architecture and contracts aligned.
 
 ### 1.2 Unique Selling Proposition (USP)
 ContinuonXR is the unified **PC replacement, robot controller, and data collection rig**. It integrates the developer’s workspace with the robot’s physical presence, ensuring that **every interaction becomes training data**.
@@ -104,5 +104,5 @@ The initial MVP must achieve the core function of data capture and interface.
 | :--- | :--- | :--- |
 | **Data Quality/Retention** | **95%** of all completed XR Trainer Mode (Mode A) sessions are logged as valid, clean RLDS episodes. | Ensures sufficient **gold data** is produced for imitation learning (high data retention rate). |
 | **Performance** | **100 Hz** reliable BLE data streaming from Continuon Glove to the XR app. | Guarantees low latency and fidelity for dexterous training inputs. |
-| **Integration** | 100% successful bidirectional communication (gRPC/WebRTC) between ContinuonXR and a running `continuonos` instance. | Verifies the core link in the data loop is robust. |
+| **Integration** | 100% successful bidirectional communication (gRPC/WebRTC) between ContinuonXR and the ContinuonBrain/OS runtime module in this repo. | Verifies the core link in the data loop is robust. |
 | **Engagement** | Daily/Weekly Active Users (DAU/WAU) of the XR Trainer Mode (Mode A). | Measures developer/operator engagement in creating new training data. |

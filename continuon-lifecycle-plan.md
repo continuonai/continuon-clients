@@ -1,6 +1,6 @@
 # Continuon Lifecycle Initiator Plan (Donkey Car Pi 5 + Jetson Nano)
 
-This expands the initial plan to make it actionable. Goal: get a Pi 5 Donkey Car (with optional Jetson Nano) running ContinuonBrain/OS fully offline, logging RLDS locally (opt-in uploads), and enabling XR teleop for gold data, then closing the loop with cloud retraining when you choose.
+This expands the initial plan to make it actionable. Goal: get a Pi 5 Donkey Car (with optional Jetson Nano) running ContinuonBrain/OS fully offline, logging RLDS locally (opt-in uploads), and enabling XR teleop for gold data, then closing the loop with cloud retraining when you choose. All referenced components (XR apps, ContinuonBrain/OS runtime, cloud ingest/training helpers) live in this repository so the lifecycle can be built end-to-end here.
 
 ## Hard constraints
 - Robot runs ContinuonOS fully offline; no dependency on cloud schedulers.
@@ -9,13 +9,13 @@ This expands the initial plan to make it actionable. Goal: get a Pi 5 Donkey Car
 - HOPE architecture stays on-device: Fast/Medium/Slow loops execute locally on Pi 5 without internet.
 
 ## Hardware layout
-- **Pi 5**: primary host running ContinuonBrain/OS (continuonos), vehicle control, RLDS logger.
+- **Pi 5**: primary host running ContinuonBrain/OS (continuonos module from this repo), vehicle control, RLDS logger.
 - **Jetson Nano (optional)**: accelerator or camera encoder; TFLite GPU/CUDA delegate if powered; otherwise idle.
 - **Sensors/actuators**: Donkey cam (CSI/USB), IMU (if present), PWM steering/throttle (Pi GPIO), optional depth cam.
 - **Network**: Wi‑Fi/hotspot for optional uploads; local gRPC/WebRTC for XR/teleop.
 
 ## Software stack
-- **ContinuonBrain/OS (continuonos repo)**:
+- **ContinuonBrain/OS (this repo)**:
   - `src/core/`: control loop (50–100 ms), scheduler, safety head.
   - `platform/linux_sbc`: Pi 5 HAL (PWM, camera, IMU), optional Jetson delegate.
   - `backends`: TFLite XNNPACK; optional CUDA delegate if Nano used.
@@ -34,7 +34,7 @@ This expands the initial plan to make it actionable. Goal: get a Pi 5 Donkey Car
 4. Upload is manual/opt-in: batch/cron or XR uploader posts zipped episodes to Cloud ingest (`environment_id=pi5-donkey`, model version, hw profile). Default is local only.
 
 ## Minimal steps to initiate
-1. **Brain profile**: add `configs/pi5-donkey.json` in continuonos (PWM pins, camera source, backend=xnnpack, tick ~50–100 ms, safety limits).
+1. **Brain profile**: add `configs/pi5-donkey.json` in the ContinuonBrain/OS module (PWM pins, camera source, backend=xnnpack, tick ~50–100 ms, safety limits).
 2. **HAL adapter**: implement `platform/linux_sbc` for Pi 5 (PWM steering/throttle, camera reader, optional IMU, heartbeat/estop).
 3. **Proto alignment**: ensure `proto/continuonbrain_link.proto` carries steering/throttle/state; regenerate stubs in ContinuonBrain and XR.
 4. **XR hookup**: point `ContinuonBrainClient` to Pi IP, disable mock, enable TLS/auth if available; enable SceneCore deps when available to feed pose/gaze/audio.
@@ -156,8 +156,8 @@ for batch in make_batch_iterator(files, cfg.batch_size):
 - [x] Sample runtime manifest for Pi: `continuonbrain/model/manifest.pi5.example.json` (base + adapter paths for `flutter_gemma`).
 - [x] Gemma LoRA hooks and gating helpers: `continuonbrain/trainer/gemma_hooks.py`, `continuonbrain/trainer/gating_continuonos.py`; config lora layers set to Gemma proj targets.
 - [x] Safety placeholder + manifest example with safety head: `continuonbrain/trainer/safety_head_stub.py`, `continuonbrain/model/manifest.pi5.safety.example.json`.
-- [x] Integration checklist for continuonos: `continuonbrain/trainer/INTEGRATION_CHECKLIST.md`.
-- [ ] Wire real model hooks (Torch/TFLite) in continuonos runtime and replace scaffold.
+- [x] Integration checklist for the ContinuonBrain/OS runtime: `continuonbrain/trainer/INTEGRATION_CHECKLIST.md`.
+- [ ] Wire real model hooks (Torch/TFLite) in the ContinuonBrain/OS runtime and replace scaffold.
 - [ ] Swap stub safety heuristics with device-specific checks; gate scheduler with real battery/thermal/teleop signals.
 - [ ] Collect and stage RLDS episodes locally (>= `min_episodes`) before running trainer; ensure base checkpoint present.
 - [x] Document cloud export path (zip RLDS episodes, upload, train on TPU/Colab, repackage adapters) in `continuonbrain/trainer/CLOUD_EXPORT.md`.
