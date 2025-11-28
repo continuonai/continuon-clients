@@ -2,6 +2,8 @@
 
 This note explains how XR-produced RLDS observations flow into the HOPE/CMS Fast–Mid–Slow learning loops and how each VLA head consumes the signals. It ties concrete RLDS fields to timescales and optimizers so contributors can wire data pipelines correctly.
 
+For the complete reconciled system architecture covering edge-first learning, cloud training, and OTA updates, see [System Architecture and Training Lifecycle](./system-architecture.md).
+
 ## Timescale overview
 - **Fast loop (ms–100 ms, online/reactive):** Runs on-device for teleop mirroring and reflexive safety, and is replayed in the cloud for distillation/regression during retraining. Optimizes short-horizon control and immediate hazard detection.
 - **Mid loop (0.5–10 s, session-level):** Runs in edge/cloud during an episode and is mirrored in cloud training to refresh adapters and guardrails. Optimizes skill sequencing, intent inference, and UI adaptation.

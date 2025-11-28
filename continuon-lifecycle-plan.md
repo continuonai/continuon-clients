@@ -2,6 +2,8 @@
 
 This expands the initial plan to make it actionable. Goal: get a Pi 5 Donkey Car (with optional Jetson Nano) running ContinuonBrain/OS fully offline, logging RLDS locally (opt-in uploads), and enabling XR teleop for gold data, then closing the loop with cloud retraining when you choose. All referenced components (XR apps, ContinuonBrain/OS runtime, cloud ingest/training helpers) live in this repository so the lifecycle can be built end-to-end here.
 
+For the complete reconciled system architecture covering edge-first learning, cloud training, and OTA updates, see [System Architecture and Training Lifecycle](docs/system-architecture.md).
+
 ## Hard constraints
 - Robot runs ContinuonOS fully offline; no dependency on cloud schedulers.
 - Fast/Mid/Slow learning loops all live on-robot with strict budgets and safety/rollback.

@@ -609,8 +609,10 @@ We welcome contributions across all modules in this monorepo. Please:
 ## Documentation Index
 
 **Architecture:**
+- `docs/system-architecture.md` - Complete system architecture and training lifecycle (reconciled design)
 - `docs/hope-cms-vla.md` - HOPE architecture and CMS timescales
- - `docs/ecosystem-alignment.md` - In-repo module alignment guide
+- `docs/model_lifecycle.md` - Model lifecycle and Memory Plane persistence
+- `docs/ecosystem-alignment.md` - In-repo module alignment guide
 - `docs/architecture.md` - System overview
 
 **Data Contracts:**
