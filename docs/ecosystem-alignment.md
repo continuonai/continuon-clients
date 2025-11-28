@@ -25,3 +25,8 @@ This memo restates how this repo maps onto the broader Continuon architecture an
 ## Next documentation steps
 - Add a deployment path doc that narrates XR → Cloud → signed edge bundle → continuonos hot-swap/rollback, with clear metadata handoffs. This closes the storytelling gap between capture and deployment.
 - Provide worked examples of converting YouTube clips and app-based sessions into RLDS episode folders (metadata.json + steps/*.jsonl) to standardize ingestion recipes.
+
+## Related Documentation
+
+The storytelling gap identified in the "Gaps to close" section is now addressed by the comprehensive system architecture document:
+- **[System Architecture and Training Lifecycle](./system-architecture.md)** - Covers the complete end-to-end flow: XR capture → WorldTapeAI ingestion → Vertex AI cloud training → signed edge bundle → OTA delivery → Memory Plane merge at boot

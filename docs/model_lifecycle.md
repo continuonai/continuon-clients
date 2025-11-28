@@ -2,6 +2,8 @@
 
 This note connects the over-the-air (OTA) delivery phases with the HOPE/CMS nested learning loops and clarifies how on-device memory persists between updates.
 
+For the complete reconciled system architecture and training lifecycle, see [System Architecture and Training Lifecycle](./system-architecture.md).
+
 ## OTA phases mapped to HOPE/CMS loops
 - **Fast & Mid loops stay resident on-device:** Reflexive controls and short-horizon skills ship inside the edge bundle and remain loaded across OTA installs so latency-sensitive behaviors do not depend on cloud reachability.
 - **Slow loop checkpoints originate in cloud:** Corpus-scale Slow-loop training runs in Continuon Cloud, producing the baseline checkpoints that distill into the on-device Fast/Mid bundles.
