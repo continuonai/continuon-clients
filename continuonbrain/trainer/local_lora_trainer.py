@@ -167,24 +167,32 @@ def make_batch_iterator(
     batch_size: int,
     episode_loader: Callable[[Path], Iterable[Dict[str, Any]]],
     buffer_multiplier: int = 4,
+    drop_last: bool = True,
 ) -> Iterator[Dict[str, Any]]:
     buffer: List[Dict[str, Any]] = []
     target_buffer = max(batch_size * buffer_multiplier, batch_size)
-    for episode_path in episode_files:
-        for sample in episode_loader(episode_path):
-            buffer.append(sample)
-            if len(buffer) >= target_buffer:
-                random.shuffle(buffer)
-                while len(buffer) >= batch_size:
-                    batch = buffer[:batch_size]
-                    buffer = buffer[batch_size:]
-                    yield collate_batch(batch)
-    if buffer:
+
+    def flush_buffer(allow_partial: bool = False) -> Iterator[Dict[str, Any]]:
+        nonlocal buffer
+        if not buffer:
+            return iter(())
+
         random.shuffle(buffer)
         while len(buffer) >= batch_size:
             batch = buffer[:batch_size]
             buffer = buffer[batch_size:]
             yield collate_batch(batch)
+        if allow_partial and buffer:
+            yield collate_batch(buffer)
+            buffer = []
+
+    for episode_path in episode_files:
+        for sample in episode_loader(episode_path):
+            buffer.append(sample)
+            if len(buffer) >= target_buffer:
+                yield from flush_buffer()
+    if buffer:
+        yield from flush_buffer(allow_partial=not drop_last)
 
 
 def collate_batch(batch: List[Dict[str, Any]]) -> Dict[str, Any]:

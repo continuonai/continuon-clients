@@ -63,6 +63,7 @@ action = forward_to_vla_head(language_planner_head, sample)
 - TensorFlow is optional; provide `tfrecord_iter`/`example_parser` if you prefer TFRecord episodes without importing TF globally.
 - The mock ContinuonBrain service in `apps/mock-continuonbrain` remains for XR contract testing only; do not run trainer there. Use Pi/Jetson hardware for adapter updates.
 - `base_model_path` in configs (e.g., `/opt/continuonos/brain/model/base_policy.pt`) points to the frozen policy checkpoint used before attaching LoRA adapters.
+- `make_batch_iterator` accepts a `drop_last` flag (default `True`) so you can emit the final partial batch on tiny smoke-test datasets instead of discarding it.
 - The Pi integration example aborts if `base_model_path` or `rlds_dir` are missing/insufficient; ensure both exist on-device before running.
 - Synthetic RLDS samples for dry-runs live under `continuonbrain/rlds/episodes/`; duplicate them into your Pi `rlds_dir` to meet `min_episodes` when testing.
 - For Jetson-to-Pi migration, see `continuonbrain/rlds/episodes/CONVERT_JETSON_TO_PI5.md` for a short checklist (copy RLDS, set base model path, adjust manifest, run trainer).
