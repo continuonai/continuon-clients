@@ -44,6 +44,53 @@ class ContinuonBrainClientTest {
 
         assertEquals(3, streamFactory.observers.size)
     }
+
+    @Test
+    fun deliversRobotStatesAcrossReconnects() = runTest {
+        val streamFactory = RecordingStreamFactory()
+        val client = ContinuonBrainClient(
+            config = ConnectivityConfig(
+                continuonBrainHost = "localhost",
+                continuonBrainPort = 50051,
+                useWebRtc = false,
+                cloudBaseUrl = "http://localhost",
+            ),
+            coroutineScope = this,
+            streamFactory = streamFactory::startStream,
+        )
+        val received = mutableListOf<RobotState>()
+
+        client.observeState { received.add(it) }
+
+        assertEquals(1, streamFactory.observers.size)
+
+        val firstResponse = ContinuonbrainLink.StreamRobotStateResponse.newBuilder()
+            .setState(
+                ContinuonbrainLink.RobotState.newBuilder()
+                    .setTimestampNanos(111)
+                    .build()
+            )
+            .build()
+        streamFactory.observers.first().onNext(firstResponse)
+
+        assertEquals(listOf(111L), received.map { it.timestampNanos })
+
+        streamFactory.observers.first().onError(RuntimeException("disconnect"))
+        advanceTimeBy(600)
+
+        assertEquals(2, streamFactory.observers.size)
+
+        val secondResponse = ContinuonbrainLink.StreamRobotStateResponse.newBuilder()
+            .setState(
+                ContinuonbrainLink.RobotState.newBuilder()
+                    .setTimestampNanos(222)
+                    .build()
+            )
+            .build()
+        streamFactory.observers.last().onNext(secondResponse)
+
+        assertEquals(listOf(111L, 222L), received.map { it.timestampNanos })
+    }
 }
 
 private class RecordingStreamFactory {
