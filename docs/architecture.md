@@ -1,6 +1,6 @@
 # ContinuonXR Architecture (Draft)
 
-This document outlines the early architecture that satisfies the PRD and Phase 0 deliverables. It is intentionally implementation-neutral while mapping the data loop between the XR app, ContinuonBrain/OS, and Continuon Cloud.
+This document outlines the early architecture that satisfies the PRD and Phase 0 deliverables. It is intentionally implementation-neutral while mapping the data loop between the XR app, ContinuonBrain/OS, and Continuon Cloud. For a HOPE/CMS-oriented view of OTA delivery and learning loops, see [Model Lifecycle: HOPE/CMS Governance](./model_lifecycle.md).
 
 ## High-level system
 - **XR client (Android, Kotlin, Jetpack XR/Compose):** Runs on Galaxy XR hardware. Provides spatial workstation panels, teleop UI, and observer overlays. Emits RLDS episodes locally and forwards to Continuon Cloud.
