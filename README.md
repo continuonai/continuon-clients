@@ -56,6 +56,8 @@ The CMS structures learning into three loops:
 
 All three loops run in both places: on-device/edge execution keeps latency low, while cloud retraining replays the same loops for regression and distillation. The Slow loop produces the "core" checkpoints that distill into Fast/Mid edge bundles, and on-device Fast/Mid traces flow back into the next cloud retrain to preserve reflexes and UI/session adaptations.
 
+See [Model Lifecycle: HOPE/CMS Governance](docs/model_lifecycle.md) for how OTA packaging, Memory Plane persistence, and cloud replay map to these loops.
+
 #### VLA Stack: Unified Multi-Task Architecture
 
 The robot's intelligence comprises five specialized heads sharing a common perception backbone:
