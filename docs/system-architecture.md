@@ -235,7 +235,7 @@ ContinuonXR's architecture follows a nested learning loops approach, inspired by
 | Loop | Frequency | Description | HOPE/CMS Analogy |
 |------|-----------|-------------|------------------|
 | **Fast Loop** | Highest (every step or few seconds) | Updates happen almost every step. On-device real-time adjustment (updating internal state or short-term synaptic weight based on latest input and outcome). | First MLP module that updates with every new sample. Analogous to synaptic consolidation occurring immediately during wakefulness. |
-| **Mid Loop** | Medium (minutes, hours, event triggers) | Updates happen less frequently with larger batches. On-device retraining on recent data or periodic calibration. Intermediate consolidation stabilizing fast loop changes over longer horizon. | Second MLP module updated every C^(2) steps rather than every step. |
+| **Mid Loop** | Medium (minutes, hours, event triggers) | Updates happen less frequently with larger batches. On-device retraining on recent data or periodic calibration. Intermediate consolidation stabilizing fast loop changes over longer horizon. | Second MLP module updated at configurable intervals (e.g., every N steps) rather than every step, where N is larger than the fast loop interval. |
 | **Slow Loop** | Lowest (many episodes or hours) | Rare but high-impact updates (new global model). Implemented in cloud (Vertex AI) on aggregated experiences from many devices. | Outermost memory module, updated only occasionally but incorporating broad context. Analogous to brain's offline systems consolidation during sleep. |
 
 ### Wave Spectral Analogy
