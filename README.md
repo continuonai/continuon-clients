@@ -58,6 +58,9 @@ All three loops run in both places: on-device/edge execution keeps latency low, 
 
 See [Model Lifecycle: HOPE/CMS Governance](docs/model_lifecycle.md) for how OTA packaging, Memory Plane persistence, and cloud replay map to these loops.
 
+#### Sequence Core Beyond Transformers
+HOPE/CMS is about multi-timescale memory, not a mandatory attention backbone. We implement the continuum memory with a particle + wave split: the local "particle" path (small attention windows, conv/MLP adapters) updates every step for exact positions and short-range dependencies, while the "wave" path uses SSMs and spectral operators (Mamba, Hyena/GFN, Griffin-style hybrids) to maintain compressed global state. Fast/Mid loops on edge (Pi 5 + Hailo; see `continuonbrain/README.md` and `apps/continuonxr/README.md`) update particle paths continuously and refresh compact SSM states per chunk/episode. The Slow loop in cloud (`continuon-cloud/README.md`) trains longer-horizon SSM/spectral cores and ships OTA bundles that merge with the Memory Plane instead of overwriting it, keeping HOPE's nested optimization intact while scaling past attention-only Transformers.
+
 #### VLA Stack: Unified Multi-Task Architecture
 
 The robot's intelligence comprises five specialized heads sharing a common perception backbone:

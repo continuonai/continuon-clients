@@ -246,7 +246,19 @@ The wave spectral analogy comes from thinking of each loop as capturing a differ
 - **Mid loop** = medium-frequency band (intermediate stabilization)
 - **Slow loop** = low-frequency waves (gradual, sweeping changes)
 
-By combining them, the system can respond to immediate fluctuations while steadily improving in a long-term sense – just as a composite signal can be reconstructed from its spectral components.
+By combining them, the system can respond to immediate fluctuations while steadily improving in a long-term sense - just as a composite signal can be reconstructed from its spectral components.
+
+## Particle-Wave Blueprint for ContinuonOS (post-Transformer path)
+- **Why:** Attention is demoted to a local specialist. Long-range structure and continuous-time memory come from SSMs and spectral mixers (Mamba/Selective SSMs, Hyena/GFN, Griffin/Hawk hybrids). This keeps HOPE/CMS intact while scaling beyond attention-only limits.
+- **Tier 1: Particle path (Fast, on Pi + Hailo):** Tiny attention windows, local convs/MLPs, and small TFLite/ONNX heads for frame-by-frame reactivity. Runs on Hailo HEF for vision and on Pi CPU/NPU for policy heads; adapters live in `apps/continuonxr/` and `continuonbrain/`.
+- **Tier 2: Wave path (Mid, on Pi):** A compact SSM cell (S4/Mamba-style) plus optional lightweight spectral mixer (short FFT over a small buffer with a learnable mask) maintains a continuous latent state between steps. Runs on Pi CPU, feeds the Memory Plane, and is updated per chunk/episode rather than every gradient step.
+- **Tier 3: Global wave consolidator (Slow, cloud):** Larger Mamba/Hyena/Griffin models train on RLDS in `continuon-cloud/` to learn long-range kernels and spectral filters. OTA bundles ship updated SSM kernels, spectral weights, adapters, and HEFs back to edge; merge with the Memory Plane instead of overwriting (see `docs/model_lifecycle.md`).
+- **Immediate steps to implement on edge:**
+  1) Add a 1-layer SSM cell beside the current particle head to carry hidden state across steps (NumPy/TF Lite custom op or lightweight Kotlin/ND arrays).
+  2) Add a minimal spectral mixer: FFT over the last N hidden states (e.g., N=8), apply a learnable frequency mask, iFFT back, and feed the policy head.
+  3) Fuse particle + wave features into the policy head (either exported together as TFLite or as a pre-head module in `continuonbrain/`).
+  4) In cloud, train larger SSM/spectral models on RLDS and distill their kernels/filters/adapters for OTA delivery.
+  5) OTA merge: apply new kernels/filters while preserving on-device Memory Plane state to keep HOPE/CMS multi-timescale learning intact.
 
 ---
 
