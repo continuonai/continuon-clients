@@ -28,7 +28,18 @@ step {
 - `audio`: optional block with `uri` or inline buffer reference plus `sample_rate_hz`, `num_channels`, `format`, and `frame_id`.
 - `egocentric_video`: URI or handle to synced frame buffer; include frame_id.
 - `egocentric_depth`: optional; same frame_id as video when present.
-- `robot_state`: joints, end-effector pose, gripper state, velocities as exposed by ContinuonBrain/OS.
+- `robot_state`: structured per-arm state blocks plus coordination tags.
+  - `left_arm` / `right_arm` (optional objects; default null when hardware absent):
+    - `joint_positions`: float[] ordered by robot model.
+    - `joint_velocities`: float[] aligned to `joint_positions` order.
+    - `end_effector_pose`: position (x, y, z) + orientation quaternion (x, y, z, w) in `frame_id`.
+    - `force_torque`: optional 6D vector `[Fx, Fy, Fz, Tx, Ty, Tz]` at the wrist in `frame_id`.
+    - `gripper_state`: optional object with `position` (scalar/opening), `velocity`, and `is_closed` boolean.
+    - `frame_id`: string indicating the robot-centric frame for pose/FT data; must align with vision frames (see validation).
+  - `coordination`: optional object to capture bimanual coupling and intents.
+    - `mode`: enum (`independent`, `mirrored`, `coordinated_task`, `handoff`) describing synchronization intent.
+    - `shared_task_tag`: optional string label for the current coordinated maneuver.
+    - `phase`: optional enum (`approach`, `engage`, `manipulate`, `release`) for downstream alignment.
 - `glove.flex`: float[5] (normalized 0..1).
 - `glove.fsr`: float[8] (normalized 0..1).
 - `glove.orientation_quat`: float[4].
@@ -40,6 +51,13 @@ step {
 
 ### `action`
 - `command`: normalized control vector (e.g., EE velocity or joint delta).
+- `arm_commands`: optional object (default null) for per-arm actuation.
+  - `left_arm` / `right_arm`: optional blocks containing
+    - `joint_torques`: optional float[] (Nm) matching `robot_state.*.joint_positions` order.
+    - `joint_pwm`: optional float[] (0..1) for low-level driver passthrough when torques unavailable.
+    - `gripper_command`: optional scalar (0..1) or struct with `position` and `force` for the specified gripper.
+  - `sync_intent`: optional enum (`independent`, `synchronous_execute`, `mirror_left_to_right`, `mirror_right_to_left`, `bimanual_task`) to annotate bimanual coordination.
+- `bimanual_intent`: optional string tag describing the shared task (e.g., `two_hand_lift`, `handoff`).
 - `source`: string — must be `human_teleop_xr` for Mode A.
 - `annotation`: optional; polygons/masks/flags for Mode C supervision.
 - `ui_action`: optional; workstation/IDE context events for Mode B (`open_panel`, `run_command`, `label_run` etc.).
@@ -55,6 +73,7 @@ step {
 ## Validation rules (MVP)
 - Reject episodes missing required fields above.
 - Reject if any step has mismatched frame_ids across video/depth/robot state.
+- Reject if `robot_state.left_arm.frame_id` or `robot_state.right_arm.frame_id` timestamps deviate from corresponding vision `frame_id` by more than ±5 ms when present.
 - Warn (but keep) if glove frames drop below 95% of expected count per episode.
 - Ensure MTU and sample rate are logged for glove BLE for QA.
 - Gaze vectors (when present) must be normalized and include origin/direction with 3 floats each.
