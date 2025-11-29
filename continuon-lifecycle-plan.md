@@ -29,11 +29,21 @@ For the complete reconciled system architecture covering edge-first learning, cl
 - **Continuon-Cloud** (optional):
   - Minimal HTTP ingest for RLDS zips; later full pipeline for training/packaging Edge Bundles.
 
-## Data flow (offline-first)
+## Data flow (offline-first, shared ingest strategy)
 1. Pi loop: capture camera/IMU, run control policy (PID/joystick), log `RobotState` + actions via `rlds_logger` locally.
 2. XR teleop (optional): ContinuonXR connects to ContinuonBrain on Pi via gRPC/WebRTC; sends commands; logs RLDS on XR side.
 3. Episodes stored locally per run (Pi and XR) in per-episode dirs.
-4. Upload is manual/opt-in: batch/cron or XR uploader posts zipped episodes to Cloud ingest (`environment_id=pi5-donkey`, model version, hw profile). Default is local only.
+4. Upload path is **manual/opt-in by default**: batch/cron or XR/Flutter uploader posts zipped episodes to the ingest endpoint (`environment_id=pi5-donkey`, model version, hw profile). Default is local only; WorldTapeAI is used only when uploads are explicitly enabled.
+5. **Gating/curation** before any upload:
+   - Local filters redact unsafe or unapproved frames and tag episodes with quality flags.
+   - Operator consent is recorded in the manifest; uploads are signed/hashed for provenance when supported.
+   - See the [Upload Readiness Checklist](docs/upload-readiness-checklist.md) for the exact steps to enable uploads.
+
+### Offline vs cloud-connected decision table
+| Mode | When to use | Prerequisites | Security & provenance |
+|------|-------------|---------------|-----------------------|
+| **Offline-only logging** | Default during bring-up, demos without connectivity, or sensitive runs | Sufficient local storage and rotation policy; upload services disabled | Keep RLDS local; enforce device-level auth for XR/teleop; no tokens provisioned |
+| **Cloud-connected with WorldTapeAI ingest** | When operator opts in to share curated runs for slow-loop training | Network path to WorldTapeAI, valid ingest token, curated/trimmed episodes staged | Follow upload checklist: TLS, checksums/signature, manifest with operator/device identity, retain local copy until acknowledgment |
 
 ## Minimal steps to initiate
 1. **Brain profile**: add `configs/pi5-donkey.json` in the ContinuonBrain/OS module (PWM pins, camera source, backend=xnnpack, tick ~50–100 ms, safety limits).

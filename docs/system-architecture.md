@@ -93,7 +93,13 @@ Because the Pi hosts the inference and fast loop learning, it can enforce real-t
 
 ## RLDS Data Ingestion via WorldTapeAI (Slow Loop Initiation)
 
-When the edge device has accumulated a set of interesting experiences or training data (episodes of interaction, sensor logs, etc.), it enters the data ingestion phase for the slow loop. ContinuonXR uses **WorldTapeAI.com** as a cloud ingestion portal for reinforcement learning data.
+When the edge device has accumulated a set of interesting experiences or training data (episodes of interaction, sensor logs, etc.), it enters the data ingestion phase for the slow loop. ContinuonXR keeps **manual/opt-in uploads as the default**; WorldTapeAI is only used once an operator explicitly enables the cloud path.
+
+**Shared ingest strategy (aligned with the lifecycle plan)**
+- Default posture: offline logging only. Upload daemons are disabled unless a user opts in.
+- WorldTapeAI path: after opt-in, the device batches curated RLDS episodes, zips them with a manifest, and uploads via the configured ingest endpoint.
+- Gating/curation: local filters remove sensitive frames, tag quality, and attach operator consent in the manifest; uploads are hashed/signed when supported for provenance.
+- The exact enablement steps are in the [Upload Readiness Checklist](./upload-readiness-checklist.md), referenced by field teams and the lifecycle plan.
 
 ### Reinforcement Learning Dataset (RLDS) Format
 
@@ -110,10 +116,16 @@ See [docs/rlds-schema.md](./rlds-schema.md) for the authoritative field definiti
 
 Not all locally collected data will be sent to the cloud – only curated segments that are useful for global learning and meet privacy/quality criteria:
 
-- The WorldTapeAI portal allows the robot (or user) to opt in to sharing certain data
-- The device might automatically flag novel or challenging scenarios (edge cases) and ask for permission to upload
-- Similar to Tesla's fleet learning approach: vehicles gather many driving snippets but only upload short, anonymized clips when data sharing is enabled
-- Sensitive information can be filtered out or anonymized prior to upload
+- The WorldTapeAI portal allows the robot (or user) to opt in to sharing certain data after passing the shared checklist.
+- The device might automatically flag novel or challenging scenarios (edge cases) and ask for permission to upload.
+- Sensitive information can be filtered out or anonymized prior to upload; rejected segments stay local.
+- Each upload carries a manifest with operator/device identity plus checksums or signatures to preserve provenance.
+
+### Offline vs cloud-connected decision table
+| Mode | When to use | Prerequisites | Security & provenance |
+|------|-------------|---------------|-----------------------|
+| **Offline-only logging** | Default during bring-up, demos without connectivity, or sensitive runs | Sufficient local storage and rotation policy; upload services disabled | Keep RLDS local; enforce device-level auth for XR/teleop; no tokens provisioned |
+| **Cloud-connected with WorldTapeAI ingest** | When operator opts in to share curated runs for slow-loop training | Network path to WorldTapeAI, valid ingest token, curated/trimmed episodes staged | Follow upload checklist: TLS, checksums/signature, manifest with operator/device identity, retain local copy until acknowledgment |
 
 ### Triggering Slow Loop Jobs
 
