@@ -11,7 +11,7 @@ The ContinuonXR project employs a multi-loop learning architecture that spans on
 - **New skill packs or model checkpoints** are delivered back to devices as over-the-air (OTA) updates
 - **The device's Memory Plane** (persistent local learning state) is preserved across updates and merged with incoming global models at boot
 
-This design maintains an "edge-first" ethos for safety and responsiveness, while leveraging cloud-scale learning for long-term improvement. We adhere to the nested learning principles from the HOPE/CMS research, layering fast, mid, and slow learning processes analogous to different frequency bands in a wave spectrum.
+This design maintains an "edge-first" ethos for safety and responsiveness, while leveraging cloud-scale learning for long-term improvement. We adhere to the nested learning principles from the HOPE/CMS research, layering fast, mid, and slow learning processes analogous to different frequency bands in a wave spectrum. Within the edge device diagram, the Pi-first safety boundary also aligns the "particle/wave" split to the two arms: particle = left arm (fast, reflexive ticks) and wave = right arm (slightly slower coordination), both anchored on-device.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -53,29 +53,31 @@ The Raspberry Pi 5 with an attached AI accelerator (Hat) serves as the on-site i
 
 #### Fast Loop
 
-The fast loop represents rapid, on-the-fly adjustments or fine-tuning that occur on-device in real time, ensuring the system can adapt to immediate conditions and perform safety and I/O validation before actions are taken.
+The fast loop executes 10–20 ms control ticks per arm (dual-arm, mirrored scheduling), driving real-time reflexes and safety validation before any actuator command is accepted.
 
 | Aspect | Details |
 |--------|---------|
-| **Timescale** | 50-100 ms |
+| **Timescale** | 10–20 ms control ticks per arm (synchronous dual-arm cadence) |
+| **Inputs** | Joint states, force/torque sensors, gripper state, Hailo vision features, SSM state (per arm) |
+| **Outputs** | Torque/PWM commands and gripper micro-actions for both arms |
 | **Responsibility** | Low-level motor skills, reflexive safety, teleop mirroring |
 | **Update Mechanism** | Online gradient steps, safety overrides |
-| **Example** | Lightweight online learning algorithm or safety supervisor to adjust to sensor drift or novel inputs within milliseconds |
+| **Example** | Per-tick validation of joint limits, grip force caps, and collision proxies while updating micro-actions from Hailo features |
 
-The Pi might use a lightweight online learning algorithm or safety supervisor to adjust to sensor drift or novel inputs within milliseconds. This satisfies the edge-first requirement that critical safety checks and input validation happen on the device itself (e.g., filtering out anomalous sensor readings or preventing unsafe actuator commands locally).
+The Pi enforces these 10–20 ms ticks locally so each arm receives immediate validation of joint/force envelopes and gripper micro-actions derived from the latest Hailo vision features and SSM state. This satisfies the edge-first requirement that critical safety checks and input validation happen on the device itself, keeping torque/PWM outputs bounded even during rapid teleop or novel stimuli.
 
 #### Mid Loop
 
-In addition to the fast loop, a Mid-Loop training cycle may run intermittently on the device.
+In addition to the fast loop, a Mid-Loop training and smoothing cycle runs on the device.
 
 | Aspect | Details |
 |--------|---------|
-| **Timescale** | 0.5-10 seconds |
-| **Responsibility** | Skill sequencing, intent inference, short-horizon world modeling |
+| **Timescale** | 100–500 ms |
+| **Responsibility** | Per-arm stability smoothing plus bimanual coordination (coupled torques, timing sync) on Pi 5 + Hailo |
 | **Update Mechanism** | Episodic fine-tuning, contextual bandits |
-| **Example** | Periodic batch updates or fine-tuning using data collected on that device (nightly retraining, or on-demand when certain conditions are met) |
+| **Example** | Periodic batch updates that smooth torque spikes per arm while adjusting coupled torques and timing synchronization across both arms |
 
-Both fast and mid loops remain on-device as per the original lifecycle concept – they do not require cloud connectivity and thus can function offline. The Donkey Car initiator plan originally assumed all reinforcement learning data (episodes) would be handled offline on the robot; our reconciled design preserves the spirit of that by keeping the immediate learning (fast/mid loops) local.
+Both fast and mid loops remain on-device as per the original lifecycle concept – they do not require cloud connectivity and thus can function offline. The Donkey Car initiator plan originally assumed all reinforcement learning data (episodes) would be handled offline on the robot; our reconciled design preserves the spirit of that by keeping the immediate learning (fast/mid loops) local while using the mid-loop cadence to coordinate dual-arm timing on the Pi 5 + Hailo stack.
 
 ### Safety & Real-Time Constraints
 
