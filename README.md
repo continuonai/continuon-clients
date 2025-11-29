@@ -88,6 +88,7 @@ This single repository hosts every Continuon product with clear in-repo module b
 ### In-Repository Contracts
 
 **RLDS Schema** (`docs/rlds-schema.md`): Versioned data contract for all robot experiences
+**XR App Contract** (`docs/xr-app-spec.md`): Modes, runtime interfaces, and logging expectations for the Android XR client
 **Robot API** (`proto/continuonbrain_link.proto`): gRPC/WebRTC interface between XR and robot runtime
 **Edge Bundles** (`docs/bundle_manifest.md`): Signed, versioned AI model deployment packages
 
@@ -123,6 +124,8 @@ Use this path to run the continuous learning loop on a Raspberry Pi 5–powered 
 ### 1. Data Capture (ContinuonXR & ContinuonBrain/OS)
 
 ContinuonXR captures high-fidelity human demonstrations across multiple modes:
+
+See the detailed on-device contract in [`docs/xr-app-spec.md`](docs/xr-app-spec.md) for required endpoints, mode tags, and RLDS logging expectations that keep capture aligned with cloud ingestion.
 
 #### Mode A: XR Trainer (Direct Robot Control)
 - **What**: Human teleoperates robot through XR headset
