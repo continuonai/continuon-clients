@@ -95,7 +95,7 @@ The initial MVP must achieve the core function of data capture and interface.
 
 | Phase | Goal | Key Deliverable |
 | :--- | :--- | :--- |
-| **Phase 0** | **Contracts** | Define `RLDS schema` and `xr-app-spec.md` in the documentation folder. |
+| **Phase 0** | **Contracts** | Define [RLDS schema](docs/rlds-schema.md) and [XR app contract](docs/xr-app-spec.md) in the documentation folder. |
 | **Phase 1 (MVP)** | **Lab Prototype** | Jetpack XR MVP with basic panels + functional teleop (Mode A) to a mock ContinuonBrain/OS instance. Single local service saving RLDS episodes. |
 
 ### 4.3 Success Metrics (KPIs)
