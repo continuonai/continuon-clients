@@ -98,6 +98,8 @@ The initial MVP must achieve the core function of data capture and interface.
 | **Phase 0** | **Contracts** | Define [RLDS schema](docs/rlds-schema.md) and [XR app contract](docs/xr-app-spec.md) in the documentation folder. |
 | **Phase 1 (MVP)** | **Lab Prototype** | Jetpack XR MVP with basic panels + functional teleop (Mode A) to a mock ContinuonBrain/OS instance. Single local service saving RLDS episodes. |
 
+See [`docs/unified-roadmap.md`](docs/unified-roadmap.md) for the authoritative owners, dates, and current phase status that align these MVP targets with the Pi 5 lifecycle milestones.
+
 ### 4.3 Success Metrics (KPIs)
 
 | Metric Category | Target KPI | Rationale |
@@ -106,3 +108,8 @@ The initial MVP must achieve the core function of data capture and interface.
 | **Performance** | **100 Hz** reliable BLE data streaming from Continuon Glove to the XR app. | Guarantees low latency and fidelity for dexterous training inputs. |
 | **Integration** | 100% successful bidirectional communication (gRPC/WebRTC) between ContinuonXR and the ContinuonBrain/OS runtime module in this repo. | Verifies the core link in the data loop is robust. |
 | **Engagement** | Daily/Weekly Active Users (DAU/WAU) of the XR Trainer Mode (Mode A). | Measures developer/operator engagement in creating new training data. |
+
+### 4.4 Ingestion and Upload Safety (Offline-First)
+- Default to offline/local RLDS logging across XR and ContinuonBrain/OS; uploads are manual/opt-in only and must follow the gating rules in [`continuon-lifecycle-plan.md`](continuon-lifecycle-plan.md).
+- Before enabling uploads, apply the [Upload Readiness Checklist](docs/upload-readiness-checklist.md): capture explicit consent, curate/redact episodes, package zips with provenance manifests, and verify checksums/signatures over TLS before marking data as exported.
+- Cloud-facing ingestion features in MVP and later phases must inherit these controls so provenance and operator intent remain aligned with the lifecycle plan.

@@ -2,6 +2,8 @@
 
 This expands the initial plan to make it actionable. Goal: get a Pi 5 Donkey Car (with optional Jetson Nano) running ContinuonBrain/OS fully offline, logging RLDS locally (opt-in uploads), and enabling XR teleop for gold data, then closing the loop with cloud retraining when you choose. All referenced components (XR apps, ContinuonBrain/OS runtime, cloud ingest/training helpers) live in this repository so the lifecycle can be built end-to-end here.
 
+Weekly targets and cross-product owners/dates are mirrored in [`docs/unified-roadmap.md`](docs/unified-roadmap.md); update both files together so README phase references stay aligned.
+
 For the complete reconciled system architecture covering edge-first learning, cloud training, and OTA updates, see [System Architecture and Training Lifecycle](docs/system-architecture.md).
 
 ## Hard constraints
@@ -62,10 +64,10 @@ For the complete reconciled system architecture covering edge-first learning, cl
 - **Phase 4 – First cloud handoff:** package RLDS episodes for manual upload to the minimal ingest endpoint; keep uploads manual/opt-in and iterate on training/adapter repackaging once the cloud path is reachable.
 
 ## Suggested sequencing
-- Week 1: configs + HAL stubs + proto regen; XR pointed to Pi mock.
-- Week 2: vehicle loop logging RLDS locally; simple ingest endpoint; first opt-in uploads.
-- Week 3: XR teleop to Pi over gRPC/WebRTC; start collecting gold data.
-- Week 4: Cloud retrains and ships first Edge Bundle back to Pi; close the loop (optional).
+- Week 1: configs + HAL stubs + proto regen; XR pointed to Pi mock. (See Week 1 row in `docs/unified-roadmap.md`.)
+- Week 2: vehicle loop logging RLDS locally; simple ingest endpoint; first opt-in uploads. (Mirrors roadmap Week 2.)
+- Week 3: XR teleop to Pi over gRPC/WebRTC; start collecting gold data. (Roadmap Week 3, current phase.)
+- Week 4: Cloud retrains and ships first Edge Bundle back to Pi; close the loop (optional). (Roadmap Week 4, Phase 2 handoff.)
 
 ## Success markers
 - Pi generates RLDS episodes with camera/IMU/commands; local logs intact; uploads succeed only when explicitly triggered.
