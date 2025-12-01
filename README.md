@@ -121,6 +121,12 @@ Use this path to run the continuous learning loop on a Raspberry Pi 5–powered 
    - Verify sensor sync (≤5 ms), populate `episode_metadata` with environment IDs (e.g., `donkey-pi5`) and software versions, and tag modes correctly for follow-me demonstrations.
    - Use the in-repo module split intentionally: **ContinuonXR**/companion for capture, **Continuon Cloud** modules for training, **ContinuonBrain/OS** for deployment—all housed here.
 
+### Ingestion safety & offline-first policy
+
+- Default to **offline-first logging** for XR and Pi 5 targets. Cloud uploads are **manual/opt-in** and should only be enabled after following the [Upload Readiness Checklist](docs/upload-readiness-checklist.md).
+- The Pi 5 lifecycle plan documents the gating steps (manual consent, provenance signing/checksums, TLS validation, post-upload verification) in [`continuon-lifecycle-plan.md`](continuon-lifecycle-plan.md); ingestion features must inherit those rules.
+- When enabling uploads, stage curated RLDS zips locally, include provenance manifests, and perform checksum/signature verification before marking episodes as exported.
+
 ### 1. Data Capture (ContinuonXR & ContinuonBrain/OS)
 
 ContinuonXR captures high-fidelity human demonstrations across multiple modes:
@@ -289,6 +295,8 @@ This repository ships both the XR-side tooling and the ContinuonBrain/OS runtime
 ---
 
 ## Building the Ecosystem: Phased Development Plan
+
+The single source of truth for owners, dates, and KPIs across Phases 0–4 lives in [`docs/unified-roadmap.md`](docs/unified-roadmap.md). The roadmap links the PRD MVP scope, KPIs, and the Pi 5 lifecycle milestones; Phase 1 is the current focus.
 
 ### Phase 0: Contracts & Architecture ✓
 
