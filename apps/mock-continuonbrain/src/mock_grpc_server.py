@@ -348,15 +348,229 @@ class SimpleJSONServer:
         self.service = service
         self.server = None
     
+    async def handle_http_request(self, request_line: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        """Handle HTTP request and return HTML/JSON response."""
+        # Parse request line
+        parts = request_line.split()
+        method = parts[0] if len(parts) > 0 else "GET"
+        path = parts[1] if len(parts) > 1 else "/"
+        
+        # Read headers
+        headers = {}
+        while True:
+            line = await reader.readline()
+            if not line or line == b'\r\n' or line == b'\n':
+                break
+            header_line = line.decode().strip()
+            if ':' in header_line:
+                key, value = header_line.split(':', 1)
+                headers[key.strip().lower()] = value.strip()
+        
+        # Route the request
+        if path == "/" or path == "/ui":
+            response_body = self.get_web_ui_html()
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/status":
+            status = await self.service.GetRobotStatus()
+            response_body = json.dumps(status, indent=2)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/status":
+            status = await self.service.GetRobotStatus()
+            response_body = json.dumps(status)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path.startswith("/api/mode/"):
+            mode = path.split("/")[-1]
+            result = await self.service.SetRobotMode(mode)
+            response_body = json.dumps(result)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        else:
+            response_body = "404 Not Found"
+            response = f"HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        
+        writer.write(response.encode())
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+    
+    def get_web_ui_html(self):
+        """Generate simple web UI for robot control."""
+        return """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CraigBot Control</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f7;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1d1d1f;
+            margin-top: 0;
+            font-size: 28px;
+        }
+        .status {
+            background: #f5f5f7;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .status-label {
+            color: #86868b;
+        }
+        .status-value {
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        .mode-buttons {
+            display: grid;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:active {
+            background: #0051d5;
+        }
+        button.secondary {
+            background: #86868b;
+        }
+        button.danger {
+            background: #ff3b30;
+        }
+        .recording {
+            background: #34c759;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #34c759;
+            color: white;
+        }
+        .badge.idle { background: #86868b; }
+        .badge.training { background: #007aff; }
+        .badge.autonomous { background: #af52de; }
+        .badge.sleeping { background: #ff9500; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 CraigBot</h1>
+        
+        <div class="status">
+            <div class="status-item">
+                <span class="status-label">Mode</span>
+                <span class="status-value" id="mode">Loading...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Recording</span>
+                <span class="status-value" id="recording">No</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Motion Allowed</span>
+                <span class="status-value" id="motion">No</span>
+            </div>
+        </div>
+        
+        <div class="mode-buttons">
+            <button onclick="setMode('manual_training')">📝 Manual Training</button>
+            <button onclick="setMode('autonomous')" class="secondary">🚀 Autonomous</button>
+            <button onclick="setMode('sleep_learning')" class="secondary">💤 Sleep Learning</button>
+            <button onclick="setMode('idle')" class="secondary">⏸️ Idle</button>
+            <button onclick="setMode('emergency_stop')" class="danger">🛑 Emergency Stop</button>
+        </div>
+        
+        <p style="text-align: center; color: #86868b; font-size: 12px; margin-top: 20px;">
+            ContinuonXR Robot Control Interface
+        </p>
+    </div>
+    
+    <script>
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                if (data.status) {
+                    const mode = data.status.mode || 'unknown';
+                    document.getElementById('mode').innerHTML = '<span class="badge ' + mode + '">' + mode.replace('_', ' ').toUpperCase() + '</span>';
+                    document.getElementById('recording').textContent = data.status.is_recording ? 'Yes' : 'No';
+                    document.getElementById('motion').textContent = data.status.allow_motion ? 'Yes' : 'No';
+                }
+            } catch (error) {
+                console.error('Failed to update status:', error);
+            }
+        }
+        
+        async function setMode(mode) {
+            try {
+                const response = await fetch('/api/mode/' + mode);
+                const data = await response.json();
+                if (data.success) {
+                    await updateStatus();
+                }
+            } catch (error) {
+                console.error('Failed to set mode:', error);
+            }
+        }
+        
+        // Update status every 2 seconds
+        updateStatus();
+        setInterval(updateStatus, 2000);
+    </script>
+</body>
+</html>"""
+    
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a single client connection."""
         addr = writer.get_extra_info('peername')
         print(f"Client connected: {addr}")
         
         try:
+            # Read first line to detect HTTP vs JSON
+            first_line = await reader.readline()
+            if not first_line:
+                return
+            
+            first_line_str = first_line.decode().strip()
+            
+            # Check if it's an HTTP request
+            if first_line_str.startswith(('GET ', 'POST ', 'PUT ', 'DELETE ', 'OPTIONS ')):
+                await self.handle_http_request(first_line_str, reader, writer)
+                return
+            
+            # Otherwise handle as JSON command (legacy)
+            data = first_line
+            
             while True:
-                # Read JSON command
-                data = await reader.readline()
                 if not data:
                     break
                 
@@ -411,6 +625,9 @@ class SimpleJSONServer:
                     }) + "\n"
                     writer.write(error_response.encode())
                     await writer.drain()
+                
+                # Read next command
+                data = await reader.readline()
         
         except Exception as e:
             print(f"Error handling client {addr}: {e}")
