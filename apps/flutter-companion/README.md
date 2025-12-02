@@ -5,6 +5,7 @@ A Flutter module that targets Android/iOS host apps and provides:
 - Teleoperation against the ContinuonBrain bridge gRPC service.
 - Platform channel hook points for native SDKs to share transport/auth state.
 - RLDS task recording and Cloud upload using signed URLs.
+- Multimodal logging (audio, egocentric video/depth, gaze, voice command text) to mirror the Android XR app contract for Gemma and robot alignment.
 - Minimal UI flows for connect, control, manual driving, and record/testing.
 
 ## Project layout
@@ -14,6 +15,7 @@ A Flutter module that targets Android/iOS host apps and provides:
 - `lib/screens/manual_mode_screen.dart` – web-friendly manual driving surface with acceleration/gripper presets.
 - `lib/services/controller_input.dart` – PS3 controller to `ControlCommand` mapper via platform channels.
 - `lib/services/cloud_uploader.dart` – signed URL broker helper using `googleapis_auth`.
+- `lib/services/multimodal_inputs.dart` – helper to stamp RLDS observations with synchronized audio, egocentric video/depth, gaze, and voice metadata.
 - `lib/services/task_recorder.dart` – in-memory RLDS step collection.
 - `lib/models` – data structures for teleop commands and RLDS metadata.
 - `integration_test/` – basic UI smoke test covering connect/record flows.
