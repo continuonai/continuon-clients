@@ -1,9 +1,9 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../models/teleop_models.dart';
 import '../services/brain_client.dart';
+import '../theme/app_theme.dart';
+import '../widgets/chat_overlay.dart';
 import 'manual_mode_screen.dart';
 import 'record_screen.dart';
 
@@ -30,14 +30,16 @@ class _ControlScreenState extends State<ControlScreen> {
   void initState() {
     super.initState();
     _subscription = widget.brainClient.streamRobotState(widget.brainClient.clientId).listen((state) {
-      setState(() {
-        _frameId = state.frameId;
-        _gripperOpen = state.gripperOpen;
-        _joints = state.jointPositions;
-        _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _frameId = state.frameId;
+          _gripperOpen = state.gripperOpen;
+          _joints = state.jointPositions;
+          _error = null;
+        });
+      }
     }, onError: (error) {
-      setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = error.toString());
     });
   }
 
@@ -93,76 +95,317 @@ class _ControlScreenState extends State<ControlScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Teleop control'),
-        actions: [
-          IconButton(
-            onPressed: () => Navigator.pushNamed(context, RecordScreen.routeName),
-            icon: const Icon(Icons.fiber_smart_record),
-          )
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 12,
-              children: [
-                ChoiceChip(
-                  label: const Text('Automatic'),
-                  selected: true,
-                  onSelected: (_) {},
-                ),
-                ChoiceChip(
-                  label: const Text('Manual driving'),
-                  selected: false,
-                  onSelected: (_) => Navigator.pushNamed(context, ManualModeScreen.routeName),
-                ),
-                ChoiceChip(
-                  label: const Text('Record'),
-                  selected: false,
-                  onSelected: (_) => Navigator.pushNamed(context, RecordScreen.routeName),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('Frame: $_frameId'),
-            Text('Gripper open: $_gripperOpen'),
-            Text('Joints: ${_joints.join(', ')}'),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red),
+      backgroundColor: AppColors.darkBackground,
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildVideoPanel(),
+                    ),
+                    Container(
+                      width: 1,
+                      color: Colors.grey[900],
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: _buildStatusPanel(),
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _sending ? null : _sendVelocity,
-                    icon: const Icon(Icons.directions_run),
-                    label: Text(_sending ? 'Sending' : 'Send twist'),
+            ],
+          ),
+          ChatOverlay(brainClient: widget.brainClient),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.darkPanel,
+        border: const Border(bottom: BorderSide(color: Color(0xFF333333))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.gamepad, color: AppColors.primaryBlue, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Manual Control',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pushNamed(context, RecordScreen.routeName),
+                icon: const Icon(Icons.fiber_smart_record, color: Colors.white),
+                tooltip: 'Record',
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF333333),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.white.withOpacity(0.1)),
                   ),
                 ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _sending ? null : _toggleGripper,
-                  icon: Icon(_gripperOpen ? Icons.pan_tool_alt : Icons.back_hand),
-                  label: Text(_gripperOpen ? 'Close gripper' : 'Open gripper'),
+                icon: const Icon(Icons.arrow_back, size: 18),
+                label: const Text('Back'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoPanel() {
+    return Container(
+      color: Colors.black,
+      child: Stack(
+        children: [
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.videocam_off, size: 64, color: Colors.grey[800]),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Video Feed Unavailable',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Frame: $_frameId',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'Monospace'),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            const Text('Quick tips'),
-            const Text('• Commands are throttled to maintain controller safety.'),
-            const Text('• Robot state events stream continuously while connected.'),
+          ),
+          // Add a subtle grid overlay for a "tech" feel
+          IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.2),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusPanel() {
+    return Container(
+      color: AppColors.darkPanel,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatusSection('System Status', [
+            _buildDarkStatusItem('Mode', 'MANUAL_CONTROL', color: AppColors.successGreen),
+            _buildDarkStatusItem('Gripper', _gripperOpen ? 'OPEN' : 'CLOSED', color: _gripperOpen ? AppColors.warningOrange : AppColors.successGreen),
+            if (_error != null)
+              _buildDarkStatusItem('Error', 'Active', color: AppColors.dangerRed),
+          ]),
+          const SizedBox(height: 24),
+          _buildStatusSection('Controls', [
+            ElevatedButton.icon(
+              onPressed: _sending ? null : _toggleGripper,
+              icon: Icon(_gripperOpen ? Icons.pan_tool_alt : Icons.back_hand),
+              label: Text(_gripperOpen ? 'Close Gripper' : 'Open Gripper'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 44),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          _buildArrowControls(),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {}, // TODO: Implement E-Stop
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dangerRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.stop_circle),
+              label: const Text('EMERGENCY STOP'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...children,
+      ],
+    );
+  }
+
+  Widget _buildDarkStatusItem(String label, String value, {Color? color}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: AppTextStyles.darkLabel),
+          Text(
+            value,
+            style: AppTextStyles.darkValue.copyWith(color: color ?? Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArrowControls() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.darkSurface,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'BASE CONTROL',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 50),
+                _buildArrowButton(Icons.arrow_upward, onPressed: _sendVelocity),
+                const SizedBox(width: 50),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildArrowButton(Icons.arrow_back),
+                const SizedBox(width: 4),
+                _buildArrowButton(Icons.circle, isCenter: true),
+                const SizedBox(width: 4),
+                _buildArrowButton(Icons.arrow_forward),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 50),
+                _buildArrowButton(Icons.arrow_downward),
+                const SizedBox(width: 50),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildArrowButton(IconData icon, {bool isCenter = false, VoidCallback? onPressed}) {
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isCenter ? const Color(0xFF333333) : AppColors.primaryBlue,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Icon(icon, color: Colors.white),
       ),
     );
   }

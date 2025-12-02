@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "252875087112",
+    "project_id": "continuonai",
+    "storage_bucket": "continuonai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:252875087112:android:49044c6a031233d6c120bd",
+        "android_client_info": {
+          "package_name": "com.continuonxr.fluttercompanion.flutter_companion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWah7U7wicLlojMNOhYjj8s8A2WldPFyw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

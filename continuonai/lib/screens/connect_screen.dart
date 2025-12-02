@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/brain_client.dart';
-import 'control_screen.dart';
+import 'dashboard_screen.dart';
 import 'record_screen.dart';
 
 class ConnectScreen extends StatefulWidget {
@@ -45,7 +45,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
         preferPlatformBridge: _usePlatformBridge,
       );
       if (mounted) {
-        Navigator.pushReplacementNamed(context, ControlScreen.routeName);
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
       }
     } catch (error) {
       setState(() => _error = error.toString());

@@ -1,5 +1,5 @@
 name: flutter_companion
-description: Flutter companion module for ContinuonXR with teleop, cloud RLDS upload, and task recording.
+description: Flutter companion module for ContinuonAI with teleop, cloud RLDS upload, and task recording.
 publish_to: 'none'
 version: 0.1.0
 
@@ -18,6 +18,13 @@ dependencies:
   path_provider: ^2.1.3
   collection: ^1.18.0
   flutter_gemma: ^0.11.13
+  firebase_core: ^2.27.0
+  firebase_auth: ^4.17.8
+  google_sign_in: ^6.2.1
+  cloud_firestore: ^4.15.8
+  nsd: ^4.0.3
+  flutter_blue_plus: ^2.0.2
+  permission_handler: ^12.0.1
 
 flutter:
   uses-material-design: true
