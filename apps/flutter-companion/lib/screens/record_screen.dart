@@ -6,11 +6,16 @@ import '../services/cloud_uploader.dart';
 import '../services/task_recorder.dart';
 
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key, required this.brainClient});
+  const RecordScreen({
+    super.key,
+    required this.brainClient,
+    this.initialControlRole = 'human_teleop',
+  });
 
   static const routeName = '/record';
 
   final BrainClient brainClient;
+  final String initialControlRole;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -22,14 +27,20 @@ class _RecordScreenState extends State<RecordScreen> {
   final _cloudUploader = CloudUploader();
   bool _uploading = false;
   String? _status;
+  late String _controlRole;
 
   @override
   void initState() {
     super.initState();
-    _recorder = TaskRecorder(
+    _controlRole = widget.initialControlRole;
+    _recorder = _buildRecorder();
+  }
+
+  TaskRecorder _buildRecorder() {
+    return TaskRecorder(
       metadata: EpisodeMetadata(
         xrMode: 'trainer',
-        controlRole: 'human_teleop',
+        controlRole: _controlRole,
         environmentId: 'lab-mock',
       ),
     );
@@ -76,6 +87,26 @@ class _RecordScreenState extends State<RecordScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            DropdownButtonFormField<String>(
+              value: _controlRole,
+              decoration: const InputDecoration(
+                labelText: 'Control role (RLDS metadata)',
+                helperText: 'Manual mode sets control_role=manual_driver',
+              ),
+              items: const [
+                DropdownMenuItem(value: 'human_teleop', child: Text('Automatic supervision')), 
+                DropdownMenuItem(value: 'manual_driver', child: Text('Manual driver')), 
+                DropdownMenuItem(value: 'autonomous_record', child: Text('Autonomous record')), 
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _controlRole = value;
+                  _recorder = _buildRecorder();
+                });
+              },
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _notesController,
               decoration: const InputDecoration(
