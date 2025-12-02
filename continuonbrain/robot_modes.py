@@ -16,6 +16,7 @@ class RobotMode(Enum):
     MANUAL_TRAINING = "manual_training"  # Human teleop for training data collection
     AUTONOMOUS = "autonomous"  # VLA policy control
     SLEEP_LEARNING = "sleep_learning"  # Self-training on saved memories
+    AUTO_CHARGING = "auto_charging"  # Autonomous docking and charging
     IDLE = "idle"  # Awake but not active
     EMERGENCY_STOP = "emergency_stop"  # Safety stop
 

@@ -73,6 +73,7 @@ class SystemHealthChecker:
         self._check_hardware_detection()
         self._check_camera_health()
         self._check_servo_controller()
+        self._check_battery()
         self._check_i2c_bus()
         self._check_usb_devices()
         if not quick_mode:
@@ -219,6 +220,52 @@ class SystemHealthChecker:
         except Exception as e:
             self._add_result(
                 "Servo Controller",
+                HealthStatus.WARNING,
+                f"Check failed: {str(e)}",
+                {"error": str(e)}
+            )
+    
+    def _check_battery(self):
+        """Check battery monitor and charge level."""
+        try:
+            from continuonbrain.sensors.battery_monitor import BatteryMonitor
+            
+            monitor = BatteryMonitor()
+            status = monitor.read_status()
+            
+            if status:
+                # Determine health based on charge level
+                if status.charge_percent < 10:
+                    health = HealthStatus.CRITICAL
+                    message = f"Battery critical: {status.charge_percent:.1f}%"
+                elif status.charge_percent < 20:
+                    health = HealthStatus.WARNING
+                    message = f"Battery low: {status.charge_percent:.1f}%"
+                else:
+                    health = HealthStatus.HEALTHY
+                    message = f"Battery OK: {status.charge_percent:.1f}%"
+                
+                self._add_result(
+                    "Battery",
+                    health,
+                    message,
+                    {
+                        "voltage_v": round(status.voltage_v, 2),
+                        "charge_percent": round(status.charge_percent, 1),
+                        "is_charging": status.is_charging,
+                        "current_ma": round(status.current_ma, 1),
+                    }
+                )
+            else:
+                self._add_result(
+                    "Battery",
+                    HealthStatus.WARNING,
+                    "Battery monitor unavailable",
+                    {}
+                )
+        except Exception as e:
+            self._add_result(
+                "Battery",
                 HealthStatus.WARNING,
                 f"Check failed: {str(e)}",
                 {"error": str(e)}
