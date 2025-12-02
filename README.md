@@ -22,6 +22,46 @@ The roadmap below highlights where the Android XR app and data capture stack sta
 | RLDS Logging on Device | Proto generation complete and logging enabled for head/hand poses; optimizing write batching | XR + Data Infra | 2025-11-24 |
 | Data Capture Rig (Sensors + Video) | Depth + RGB capture validated; synchronized audio alignment underway | XR + Sensors | 2025-11-24 |
 | Cloud Ingestion Hooks | Upload path wired to staging bucket; signed upload & provenance tagging next | Cloud Ingestion | 2025-11-24 |
+| **Pi5 Robot Arm Integration** | **OAK-D + PCA9685 validated; Flutter UI + RLDS recorder ready for hardware** | **Edge Team** | **2025-12-01** |
+
+### Pi5 Robot Arm Next Steps
+
+**Hardware Auto-Detection:**
+ContinuonBrain now includes intelligent hardware auto-detection for cameras, HATs, servo controllers, and accessories:
+```bash
+# Auto-detect all connected hardware
+PYTHONPATH=$PWD python3 continuonbrain/sensors/hardware_detector.py
+
+# System health check (automatic on wake from sleep)
+PYTHONPATH=$PWD python3 continuonbrain/system_health.py --quick
+
+# Wake robot with full services (discovery, API, modes)
+PYTHONPATH=$PWD python3 continuonbrain/startup_manager.py
+```
+
+See [Hardware Detection](docs/hardware-detection.md), [System Health](docs/system-health.md), and [Robot Wake-Up](docs/robot-wakeup.md) for details.
+
+**Without Hardware (Current Phase):**
+1. ✅ Design validated with mock mode (OAK-D Lite + PCA9685 + SO-ARM101)
+2. ✅ Hardware auto-detection for OAK-D, PCA9685, Hailo HAT+, IMUs
+3. ✅ Wake-up orchestration with LAN discovery and mode management
+4. ✅ Flutter UI with manual training, autonomous, and sleep learning modes
+5. 🔄 Test Robot API communication flow (JSON-over-TCP)
+6. 🔄 Prepare episode upload pipeline to cloud
+
+**When Robot Arm Arrives:**
+1. Connect SO-ARM101 servos to PCA9685
+2. Run `PYTHONPATH=$PWD python3 continuonbrain/tests/integration_test.py --real-hardware` (auto-detects hardware)
+3. Calibrate joint limits in `ArmConfig` per physical constraints
+4. Record 16+ training episodes for first LoRA adapter
+
+**When AI HAT+ Arrives:**
+1. Stack Hailo-8L accelerator on Pi5 (auto-detects via PCIe)
+2. Convert Gemma-based VLA to Hailo format
+3. Update manifests to load from Hailo accelerator
+4. Test inference latency with real depth frames
+
+See `continuonbrain/README.md` and `continuonbrain/PI5_CAR_READINESS.md` for implementation details.
 
 ---
 

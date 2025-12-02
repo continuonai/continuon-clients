@@ -1,8 +1,10 @@
-enum ControlMode { eeVelocity, jointDelta, gripper }
+enum ControlMode { eeVelocity, jointDelta, gripper, armJointAngles }
 
 enum ReferenceFrame { base, tool }
 
 enum GripperMode { position, velocity }
+
+enum RobotType { manipulator, mobile }
 
 class Vector3 {
   const Vector3({required this.x, required this.y, required this.z});
@@ -70,6 +72,25 @@ class SafetyStatus {
       };
 }
 
+/// SO-ARM101 6-DOF joint angles command (normalized [-1, 1])
+class ArmJointAnglesCommand {
+  const ArmJointAnglesCommand({required this.normalizedAngles});
+
+  /// 6 joint angles normalized to [-1, 1]:
+  /// [base, shoulder, elbow, wrist_pitch, wrist_roll, gripper]
+  final List<double> normalizedAngles;
+
+  Map<String, dynamic> toJson() => {
+        'normalized_angles': normalizedAngles,
+      };
+
+  factory ArmJointAnglesCommand.fromDegrees(List<double> degrees) {
+    // Helper to create from degree values (if needed for UI)
+    // This would need joint limit knowledge - placeholder for now
+    return ArmJointAnglesCommand(normalizedAngles: degrees.map((d) => d / 90.0 - 1.0).toList());
+  }
+}
+
 class ControlCommand {
   ControlCommand({
     required this.clientId,
@@ -79,6 +100,7 @@ class ControlCommand {
     this.eeVelocity,
     this.jointDelta,
     this.gripperCommand,
+    this.armJointAngles,
   });
 
   final String clientId;
@@ -88,6 +110,7 @@ class ControlCommand {
   final EeVelocityCommand? eeVelocity;
   final JointDeltaCommand? jointDelta;
   final GripperCommand? gripperCommand;
+  final ArmJointAnglesCommand? armJointAngles;
 
   Map<String, dynamic> toJson() {
     return {
@@ -98,6 +121,7 @@ class ControlCommand {
       if (eeVelocity != null) 'ee_velocity': eeVelocity!.toJson(),
       if (jointDelta != null) 'joint_delta': jointDelta!.toJson(),
       if (gripperCommand != null) 'gripper': gripperCommand!.toJson(),
+      if (armJointAngles != null) 'arm_joint_angles': armJointAngles!.toJson(),
     };
   }
 }
