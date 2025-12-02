@@ -377,7 +377,14 @@ class SimpleJSONServer:
         # Route the request
         if path == "/" or path == "/ui":
             response_body = self.get_web_ui_html()
-            response = f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            response_bytes = response_body.encode('utf-8')
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/control":
+            # Set mode to manual_control and show live control interface
+            await self.service.SetRobotMode("manual_control")
+            response_body = self.get_control_interface_html()
+            response_bytes = response_body.encode('utf-8')
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
         elif path == "/status":
             status = await self.service.GetRobotStatus()
             response_body = json.dumps(status, indent=2)
@@ -397,7 +404,11 @@ class SimpleJSONServer:
             response_body = "404 Not Found"
             response = f"HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         
-        writer.write(response.encode())
+        # Write response (handle both bytes and string)
+        if isinstance(response, bytes):
+            writer.write(response)
+        else:
+            writer.write(response.encode())
         await writer.drain()
         writer.close()
         await writer.wait_closed()
@@ -511,7 +522,8 @@ class SimpleJSONServer:
         </div>
         
         <div class="mode-buttons">
-            <button onclick="setMode('manual_training')">🎮 Manual Control</button>
+            <button onclick="window.location.href='/control'">🎮 Manual Control</button>
+            <button onclick="setMode('manual_training')">📝 Manual Training</button>
             <button onclick="setMode('autonomous')" class="secondary">🚀 Autonomous</button>
             <button onclick="setMode('sleep_learning')" class="secondary">💤 Sleep Learning</button>
             <button onclick="setMode('idle')" class="secondary">⏸️ Idle</button>
@@ -525,8 +537,9 @@ class SimpleJSONServer:
         </p>
     </div>
     
-    <script>
-        function showMessage(message, isError) {
+    <script type="text/javascript">
+        // Global functions for onclick handlers
+        window.showMessage = function(message, isError) {
             if (typeof isError === 'undefined') { isError = false; }
             var msgDiv = document.getElementById('status-message');
             msgDiv.textContent = message;
@@ -537,9 +550,9 @@ class SimpleJSONServer:
             setTimeout(function() {
                 msgDiv.style.display = 'none';
             }, 3000);
-        }
+        };
         
-        function updateStatus() {
+        window.updateStatus = function() {
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '/api/status', true);
             xhr.onload = function() {
@@ -559,14 +572,14 @@ class SimpleJSONServer:
             };
             xhr.onerror = function() {
                 console.error('Connection failed');
-                showMessage('Failed to connect to robot', true);
+                window.showMessage('Failed to connect to robot', true);
             };
             xhr.send();
-        }
+        };
         
-        function setMode(mode) {
+        window.setMode = function(mode) {
             console.log('Setting mode to:', mode);
-            showMessage('Changing mode to ' + mode.replace(/_/g, ' ') + '...');
+            window.showMessage('Changing mode to ' + mode.replace(/_/g, ' ') + '...');
             
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '/api/mode/' + mode, true);
@@ -575,29 +588,289 @@ class SimpleJSONServer:
                     try {
                         var data = JSON.parse(xhr.responseText);
                         if (data.success) {
-                            showMessage('Mode changed to ' + mode.replace(/_/g, ' ').toUpperCase());
-                            setTimeout(updateStatus, 500);
+                            window.showMessage('Mode changed to ' + mode.replace(/_/g, ' ').toUpperCase());
+                            setTimeout(window.updateStatus, 500);
                         } else {
-                            showMessage('Failed: ' + (data.message || 'Unknown error'), true);
+                            window.showMessage('Failed: ' + (data.message || 'Unknown error'), true);
                         }
                     } catch (e) {
                         console.error('Parse error:', e);
-                        showMessage('Error parsing response', true);
+                        window.showMessage('Error parsing response', true);
                     }
                 } else {
-                    showMessage('Server error: ' + xhr.status, true);
+                    window.showMessage('Server error: ' + xhr.status, true);
                 }
             };
             xhr.onerror = function() {
                 console.error('Connection failed');
-                showMessage('Connection failed', true);
+                window.showMessage('Connection failed', true);
             };
             xhr.send();
-        }
+        };
         
         // Update status every 2 seconds
-        updateStatus();
-        setInterval(updateStatus, 2000);
+        window.updateStatus();
+        setInterval(window.updateStatus, 2000);
+    </script>
+</body>
+</html>"""
+    
+    def get_control_interface_html(self):
+        """Generate live control interface with camera feed and system status."""
+        return """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Control - CraigBot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+        .header {
+            background: #1d1d1f;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        .header h1 {
+            font-size: 18px;
+            color: #fff;
+        }
+        .back-btn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .main-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            height: calc(100vh - 60px);
+            gap: 1px;
+            background: #111;
+        }
+        .video-panel {
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .video-feed {
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #666;
+        }
+        .video-placeholder {
+            text-align: center;
+        }
+        .video-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+        .status-panel {
+            background: #1d1d1f;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .status-section {
+            margin-bottom: 20px;
+        }
+        .status-section h3 {
+            font-size: 14px;
+            color: #86868b;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-item {
+            background: #2a2a2c;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .status-label {
+            font-size: 11px;
+            color: #86868b;
+            margin-bottom: 4px;
+        }
+        .status-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+        }
+        .status-good { color: #34c759; }
+        .status-warning { color: #ff9500; }
+        .status-critical { color: #ff3b30; }
+        .joint-controls {
+            display: grid;
+            gap: 8px;
+        }
+        .joint-slider {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .joint-slider label {
+            font-size: 11px;
+            color: #86868b;
+        }
+        .joint-slider input {
+            width: 100%;
+        }
+        .emergency-btn {
+            width: 100%;
+            background: #ff3b30;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎮 Manual Control - CraigBot</h1>
+        <button class="back-btn" onclick="window.location.href='/ui'">← Back to Menu</button>
+    </div>
+    
+    <div class="main-container">
+        <div class="video-panel">
+            <div class="video-info">
+                <div>Mode: <strong id="current-mode">Manual Control</strong></div>
+                <div>FPS: <span id="fps">0</span></div>
+                <div>Latency: <span id="latency">0</span>ms</div>
+            </div>
+            <div class="video-feed">
+                <div class="video-placeholder">
+                    <div>📹</div>
+                    <div>Camera Feed</div>
+                    <div style="font-size: 14px; color: #444; margin-top: 10px;">
+                        OAK-D Lite / iPhone Camera
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <div class="status-section">
+                <h3>System Status</h3>
+                <div class="status-item">
+                    <div class="status-label">Robot State</div>
+                    <div class="status-value status-good" id="robot-state">Ready</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Motion Enabled</div>
+                    <div class="status-value status-good" id="motion-enabled">Yes</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Recording</div>
+                    <div class="status-value" id="recording-status">No</div>
+                </div>
+            </div>
+            
+            <div class="status-section">
+                <h3>Hardware Status</h3>
+                <div class="status-item">
+                    <div class="status-label">Arm Controller (PCA9685)</div>
+                    <div class="status-value status-good" id="arm-status">Connected</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Camera (OAK-D)</div>
+                    <div class="status-value status-warning" id="camera-status">Initializing...</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">I2C Devices</div>
+                    <div class="status-value status-good" id="i2c-status">2 detected</div>
+                </div>
+            </div>
+            
+            <div class="status-section">
+                <h3>Joint Positions</h3>
+                <div class="status-item">
+                    <div id="joint-positions">
+                        <div style="font-size: 12px; color: #86868b;">
+                            J0: <span id="j0">0.0</span><br>
+                            J1: <span id="j1">0.0</span><br>
+                            J2: <span id="j2">0.0</span><br>
+                            J3: <span id="j3">0.0</span><br>
+                            J4: <span id="j4">0.0</span><br>
+                            Gripper: <span id="j5">-1.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="emergency-btn" onclick="emergencyStop()">🛑 EMERGENCY STOP</button>
+        </div>
+    </div>
+    
+    <script type="text/javascript">
+        window.updateControlStatus = function() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/status', true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.status) {
+                            document.getElementById('current-mode').textContent = data.status.mode.replace(/_/g, ' ').toUpperCase();
+                            document.getElementById('motion-enabled').textContent = data.status.allow_motion ? 'Yes' : 'No';
+                            document.getElementById('recording-status').textContent = data.status.is_recording ? 'Yes' : 'No';
+                            
+                            // Update joint positions
+                            if (data.status.joint_positions) {
+                                for (var i = 0; i < 6; i++) {
+                                    var elem = document.getElementById('j' + i);
+                                    if (elem) elem.textContent = data.status.joint_positions[i].toFixed(2);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Parse error:', e);
+                    }
+                }
+            };
+            xhr.send();
+        };
+        
+        window.emergencyStop = function() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/mode/emergency_stop', true);
+            xhr.onload = function() {
+                alert('EMERGENCY STOP ACTIVATED');
+                window.location.href = '/ui';
+            };
+            xhr.send();
+        };
+        
+        // Update every 100ms for responsive control
+        window.updateControlStatus();
+        setInterval(window.updateControlStatus, 100);
     </script>
 </body>
 </html>"""

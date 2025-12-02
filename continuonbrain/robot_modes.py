@@ -12,7 +12,8 @@ from dataclasses import dataclass, asdict
 
 class RobotMode(Enum):
     """Robot operational modes."""
-    MANUAL_TRAINING = "manual_training"  # Human teleop for training data
+    MANUAL_CONTROL = "manual_control"  # Direct human control (teleoperation, monitoring)
+    MANUAL_TRAINING = "manual_training"  # Human teleop for training data collection
     AUTONOMOUS = "autonomous"  # VLA policy control
     SLEEP_LEARNING = "sleep_learning"  # Self-training on saved memories
     IDLE = "idle"  # Awake but not active
@@ -50,6 +51,15 @@ class RobotModeManager:
     def get_mode_config(self, mode: RobotMode) -> ModeConfig:
         """Get configuration for a specific mode."""
         configs = {
+            RobotMode.MANUAL_CONTROL: ModeConfig(
+                mode=mode,
+                timestamp=time.time(),
+                allow_motion=True,
+                record_episodes=False,  # Just control, no training
+                run_inference=False,
+                self_train=False,
+                metadata={"control_source": "human_teleop", "show_live_feed": True}
+            ),
             RobotMode.MANUAL_TRAINING: ModeConfig(
                 mode=mode,
                 timestamp=time.time(),
@@ -225,9 +235,16 @@ class RobotModeManager:
         print(f"🚨 EMERGENCY STOP: {reason}")
         self.set_mode(RobotMode.EMERGENCY_STOP, {"reason": reason})
     
+    def start_manual_control(self):
+        """Enter manual control mode for teleoperation."""
+        print("🎮 Starting manual control mode...")
+        print("   Direct human control - no training data recorded")
+        print("   Live feed and full system status available")
+        self.set_mode(RobotMode.MANUAL_CONTROL)
+    
     def start_manual_training(self):
         """Enter manual training mode for human teleop."""
-        print("🎮 Starting manual training mode...")
+        print("📝 Starting manual training mode...")
         print("   Use Flutter app or web UI to control robot")
         print("   All actions will be recorded for training")
         self.set_mode(RobotMode.MANUAL_TRAINING)
