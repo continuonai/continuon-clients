@@ -7,6 +7,8 @@ ContinuonBrain/OS runtime lives in the separate `continuonos` repo (platform-agn
 
 No production runtime should live here; wire real implementations inside `continuonos` while keeping the interface consistent.
 
+The Robot API server launched by `startup_manager.py` now uses `python -m continuonbrain.robot_api_server` and runs in **real hardware mode by default** (it fails fast if controllers are absent). This keeps the production path aligned with the previous mock features (UI/JSON bridge) while enforcing hardware readiness.
+
 ## Pi5 Robot Arm Integration (Design Validation)
 
 Built SO-ARM101 + OAK-D Lite integration for design validation without physical hardware.
@@ -56,6 +58,18 @@ PYTHONPATH=$PWD python3 continuonbrain/startup_manager.py
 
 See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devices and [System Health](../docs/system-health.md) for health checking.
 
+## Autostart on boot (systemd template)
+- A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service`.
+- Edit the `Environment=` paths to match your install (e.g., `PYTHONPATH=/home/pi/ContinuonXR`, `CONFIG_DIR=/opt/continuonos/brain`, `WorkingDirectory=/home/pi/ContinuonXR`).
+- Install and enable:
+  ```bash
+  sudo cp continuonbrain/systemd/continuonbrain-startup.service /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable continuonbrain-startup.service
+  sudo systemctl start continuonbrain-startup.service
+  ```
+- The unit runs `python -m continuonbrain.startup_manager` on boot, which performs health checks and launches the Robot API in real-hardware mode. Check logs with `sudo journalctl -u continuonbrain-startup.service -f`.
+
 ### Hardware Compatibility
 
 ✅ **Confirmed Compatible:**
@@ -64,4 +78,3 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 - SO-ARM101 servos via PCA9685 (external 5-7V power required)
 
 See `PI5_CAR_READINESS.md` for full hardware setup and validation steps.
-

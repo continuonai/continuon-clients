@@ -194,17 +194,24 @@ class StartupManager:
         else:
             self.mode_manager.return_to_idle()
         
-        # Start Robot API server (mock or real)
+        # Start Robot API server (production entry point)
         print("🌐 Starting Robot API server...")
         try:
-            # Get path to mock server
             repo_root = Path(__file__).parent.parent
-            mock_server = repo_root / "apps" / "mock-continuonbrain" / "src" / "mock_grpc_server.py"
+            server_module = "continuonbrain.robot_api_server"
+            server_path = repo_root / "continuonbrain" / "robot_api_server.py"
             
-            if mock_server.exists():
+            if server_path.exists():
                 # Start in background
                 self.robot_api_process = subprocess.Popen(
-                    [sys.executable, str(mock_server), "--port", "8080"],
+                    [
+                        sys.executable,
+                        "-m",
+                        server_module,
+                        "--port",
+                        "8080",
+                        "--real-hardware",  # production path uses real controllers; fail fast if missing
+                    ],
                     env={**subprocess.os.environ, "PYTHONPATH": str(repo_root)},
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE
@@ -212,7 +219,7 @@ class StartupManager:
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
                 print(f"   Endpoint: http://localhost:8080")
             else:
-                print(f"   ⚠️  Mock server not found: {mock_server}")
+                print(f"   ⚠️  Robot API module not found: {server_path}")
         except Exception as e:
             print(f"   ⚠️  Could not start Robot API: {e}")
         

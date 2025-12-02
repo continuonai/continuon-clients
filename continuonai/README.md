@@ -1,10 +1,109 @@
-# ContinuonAI (placeholder)
+# ContinuonAI Flutter App
 
-Organizational specs/orchestration live in the dedicated ContinuonAI repo. This monorepo holds ContinuonXR and shared contracts; master specs (episode schema, cloud API, XR app spec) should remain versioned there and be referenced here.
+A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture, and cloud upload. This module now lives under `continuonai/` alongside the consolidated `continuon-cloud/` docs.
 
-## Flutter control companion plan (Pi 5 + iPhone)
-- **Scope**: outline how the Flutter companion (iOS + Pi 5 build) talks to the ContinuonBrain/OS bridge for teleop, depth preview, and adapter hot-reload. Runtime code stays in the dedicated app module; this is the coordination spec.
-- **Contracts**: use `proto/continuonbrain_link.proto` for command/telemetry; map depth frames + drivetrain feedback into RLDS fields per `docs/rlds-schema.md` and the Pi checklist in `continuonbrain/PI5_CAR_READINESS.md`.
-- **On-Pi (Flutter runner)**: embed `flutter_gemma` to load `continuonbrain/model/manifest.pi5.example.json` (or safety variant). Listen for adapter promotions from the sidecar trainer and hot-reload the manifest; expose a WebRTC/gRPC endpoint that mirrors the Robot API for local UI and remote iPhone control.
-- **iPhone UX**: minimal panels for depth preview, steering/throttle sliders (bounded to PCA9685 ranges), and an upload toggle. Buffer RLDS episodes locally with `xr_mode="trainer"` + `action.source="human_teleop_xr"` and send over the Robot API when connected.
-- **Offline-first**: default to local logging only; uploads require explicit opt-in and should follow the ingestion gates in `continuon-lifecycle-plan.md`. Keep mode/state/version tags in `episode_metadata` so Pi and phone builds stay debuggable.
+- Teleoperation against the ContinuonBrain bridge gRPC/WebRTC service with TLS + bearer auth.
+- Platform channel hook points for native SDKs to share transport/auth state.
+- RLDS task recording and Cloud upload using signed URLs.
+- Multimodal logging (audio, egocentric video/depth, gaze, voice command text) to mirror the Android XR app contract for Gemma and robot alignment.
+- Minimal UI flows for connect, control, manual driving, and record/testing.
+
+## Project layout
+
+- `lib/main.dart` – entry-point wiring the connect, control, and record screens.
+- `lib/services/brain_client.dart` – ContinuonBrain gRPC/WebRTC bridge with TLS/auth helpers.
+- `lib/services/platform_channels.dart` – thin ContinuonBrain gRPC/platform channel bridge.
+- `lib/screens/manual_mode_screen.dart` – web-friendly manual driving surface with acceleration/gripper presets.
+- `lib/services/controller_input.dart` – PS3 controller to `ControlCommand` mapper via platform channels.
+- `lib/services/cloud_uploader.dart` – signed URL broker helper using `googleapis_auth`.
+- `lib/services/multimodal_inputs.dart` – helper to stamp RLDS observations with synchronized audio, egocentric video/depth, gaze, and voice metadata.
+- `lib/services/task_recorder.dart` – in-memory RLDS step collection.
+- `lib/models` – data structures for teleop commands and RLDS metadata.
+- `integration_test/` – basic UI smoke test covering connect/record flows.
+
+## Requirements
+
+- Flutter 3.19+ (`flutter upgrade` recommended).
+- Android Studio or Xcode for embedding the module into the host app.
+- Access to the ContinuonBrain endpoint and upload broker for RLDS episodes.
+
+## Getting started
+
+1. From repo root, enter the app module:
+   ```bash
+   cd continuonai
+   ```
+2. Fetch dependencies:
+   ```bash
+   flutter pub get
+   ```
+3. Configure ContinuonBrain connectivity in the Connect screen:
+   - Default host: `brain.continuon.ai` port `443` with TLS enabled.
+   - Optional bearer token: passed as the `Authorization: Bearer <token>` gRPC header.
+   - Enable "platform WebRTC bridge" to route transport through the native host for
+     lower-latency data channels when available.
+   The same parameters can be provided programmatically via `BrainClient.connect`,
+   including custom root certificates when connecting to staging clusters.
+4. (Optional) If native hosts own the transport stack, implement the platform channel
+   methods defined in `lib/services/platform_channels.dart` in the Android/iOS host
+   shells to forward gRPC requests to ContinuonBrain.
+5. Run the integration smoke test:
+   ```bash
+   flutter test integration_test/connect_and_record_test.dart
+   ```
+6. Drive manually from a browser surface:
+   ```bash
+   flutter run -d chrome --web-port 8080
+   ```
+   Then open `/#/manual` to expose the operator controls. The same surface is available from
+   the mobile shell via the Manual mode chips on the control screen.
+7. Build the module for Android:
+   ```bash
+   flutter build aar
+   ```
+   or for iOS:
+   ```bash
+   flutter build ios-framework --cocoapods
+   ```
+
+## ContinuonBrain bindings
+
+The client uses the same service and message shapes as `proto/continuonbrain_link.proto`.
+By default the module uses JSON payloads over gRPC for portability, but mobile hosts can
+swap in native protobuf-backed implementations through the platform channel to interop
+with existing ContinuonBrain deployments. Commands and recording triggers are sent over
+the `ContinuonBrainBridge` gRPC service with TLS by default; bearer tokens are attached
+as gRPC metadata. When the platform WebRTC bridge is enabled, the Flutter layer defers
+transport negotiation to the host and only serializes the payloads.
+
+## RLDS upload
+
+`CloudUploader` expects a broker endpoint that returns a signed upload URL for the RLDS
+payload. The upload helper writes an `episode.json` based on the RLDS schema documented
+in `proto/rlds_episode.proto` and issues a PUT to the signed URL. Replace the broker URL
+with your environment-specific endpoint and scopes when authenticating with a service
+account.
+
+## Cloud docs
+
+The Continuon-Cloud staging docs are now located under `continuonai/continuon-cloud/`. Keep those specs aligned with `docs/monorepo-structure.md` and the root README when flows span XR and Cloud.
+
+## Manual mode and controller input
+
+- Use the **Manual driving** chip from the control screen to load the manual mode surface.
+- Acceleration profiles (Precision/Nominal/Aggressive) scale the velocity commands before
+  they are sent through `BrainClient.sendCommand`.
+- Gripper presets include direct open/close toggles and a position slider mapping to
+  `GripperCommand` payloads.
+- RLDS records created from manual mode seed `control_role=manual_driver`; the Record screen
+  lets you override the role for autonomous/automatic runs.
+- A PlayStation 3 controller can be bridged via the `ps3_controller` platform channel. The
+  listener maps left stick translation, right stick yaw, and Cross/Circle gripper buttons to
+  `ControlCommand` fields. Implement the native channel on Android/iOS hosts or reuse an
+  existing Flutter gamepad plugin that emits the same event keys.
+
+## Embedding
+
+This module is created with the Flutter module template (see `pubspec.yaml` `flutter`
+section). Follow the official [Add Flutter to existing app](https://docs.flutter.dev/add-to-app)
+workflow to wire the generated AAR/CocoaPods artifacts into the host app.

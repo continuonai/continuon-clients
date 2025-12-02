@@ -99,7 +99,7 @@ All three loops run in both places: on-device/edge execution keeps latency low, 
 See [Model Lifecycle: HOPE/CMS Governance](docs/model_lifecycle.md) for how OTA packaging, Memory Plane persistence, and cloud replay map to these loops.
 
 #### Sequence Core Beyond Transformers
-HOPE/CMS is about multi-timescale memory, not a mandatory attention backbone. We implement the continuum memory with a particle + wave split: the local "particle" path (small attention windows, conv/MLP adapters) updates every step for exact positions and short-range dependencies, while the "wave" path uses SSMs and spectral operators (Mamba, Hyena/GFN, Griffin-style hybrids) to maintain compressed global state. Fast/Mid loops on edge (Pi 5 + Hailo; see `continuonbrain/README.md` and `apps/continuonxr/README.md`) update particle paths continuously and refresh compact SSM states per chunk/episode. The Slow loop in cloud (`continuon-cloud/README.md`) trains longer-horizon SSM/spectral cores and ships OTA bundles that merge with the Memory Plane instead of overwriting it, keeping HOPE's nested optimization intact while scaling past attention-only Transformers.
+HOPE/CMS is about multi-timescale memory, not a mandatory attention backbone. We implement the continuum memory with a particle + wave split: the local "particle" path (small attention windows, conv/MLP adapters) updates every step for exact positions and short-range dependencies, while the "wave" path uses SSMs and spectral operators (Mamba, Hyena/GFN, Griffin-style hybrids) to maintain compressed global state. Fast/Mid loops on edge (Pi 5 + Hailo; see `continuonbrain/README.md` and `apps/continuonxr/README.md`) update particle paths continuously and refresh compact SSM states per chunk/episode. The Slow loop in cloud (`continuonai/continuon-cloud/README.md`) trains longer-horizon SSM/spectral cores and ships OTA bundles that merge with the Memory Plane instead of overwriting it, keeping HOPE's nested optimization intact while scaling past attention-only Transformers.
 
 #### VLA Stack: Unified Multi-Task Architecture
 
@@ -121,8 +121,7 @@ This single repository hosts every Continuon product with clear in-repo module b
 |--------|------|---------|--------|
 | **ContinuonXR** | `apps/continuonxr/` | Spatial UI & data capture rig (Android XR, glove BLE parsing, RLDS logging) | Active |
 | **ContinuonBrain/OS Runtime** | `continuonbrain/` + `continuonai/` | Robot OS/edge runtime scaffolding, HAL interfaces, OTA client & contracts | Active (consolidated here) |
-| **Continuon Cloud Factory** | `continuon-cloud/` | Data ingestion, training pipelines, edge bundle packaging | Active |
-| **Org/Orchestration** | `continuonai/` | System-wide contracts, CI/CD orchestration scripts | Active |
+| **ContinuonAI App + Cloud Docs** | `continuonai/` (+ `continuonai/continuon-cloud/`) | Flutter companion (web/iOS/Android/Linux), Cloud ingestion/train specs | Active |
 | **worldtapeai.com** | `worldtapeai.com/` | RLDS video explorer web UI | Active |
 
 ### In-Repository Contracts
@@ -397,7 +396,6 @@ This repository contains the **spatial UI and data capture rig** component of th
   ContinuonXR/
     apps/
       continuonxr/          # Android XR application (Kotlin + Jetpack XR)
-      mock-continuonbrain/  # Mock robot backend for testing
     docs/                   # Architecture and contract documentation
       rlds-schema.md        # RLDS data contract
       hope-cms-vla.md       # HOPE architecture details
@@ -406,13 +404,12 @@ This repository contains the **spatial UI and data capture rig** component of th
     proto/                  # Protobuf definitions
       rlds_episode.proto    # RLDS schema
       continuonbrain_link.proto  # Robot API
-    continuonbrain/         # ContinuonBrain/OS runtime + trainer modules
-    continuon-cloud/        # Cloud ingestion + training factory modules
-    continuonai/            # Org/orchestration contracts and tooling
+    continuonbrain/         # ContinuonBrain/OS scaffolding, Robot API server entrypoint, trainer modules
+    continuonai/            # ContinuonAI Flutter app (web/iOS/Android/Linux) plus consolidated Cloud docs
     worldtapeai.com/        # RLDS explorer web app
   ```
 
-Note: `continuonbrain/trainer/` contains an offline Pi/Jetson LoRA adapter-training scaffold (bounded jobs, RLDS-only inputs, safety-gated promotion) to stay aligned with ContinuonBrain/OS goals. The production runtime and OTA delivery paths sit alongside it in this repository.
+Note: `continuonbrain/trainer/` contains an offline Pi/Jetson LoRA adapter-training scaffold (bounded jobs, RLDS-only inputs, safety-gated promotion) to stay aligned with ContinuonBrain/OS goals. The Robot API server lives in `continuonbrain/robot_api_server.py`; integrate deeper continuonos runtime/OTA paths in the dedicated `continuonos` repo.
 
 Quick Pi 5 migration tips (Jetson → Pi):
 - Copy RLDS episodes to `/opt/continuonos/brain/rlds/episodes`.

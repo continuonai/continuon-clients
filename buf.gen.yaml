@@ -1,8 +1,7 @@
 version: v1
 plugins:
   - name: ts-proto
-    path: ../apps/mock-continuonbrain/node_modules/.bin/protoc-gen-ts_proto
-    out: ../apps/mock-continuonbrain/src/generated
+    out: ../tmp-gradle/ts-proto
     opt:
       - esModuleInterop=true
       - outputServices=grpc-js

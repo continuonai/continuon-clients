@@ -104,14 +104,17 @@ PYTHONPATH=$PWD python3 continuonbrain/tests/integration_test.py --no-auto-detec
 The mock Robot API server also supports auto-detection:
 
 ```bash
-# Auto-detect hardware in mock mode
-PYTHONPATH=$PWD python3 apps/mock-continuonbrain/src/mock_grpc_server.py
+# Auto-detect hardware (prefers real, falls back to mock if controllers are missing)
+PYTHONPATH=$PWD python3 -m continuonbrain.robot_api_server
 
-# Use real detected hardware
-PYTHONPATH=$PWD python3 apps/mock-continuonbrain/src/mock_grpc_server.py --real-hardware
+# Force real detected hardware and fail fast when devices are absent
+PYTHONPATH=$PWD python3 -m continuonbrain.robot_api_server --real-hardware
+
+# Force mock mode
+PYTHONPATH=$PWD python3 -m continuonbrain.robot_api_server --mock-hardware
 
 # Disable auto-detection
-PYTHONPATH=$PWD python3 apps/mock-continuonbrain/src/mock_grpc_server.py --no-auto-detect
+PYTHONPATH=$PWD python3 -m continuonbrain.robot_api_server --no-auto-detect
 ```
 
 ## Configuration Format

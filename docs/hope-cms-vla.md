@@ -17,7 +17,7 @@ For the complete reconciled system architecture covering edge-first learning, cl
 - **Mapping to CMS:** Particle path = working memory for the Fast loop; Wave path = continuum memory layers for Mid/Slow. Transformer+SSM hybrids remain compatible as long as Fast/Mid/Slow frequencies stay explicit.
 - **ContinuonOS instantiation (cross-product):**
   - Edge (Pi 5 + Hailo) runs the particle path per-step (TFLite policy heads, adapters in `apps/continuonxr/` and `continuonbrain/`) and maintains a compact wave state via small SSM blocks refreshed per chunk/episode. See `apps/continuonxr/README.md` and `continuonbrain/README.md` for the runtime split.
-  - Cloud (`continuon-cloud/` + `continuonbrain/`) trains longer-horizon SSM/spectral models on RLDS and ships OTA bundles back; the Memory Plane on edge merges with new kernels instead of being reset. See `continuon-cloud/README.md` for the training/OTA packaging path.
+  - Cloud (`continuonai/continuon-cloud/` + `continuonbrain/`) trains longer-horizon SSM/spectral models on RLDS and ships OTA bundles back; the Memory Plane on edge merges with new kernels instead of being reset. See `continuonai/continuon-cloud/README.md` for the training/OTA packaging path.
 - **Failure modes to avoid:** collapsing all layers to one cadence, treating SSM/spectral components as one-off gadgets instead of named CMS layers, or wiping on-device Memory Plane during OTA. The current design keeps Fast/Mid on-device, Slow in cloud, and merges rather than overwrites to stay aligned with HOPE.
 - **Preferred families:** Mamba/Selective SSMs for long-range linear-time recurrence, Hyena/GFN spectral mixers for global context, and Griffin/Hawk-style hybrids when a small local attention window is still useful.
 

@@ -320,25 +320,24 @@ Sleep learning logs saved to:
 ### Flutter Code Example
 
 ```dart
-import 'package:continuon_companion/services/robot_api_service.dart';
+import 'package:flutter_companion/services/brain_client.dart';
+import 'package:flutter_companion/models/teleop_models.dart';
 
-// Initialize service
-final api = RobotApiService();
+final client = BrainClient();
 
-// Connect to robot
-await api.connect('192.168.1.10', 8080);
+await client.connect(host: '192.168.1.10', port: 8080, useTls: false);
 
-// Set to manual training
-await api.setMode('manual_training');
+await client.startRecording('Pick up cup');
 
-// Start recording
-await api.startRecording('Pick up cup');
+await client.sendCommand(
+  ControlCommand.eeVelocity(
+    targetFrequencyHz: 30,
+    linear: const Vector3(x: 0.1, y: 0.0, z: 0.0),
+    angular: const Vector3(x: 0.0, y: 0.0, z: 0.0),
+  ),
+);
 
-// Send arm command
-await api.sendArmCommand([0.5, 0.0, 0.0, 0.0, 0.0, 0.0]);
-
-// Stop recording
-await api.stopRecording(success: true);
+await client.stopRecording(success: true);
 ```
 
 ## Command Line Tools
@@ -451,5 +450,5 @@ echo '{"method": "set_mode", "params": {"mode": "manual_training"}}' | nc localh
 
 - [System Health](system-health.md) - Health check system
 - [Hardware Detection](hardware-detection.md) - Auto-detect cameras/servos
-- [Flutter Companion](../apps/flutter-companion/README.md) - Mobile app
-- [Robot API](../apps/mock-continuonbrain/README.md) - API reference
+- [Flutter Companion](../continuonai/README.md) - Mobile/web app
+- [Robot API](../continuonbrain/README.md) - API reference for production server (`python -m continuonbrain.robot_api_server`)

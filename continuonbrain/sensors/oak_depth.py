@@ -1,6 +1,7 @@
 """
 OAK-D Lite depth camera capture for RLDS episodes.
 Integrates with Pi5 robot arm setup per PI5_CAR_READINESS.md.
+Updated for DepthAI v3.x API.
 """
 import depthai as dai
 import numpy as np
@@ -12,9 +13,9 @@ import time
 @dataclass
 class CameraConfig:
     """OAK-D camera configuration."""
-    resolution: str = "400p"  # 640x400 for Pi5 bandwidth
+    resolution: Tuple[int, int] = (640, 400)  # Width x Height for Pi5 bandwidth
     fps: int = 30
-    depth_preset: str = "HIGH_DENSITY"
+    depth_preset: str = "ROBOTICS"  # ROBOTICS, FAST_DENSITY, FAST_ACCURACY, HIGH_DETAIL
     median_filter: str = "KERNEL_7x7"
     align_to_rgb: bool = True
 
@@ -23,66 +24,61 @@ class OAKDepthCapture:
     """
     Manages OAK-D Lite depth camera for robot manipulation.
     Captures aligned depth + RGB frames with timestamps for RLDS.
+    Uses DepthAI v3.x API.
     """
     
     def __init__(self, config: Optional[CameraConfig] = None):
         self.config = config or CameraConfig()
-        self.pipeline: Optional[dai.Pipeline] = None
         self.device: Optional[dai.Device] = None
+        self.pipeline: Optional[dai.Pipeline] = None
         self.calibration_data: Optional[Dict[str, Any]] = None
+        self.rgb_queue = None
+        self.depth_queue = None
+        self._running = False
         
     def initialize(self) -> bool:
-        """Initialize OAK-D camera and verify connection."""
+        """Initialize OAK-D camera and verify connection (DepthAI v3 API)."""
         try:
+            # V3 API: Create device first
             devices = dai.Device.getAllAvailableDevices()
             if not devices:
                 print("ERROR: No OAK devices found")
                 return False
                 
-            # Create pipeline
-            self.pipeline = dai.Pipeline()
+            self.device = dai.Device()
+            print(f"✅ Device connected: {self.device.getDeviceName()}")
             
-            # Create nodes
-            cam_rgb = self.pipeline.create(dai.node.ColorCamera)
-            left = self.pipeline.create(dai.node.MonoCamera)
-            right = self.pipeline.create(dai.node.MonoCamera)
+            # V3 API: Create pipeline with device context
+            self.pipeline = dai.Pipeline(self.device)
+            
+            # Create RGB camera node using v3 builder pattern
+            rgb_cam = self.pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
+            
+            # Request RGB output at configured resolution
+            rgb_output = rgb_cam.requestOutput(self.config.resolution, dai.ImgFrame.Type.BGR888p)
+            self.rgb_queue = rgb_output.createOutputQueue()
+            
+            # Create stereo cameras for depth (use requestOutput to avoid stride mismatch)
+            left_cam = self.pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_B)
+            right_cam = self.pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_C)
+            
+            # Request mono outputs at same resolution as RGB (for stereo alignment)
+            left_output = left_cam.requestOutput(self.config.resolution, dai.ImgFrame.Type.GRAY8)
+            right_output = right_cam.requestOutput(self.config.resolution, dai.ImgFrame.Type.GRAY8)
+            
+            # Create stereo depth node
             stereo = self.pipeline.create(dai.node.StereoDepth)
             
-            # Output streams
-            xout_rgb = self.pipeline.create(dai.node.XLinkOut)
-            xout_depth = self.pipeline.create(dai.node.XLinkOut)
-            
-            xout_rgb.setStreamName("rgb")
-            xout_depth.setStreamName("depth")
-            
-            # Configure RGB camera
-            cam_rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
-            cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-            cam_rgb.setFps(self.config.fps)
-            cam_rgb.setInterleaved(False)
-            cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
-            
-            # Configure stereo pair
-            res_map = {
-                "400p": dai.MonoCameraProperties.SensorResolution.THE_400_P,
-                "480p": dai.MonoCameraProperties.SensorResolution.THE_480_P,
-                "720p": dai.MonoCameraProperties.SensorResolution.THE_720_P,
-            }
-            
-            left.setBoardSocket(dai.CameraBoardSocket.CAM_B)
-            left.setResolution(res_map[self.config.resolution])
-            left.setFps(self.config.fps)
-            
-            right.setBoardSocket(dai.CameraBoardSocket.CAM_C)
-            right.setResolution(res_map[self.config.resolution])
-            right.setFps(self.config.fps)
-            
             # Configure stereo depth
+            # V3 preset modes: DEFAULT, FACE, FAST_ACCURACY, FAST_DENSITY, HIGH_DETAIL, ROBOTICS
             preset_map = {
-                "HIGH_DENSITY": dai.node.StereoDepth.PresetMode.HIGH_DENSITY,
-                "HIGH_ACCURACY": dai.node.StereoDepth.PresetMode.HIGH_ACCURACY,
+                "ROBOTICS": dai.node.StereoDepth.PresetMode.ROBOTICS,
+                "FAST_DENSITY": dai.node.StereoDepth.PresetMode.FAST_DENSITY,
+                "FAST_ACCURACY": dai.node.StereoDepth.PresetMode.FAST_ACCURACY,
+                "HIGH_DETAIL": dai.node.StereoDepth.PresetMode.HIGH_DETAIL,
             }
-            stereo.setDefaultProfilePreset(preset_map[self.config.depth_preset])
+            preset_mode = preset_map.get(self.config.depth_preset, dai.node.StereoDepth.PresetMode.ROBOTICS)
+            stereo.setDefaultProfilePreset(preset_mode)
             
             # Median filter for noise reduction
             filter_map = {
@@ -92,40 +88,53 @@ class OAKDepthCapture:
             }
             stereo.initialConfig.setMedianFilter(filter_map[self.config.median_filter])
             
+            # Set stereo output size to match our resolution (must be multiple of 16)
+            width = (self.config.resolution[0] // 16) * 16
+            height = (self.config.resolution[1] // 16) * 16
+            stereo.setOutputSize(width, height)
+            
             # Align depth to RGB for manipulation tasks
             if self.config.align_to_rgb:
                 stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
             
-            # Link nodes
-            cam_rgb.video.link(xout_rgb.input)
-            left.out.link(stereo.left)
-            right.out.link(stereo.right)
-            stereo.depth.link(xout_depth.input)
+            # V3 API: Link requested outputs to stereo (these are already the right size)
+            left_output.link(stereo.left)
+            right_output.link(stereo.right)
+            
+            # Get depth output queue
+            depth_output = stereo.depth
+            self.depth_queue = depth_output.createOutputQueue()
             
             return True
             
         except Exception as e:
             print(f"ERROR: Failed to initialize OAK-D: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def start(self) -> bool:
-        """Start camera capture."""
-        if not self.pipeline:
-            print("ERROR: Pipeline not initialized")
+        """Start camera capture (DepthAI v3 API)."""
+        if not self.pipeline or not self.device:
+            print("ERROR: Pipeline or device not initialized")
             return False
             
         try:
-            self.device = dai.Device(self.pipeline)
+            # V3 API: Start the pipeline
+            self.pipeline.start()
+            self._running = True
             
             # Get calibration data for episode metadata
             calib = self.device.readCalibration()
+            intrinsics = calib.getCameraIntrinsics(
+                dai.CameraBoardSocket.CAM_A,
+                1920, 1080
+            ) if hasattr(calib, 'getCameraIntrinsics') else None
+            
             self.calibration_data = {
                 "baseline_cm": calib.getBaselineDistance(),
                 "fov_deg": calib.getFov(dai.CameraBoardSocket.CAM_A),
-                "intrinsics": calib.getCameraIntrinsics(
-                    dai.CameraBoardSocket.CAM_A,
-                    1920, 1080
-                ).tolist() if hasattr(calib, 'getCameraIntrinsics') else None,
+                "intrinsics": intrinsics if intrinsics is None or isinstance(intrinsics, list) else intrinsics.tolist(),
             }
             
             print(f"OAK-D started: baseline={self.calibration_data['baseline_cm']:.2f}cm")
@@ -133,6 +142,8 @@ class OAKDepthCapture:
             
         except Exception as e:
             print(f"ERROR: Failed to start OAK-D: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def capture_frame(self) -> Optional[Dict[str, Any]]:
@@ -146,17 +157,13 @@ class OAKDepthCapture:
             'timestamp_ns': int,  # nanoseconds since epoch
         }
         """
-        if not self.device:
+        if not self.device or not self.rgb_queue or not self.depth_queue:
             return None
             
         try:
-            # Get queues
-            q_rgb = self.device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
-            q_depth = self.device.getOutputQueue(name="depth", maxSize=1, blocking=False)
-            
             # Get latest frames (non-blocking)
-            rgb_frame = q_rgb.get() if q_rgb.has() else None
-            depth_frame = q_depth.get() if q_depth.has() else None
+            rgb_frame = self.rgb_queue.get() if self.rgb_queue.has() else None
+            depth_frame = self.depth_queue.get() if self.depth_queue.has() else None
             
             if rgb_frame is None or depth_frame is None:
                 return None
@@ -182,14 +189,18 @@ class OAKDepthCapture:
         """Get camera calibration metadata for episode_metadata."""
         return {
             "camera_type": "OAK-D-LITE",
-            "depth_baseline_cm": self.calibration_data.get("baseline_cm", 7.5),
-            "resolution": self.config.resolution,
+            "depth_baseline_cm": self.calibration_data.get("baseline_cm", 7.5) if self.calibration_data else 7.5,
+            "resolution": f"{self.config.resolution[0]}x{self.config.resolution[1]}",
             "fps": self.config.fps,
-            "intrinsics": self.calibration_data.get("intrinsics"),
+            "intrinsics": self.calibration_data.get("intrinsics") if self.calibration_data else None,
         }
     
     def stop(self):
         """Stop camera and release resources."""
+        self._running = False
+        if self.pipeline and self.pipeline.isRunning():
+            # V3 API handles cleanup automatically
+            pass
         if self.device:
             self.device.close()
             self.device = None

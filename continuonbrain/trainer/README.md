@@ -59,9 +59,9 @@ action = forward_to_vla_head(language_planner_head, sample)
 ```
 
 ## Notes
-- Keep real runtime code in `continuonos`; this scaffold is for planning/testing and aligns with the mock ContinuonBrain goals (bounded offline jobs, RLDS I/O, safety gate before swapping adapters).
+- Keep real runtime code in `continuonos`; this scaffold is for planning/testing and aligns with the ContinuonBrain goals (bounded offline jobs, RLDS I/O, safety gate before swapping adapters).
 - TensorFlow is optional; provide `tfrecord_iter`/`example_parser` if you prefer TFRecord episodes without importing TF globally.
-- The mock ContinuonBrain service in `apps/mock-continuonbrain` remains for XR contract testing only; do not run trainer there. Use Pi/Jetson hardware for adapter updates.
+- Use the production Robot API server (`python -m continuonbrain.robot_api_server`) for end-to-end XR contract tests on hardware; do not run trainer inside the server process. Use Pi/Jetson hardware for adapter updates.
 - `base_model_path` in configs (e.g., `/opt/continuonos/brain/model/base_policy.pt`) points to the frozen policy checkpoint used before attaching LoRA adapters.
 - `make_batch_iterator` accepts a `drop_last` flag (default `True`) so you can emit the final partial batch on tiny smoke-test datasets instead of discarding it.
 - The Pi integration example aborts if `base_model_path` or `rlds_dir` are missing/insufficient; ensure both exist on-device before running.

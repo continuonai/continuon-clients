@@ -8,15 +8,6 @@ plugins {
 val bufVersion = "1.34.0"
 val bufBinary = layout.buildDirectory.file("buf/bin/buf").get().asFile
 
-val installMockServerNodeModules = tasks.register<Exec>("installMockServerNodeModules") {
-    group = "build setup"
-    description = "Install npm dependencies for the mock ContinuonBrain server"
-    workingDir = file("apps/mock-continuonbrain")
-    inputs.files(file("apps/mock-continuonbrain/package.json"), file("apps/mock-continuonbrain/package-lock.json"))
-    outputs.dir(file("apps/mock-continuonbrain/node_modules"))
-    commandLine("npm", "install")
-}
-
 tasks.register("installBuf") {
     group = "build setup"
     description = "Download a local buf binary for proto linting and codegen"
@@ -42,22 +33,6 @@ tasks.register<Exec>("validateProtoSchemas") {
     inputs.dir("proto")
     workingDir = file("proto")
     commandLine(bufBinary.absolutePath, "lint")
-}
-
-tasks.register<Exec>("generateProtoTypescript") {
-    group = "code generation"
-    description = "Generate TypeScript gRPC/ts-proto stubs via buf"
-    dependsOn("installBuf", installMockServerNodeModules)
-    inputs.files(file("proto/buf.yaml"), file("buf.gen.yaml"))
-    inputs.dir("proto")
-    outputs.dir(file("apps/mock-continuonbrain/src/generated"))
-    workingDir = file("proto")
-    commandLine(
-        bufBinary.absolutePath,
-        "generate",
-        "--template",
-        "../buf.gen.yaml"
-    )
 }
 
 tasks.register("generateProtoKotlin") {

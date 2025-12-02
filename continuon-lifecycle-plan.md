@@ -59,7 +59,7 @@ For the complete reconciled system architecture covering edge-first learning, cl
 ## Slimmer path (Flutter companion before XR)
 - Keep offline-first defaults: ContinuonBrain on Pi 5/Nano runs locally with RLDS logging; uploads remain manual/opt-in.
 - **Phase 1 – Brain bootstrap (no XR dependency):** finalize the Pi 5 config (`configs/pi5-donkey.json`), implement the Pi HAL (PWM/camera/IMU/estop), and align `continuonbrain_link.proto` before any client work.
-- **Phase 2 – Control via Flutter companion:** build the [Flutter companion](apps/flutter-companion/README.md) and point its brain client to the Pi target; use its teleop UI and RLDS recorder to drive early runs and broker signed uploads instead of XR flows.
+- **Phase 2 – Control via Flutter companion:** build the [Flutter companion](continuonai/README.md) and point its brain client to the Pi target; use its teleop UI and RLDS recorder to drive early runs and broker signed uploads instead of XR flows.
 - **Phase 3 – Local logging & training loop:** capture RLDS episodes on-device while teleoperating with the companion app, then run the fast/mid/slow offline trainer pipeline with safety gates and checkpoint rotation before promoting adapters.
 - **Phase 4 – First cloud handoff:** package RLDS episodes for manual upload to the minimal ingest endpoint; keep uploads manual/opt-in and iterate on training/adapter repackaging once the cloud path is reachable.
 

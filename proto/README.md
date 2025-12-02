@@ -6,12 +6,11 @@ Draft proto files for the XR data loop:
 
 Next steps:
 1. Finalize Robot API fields and align `RobotState` with ContinuonBrain/OS contracts.
-2. Generate Kotlin/JVM and TypeScript stubs for the XR app and mock ContinuonBrain server.
+2. Generate Kotlin/JVM stubs for the XR app and production Robot API server.
 3. Add auth/versioning metadata to RPC requests once Cloud/API requirements are known.
 
 ## Codegen
 - Kotlin/JVM (used by `apps/continuonxr`): `./gradlew generateProtoKotlin`
-- TypeScript (mock server / tooling): `./gradlew generateProtoTypescript` (uses the checked-in `buf.gen.yaml`).
 - Schema lint: `./gradlew validateProtoSchemas`
 
 Schema highlights:
