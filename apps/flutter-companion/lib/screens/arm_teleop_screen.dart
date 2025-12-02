@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../models/teleop_models.dart';
-import '../services/robot_api_service.dart';
+import '../services/brain_client.dart';
 
 /// SO-ARM101 6-DOF robot arm teleop control screen
 /// Provides sliders for each joint + depth camera preview
 class ArmTeleopScreen extends StatefulWidget {
-  const ArmTeleopScreen({super.key});
+  const ArmTeleopScreen({super.key, required this.brainClient});
+
+  static const routeName = '/arm-teleop';
+
+  final BrainClient brainClient;
 
   @override
   State<ArmTeleopScreen> createState() => _ArmTeleopScreenState();
@@ -14,10 +18,7 @@ class ArmTeleopScreen extends StatefulWidget {
 class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
   // Joint positions normalized [-1, 1]
   final List<double> _jointPositions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-  
-  // Robot API service
-  late RobotApiService _robotApi;
-  
+
   // Joint names for SO-ARM101
   static const List<String> _jointNames = [
     'Base',
@@ -38,40 +39,56 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
     Icons.back_hand,
   ];
 
+  static const _defaultHost = 'brain.continuon.ai';
+  static const _defaultPort = 443;
+
   bool _isRecording = false;
   bool _isConnected = false;
   String _episodeId = '';
   int _stepCount = 0;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _robotApi = RobotApiService(host: 'localhost', port: 8080);
     _connectToRobot();
   }
 
   @override
   void dispose() {
-    _robotApi.disconnect();
     super.dispose();
   }
 
   Future<void> _connectToRobot() async {
-    final connected = await _robotApi.connect();
-    setState(() {
-      _isConnected = connected;
-    });
-
-    if (connected) {
-      // Subscribe to robot state updates
-      _robotApi.streamRobotState('flutter_companion').listen((state) {
+    try {
+      await widget.brainClient.connect(
+        host: _defaultHost,
+        port: _defaultPort,
+        useTls: true,
+      );
+      widget.brainClient.streamRobotState(widget.brainClient.clientId).listen((state) {
         setState(() {
+          _error = null;
+          _isConnected = true;
           if (state.jointPositions.length == 6) {
             for (int i = 0; i < 6; i++) {
               _jointPositions[i] = state.jointPositions[i];
             }
           }
         });
+      }, onError: (error) {
+        setState(() {
+          _error = error.toString();
+          _isConnected = false;
+        });
+      });
+      setState(() {
+        _isConnected = true;
+      });
+    } catch (error) {
+      setState(() {
+        _error = error.toString();
+        _isConnected = false;
       });
     }
   }
@@ -114,6 +131,12 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
               ),
             ),
           ),
+          if (_error != null)
+            IconButton(
+              tooltip: _error,
+              onPressed: _connectToRobot,
+              icon: const Icon(Icons.refresh),
+            ),
         ],
       ),
       body: Column(
@@ -425,16 +448,6 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
     );
   }
 
-  void _toggleRecording() {
-    setState(() {
-      _isRecording = !_isRecording;
-      if (_isRecording) {
-        _episodeId = 'episode_${DateTime.now().millisecondsSinceEpoch}';
-        _stepCount = 0;
-      }
-    });
-  }
-
   void _showSettings() {
     showDialog(
       context: context,
@@ -470,11 +483,11 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
     );
   }
 
-  void _sendCommand() {
+  Future<void> _sendCommand() async {
     if (!_isConnected) return;
 
     final command = ControlCommand(
-      clientId: 'flutter_companion',
+      clientId: widget.brainClient.clientId,
       controlMode: ControlMode.armJointAngles,
       targetFrequencyHz: 20.0,
       armJointAngles: ArmJointAnglesCommand(
@@ -482,48 +495,57 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
       ),
     );
 
-    // Send command to robot
-    _robotApi.sendCommand(command).then((response) {
-      if (!response['success']) {
-        print('Command failed: ${response['message']}');
+    try {
+      await widget.brainClient.sendCommand(command);
+      if (_isRecording) {
+        setState(() {
+          _stepCount++;
+        });
       }
-    });
-
-    if (_isRecording) {
-      setState(() {
-        _stepCount++;
-      });
+    } catch (error) {
+      setState(() => _error = error.toString());
+      _showMessage('Command failed: $error');
     }
   }
 
   void _toggleRecording() async {
     if (_isRecording) {
       // Stop recording
-      final response = await _robotApi.stopRecording(success: true);
-      setState(() {
-        _isRecording = false;
-      });
-      
-      if (response['success']) {
-        _showMessage('Episode saved: ${response['episode_id']}');
-      } else {
-        _showMessage('Failed to stop recording: ${response['message']}');
+      try {
+        final response = await widget.brainClient.stopRecording(success: true);
+        setState(() {
+          _isRecording = false;
+        });
+
+        if (response['success'] == true) {
+          _showMessage('Episode saved: ${response['episode_id'] ?? ''}');
+        } else {
+          _showMessage('Failed to stop recording: ${response['message']}');
+        }
+      } catch (error) {
+        setState(() => _error = error.toString());
+        _showMessage('Failed to stop recording: $error');
       }
     } else {
       // Start recording
       final instruction = await _promptForInstruction();
       if (instruction != null && instruction.isNotEmpty) {
-        final response = await _robotApi.startRecording(instruction);
-        
-        if (response['success']) {
-          setState(() {
-            _isRecording = true;
-            _episodeId = response['episode_id'];
-            _stepCount = 0;
-          });
-          _showMessage('Recording started: $_episodeId');
-        } else {
-          _showMessage('Failed to start recording: ${response['message']}');
+        try {
+          final response = await widget.brainClient.startRecording(instruction);
+
+          if (response['success'] == true) {
+            setState(() {
+              _isRecording = true;
+              _episodeId = (response['episode_id'] as String?) ?? 'episode_${DateTime.now().millisecondsSinceEpoch}';
+              _stepCount = 0;
+            });
+            _showMessage('Recording started: $_episodeId');
+          } else {
+            _showMessage('Failed to start recording: ${response['message']}');
+          }
+        } catch (error) {
+          setState(() => _error = error.toString());
+          _showMessage('Failed to start recording: $error');
         }
       }
     }

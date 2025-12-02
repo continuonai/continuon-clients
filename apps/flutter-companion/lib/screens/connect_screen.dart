@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../services/brain_client.dart';
-import '../services/platform_channels.dart';
 import 'control_screen.dart';
 import 'record_screen.dart';
 
@@ -18,9 +17,11 @@ class ConnectScreen extends StatefulWidget {
 
 class _ConnectScreenState extends State<ConnectScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _hostController = TextEditingController(text: 'localhost');
-  final _portController = TextEditingController(text: '50051');
-  bool _useTls = false;
+  final _hostController = TextEditingController(text: 'brain.continuon.ai');
+  final _portController = TextEditingController(text: '443');
+  final _authTokenController = TextEditingController();
+  bool _useTls = true;
+  bool _usePlatformBridge = false;
   bool _connecting = false;
   String? _error;
 
@@ -34,9 +35,15 @@ class _ConnectScreenState extends State<ConnectScreen> {
     });
     final host = _hostController.text.trim();
     final port = int.tryParse(_portController.text.trim()) ?? 50051;
+    final authToken = _authTokenController.text.trim().isNotEmpty ? _authTokenController.text.trim() : null;
     try {
-      await widget.brainClient.connect(host: host, port: port, useTls: _useTls);
-      await const PlatformBrainBridge().initConnection(host, port, useTls: _useTls);
+      await widget.brainClient.connect(
+        host: host,
+        port: port,
+        useTls: _useTls,
+        authToken: authToken,
+        preferPlatformBridge: _usePlatformBridge,
+      );
       if (mounted) {
         Navigator.pushReplacementNamed(context, ControlScreen.routeName);
       }
@@ -70,10 +77,23 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 keyboardType: TextInputType.number,
                 validator: (value) => int.tryParse(value ?? '') != null ? null : 'Port required',
               ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _authTokenController,
+                decoration: const InputDecoration(
+                  labelText: 'Bearer token (optional)',
+                  helperText: 'Passed as Authorization header for gRPC/WebRTC',
+                ),
+              ),
               SwitchListTile(
                 title: const Text('Use TLS'),
                 value: _useTls,
                 onChanged: (value) => setState(() => _useTls = value),
+              ),
+              SwitchListTile(
+                title: const Text('Use platform WebRTC bridge'),
+                value: _usePlatformBridge,
+                onChanged: (value) => setState(() => _usePlatformBridge = value),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),

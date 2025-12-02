@@ -11,11 +11,12 @@ class PlatformBrainBridge {
   bool get isConnected => _connected;
   static bool _connected = false;
 
-  Future<void> initConnection(String host, int port, {bool useTls = false}) async {
+  Future<void> initConnection(String host, int port, {bool useTls = false, String? authToken}) async {
     final response = await _channel.invokeMethod<bool>('connect', {
       'host': host,
       'port': port,
       'useTls': useTls,
+      if (authToken != null) 'authToken': authToken,
     });
     _connected = response ?? false;
   }

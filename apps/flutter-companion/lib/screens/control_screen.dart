@@ -24,16 +24,20 @@ class _ControlScreenState extends State<ControlScreen> {
   bool _gripperOpen = false;
   List<double> _joints = const [];
   bool _sending = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _subscription = widget.brainClient.streamRobotState('flutter-companion').listen((state) {
+    _subscription = widget.brainClient.streamRobotState(widget.brainClient.clientId).listen((state) {
       setState(() {
         _frameId = state.frameId;
         _gripperOpen = state.gripperOpen;
         _joints = state.jointPositions;
+        _error = null;
       });
+    }, onError: (error) {
+      setState(() => _error = error.toString());
     });
   }
 
@@ -44,9 +48,8 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   Future<void> _sendVelocity() async {
-    setState(() => _sending = true);
     final command = ControlCommand(
-      clientId: 'flutter-companion',
+      clientId: widget.brainClient.clientId,
       controlMode: ControlMode.eeVelocity,
       targetFrequencyHz: 30,
       eeVelocity: const EeVelocityCommand(
@@ -54,17 +57,29 @@ class _ControlScreenState extends State<ControlScreen> {
         angularRadS: Vector3(x: 0, y: 0.1, z: 0),
       ),
     );
+    await _safeSendCommand(command);
+  }
+
+  Future<void> _safeSendCommand(ControlCommand command) async {
+    setState(() => _sending = true);
     try {
       await widget.brainClient.sendCommand(command);
+      setState(() => _error = null);
+    } catch (error) {
+      setState(() => _error = error.toString());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Command failed: $error')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
 
   Future<void> _toggleGripper() async {
-    setState(() => _sending = true);
     final command = ControlCommand(
-      clientId: 'flutter-companion',
+      clientId: widget.brainClient.clientId,
       controlMode: ControlMode.gripper,
       targetFrequencyHz: 5,
       gripperCommand: GripperCommand(
@@ -72,11 +87,7 @@ class _ControlScreenState extends State<ControlScreen> {
         positionM: _gripperOpen ? 0.0 : 0.04,
       ),
     );
-    try {
-      await widget.brainClient.sendCommand(command);
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
+    await _safeSendCommand(command);
   }
 
   @override
@@ -120,6 +131,14 @@ class _ControlScreenState extends State<ControlScreen> {
             Text('Frame: $_frameId'),
             Text('Gripper open: $_gripperOpen'),
             Text('Joints: ${_joints.join(', ')}'),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
             const SizedBox(height: 16),
             Row(
               children: [
