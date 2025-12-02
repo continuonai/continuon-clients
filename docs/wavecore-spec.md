@@ -34,7 +34,7 @@ Examples: audio channels, IMU axes, joint positions/velocities, token embeddings
 
 ## Deployment Tiers
 - **Edge (Pi 5 / Orin / phone)**: shallow stack (2–4 blocks, 64–256 channels), small windows; latency target <10 ms/control tick, <50 ms perception.
-- **Cloud (Continuon Cloud / TPU)**: deeper stack (12–48 blocks, wider channels) used for offline training/distillation into edge configs.
+- **Cloud (Continuon Cloud / TPU)**: deeper stack (12–48 blocks, wider channels) used for offline training/distillation into edge configs; specs live in `continuonai/continuon-cloud/` (Google Cloud path).
 
 ## Design Principles
 - Sub-quadratic long-range modeling via FFT (O(N log N)).

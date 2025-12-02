@@ -6,7 +6,7 @@ For the complete reconciled system architecture and training lifecycle, see [Sys
 
 ## OTA phases mapped to HOPE/CMS loops
 - **Fast & Mid loops stay resident on-device:** Reflexive controls and short-horizon skills ship inside the edge bundle and remain loaded across OTA installs so latency-sensitive behaviors do not depend on cloud reachability.
-- **Slow loop checkpoints originate in cloud:** Corpus-scale Slow-loop training runs in Continuon Cloud, producing the baseline checkpoints that distill into the on-device Fast/Mid bundles.
+- **Slow loop checkpoints originate in cloud:** Corpus-scale Slow-loop training runs in Continuon Cloud (staged under `continuonai/continuon-cloud/` for the Google Cloud ingest/train/distribution path), producing the baseline checkpoints that distill into the on-device Fast/Mid bundles.
 - **Device traces replayed in cloud Slow loop:** Telemetry and RLDS logs captured by the device feed the next Slow-loop training round in cloud, ensuring on-device Fast/Mid adaptations are preserved when the global checkpoint is refreshed.
 
 ## Memory Plane persistence and merge behavior

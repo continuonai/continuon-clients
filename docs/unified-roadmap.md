@@ -1,6 +1,6 @@
 # Unified Roadmap & Milestones (Source of Truth)
 
-This roadmap is the shared reference for ContinuonXR, ContinuonBrain/OS, and Continuon Cloud. It aligns the phased plan in the repository README, the MVP scope and KPIs in `PRD.md`, and the Pi 5 lifecycle sequencing in `continuon-lifecycle-plan.md`. All schedule, ownership, and milestone updates should be made here first and linked elsewhere.
+This roadmap is the shared reference for ContinuonXR, ContinuonBrain/OS, and Continuon Cloud (docs/staging under `continuonai/continuon-cloud/` for the Google Cloud ingest/train/package path). It aligns the phased plan in the repository README, the MVP scope and KPIs in `PRD.md`, and the Pi 5 lifecycle sequencing in `continuon-lifecycle-plan.md`. All schedule, ownership, and milestone updates should be made here first and linked elsewhere.
 
 ## Current Phase
 - **Phase:** **Phase 1 – MVP Data Capture (Current)**

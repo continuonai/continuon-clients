@@ -5,12 +5,12 @@ This repo remains the **ContinuonXR** product, but it now documents how it fits 
 ## Core repos
 - **continuonos** (ContinuonBrain/OS runtime): platform-neutral core (`src/core/`), HAL adapters (`platform/`), backends (`backends/`), configs, and `rlds_logger/`.
 - **ContinuonXR** (this repo): spatial UI + data capture rig; XR shell, glove BLE, RLDS logging, upload.
-- **ContinuonAI**: business/orchestration; master specs (`episode-schema.md`, `cloud-api-spec.md`, `xr-app-spec.md`). The Flutter companion app now lives under `continuonai/` in this repo.
+- **ContinuonAI**: business/orchestration; master specs (`episode-schema.md`, `cloud-api-spec.md`, `xr-app-spec.md`). The Flutter companion app (consumer robot controller) and the WorldTape RLDS browser/annotation portal now live under `continuonai/` in this repo.
 - **Continuon-Cloud**: ingest/train/package; owns bundle manifest and definitive RLDS schema. Staging docs are consolidated under `continuonai/continuon-cloud/` here.
-- **worldtapeai.com**: RLDS browser/annotation front-end.
+- **worldtapeai.com**: redirect stub to the in-app WorldTape portal; keep implementation in `continuonai/`.
 
 ## Contracts
-- **RLDS schema**: versioned; producers (ContinuonXR, continuonos) and consumers (Cloud, worldtapeai) must track MAJOR.MINOR.PATCH. Align `proto/rlds_episode.proto` here with the canonical spec in `ContinuonAI/specs`.
+- **RLDS schema**: versioned; producers (ContinuonXR, continuonos) and consumers (Cloud, ContinuonAI/WorldTape portal) must track MAJOR.MINOR.PATCH. Align `proto/rlds_episode.proto` here with the canonical spec in `ContinuonAI/specs`.
 - **ContinuonBrain bridge**: gRPC/WebRTC API; defined in `proto/continuonbrain_link.proto` here and mirrored in `continuonos`.
 - **Edge bundles**: manifest owned by Continuon-Cloud; consumed by continuonos.
 

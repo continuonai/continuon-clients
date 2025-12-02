@@ -1,13 +1,8 @@
-# Continuon: Self-Learning Robotics Ecosystem
+# Continuon AI: Self-Learning Robotics Ecosystem
 
 **Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**
 
 ## Build & CI Status
-
-[![Android XR CI](https://github.com/continuonai/ContinuonXR/actions/workflows/android-xr.yml/badge.svg)](https://github.com/continuonai/ContinuonXR/actions/workflows/android-xr.yml)
-[![Scheduled Smoke Tests](https://github.com/continuonai/ContinuonXR/actions/workflows/scheduled-smoke-tests.yml/badge.svg?event=schedule)](https://github.com/continuonai/ContinuonXR/actions/workflows/scheduled-smoke-tests.yml)
-
-The Android XR pipeline runs `assembleDebug`, unit tests, and proto generation to mirror the coverage used across other Continuon repos. Scheduled smoke tests validate critical XR flows on a regular cadence.
 
 ---
 
@@ -121,8 +116,7 @@ This single repository hosts every Continuon product with clear in-repo module b
 |--------|------|---------|--------|
 | **ContinuonXR** | `apps/continuonxr/` | Spatial UI & data capture rig (Android XR, glove BLE parsing, RLDS logging) | Active |
 | **ContinuonBrain/OS Runtime** | `continuonbrain/` + `continuonai/` | Robot OS/edge runtime scaffolding, HAL interfaces, OTA client & contracts | Active (consolidated here) |
-| **ContinuonAI App + Cloud Docs** | `continuonai/` (+ `continuonai/continuon-cloud/`) | Flutter companion (web/iOS/Android/Linux), Cloud ingestion/train specs | Active |
-| **worldtapeai.com** | `worldtapeai.com/` | RLDS video explorer web UI | Active |
+| **ContinuonAI App + RLDS Portal** | `continuonai/` (+ `continuonai/continuon-cloud/`) | Flutter consumer app/robot controller with integrated WorldTape RLDS browser/annotation surfaces; Cloud ingestion/train specs | Active (worldtape consolidated here) |
 
 ### In-Repository Contracts
 
@@ -137,7 +131,7 @@ This single repository hosts every Continuon product with clear in-repo module b
 
 ### Quickstart: Donkey Car + Flutter Companion → Continuon Cloud
 
-Use this path to run the continuous learning loop on a Raspberry Pi 5–powered Donkey Car with an iPhone 16 Pro companion app:
+Use this path to run the continuous learning loop on a Raspberry Pi 5-powered Donkey Car with an iPhone 16 Pro companion app (Cloud ingest/train/package staging lives under `continuonai/continuon-cloud/` for the Google Cloud backend):
 
 1. **Edge bridge on Pi (ContinuonBrain/OS)**
    - Run the lightweight ContinuonBrain/OS bridge to expose the Robot API over gRPC/WebRTC.
@@ -380,7 +374,7 @@ The single source of truth for owners, dates, and KPIs across Phases 0–4 lives
 
 **Goals:**
 - [ ] Fleet management dashboard
-- [ ] worldtapeai.com annotation tools
+- [ ] ContinuonAI RLDS/annotation tools (WorldTape portal in-app)
 - [ ] Full VLA stack (all 5 heads)
 - [ ] Continuous self-improvement metrics
 
@@ -406,7 +400,7 @@ This repository contains the **spatial UI and data capture rig** component of th
       continuonbrain_link.proto  # Robot API
     continuonbrain/         # ContinuonBrain/OS scaffolding, Robot API server entrypoint, trainer modules
     continuonai/            # ContinuonAI Flutter app (web/iOS/Android/Linux) plus consolidated Cloud docs
-    worldtapeai.com/        # RLDS explorer web app
+    worldtapeai.com/        # redirect stub; WorldTape RLDS portal now lives inside continuonai/
   ```
 
 Note: `continuonbrain/trainer/` contains an offline Pi/Jetson LoRA adapter-training scaffold (bounded jobs, RLDS-only inputs, safety-gated promotion) to stay aligned with ContinuonBrain/OS goals. The Robot API server lives in `continuonbrain/robot_api_server.py`; integrate deeper continuonos runtime/OTA paths in the dedicated `continuonos` repo.
@@ -684,7 +678,7 @@ We welcome contributions across all modules in this monorepo. Please:
 ## Learn More
 
 - **Website**: [continuon.ai](https://continuon.ai) *(in development)*
-- **RLDS Browser**: [worldtapeai.com](https://worldtapeai.com) *(planned)*
+- **RLDS Browser**: ContinuonAI app web build (WorldTape RLDS portal; see `continuonai/README.md`)
 - **Research**: See `docs/hope-cms-vla.md` for technical details
 - **Community**: Discord server *(coming soon)*
 

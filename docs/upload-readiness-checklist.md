@@ -1,6 +1,6 @@
 # Upload Readiness Checklist (Manual/Opt-In)
 
-Use this checklist whenever enabling uploads from field hardware. It keeps offline defaults intact while making sure curated data reaches WorldTapeAI with provenance and consent.
+Use this checklist whenever enabling uploads from field hardware. It keeps offline defaults intact while making sure curated data reaches the ContinuonAI/WorldTape portal with provenance and consent.
 
 1. **Default to offline logging**
    - Confirm RLDS episodes are stored locally and upload cron/daemon is disabled by default.
@@ -12,9 +12,9 @@ Use this checklist whenever enabling uploads from field hardware. It keeps offli
    - Run the local curation filter: drop unsafe/redacted frames, trim to approved segments, and attach episode-level quality flags.
    - Generate a manifest containing episode count, duration, and curation outcomes.
 4. **Prepare network and credentials**
-   - Ensure the device has outbound connectivity to the configured ingest endpoint (default: WorldTapeAI portal URL).
+   - Ensure the device has outbound connectivity to the configured ingest endpoint (default: ContinuonAI/WorldTape portal URL).
    - Install the upload token/API key in the secure keystore or environment file; never bake credentials into images.
-5. **Package for WorldTapeAI**
+5. **Package for ContinuonAI/WorldTape portal**
    - Zip the curated RLDS episodes and include the manifest plus device/environment identifiers.
    - Hash the archive (SHA-256) and record the checksum alongside the upload request.
 6. **Provenance and security gates**

@@ -3,7 +3,7 @@
 This memo restates how this repo maps onto the broader Continuon architecture and calls out additional lower-fidelity data sources that can be normalized into RLDS episodes to keep the HOPE/Nested Learning stack well fed.
 
 ## Where the repo already aligns
-- **Monorepo stance:** ContinuonXR stays focused on XR data capture and UI while referencing continuonos (runtime), Continuon-Cloud (ingest/train), ContinuonAI (contracts), and worldtapeai.com (browser/annotation).【F:docs/monorepo-structure.md†L6-L24】 This respects the “One Brain, Many Shells” separation of shells versus the shared brain.
+- **Monorepo stance:** ContinuonXR stays focused on XR data capture and UI while referencing continuonos (runtime), Continuon-Cloud (ingest/train), and the ContinuonAI consumer app (contracts + integrated WorldTape RLDS browse/annotation portal).【F:docs/monorepo-structure.md†L6-L24】 This respects the “One Brain, Many Shells” separation of shells versus the shared brain.
 - **RLDS-first contracts:** The RLDS schema covers synchronized poses, gaze, video/depth, audio, glove telemetry, robot state, UI context, and diagnostics with explicit validity flags so sensors can drop without breaking the format.【F:docs/rlds-schema.md†L6-L74】 Human-centric modes already map to RLDS tags for trainer, workstation, observer, and YouTube/TV ingestion.【F:docs/human-centric-data.md†L6-L35】
 - **HOPE/CMS routing:** Existing guidance ties RLDS blocks to Fast/Mid/Slow loops and the VisionCore/LanguagePlanner/World Model/SkillPolicies/SafetyHead heads, ensuring XR signals arrive at the right timescale and optimizer.【F:docs/hope-cms-vla.md†L1-L85】
 
@@ -29,4 +29,4 @@ This memo restates how this repo maps onto the broader Continuon architecture an
 ## Related Documentation
 
 The storytelling gap identified in the "Gaps to close" section is now addressed by the comprehensive system architecture document:
-- **[System Architecture and Training Lifecycle](./system-architecture.md)** - Covers the complete end-to-end flow: XR capture → WorldTapeAI ingestion → Vertex AI cloud training → signed edge bundle → OTA delivery → Memory Plane merge at boot
+- **[System Architecture and Training Lifecycle](./system-architecture.md)** - Covers the complete end-to-end flow: XR capture → ContinuonAI/WorldTape portal ingestion → Vertex AI cloud training → signed edge bundle → OTA delivery → Memory Plane merge at boot

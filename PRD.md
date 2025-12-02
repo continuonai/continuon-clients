@@ -8,7 +8,7 @@
 ## I. Strategic Foundations & Goals
 
 ### 1.1 Product Vision
-ContinuonXR is the human-facing application that serves as the secure, spatial workstation, trainer interface, and the **primary data ingestion point** for the Continuon self-learning ecosystem. It overcomes the "static" nature of traditional models by continually supplying high-quality, human-generated **RLDS episodes** (gold data) to the **Continuon Cloud Factory**. All Continuon products and services (XR, Cloud, ContinuonBrain/OS runtime, web explorer, and orchestration) are built and shipped from this repository to keep architecture and contracts aligned.
+ContinuonXR is the human-facing application that serves as the secure, spatial workstation, trainer interface, and the **primary data ingestion point** for the Continuon self-learning ecosystem. It overcomes the "static" nature of traditional models by continually supplying high-quality, human-generated **RLDS episodes** (gold data) to the **Continuon Cloud Factory** (staging docs live under `continuonai/continuon-cloud/` for the Google Cloud-only ingest/train/package path). All Continuon products and services (XR, Cloud, ContinuonBrain/OS runtime, web explorer, and orchestration) are built and shipped from this repository to keep architecture and contracts aligned.
 
 ### 1.2 Unique Selling Proposition (USP)
 ContinuonXR is the unified **PC replacement, robot controller, and data collection rig**. It integrates the developer’s workspace with the robot’s physical presence, ensuring that **every interaction becomes training data**.

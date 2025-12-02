@@ -7,6 +7,7 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
 - RLDS task recording and Cloud upload using signed URLs.
 - Multimodal logging (audio, egocentric video/depth, gaze, voice command text) to mirror the Android XR app contract for Gemma and robot alignment.
 - Minimal UI flows for connect, control, manual driving, and record/testing.
+- Integrated RLDS browser/annotation surfaces (WorldTape) now ride inside this Flutter module for consumer review and robot control without a separate web repo.
 
 ## Project layout
 
@@ -14,12 +15,18 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
 - `lib/services/brain_client.dart` – ContinuonBrain gRPC/WebRTC bridge with TLS/auth helpers.
 - `lib/services/platform_channels.dart` – thin ContinuonBrain gRPC/platform channel bridge.
 - `lib/screens/manual_mode_screen.dart` – web-friendly manual driving surface with acceleration/gripper presets.
-- `lib/services/controller_input.dart` – PS3 controller to `ControlCommand` mapper via platform channels.
-- `lib/services/cloud_uploader.dart` – signed URL broker helper using `googleapis_auth`.
-- `lib/services/multimodal_inputs.dart` – helper to stamp RLDS observations with synchronized audio, egocentric video/depth, gaze, and voice metadata.
-- `lib/services/task_recorder.dart` – in-memory RLDS step collection.
-- `lib/models` – data structures for teleop commands and RLDS metadata.
-- `integration_test/` – basic UI smoke test covering connect/record flows.
+- `lib/services/controller_input.dart` - PS3 controller to `ControlCommand` mapper via platform channels.
+- `lib/services/cloud_uploader.dart` - signed URL broker helper using `googleapis_auth`.
+- `lib/services/multimodal_inputs.dart` - helper to stamp RLDS observations with synchronized audio, egocentric video/depth, gaze, and voice metadata.
+- `lib/services/task_recorder.dart` - in-memory RLDS step collection.
+- `lib/models` - data structures for teleop commands and RLDS metadata.
+- `integration_test/` - basic UI smoke test covering connect/record flows.
+
+## Integrated RLDS portal (WorldTape)
+
+- The consumer-facing RLDS browser/annotation experience formerly tracked under `worldtapeai.com/` is consolidated into this Flutter app; use the web build for the portal surfaces and keep implementation here.
+- Reuse the existing brain client and signed upload helpers to gate any review/export flows; ingest contracts stay aligned with `proto/rlds_episode.proto` and the upload checklist in `docs/upload-readiness-checklist.md`.
+- The `worldtapeai.com/` folder in the repo now serves as a redirect stub only; updates to portal behavior should land in this module and its docs.
 
 ## Requirements
 

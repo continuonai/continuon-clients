@@ -1,6 +1,6 @@
 # ContinuonXR Architecture (Draft)
 
-This document outlines the early architecture that satisfies the PRD and Phase 0 deliverables. It is intentionally implementation-neutral while mapping the data loop between the XR app, ContinuonBrain/OS, and Continuon Cloud.
+This document outlines the early architecture that satisfies the PRD and Phase 0 deliverables. It is intentionally implementation-neutral while mapping the data loop between the XR app, ContinuonBrain/OS, and Continuon Cloud (staging docs under `continuonai/continuon-cloud/` for the Google Cloud-only ingest/train/package path).
 
 For comprehensive coverage of the multi-loop learning architecture and training lifecycle, see:
 - [System Architecture and Training Lifecycle](./system-architecture.md) - Reconciled design for edge-first learning, cloud training, and OTA updates
@@ -9,7 +9,7 @@ For comprehensive coverage of the multi-loop learning architecture and training 
 ## High-level system
 - **XR client (Android, Kotlin, Jetpack XR/Compose):** Runs on Galaxy XR hardware. Provides spatial workstation panels, teleop UI, and observer overlays. Emits RLDS episodes locally and forwards to Continuon Cloud.
 - **ContinuonBrain/OS bridge (dock/phone):** Receives gRPC/WebRTC streams from XR client for robot state, commands, and telemetry. Exposes the stable Robot API.
-- **Continuon Cloud:** Stores RLDS episodes, runs training/validation jobs, and manages OTA updates to ContinuonBrain/OS and XR client configs.
+- **Continuon Cloud:** Stores RLDS episodes, runs training/validation jobs, and manages OTA updates to ContinuonBrain/OS and XR client configs (specs tracked in `continuonai/continuon-cloud/`).
 - **Companion apps:** Flutter clients for setup, quick teleop, and RLDS browsing; optional WebXR/Unity viewers for simulation and playback.
 
 ## Modules (proposed)

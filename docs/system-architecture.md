@@ -7,7 +7,7 @@ This document provides the reconciled design for the ContinuonXR multi-loop lear
 The ContinuonXR project employs a multi-loop learning architecture that spans on-device edge processing and cloud-based training. In this design, all loops work in concert:
 
 - **Immediate safety checks and learning** happen on the edge device (Raspberry Pi 5 + AI Hat)
-- **The cloud** aggregates experience data via WorldTapeAI and performs heavy training (slow loop) with Vertex AI
+- **The cloud** aggregates experience data via the ContinuonAI RLDS portal (WorldTape surfaces in the consumer app) and performs heavy training (slow loop) with Vertex AI
 - **New skill packs or model checkpoints** are delivered back to devices as over-the-air (OTA) updates
 - **The device's Memory Plane** (persistent local learning state) is preserved across updates and merged with incoming global models at boot
 
@@ -22,7 +22,7 @@ This design maintains an "edge-first" ethos for safety and responsiveness, while
 │   │  Edge Device        │          │       Cloud Infrastructure          │ │
 │   │  (Pi 5 + AI Hat)    │          │                                     │ │
 │   │                     │          │  ┌─────────────────────────────────┐│ │
-│   │  ┌───────────────┐  │  RLDS    │  │     WorldTapeAI Portal          ││ │
+│   │  ┌───────────────┐  │  RLDS    │  │     ContinuonAI RLDS Portal          ││ │
 │   │  │  Fast Loop    │  │  Upload  │  │  - Curated RLDS ingestion       ││ │
 │   │  │  (Real-time)  │  │ ───────► │  │  - Opt-in data sharing          ││ │
 │   │  └───────────────┘  │          │  │  - Episode aggregation          ││ │
@@ -91,13 +91,13 @@ Because the Pi hosts the inference and fast loop learning, it can enforce real-t
 
 ---
 
-## RLDS Data Ingestion via WorldTapeAI (Slow Loop Initiation)
+## RLDS Data Ingestion via the ContinuonAI/WorldTape portal (Slow Loop Initiation)
 
-When the edge device has accumulated a set of interesting experiences or training data (episodes of interaction, sensor logs, etc.), it enters the data ingestion phase for the slow loop. ContinuonXR keeps **manual/opt-in uploads as the default**; WorldTapeAI is only used once an operator explicitly enables the cloud path.
+When the edge device has accumulated a set of interesting experiences or training data (episodes of interaction, sensor logs, etc.), it enters the data ingestion phase for the slow loop. ContinuonXR keeps **manual/opt-in uploads as the default**; the ContinuonAI RLDS portal (WorldTape surfaces in the consumer app) is only used once an operator explicitly enables the cloud path.
 
 **Shared ingest strategy (aligned with the lifecycle plan)**
 - Default posture: offline logging only. Upload daemons are disabled unless a user opts in.
-- WorldTapeAI path: after opt-in, the device batches curated RLDS episodes, zips them with a manifest, and uploads via the configured ingest endpoint.
+- ContinuonAI portal path: after opt-in in the consumer app/robot controller, the device batches curated RLDS episodes, zips them with a manifest, and uploads via the in-app WorldTape ingest endpoint.
 - Gating/curation: local filters remove sensitive frames, tag quality, and attach operator consent in the manifest; uploads are hashed/signed when supported for provenance.
 - The exact enablement steps are in the [Upload Readiness Checklist](./upload-readiness-checklist.md), referenced by field teams and the lifecycle plan.
 
@@ -116,7 +116,7 @@ See [docs/rlds-schema.md](./rlds-schema.md) for the authoritative field definiti
 
 Not all locally collected data will be sent to the cloud – only curated segments that are useful for global learning and meet privacy/quality criteria:
 
-- The WorldTapeAI portal allows the robot (or user) to opt in to sharing certain data after passing the shared checklist.
+- The ContinuonAI/WorldTape portal inside the consumer app allows the robot (or user) to opt in to sharing certain data after passing the shared checklist.
 - The device might automatically flag novel or challenging scenarios (edge cases) and ask for permission to upload.
 - Sensitive information can be filtered out or anonymized prior to upload; rejected segments stay local.
 - Each upload carries a manifest with operator/device identity plus checksums or signatures to preserve provenance.
@@ -125,15 +125,15 @@ Not all locally collected data will be sent to the cloud – only curated segmen
 | Mode | When to use | Prerequisites | Security & provenance |
 |------|-------------|---------------|-----------------------|
 | **Offline-only logging** | Default during bring-up, demos without connectivity, or sensitive runs | Sufficient local storage and rotation policy; upload services disabled | Keep RLDS local; enforce device-level auth for XR/teleop; no tokens provisioned |
-| **Cloud-connected with WorldTapeAI ingest** | When operator opts in to share curated runs for slow-loop training | Network path to WorldTapeAI, valid ingest token, curated/trimmed episodes staged | Follow upload checklist: TLS, checksums/signature, manifest with operator/device identity, retain local copy until acknowledgment |
+| **Cloud-connected with ContinuonAI/WorldTape ingest** | When operator opts in to share curated runs for slow-loop training | Network path to the ContinuonAI/WorldTape portal, valid ingest token, curated/trimmed episodes staged | Follow upload checklist: TLS, checksums/signature, manifest with operator/device identity, retain local copy until acknowledgment |
 
 ### Triggering Slow Loop Jobs
 
-Once curated episodes are uploaded to WorldTapeAI's cloud repository:
+Once curated episodes are uploaded through the ContinuonAI/WorldTape portal:
 
 1. They trigger the slow-loop training pipeline
-2. WorldTapeAI aggregates data from all participating devices in the field
-3. When enough new data or certain criteria are met (time-based schedule or threshold of new episodes), WorldTapeAI initiates a cloud training workflow
+2. The ContinuonAI/WorldTape portal aggregates curated data from all participating devices in the field
+3. When enough new data or certain criteria are met (time-based schedule or threshold of new episodes), the ContinuonAI/WorldTape pipeline initiates a cloud training workflow
 4. This corresponds to storing RLDS in a cloud database and invoking Google Cloud Vertex AI pipelines
 5. The ingestion portal may do preprocessing (auto-labeling, validation, merging with existing datasets)
 
@@ -147,7 +147,7 @@ In the Slow Loop stage, the cloud performs intensive learning on the aggregated 
 
 | Function | Description |
 |----------|-------------|
-| **RLDS Aggregation & Storage** | Episodes from WorldTapeAI stored centrally (Cloud Storage or database). Combines episodes from multiple edge devices for global perspective. |
+| **RLDS Aggregation & Storage** | Episodes from the ContinuonAI/WorldTape portal stored centrally (Cloud Storage or database). Combines episodes from multiple edge devices for global perspective. |
 | **Training Orchestration** | Vertex AI Pipelines coordinate training workflow. Jobs use TensorFlow + TF-Agents or PyTorch for RL or imitation learning. |
 | **Hyperparameter Tuning & Evaluation** | Cloud compute enables sweeps and parallel training experiments. Validation on test sets before deployment. |
 | **Global Skill Pack Output** | New model checkpoint or "global skill pack" with improved behaviors. Versioned and packaged for distribution. |
@@ -203,7 +203,7 @@ The system guards against catastrophic forgetting of local info when applying OT
 - Memory Plane corresponds to smaller portion (last-layer adapter or side memory) that remains untouched except for controlled merge
 - Techniques from continual learning (elastic weight consolidation, partitioned networks) ensure device doesn't relearn everything
 
-The OTA update is the deployment step of our continuous training loop. It closes the loop by taking the model from the model registry to production (edge). After deployment, the device runs the new model, monitors performance, collects new data, and eventually sends back the next round of RLDS to WorldTapeAI.
+The OTA update is the deployment step of our continuous training loop. It closes the loop by taking the model from the model registry to production (edge). After deployment, the device runs the new model, monitors performance, collects new data, and eventually stages the next round of RLDS for optional upload via the ContinuonAI/WorldTape portal.
 
 ---
 
@@ -280,7 +280,7 @@ By combining them, the system can respond to immediate fluctuations while steadi
 
 ### Function/Phase by Component
 
-| Function / Phase | Edge Device (Pi 5 + AI Hat) | WorldTapeAI Cloud Portal | Cloud (Vertex AI & OTA) |
+| Function / Phase | Edge Device (Pi 5 + AI Hat) | ContinuonAI/WorldTape Portal | Cloud (Vertex AI & OTA) |
 |------------------|----------------------------|-------------------------|------------------------|
 | **Real-Time Inference & Control** | Runs model locally for immediate perception and control. Ensures safety and I/O validation. Executes Fast Loop learning with minor online weight adjustments. | Not involved | Not involved |
 | **On-Device Training (Mid Loop)** | Periodically retrains on recent data. Uses local compute (Pi + AI accelerator). Maintains Memory Plane of learned adjustments. | Not involved | Cloud provides initial model; mid-loop handled on device |
