@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/connect_screen.dart';
 import 'screens/control_screen.dart';
+import 'screens/manual_mode_screen.dart';
 import 'screens/record_screen.dart';
 import 'services/brain_client.dart';
 
@@ -35,6 +36,7 @@ class _FlutterCompanionAppState extends State<FlutterCompanionApp> {
       routes: {
         ConnectScreen.routeName: (_) => ConnectScreen(brainClient: _brainClient),
         ControlScreen.routeName: (_) => ControlScreen(brainClient: _brainClient),
+        ManualModeScreen.routeName: (_) => ManualModeScreen(brainClient: _brainClient),
         RecordScreen.routeName: (_) => RecordScreen(brainClient: _brainClient),
       },
       initialRoute: ConnectScreen.routeName,

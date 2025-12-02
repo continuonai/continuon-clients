@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/teleop_models.dart';
 import '../services/brain_client.dart';
+import 'manual_mode_screen.dart';
 import 'record_screen.dart';
 
 class ControlScreen extends StatefulWidget {
@@ -106,6 +107,27 @@ class _ControlScreenState extends State<ControlScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Wrap(
+              spacing: 12,
+              children: [
+                ChoiceChip(
+                  label: const Text('Automatic'),
+                  selected: true,
+                  onSelected: (_) {},
+                ),
+                ChoiceChip(
+                  label: const Text('Manual driving'),
+                  selected: false,
+                  onSelected: (_) => Navigator.pushNamed(context, ManualModeScreen.routeName),
+                ),
+                ChoiceChip(
+                  label: const Text('Record'),
+                  selected: false,
+                  onSelected: (_) => Navigator.pushNamed(context, RecordScreen.routeName),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Text('Frame: $_frameId'),
             Text('Gripper open: $_gripperOpen'),
             Text('Joints: ${_joints.join(', ')}'),

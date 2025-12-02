@@ -5,13 +5,18 @@ A Flutter module that targets Android/iOS host apps and provides:
 - Teleoperation against the ContinuonBrain bridge gRPC/WebRTC service with TLS + bearer auth.
 - Platform channel hook points for native SDKs to share transport/auth state.
 - RLDS task recording and Cloud upload using signed URLs.
-- Minimal UI flows for connect, control, and record/testing.
+- Multimodal logging (audio, egocentric video/depth, gaze, voice command text) to mirror the Android XR app contract for Gemma and robot alignment.
+- Minimal UI flows for connect, control, manual driving, and record/testing.
 
 ## Project layout
 
 - `lib/main.dart` – entry-point wiring the connect, control, and record screens.
 - `lib/services/brain_client.dart` – ContinuonBrain gRPC/WebRTC bridge with TLS/auth helpers.
+- `lib/services/brain_client.dart` – thin ContinuonBrain gRPC/platform channel bridge.
+- `lib/screens/manual_mode_screen.dart` – web-friendly manual driving surface with acceleration/gripper presets.
+- `lib/services/controller_input.dart` – PS3 controller to `ControlCommand` mapper via platform channels.
 - `lib/services/cloud_uploader.dart` – signed URL broker helper using `googleapis_auth`.
+- `lib/services/multimodal_inputs.dart` – helper to stamp RLDS observations with synchronized audio, egocentric video/depth, gaze, and voice metadata.
 - `lib/services/task_recorder.dart` – in-memory RLDS step collection.
 - `lib/models` – data structures for teleop commands and RLDS metadata.
 - `integration_test/` – basic UI smoke test covering connect/record flows.
@@ -43,6 +48,13 @@ A Flutter module that targets Android/iOS host apps and provides:
    flutter test integration_test/connect_and_record_test.dart
    ```
 5. Build the module for Android:
+4. Drive manually from a browser surface:
+   ```bash
+   flutter run -d chrome --web-port 8080
+   ```
+   Then open `/#/manual` to expose the operator controls. The same surface is available from
+   the mobile shell via the Manual mode chips on the control screen.
+4. Build the module for Android:
    ```bash
    flutter build aar
    ```
@@ -68,6 +80,20 @@ payload. The upload helper writes an `episode.json` based on the RLDS schema doc
 in `proto/rlds_episode.proto` and issues a PUT to the signed URL. Replace the broker URL
 with your environment-specific endpoint and scopes when authenticating with a service
 account.
+
+## Manual mode and controller input
+
+- Use the **Manual driving** chip from the control screen to load the manual mode surface.
+- Acceleration profiles (Precision/Nominal/Aggressive) scale the velocity commands before
+  they are sent through `BrainClient.sendCommand`.
+- Gripper presets include direct open/close toggles and a position slider mapping to
+  `GripperCommand` payloads.
+- RLDS records created from manual mode seed `control_role=manual_driver`; the Record screen
+  lets you override the role for autonomous/automatic runs.
+- A PlayStation 3 controller can be bridged via the `ps3_controller` platform channel. The
+  listener maps left stick translation, right stick yaw, and Cross/Circle gripper buttons to
+  `ControlCommand` fields. Implement the native channel on Android/iOS hosts or reuse an
+  existing Flutter gamepad plugin that emits the same event keys.
 
 ## Embedding
 
