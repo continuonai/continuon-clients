@@ -1,6 +1,6 @@
 """
-Mock ContinuonBrain gRPC server for Pi5 robot arm development.
-Simulates Robot API endpoints for Flutter companion testing.
+ContinuonBrain Robot API server for Pi5 robot arm.
+Production server with real hardware control.
 """
 import asyncio
 import time
@@ -21,15 +21,14 @@ from continuonbrain.sensors.hardware_detector import HardwareDetector
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
 
 
-class MockRobotService:
+class RobotService:
     """
-    Mock implementation of Robot API for arm control.
-    Integrates with real/mock arm controller and depth camera.
+    Production Robot API server for arm control.
+    Uses real hardware detected on the system.
     """
     
-    def __init__(self, use_real_hardware: bool = False, auto_detect: bool = True):
-        self.use_real_hardware = use_real_hardware
-        self.auto_detect = auto_detect
+    def __init__(self, config_dir: str = "/tmp/continuonbrain_demo"):
+        self.config_dir = config_dir
         self.arm: Optional[PCA9685ArmController] = None
         self.camera: Optional[OAKDepthCapture] = None
         self.recorder: Optional[ArmEpisodeRecorder] = None
@@ -40,58 +39,65 @@ class MockRobotService:
         
     async def initialize(self):
         """Initialize hardware components with auto-detection."""
-        print(f"Initializing Mock Robot Service...")
-        print(f"  Real hardware: {self.use_real_hardware}")
-        print(f"  Auto-detect: {self.auto_detect}")
+        print(f"Initializing Robot Service (PRODUCTION MODE)...")
         print()
         
-        # Auto-detect hardware if enabled
-        if self.auto_detect and not self.use_real_hardware:
-            # In mock mode, just report what would be detected
-            print("🔍 Hardware detection (mock mode - not initializing)")
-            detector = HardwareDetector()
-            devices = detector.detect_all()
-            if devices:
-                self.detected_config = detector.generate_config()
-                detector.print_summary()
-        elif self.auto_detect and self.use_real_hardware:
-            print("🔍 Auto-detecting hardware...")
-            detector = HardwareDetector()
-            devices = detector.detect_all()
-            if devices:
-                self.detected_config = detector.generate_config()
-                print()
+        # Auto-detect hardware
+        print("🔍 Auto-detecting hardware...")
+        detector = HardwareDetector()
+        devices = detector.detect_all()
+        if devices:
+            self.detected_config = detector.generate_config()
+            detector.print_summary()
+            print()
+        else:
+            print("⚠️  No hardware detected!")
+            print()
         
-        # Initialize arm controller
+        # Initialize arm controller with REAL hardware
+        print("🦾 Initializing arm controller...")
         self.arm = PCA9685ArmController(ArmConfig())
-        if not self.arm.initialize():
-            print("Warning: Arm initialization failed, using mock")
+        if self.arm.initialize():
+            print("✅ Arm controller initialized (REAL HARDWARE)")
+        else:
+            print("❌ Arm initialization failed - check I2C connections")
+            raise RuntimeError("Failed to initialize arm controller")
         
-        # Initialize camera (only in real hardware mode)
-        if self.use_real_hardware:
-            camera_driver = self.detected_config.get("primary", {}).get("depth_camera_driver")
-            if camera_driver == "depthai" or camera_driver is None:
-                self.camera = OAKDepthCapture(CameraConfig())
-                if self.camera.initialize():
-                    self.camera.start()
-                    print("✅ OAK-D camera initialized")
-                else:
-                    print("Warning: Camera initialization failed")
-                    self.camera = None
+        # Initialize camera with REAL hardware
+        print("📷 Initializing depth camera...")
+        camera_driver = self.detected_config.get("primary", {}).get("depth_camera_driver")
+        if camera_driver == "depthai" or camera_driver is None:
+            self.camera = OAKDepthCapture(CameraConfig())
+            if self.camera.initialize():
+                self.camera.start()
+                print("✅ OAK-D camera initialized (REAL HARDWARE)")
+            else:
+                print("⚠️  Camera initialization failed - continuing without camera")
+                self.camera = None
+        else:
+            print(f"⚠️  Unsupported camera driver: {camera_driver}")
+            self.camera = None
         
         # Initialize recorder
+        print("📼 Initializing episode recorder...")
         self.recorder = ArmEpisodeRecorder(
-            episodes_dir="/tmp/flutter_episodes",
+            episodes_dir=f"{self.config_dir}/episodes",
             max_steps=500,
         )
         self.recorder.arm = self.arm
         self.recorder.camera = self.camera
+        print("✅ Episode recorder ready")
         
         # Initialize mode manager
-        self.mode_manager = RobotModeManager(config_dir="/tmp/robot_mode")
+        print("🎮 Initializing mode manager...")
+        self.mode_manager = RobotModeManager(config_dir=self.config_dir)
         self.mode_manager.return_to_idle()  # Start in idle mode
+        print("✅ Mode manager ready")
         
-        print("✅ Mock Robot Service ready")
+        print()
+        print("=" * 60)
+        print("✅ Robot Service Ready (PRODUCTION MODE)")
+        print("=" * 60)
         if self.detected_config.get("primary"):
             print("\n🎯 Using detected hardware:")
             for key, value in self.detected_config["primary"].items():
@@ -340,11 +346,11 @@ class MockRobotService:
 
 class SimpleJSONServer:
     """
-    Simple HTTP-like server for testing without full gRPC setup.
-    Listens on localhost:8080 and accepts JSON commands.
+    HTTP/JSON server for robot control and web UI.
+    Supports both HTTP endpoints and raw JSON protocol.
     """
     
-    def __init__(self, service: MockRobotService):
+    def __init__(self, service: RobotService):
         self.service = service
         self.server = None
     
@@ -354,6 +360,8 @@ class SimpleJSONServer:
         parts = request_line.split()
         method = parts[0] if len(parts) > 0 else "GET"
         path = parts[1] if len(parts) > 1 else "/"
+        
+        print(f"[HTTP] {method} {path}")
         
         # Read headers
         headers = {}
@@ -380,7 +388,9 @@ class SimpleJSONServer:
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path.startswith("/api/mode/"):
             mode = path.split("/")[-1]
+            print(f"[MODE] Changing to: {mode}")
             result = await self.service.SetRobotMode(mode)
+            print(f"[MODE] Result: {result}")
             response_body = json.dumps(result)
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         else:
@@ -501,12 +511,14 @@ class SimpleJSONServer:
         </div>
         
         <div class="mode-buttons">
-            <button onclick="setMode('manual_training')">📝 Manual Training</button>
+            <button onclick="setMode('manual_training')">🎮 Manual Control</button>
             <button onclick="setMode('autonomous')" class="secondary">🚀 Autonomous</button>
             <button onclick="setMode('sleep_learning')" class="secondary">💤 Sleep Learning</button>
             <button onclick="setMode('idle')" class="secondary">⏸️ Idle</button>
             <button onclick="setMode('emergency_stop')" class="danger">🛑 Emergency Stop</button>
         </div>
+        
+        <div id="status-message" style="margin-top: 16px; padding: 12px; border-radius: 8px; display: none;"></div>
         
         <p style="text-align: center; color: #86868b; font-size: 12px; margin-top: 20px;">
             ContinuonXR Robot Control Interface
@@ -514,32 +526,73 @@ class SimpleJSONServer:
     </div>
     
     <script>
-        async function updateStatus() {
-            try {
-                const response = await fetch('/api/status');
-                const data = await response.json();
-                
-                if (data.status) {
-                    const mode = data.status.mode || 'unknown';
-                    document.getElementById('mode').innerHTML = '<span class="badge ' + mode + '">' + mode.replace('_', ' ').toUpperCase() + '</span>';
-                    document.getElementById('recording').textContent = data.status.is_recording ? 'Yes' : 'No';
-                    document.getElementById('motion').textContent = data.status.allow_motion ? 'Yes' : 'No';
-                }
-            } catch (error) {
-                console.error('Failed to update status:', error);
-            }
+        function showMessage(message, isError) {
+            if (typeof isError === 'undefined') { isError = false; }
+            var msgDiv = document.getElementById('status-message');
+            msgDiv.textContent = message;
+            msgDiv.style.display = 'block';
+            msgDiv.style.background = isError ? '#ff3b30' : '#34c759';
+            msgDiv.style.color = 'white';
+            msgDiv.style.textAlign = 'center';
+            setTimeout(function() {
+                msgDiv.style.display = 'none';
+            }, 3000);
         }
         
-        async function setMode(mode) {
-            try {
-                const response = await fetch('/api/mode/' + mode);
-                const data = await response.json();
-                if (data.success) {
-                    await updateStatus();
+        function updateStatus() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/status', true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.status) {
+                            var mode = data.status.mode || 'unknown';
+                            document.getElementById('mode').innerHTML = '<span class="badge ' + mode + '">' + mode.replace(/_/g, ' ').toUpperCase() + '</span>';
+                            document.getElementById('recording').textContent = data.status.is_recording ? 'Yes' : 'No';
+                            document.getElementById('motion').textContent = data.status.allow_motion ? 'Yes' : 'No';
+                        }
+                    } catch (e) {
+                        console.error('Parse error:', e);
+                    }
                 }
-            } catch (error) {
-                console.error('Failed to set mode:', error);
-            }
+            };
+            xhr.onerror = function() {
+                console.error('Connection failed');
+                showMessage('Failed to connect to robot', true);
+            };
+            xhr.send();
+        }
+        
+        function setMode(mode) {
+            console.log('Setting mode to:', mode);
+            showMessage('Changing mode to ' + mode.replace(/_/g, ' ') + '...');
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/mode/' + mode, true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            showMessage('Mode changed to ' + mode.replace(/_/g, ' ').toUpperCase());
+                            setTimeout(updateStatus, 500);
+                        } else {
+                            showMessage('Failed: ' + (data.message || 'Unknown error'), true);
+                        }
+                    } catch (e) {
+                        console.error('Parse error:', e);
+                        showMessage('Error parsing response', true);
+                    }
+                } else {
+                    showMessage('Server error: ' + xhr.status, true);
+                }
+            };
+            xhr.onerror = function() {
+                console.error('Connection failed');
+                showMessage('Connection failed', true);
+            };
+            xhr.send();
         }
         
         // Update status every 2 seconds
@@ -645,17 +698,18 @@ class SimpleJSONServer:
         
         addr = self.server.sockets[0].getsockname()
         print(f"\n{'='*60}")
-        print(f"Mock ContinuonBrain Service listening on {addr[0]}:{addr[1]}")
+        print(f"🚀 ContinuonBrain Robot API listening on {addr[0]}:{addr[1]}")
         print(f"{'='*60}\n")
-        print("Example commands:")
+        print("📱 Web UI: http://{0}:{1}/ui".format(addr[0] if addr[0] != '0.0.0.0' else 'localhost', addr[1]))
+        print("🔌 API Endpoint: http://{0}:{1}/status".format(addr[0] if addr[0] != '0.0.0.0' else 'localhost', addr[1]))
+        print()
+        print("Example JSON commands (via netcat):")
         print(f'  # Control arm')
         print(f'  echo \'{{"method": "send_command", "params": {{"client_id": "test", "control_mode": "armJointAngles", "arm_joint_angles": {{"normalized_angles": [0.5, 0.0, 0.0, 0.0, 0.0, 0.0]}}}}}}\' | nc {addr[0]} {addr[1]}')
         print(f'  # Change mode to manual training')
         print(f'  echo \'{{"method": "set_mode", "params": {{"mode": "manual_training"}}}}\' | nc {addr[0]} {addr[1]}')
         print(f'  # Get robot status')
         print(f'  echo \'{{"method": "get_status", "params": {{}}}}\' | nc {addr[0]} {addr[1]}')
-        print(f'  # Start recording')
-        print(f'  echo \'{{"method": "start_recording", "params": {{"instruction": "Pick cube"}}}}\' | nc {addr[0]} {addr[1]}')
         print()
         
         async with self.server:
@@ -666,16 +720,12 @@ async def main():
     """Run the mock service."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Mock ContinuonBrain Robot API server")
+    parser = argparse.ArgumentParser(description="ContinuonBrain Robot API Server (Production)")
     parser.add_argument(
-        "--real-hardware",
-        action="store_true",
-        help="Use real OAK-D and PCA9685 hardware"
-    )
-    parser.add_argument(
-        "--no-auto-detect",
-        action="store_true",
-        help="Disable hardware auto-detection"
+        "--config-dir",
+        type=str,
+        default="/tmp/continuonbrain_demo",
+        help="Configuration directory (default: /tmp/continuonbrain_demo)"
     )
     parser.add_argument(
         "--port",
@@ -692,11 +742,8 @@ async def main():
     
     args = parser.parse_args()
     
-    # Create service
-    service = MockRobotService(
-        use_real_hardware=args.real_hardware,
-        auto_detect=not args.no_auto_detect
-    )
+    # Create service in PRODUCTION mode
+    service = RobotService(config_dir=args.config_dir)
     await service.initialize()
     
     # Create simple JSON server
