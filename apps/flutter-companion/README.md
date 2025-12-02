@@ -2,7 +2,7 @@
 
 A Flutter module that targets Android/iOS host apps and provides:
 
-- Teleoperation against the ContinuonBrain bridge gRPC service.
+- Teleoperation against the ContinuonBrain bridge gRPC/WebRTC service with TLS + bearer auth.
 - Platform channel hook points for native SDKs to share transport/auth state.
 - RLDS task recording and Cloud upload using signed URLs.
 - Minimal UI flows for connect, control, and record/testing.
@@ -10,7 +10,7 @@ A Flutter module that targets Android/iOS host apps and provides:
 ## Project layout
 
 - `lib/main.dart` – entry-point wiring the connect, control, and record screens.
-- `lib/services/brain_client.dart` – thin ContinuonBrain gRPC/platform channel bridge.
+- `lib/services/brain_client.dart` – ContinuonBrain gRPC/WebRTC bridge with TLS/auth helpers.
 - `lib/services/cloud_uploader.dart` – signed URL broker helper using `googleapis_auth`.
 - `lib/services/task_recorder.dart` – in-memory RLDS step collection.
 - `lib/models` – data structures for teleop commands and RLDS metadata.
@@ -28,14 +28,21 @@ A Flutter module that targets Android/iOS host apps and provides:
    ```bash
    flutter pub get
    ```
-2. (Optional) If native hosts own the transport stack, implement the platform channel
+2. Configure ContinuonBrain connectivity in the Connect screen:
+   - Default host: `brain.continuon.ai` port `443` with TLS enabled.
+   - Optional bearer token: passed as the `Authorization: Bearer <token>` gRPC header.
+   - Enable "platform WebRTC bridge" to route transport through the native host for
+     lower-latency data channels when available.
+   The same parameters can be provided programmatically via `BrainClient.connect`,
+   including custom root certificates when connecting to staging clusters.
+3. (Optional) If native hosts own the transport stack, implement the platform channel
    methods defined in `lib/services/platform_channels.dart` in the Android/iOS host
    shells to forward gRPC requests to ContinuonBrain.
-3. Run the integration smoke test:
+4. Run the integration smoke test:
    ```bash
    flutter test integration_test/connect_and_record_test.dart
    ```
-4. Build the module for Android:
+5. Build the module for Android:
    ```bash
    flutter build aar
    ```
@@ -49,7 +56,10 @@ A Flutter module that targets Android/iOS host apps and provides:
 The client uses the same service and message shapes as `proto/continuonbrain_link.proto`.
 By default the module uses JSON payloads over gRPC for portability, but mobile hosts can
 swap in native protobuf-backed implementations through the platform channel to interop
-with existing ContinuonBrain deployments.
+with existing ContinuonBrain deployments. Commands and recording triggers are sent over
+the `ContinuonBrainBridge` gRPC service with TLS by default; bearer tokens are attached
+as gRPC metadata. When the platform WebRTC bridge is enabled, the Flutter layer defers
+transport negotiation to the host and only serializes the payloads.
 
 ## RLDS upload
 
