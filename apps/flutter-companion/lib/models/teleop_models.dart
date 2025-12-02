@@ -6,6 +6,47 @@ enum GripperMode { position, velocity }
 
 enum RobotType { manipulator, mobile }
 
+enum AccelerationProfile {
+  precision,
+  nominal,
+  aggressive,
+}
+
+extension AccelerationProfileScaling on AccelerationProfile {
+  double get linearScale {
+    switch (this) {
+      case AccelerationProfile.precision:
+        return 0.05;
+      case AccelerationProfile.nominal:
+        return 0.15;
+      case AccelerationProfile.aggressive:
+        return 0.3;
+    }
+  }
+
+  double get angularScale {
+    switch (this) {
+      case AccelerationProfile.precision:
+        return 0.2;
+      case AccelerationProfile.nominal:
+        return 0.6;
+      case AccelerationProfile.aggressive:
+        return 1.2;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case AccelerationProfile.precision:
+        return 'Precision';
+      case AccelerationProfile.nominal:
+        return 'Nominal';
+      case AccelerationProfile.aggressive:
+        return 'Aggressive';
+    }
+  }
+}
+
 class Vector3 {
   const Vector3({required this.x, required this.y, required this.z});
 
