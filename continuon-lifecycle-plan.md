@@ -75,6 +75,7 @@ For the complete reconciled system architecture covering edge-first learning, cl
 - Week 1: configs + HAL stubs + proto regen; XR pointed to Pi mock. (See Week 1 row in `docs/unified-roadmap.md`.)
 - Week 2: vehicle loop logging RLDS locally; simple ingest endpoint; first opt-in uploads. (Mirrors roadmap Week 2.)
 - Week 3: XR teleop to Pi over gRPC/WebRTC; start collecting gold data. (Roadmap Week 3, current phase.)
+- Week 3a: Hybrid browser/Flutter architecture + packaging recommendations (GCP alignment, offline detection/cache sync, RLDS queueing for browser + Flutter, OTA bundle serving options); deliver design doc + sample ContinuonAI integration notes. (Roadmap Week 3a.)
 - Week 4: Cloud retrains and ships first Edge Bundle back to Pi; close the loop (optional). (Roadmap Week 4, Phase 2 handoff.)
 
 ## Success markers
