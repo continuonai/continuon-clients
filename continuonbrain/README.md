@@ -28,7 +28,8 @@ Built SO-ARM101 + OAK-D Lite integration for design validation without physical 
 
 **System Management**:
 - `system_health.py` - Comprehensive hardware/software health checks
-- `startup_manager.py` - Startup orchestration with automatic wake checks
+- `startup_manager.py` - Startup orchestration with automatic wake checks and boot
+  enforcement for system instructions + safety protocol
 
 **Testing** (`tests/`):
 - `integration_test.py` - Full stack test (mock + real hardware modes)
@@ -69,6 +70,15 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
   sudo systemctl start continuonbrain-startup.service
   ```
 - The unit runs `python -m continuonbrain.startup_manager` on boot, which performs health checks and launches the Robot API in real-hardware mode. Check logs with `sudo journalctl -u continuonbrain-startup.service -f`.
+
+### Boot safety + system instructions
+- Add non-negotiable instructions in `system_instructions.json` under your `CONFIG_DIR`.
+  Defaults always include loading the safety protocol before enabling motion and rejecting
+  unsafe commands; user-provided entries append to those defaults.
+- Safety rules live under `CONFIG_DIR/safety/protocol.json` and are merged with the
+  immutable base rules (e.g., "Do not harm humans or other organisms" and respect for
+  property/laws). Setting `override_defaults` has no effect because the base rules cannot
+  be removed.
 
 ### Hardware Compatibility
 
