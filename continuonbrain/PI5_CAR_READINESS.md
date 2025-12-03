@@ -6,11 +6,15 @@ Goal: a repeatable Pi 5 setup that can record RLDS, train LoRA adapters locally,
 - Use 64-bit Raspberry Pi OS Lite or Ubuntu 24.04, enable I2C (`raspi-config` → Interfacing → I2C) and reboot.
 - Confirm devices: `v4l2-ctl --list-devices` (depth cam) and `i2cdetect -y 1` (PCA9685 should show `0x40`).
 - Minimal packages: `sudo apt install -y python3-venv python3-pip v4l-utils libatlas-base-dev` (skip heavier ML deps until needed).
-- Directory layout expected by configs:  
+- Directory layout expected by configs:
   `sudo mkdir -p /opt/continuonos/brain/{model/base_model,model/adapters/{current,candidate},rlds/episodes,trainer/logs}` (matches `configs/pi5-donkey.json` and manifests).
+- Automated check (creates the paths above, validates I2C/UVC, and emits a JSON report):
+  ```bash
+  python -m continuonbrain.pi5_hardware_validation --log-json /tmp/pi5_check.json
+  ```
 
 ## Depth camera notes (USB3)
-- Stick to UVC profiles that the Pi can sustain (e.g., 640x480@30 fps with depth). Check with `v4l2-ctl --list-formats-ext`.
+- Stick to UVC profiles that the Pi can sustain (e.g., 640x480@30 fps with depth). Check with `v4l2-ctl --list-formats-ext` or the validation script (expects 640x480@30 and 1280x720@30 to show up for OAK-D Lite UVC).
 - Keep timestamps aligned to robot state within **≤5 ms**; log them into RLDS `observation` alongside `observation.robot_state`.
 - Quick sanity capture (headless): `ffmpeg -f v4l2 -i /dev/video0 -frames:v 10 /tmp/depth_test.mkv` to verify bandwidth.
 - When emitting RLDS: store per-step depth frames and include camera intrinsics in `episode_metadata`; follow `docs/rlds-schema.md` to keep schema compatible.
@@ -27,6 +31,7 @@ Goal: a repeatable Pi 5 setup that can record RLDS, train LoRA adapters locally,
       kit.servo[0].angle = 90 + steering * 45  # steering servo
       kit.continuous_servo[1].throttle = throttle  # ESC / motor
   ```
+- Sanity check the bus and a single bounded pulse with `python -m continuonbrain.pi5_hardware_validation` (timestamps and servo actions are logged with ≤5 ms skew target).
 - Wire this to the trainer safety hooks (`build_simple_action_guards`) and to runtime control paths in `continuonos`, keeping bounds logged in RLDS `step_metadata`.
 
 ## First local training smoke test
