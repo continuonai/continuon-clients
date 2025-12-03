@@ -291,6 +291,22 @@ def run_local_lora_training_job(
             avg_loss = total_loss / max(1, batches_seen)
             log.append(f"Step {steps}: avg_loss={avg_loss:.4f}")
 
+    if batches_seen == 0:
+        reason = "No training batches produced; skipping adapter save."
+        log.append(reason)
+        wall_time_s = time.time() - start_time
+        log_path = write_trainer_log(cfg.log_dir, log)
+        return TrainerResult(
+            status="no_data",
+            reason=reason,
+            steps=steps,
+            avg_loss=0.0,
+            adapter_path=None,
+            log_path=log_path,
+            wall_time_s=wall_time_s,
+            log=log,
+        )
+
     ensure_dir(cfg.adapters_out_dir)
     adapter_path = cfg.adapter_path
     hooks.save_adapters(model, adapter_path)
