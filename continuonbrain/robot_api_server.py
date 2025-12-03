@@ -253,6 +253,7 @@ class RobotService:
                 "is_recording": self.is_recording,
                 "current_episode": self.current_episode_id,
                 "hardware_mode": "real" if self.use_real_hardware else "mock",
+                "audio_recording_active": bool(self.recorder and self.recorder.audio_enabled),
             }
             
             if self.mode_manager:

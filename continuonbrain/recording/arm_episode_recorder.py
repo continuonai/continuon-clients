@@ -3,8 +3,13 @@ RLDS episode recorder for SO-ARM101 robot arm manipulation.
 Records depth vision + arm state + human teleop actions.
 Compatible with Pi5 setup per PI5_CAR_READINESS.md and docs/rlds-schema.md.
 """
+import importlib
+import importlib.util
 import json
+import threading
 import time
+import wave
+from collections import deque
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, asdict
@@ -20,6 +25,14 @@ except ImportError:
     OAKDepthCapture = None
     PCA9685ArmController = None
     HardwareDetector = None
+
+
+def _load_sounddevice():
+    """Load optional sounddevice dependency without hard failing."""
+    sd_spec = importlib.util.find_spec("sounddevice")
+    if not sd_spec:
+        return None
+    return importlib.import_module("sounddevice")
 
 
 @dataclass
@@ -56,15 +69,23 @@ class StepData:
     # Action
     action: List[float]  # 6 target joint positions normalized [-1, 1]
     action_source: str  # "human_teleop_xr" or "vla_policy"
-    
+
     # Metadata
     is_terminal: bool = False
     language_instruction: Optional[str] = None
     reward: float = 0.0
-    
+    audio_buffer: Optional[np.ndarray] = None
+    audio_uri: Optional[str] = None
+    audio_sample_rate_hz: Optional[int] = None
+    audio_num_channels: Optional[int] = None
+    audio_format: Optional[str] = None
+    audio_frame_id: Optional[str] = None
+    audio_timestamp_ns: Optional[int] = None
+    audio_delta_ms: Optional[float] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for JSON serialization."""
-        return {
+        data = {
             "step_index": self.step_index,
             "timestamp_ns": self.timestamp_ns,
             "observation": {
@@ -78,6 +99,120 @@ class StepData:
             "language_instruction": self.language_instruction,
             "reward": self.reward,
         }
+
+        if self.audio_buffer is not None or self.audio_uri:
+            data["audio"] = {
+                "uri": self.audio_uri,
+                "sample_rate_hz": self.audio_sample_rate_hz,
+                "num_channels": self.audio_num_channels,
+                "format": self.audio_format,
+                "frame_id": self.audio_frame_id,
+                "timestamp_ns": self.audio_timestamp_ns,
+                "delta_ms_to_frame": self.audio_delta_ms,
+            }
+
+        return data
+
+
+class MicrophoneCapture:
+    """Lightweight microphone sampler with optional mock fallback."""
+
+    def __init__(
+        self,
+        sample_rate_hz: int = 16000,
+        num_channels: int = 1,
+        block_duration_ms: int = 20,
+        use_mock: bool = False,
+    ):
+        self.sample_rate_hz = sample_rate_hz
+        self.num_channels = num_channels
+        self.block_duration_ms = block_duration_ms
+        self.block_frames = int(self.sample_rate_hz * self.block_duration_ms / 1000)
+        self.audio_format = "wav_pcm16"
+        self.file_extension = "wav"
+        self.use_mock = use_mock
+
+        self.stream = None
+        self.buffer = deque(maxlen=100)
+        self.frame_counter = 0
+        self.lock = threading.Lock()
+        self.active = False
+
+        self.sd = _load_sounddevice()
+        if self.sd is None:
+            self.use_mock = True
+
+    def initialize(self) -> bool:
+        if self.use_mock:
+            print("🎙️  Using mock microphone capture")
+            self.active = True
+            return True
+
+        try:
+            self.stream = self.sd.InputStream(
+                samplerate=self.sample_rate_hz,
+                channels=self.num_channels,
+                blocksize=self.block_frames,
+                callback=self._callback,
+            )
+            self.stream.start()
+            self.active = True
+            print(f"✅ Microphone initialized at {self.sample_rate_hz} Hz")
+            return True
+        except Exception as e:
+            print(f"⚠️  Microphone init failed: {e}")
+            self.active = False
+            self.stream = None
+            return False
+
+    def _callback(self, indata, frames, callback_time, status):
+        del status  # unused
+        timestamp_ns = time.time_ns()
+
+        if callback_time and getattr(callback_time, "inputBufferAdcTime", None):
+            timestamp_ns = int(callback_time.inputBufferAdcTime * 1e9)
+
+        with self.lock:
+            self.buffer.append((timestamp_ns, indata.copy(), self.frame_counter))
+            self.frame_counter += 1
+
+    def get_aligned_block(self, target_timestamp_ns: int) -> Optional[Dict[str, Any]]:
+        if not self.active:
+            return None
+
+        if self.use_mock:
+            timestamp_ns = target_timestamp_ns
+            mock_audio = np.zeros((self.block_frames, self.num_channels), dtype=np.float32)
+            frame_id = self.frame_counter
+            self.frame_counter += 1
+            return {
+                "buffer": mock_audio,
+                "timestamp_ns": timestamp_ns,
+                "frame_id": f"audio_{frame_id:04d}",
+                "delta_ms": 0.0,
+            }
+
+        with self.lock:
+            if not self.buffer:
+                return None
+
+            closest_ts, closest_buffer, frame_id = min(
+                self.buffer, key=lambda entry: abs(entry[0] - target_timestamp_ns)
+            )
+
+        delta_ms = abs(closest_ts - target_timestamp_ns) / 1e6
+        return {
+            "buffer": closest_buffer,
+            "timestamp_ns": closest_ts,
+            "frame_id": f"audio_{frame_id:04d}",
+            "delta_ms": delta_ms,
+        }
+
+    def stop(self):
+        if self.stream:
+            self.stream.stop()
+            self.stream.close()
+        self.active = False
 
 
 class ArmEpisodeRecorder:
@@ -93,18 +228,36 @@ class ArmEpisodeRecorder:
     ):
         self.episodes_dir = Path(episodes_dir)
         self.episodes_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.max_steps = max_steps
-        
+
         # Hardware components (optional for testing)
         self.camera: Optional[OAKDepthCapture] = None
         self.arm: Optional[PCA9685ArmController] = None
-        
+        self.microphone: Optional["MicrophoneCapture"] = None
+
         # Current episode state
         self.current_episode: Optional[str] = None
         self.episode_metadata: Optional[EpisodeMetadata] = None
         self.steps: List[StepData] = []
         self.step_counter: int = 0
+        self.audio_enabled: bool = False
+
+    def _save_audio_file(
+        self, file_path: Path, audio_buffer: np.ndarray, sample_rate_hz: int, num_channels: int
+    ) -> None:
+        """Persist audio buffer to a WAV file."""
+        if audio_buffer.dtype != np.int16:
+            clipped = np.clip(audio_buffer, -1.0, 1.0)
+            audio_int16 = (clipped * 32767).astype(np.int16)
+        else:
+            audio_int16 = audio_buffer
+
+        with wave.open(str(file_path), "wb") as wav_file:
+            wav_file.setnchannels(num_channels)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate_hz)
+            wav_file.writeframes(audio_int16.tobytes())
         
     def initialize_hardware(self, use_mock: bool = False, auto_detect: bool = True) -> bool:
         """
@@ -114,53 +267,62 @@ class ArmEpisodeRecorder:
             use_mock: Force mock mode (no real hardware)
             auto_detect: Auto-detect available hardware
         """
+        success = True
+
         if use_mock:
             print("Using MOCK hardware mode")
-            return True
-        
-        success = True
-        
-        # Auto-detect hardware if requested
-        detected_config = {}
-        if auto_detect and HardwareDetector:
-            print("🔍 Auto-detecting hardware...")
-            detector = HardwareDetector()
-            devices = detector.detect_all()
-            detected_config = detector.generate_config()
-            print()
-        
-        # Initialize camera (auto-select based on detection)
-        if OAKDepthCapture:
-            camera_type = None
-            if detected_config.get("primary", {}).get("depth_camera_driver") == "depthai":
-                camera_type = "OAK-D"
-                print(f"Using detected {detected_config['primary']['depth_camera']}")
-            
-            self.camera = OAKDepthCapture(CameraConfig())
-            if self.camera.initialize():
-                self.camera.start()
-                print(f"✅ {camera_type or 'Depth'} camera initialized")
-            else:
-                print("⚠️  Camera initialization failed (continuing without camera)")
-                self.camera = None
-                success = False
-        
-        # Initialize servo controller (auto-select based on detection)
-        if PCA9685ArmController:
-            servo_address = None
-            if "servo_controller" in detected_config.get("devices", {}):
-                servo_info = detected_config["devices"]["servo_controller"][0]
-                servo_address = servo_info.get("address")
-                print(f"Using detected {servo_info['name']} at {servo_address}")
-            
-            self.arm = PCA9685ArmController(ArmConfig())
-            if self.arm.initialize():
-                print("✅ Arm controller initialized")
-            else:
-                print("⚠️  Arm initialization failed (continuing without arm)")
-                self.arm = None
-                success = False
-        
+        else:
+            # Auto-detect hardware if requested
+            detected_config = {}
+            if auto_detect and HardwareDetector:
+                print("🔍 Auto-detecting hardware...")
+                detector = HardwareDetector()
+                devices = detector.detect_all()
+                detected_config = detector.generate_config()
+                print()
+
+            # Initialize camera (auto-select based on detection)
+            if OAKDepthCapture:
+                camera_type = None
+                if detected_config.get("primary", {}).get("depth_camera_driver") == "depthai":
+                    camera_type = "OAK-D"
+                    print(f"Using detected {detected_config['primary']['depth_camera']}")
+
+                self.camera = OAKDepthCapture(CameraConfig())
+                if self.camera.initialize():
+                    self.camera.start()
+                    print(f"✅ {camera_type or 'Depth'} camera initialized")
+                else:
+                    print("⚠️  Camera initialization failed (continuing without camera)")
+                    self.camera = None
+                    success = False
+
+            # Initialize servo controller (auto-select based on detection)
+            if PCA9685ArmController:
+                servo_address = None
+                if "servo_controller" in detected_config.get("devices", {}):
+                    servo_info = detected_config["devices"]["servo_controller"][0]
+                    servo_address = servo_info.get("address")
+                    print(f"Using detected {servo_info['name']} at {servo_address}")
+
+                self.arm = PCA9685ArmController(ArmConfig())
+                if self.arm.initialize():
+                    print("✅ Arm controller initialized")
+                else:
+                    print("⚠️  Arm initialization failed (continuing without arm)")
+                    self.arm = None
+                    success = False
+
+        # Initialize microphone capture
+        self.microphone = MicrophoneCapture(use_mock=use_mock)
+        audio_ready = self.microphone.initialize()
+        self.audio_enabled = audio_ready
+        if audio_ready:
+            print("✅ Microphone capture initialized")
+        else:
+            print("⚠️  Microphone capture unavailable (audio disabled)")
+            self.microphone = None
+
         return success
     
     def start_episode(
@@ -243,11 +405,12 @@ class ArmEpisodeRecorder:
         
         try:
             timestamp_ns = time.time_ns()
-            
+
             # Capture observation
             rgb_image = None
             depth_image = None
-            
+            audio_sample = None
+
             if self.camera:
                 frame = self.camera.capture_frame()
                 if frame:
@@ -263,6 +426,31 @@ class ArmEpisodeRecorder:
             robot_state = [0.0] * 6
             if self.arm:
                 robot_state = self.arm.get_normalized_state()
+
+            # Fetch aligned audio block
+            audio_uri = None
+            audio_buffer = None
+            audio_frame_id = None
+            audio_timestamp_ns = None
+            audio_delta_ms = None
+            audio_sample_rate_hz = None
+            audio_num_channels = None
+            audio_format = None
+
+            if self.microphone:
+                audio_sample = self.microphone.get_aligned_block(timestamp_ns)
+                if audio_sample:
+                    audio_buffer = audio_sample["buffer"]
+                    audio_timestamp_ns = audio_sample.get("timestamp_ns", timestamp_ns)
+                    audio_frame_id = audio_sample.get("frame_id")
+                    audio_delta_ms = audio_sample.get("delta_ms")
+                    audio_sample_rate_hz = self.microphone.sample_rate_hz
+                    audio_num_channels = self.microphone.num_channels
+                    audio_format = self.microphone.audio_format
+                    audio_uri = f"step_{self.step_counter:04d}_audio.{self.microphone.file_extension}"
+
+                    if audio_delta_ms is not None and audio_delta_ms > 5.0:
+                        print(f"⚠️  Audio/vision misalignment: {audio_delta_ms:.1f} ms")
             
             # Execute action on arm
             if self.arm and not is_terminal:
@@ -280,6 +468,14 @@ class ArmEpisodeRecorder:
                 is_terminal=is_terminal,
                 language_instruction=language_instruction,
                 reward=1.0 if is_terminal else 0.0,  # Simple sparse reward
+                audio_buffer=audio_buffer,
+                audio_uri=audio_uri,
+                audio_sample_rate_hz=audio_sample_rate_hz,
+                audio_num_channels=audio_num_channels,
+                audio_format=audio_format,
+                audio_frame_id=audio_frame_id,
+                audio_timestamp_ns=audio_timestamp_ns,
+                audio_delta_ms=audio_delta_ms,
             )
             
             self.steps.append(step)
@@ -315,7 +511,12 @@ class ArmEpisodeRecorder:
             
             if not success:
                 self.episode_metadata.tags.append("failed")
-            
+
+            # Ensure audio URIs are populated before serialization
+            for i, step in enumerate(self.steps):
+                if step.audio_buffer is not None and not step.audio_uri:
+                    step.audio_uri = f"step_{i:04d}_audio.wav"
+
             # Prepare episode data
             episode_data = {
                 "metadata": asdict(self.episode_metadata),
@@ -334,8 +535,23 @@ class ArmEpisodeRecorder:
             for i, step in enumerate(self.steps):
                 np.save(episode_path / f"step_{i:04d}_rgb.npy", step.rgb_image)
                 np.save(episode_path / f"step_{i:04d}_depth.npy", step.depth_image)
-            
-            duration_s = (self.episode_metadata.end_timestamp_ns - 
+
+                if (
+                    step.audio_buffer is not None
+                    and step.audio_sample_rate_hz is not None
+                    and step.audio_num_channels is not None
+                ):
+                    audio_filename = step.audio_uri or f"step_{i:04d}_audio.wav"
+                    step.audio_uri = audio_filename
+                    audio_path = episode_path / audio_filename
+                    self._save_audio_file(
+                        audio_path,
+                        step.audio_buffer,
+                        sample_rate_hz=step.audio_sample_rate_hz,
+                        num_channels=step.audio_num_channels,
+                    )
+
+            duration_s = (self.episode_metadata.end_timestamp_ns -
                          self.episode_metadata.start_timestamp_ns) / 1e9
             
             print(f"\n✅ Episode saved: {self.current_episode}")
@@ -363,10 +579,14 @@ class ArmEpisodeRecorder:
         
         if self.camera:
             self.camera.stop()
-        
+
         if self.arm:
             self.arm.shutdown()
-        
+
+        if self.microphone:
+            self.microphone.stop()
+            self.audio_enabled = False
+
         print("✅ Recorder shutdown complete")
 
 
