@@ -7,6 +7,7 @@
   },
   "paths": {
     "base_model": "/opt/continuonos/brain/model/base_model/gemma-3n.tflite",
+    "adapter_dir": "/opt/continuonos/brain/model/adapters/current",
     "adapter": "/opt/continuonos/brain/model/adapters/current/lora_adapters.pt"
   },
   "adapter_meta": {
@@ -14,5 +15,5 @@
     "rank": 8,
     "alpha": 16
   },
-  "notes": "Sample manifest for Pi 5 runtime: flutter_gemma loads base + LoRA adapter from these paths."
+  "notes": "Sample manifest for Pi 5 runtime: flutter_gemma loads the quantized Gemma 3n base and the current LoRA adapter bundle from these paths."
 }

@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/brain_client.dart';
+import '../services/scanner_service.dart';
 import 'dashboard_screen.dart';
 import 'record_screen.dart';
 
@@ -20,10 +22,34 @@ class _ConnectScreenState extends State<ConnectScreen> {
   final _hostController = TextEditingController(text: 'brain.continuon.ai');
   final _portController = TextEditingController(text: '443');
   final _authTokenController = TextEditingController();
+  final ScannerService _scanner = ScannerService();
+
   bool _useTls = true;
   bool _usePlatformBridge = false;
   bool _connecting = false;
+  bool _scanning = false;
   String? _error;
+  List<ScannedRobot> _scannedRobots = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _scanner.scannedRobots.listen((robots) {
+        if (!mounted) return;
+        setState(() => _scannedRobots = robots);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scanner.dispose();
+    _hostController.dispose();
+    _portController.dispose();
+    _authTokenController.dispose();
+    super.dispose();
+  }
 
   Future<void> _connect() async {
     if (!_formKey.currentState!.validate()) {
@@ -35,7 +61,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
     });
     final host = _hostController.text.trim();
     final port = int.tryParse(_portController.text.trim()) ?? 50051;
-    final authToken = _authTokenController.text.trim().isNotEmpty ? _authTokenController.text.trim() : null;
+    final authToken =
+        _authTokenController.text.trim().isNotEmpty ? _authTokenController.text.trim() : null;
     try {
       await widget.brainClient.connect(
         host: host,
@@ -54,6 +81,20 @@ class _ConnectScreenState extends State<ConnectScreen> {
     }
   }
 
+  Future<void> _startWebScan() async {
+    if (!kIsWeb) return;
+    setState(() {
+      _scanning = true;
+      _error = null;
+    });
+    await _scanner.startScan(
+      manualHost: _hostController.text.trim(),
+      forceRestart: true,
+    );
+    if (!mounted) return;
+    setState(() => _scanning = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,6 +106,69 @@ class _ConnectScreenState extends State<ConnectScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (kIsWeb) ...[
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _scanning ? null : _startWebScan,
+                      icon: _scanning
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.wifi_find),
+                      label: Text(_scanning ? 'Scanning' : 'Scan LAN'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Discover robots advertising _continuonbrain._tcp on your LAN.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+                if (_scannedRobots.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Discovered robots',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _scannedRobots
+                        .map(
+                          (robot) => ChoiceChip(
+                            label: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(robot.name),
+                                Text('${robot.host}:${robot.port}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                              ],
+                            ),
+                            selected: _hostController.text.trim() == robot.host,
+                            onSelected: (_) {
+                              setState(() {
+                                _hostController.text = robot.host;
+                                _portController.text = robot.httpPort.toString();
+                                _useTls = false;
+                              });
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 12),
+              ],
               TextFormField(
                 controller: _hostController,
                 decoration: const InputDecoration(labelText: 'ContinuonBrain host'),

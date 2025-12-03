@@ -9,13 +9,19 @@ import 'screens/manual_mode_screen.dart';
 import 'screens/record_screen.dart';
 import 'screens/robot_list_screen.dart';
 import 'services/brain_client.dart';
+import 'services/gemma_runtime.dart';
 
 import 'theme/continuon_theme.dart';
 
 import 'screens/marketing_home.dart';
 
+final GemmaAdapterHotReloader _gemmaAdapterHotReloader = GemmaAdapterHotReloader(
+  manifestPath: '/opt/continuonos/brain/model/manifest.json',
+);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _gemmaAdapterHotReloader.initialize();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
