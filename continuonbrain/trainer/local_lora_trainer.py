@@ -88,6 +88,7 @@ class SafetyGateConfig:
     avg_action_delta_threshold: float = 0.25
     max_eval_steps: int = 1024
     eval_tail_episodes: int = 8
+    allow_promotion_without_eval: bool = False
 
 
 @dataclass
@@ -335,7 +336,14 @@ def evaluate_candidate_adapters(
     metrics = {"safety_violations": 0, "avg_action_delta": 0.0, "steps": 0}
 
     if eval_files is None or len(eval_files) == 0:
-        return True  # Nothing to evaluate against; allow promotion
+        if safety_cfg.allow_promotion_without_eval:
+            print(
+                "[safety_gate] No evaluation data provided; allowing promotion "
+                "because allow_promotion_without_eval=True"
+            )
+            return True
+        print("[safety_gate] No evaluation data available; blocking promotion.")
+        return False
 
     steps_budget = safety_cfg.max_eval_steps
     for episode_path in eval_files:
