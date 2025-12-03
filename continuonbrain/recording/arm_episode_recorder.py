@@ -244,8 +244,9 @@ class MicrophoneCapture:
         if self.use_mock:
             timestamp_ns = target_timestamp_ns
             mock_audio = np.zeros((self.block_frames, self.num_channels), dtype=np.float32)
-            frame_id = self.frame_counter
-            self.frame_counter += 1
+            with self.lock:
+                frame_id = self.frame_counter
+                self.frame_counter += 1
             return {
                 "buffer": mock_audio,
                 "timestamp_ns": timestamp_ns,
