@@ -147,25 +147,6 @@ class StartupManager:
         
         return True
     
-    def prepare_sleep(self, enable_learning: bool = True):
-        """
-        Prepare system for sleep mode.
-        Optionally starts self-training on saved memories.
-        
-        Args:
-            enable_learning: If True, robot will self-train during sleep
-        """
-        print("💤 Preparing for sleep...")
-        
-        # Shutdown services
-        self.shutdown_services()
-        
-        # Set mode to sleep learning if enabled
-        if enable_learning and self.mode_manager:
-            print("🧠 Enabling sleep learning mode...")
-            self.mode_manager.start_sleep_learning()
-            print("   Robot will self-train on saved memories")
-            print("   Using Gemma-3 for knowledge extraction")
     def _start_services(self):
         """Start robot services (discovery, API server, mode manager)."""
         import sys
@@ -256,13 +237,21 @@ class StartupManager:
         
         print("✅ Services shutdown complete")
     
-    def prepare_sleep(self, enable_learning: bool = True):
+    def prepare_sleep(
+        self,
+        enable_learning: bool = True,
+        *,
+        max_sleep_training_hours: float = 6.0,
+        max_download_bytes: int = 1024 * 1024 * 1024,
+    ):
         """
         Prepare system for sleep mode.
         Optionally starts self-training on saved memories.
-        
+
         Args:
             enable_learning: If True, robot will self-train during sleep
+            max_sleep_training_hours: Wall-clock ceiling for sleep training.
+            max_download_bytes: Download budget for model/assets during training.
         """
         print("💤 Preparing for sleep...")
         
@@ -272,7 +261,10 @@ class StartupManager:
         # Set mode to sleep learning if enabled
         if enable_learning and self.mode_manager:
             print("🧠 Enabling sleep learning mode...")
-            self.mode_manager.start_sleep_learning()
+            self.mode_manager.start_sleep_learning(
+                max_sleep_training_hours=max_sleep_training_hours,
+                max_download_bytes=max_download_bytes,
+            )
             print("   Robot will self-train on saved memories")
             print("   Using Gemma-3 for knowledge extraction")
         
@@ -377,6 +369,18 @@ def main():
         action="store_true",
         help="Don't enable sleep learning when preparing for sleep"
     )
+    parser.add_argument(
+        "--max-sleep-training-hours",
+        type=float,
+        default=6.0,
+        help="Max hours to allow self-training during sleep (default: 6)",
+    )
+    parser.add_argument(
+        "--max-download-bytes",
+        type=int,
+        default=1024 * 1024 * 1024,
+        help="Download ceiling for model/assets during sleep training (default: 1GiB)",
+    )
     
     args = parser.parse_args()
     
@@ -387,7 +391,11 @@ def main():
     )
     
     if args.prepare_sleep:
-        manager.prepare_sleep(enable_learning=not args.no_learning)
+        manager.prepare_sleep(
+            enable_learning=not args.no_learning,
+            max_sleep_training_hours=args.max_sleep_training_hours,
+            max_download_bytes=args.max_download_bytes,
+        )
     elif args.prepare_shutdown:
         manager.prepare_shutdown()
     else:
