@@ -12,6 +12,7 @@ from enum import Enum
 from continuonbrain.system_health import SystemHealthChecker, HealthStatus
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
 from continuonbrain.network_discovery import LANDiscoveryService
+from continuonbrain.system_instructions import SystemInstructions
 
 
 class StartupMode(Enum):
@@ -43,6 +44,7 @@ class StartupManager:
         self.discovery_service: Optional[LANDiscoveryService] = None
         self.mode_manager: Optional[RobotModeManager] = None
         self.robot_api_process: Optional[subprocess.Popen] = None
+        self.system_instructions: Optional[SystemInstructions] = None
         
     def detect_startup_mode(self) -> StartupMode:
         """
@@ -90,6 +92,8 @@ class StartupManager:
         print(f"Startup Mode: {startup_mode.value}")
         print(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         print()
+
+        self._load_boot_protocols()
         
         # Always run health check on wake from sleep
         should_check = (
@@ -298,8 +302,21 @@ class StartupManager:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.state_file, 'w') as f:
             json.dump(state, f, indent=2)
-        
+
         print("✅ System ready for shutdown")
+
+    def _load_boot_protocols(self) -> None:
+        """Load system instructions and safety protocol during startup."""
+
+        self.system_instructions = SystemInstructions.load(self.config_dir)
+
+        print("🛡️  Safety protocol loaded (base rules cannot be overridden):")
+        for rule in self.system_instructions.safety_protocol.rules:
+            print(f"  - {rule}")
+
+        print("📜 System instructions:")
+        for instruction in self.system_instructions.instructions:
+            print(f"  - {instruction}")
     
     def record_crash(self, error: str):
         """
