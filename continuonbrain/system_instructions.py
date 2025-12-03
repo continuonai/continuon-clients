@@ -12,7 +12,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Mapping, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,11 @@ class SafetyProtocol:
         merged_rules = _merge_unique(_BASE_SAFETY_RULES, extra_rules)
         return SafetyProtocol(rules=merged_rules)
 
+    def as_dict(self) -> dict:
+        """Serialize protocol for persistence/sharing."""
+
+        return {"rules": list(self.rules)}
+
 
 @dataclass(frozen=True)
 class SystemInstructions:
@@ -134,4 +139,38 @@ class SystemInstructions:
             instructions=merged_instructions,
             safety_protocol=safety_protocol,
         )
+
+    @staticmethod
+    def from_serialized(payload: Mapping[str, object]) -> "SystemInstructions":
+        """Recreate system instructions from serialized payload."""
+
+        safety_section = payload.get("safety_protocol", {}) if isinstance(payload, Mapping) else {}
+        safety_rules = ()
+        if isinstance(safety_section, Mapping):
+            raw_rules = safety_section.get("rules", [])
+            if isinstance(raw_rules, list):
+                safety_rules = tuple(r for r in raw_rules if isinstance(r, str))
+
+        instructions_block = payload.get("instructions", []) if isinstance(payload, Mapping) else []
+        instructions = tuple(r for r in instructions_block if isinstance(r, str)) if isinstance(instructions_block, list) else ()
+
+        return SystemInstructions(
+            instructions=instructions,
+            safety_protocol=SafetyProtocol(rules=safety_rules),
+        )
+
+    @staticmethod
+    def load_serialized(path: Path) -> "SystemInstructions":
+        """Load pre-merged instructions from disk."""
+
+        payload = json.loads(path.read_text())
+        return SystemInstructions.from_serialized(payload)
+
+    def as_dict(self) -> dict:
+        """Serialize instructions and safety rules for downstream consumers."""
+
+        return {
+            "instructions": list(self.instructions),
+            "safety_protocol": self.safety_protocol.as_dict(),
+        }
 

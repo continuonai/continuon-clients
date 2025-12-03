@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from continuonbrain.trainer.local_lora_trainer import LocalTrainerJobConfig
+from continuonbrain.system_context import SystemContext
+from continuonbrain.system_instructions import SystemInstructions
 
 
 class RobotMode(Enum):
@@ -87,12 +89,22 @@ class RobotModeManager:
     Handles manual training, autonomous operation, and sleep learning.
     """
     
-    def __init__(self, config_dir: str = "/opt/continuonos/brain"):
+    def __init__(
+        self,
+        config_dir: str = "/opt/continuonos/brain",
+        *,
+        system_instructions: Optional[SystemInstructions] = None,
+    ):
         self.config_dir = Path(config_dir)
         self.state_file = self.config_dir / ".robot_mode"
         self.current_mode: RobotMode = RobotMode.IDLE
         self.mode_start_time: float = 0
         self.trainer_log_dir = self.config_dir / "trainer" / "logs"
+        self.system_instructions: Optional[SystemInstructions] = system_instructions or SystemContext.get_instructions()
+
+        if system_instructions and SystemContext.get_instructions() is None:
+            # Register for other components in this process.
+            SystemContext.register_instructions(system_instructions)
     
     def get_mode_config(self, mode: RobotMode) -> ModeConfig:
         """Get configuration for a specific mode."""
@@ -468,12 +480,15 @@ class RobotModeManager:
         """Get current mode status."""
         config = self.get_mode_config(self.current_mode)
         duration = time.time() - self.mode_start_time
-        
+
+        instructions = self.system_instructions or SystemContext.get_instructions()
+
         return {
             "mode": self.current_mode.value,
             "duration_seconds": duration,
             "config": asdict(config),
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "system_instructions": instructions.as_dict() if instructions else None,
         }
     
     def emergency_stop(self, reason: str = "Manual trigger"):

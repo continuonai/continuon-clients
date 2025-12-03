@@ -12,6 +12,7 @@ from enum import Enum
 from continuonbrain.system_health import SystemHealthChecker, HealthStatus
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
 from continuonbrain.network_discovery import LANDiscoveryService
+from continuonbrain.system_context import SystemContext
 from continuonbrain.system_instructions import SystemInstructions
 
 
@@ -166,7 +167,10 @@ class StartupManager:
         
         # Initialize mode manager
         print("🎮 Initializing mode manager...")
-        self.mode_manager = RobotModeManager(config_dir=str(self.config_dir))
+        self.mode_manager = RobotModeManager(
+            config_dir=str(self.config_dir),
+            system_instructions=self.system_instructions,
+        )
         
         # Restore last mode or default to idle
         last_mode = self.mode_manager.load_state()
@@ -188,6 +192,12 @@ class StartupManager:
             
             if server_path.exists():
                 # Start in background
+                env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
+
+                instructions_path = SystemContext.get_persist_path()
+                if instructions_path:
+                    env["CONTINUON_SYSTEM_INSTRUCTIONS_PATH"] = str(instructions_path)
+
                 self.robot_api_process = subprocess.Popen(
                     [
                         sys.executable,
@@ -197,7 +207,7 @@ class StartupManager:
                         "8080",
                         "--real-hardware",  # production path uses real controllers; fail fast if missing
                     ],
-                    env={**subprocess.os.environ, "PYTHONPATH": str(repo_root)},
+                    env=env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE
                 )
@@ -308,15 +318,23 @@ class StartupManager:
     def _load_boot_protocols(self) -> None:
         """Load system instructions and safety protocol during startup."""
 
-        self.system_instructions = SystemInstructions.load(self.config_dir)
+        try:
+            self.system_instructions = SystemInstructions.load(self.config_dir)
+            persist_path = self.config_dir / "logs" / "system_instructions_merged.json"
+            SystemContext.register_instructions(
+                self.system_instructions,
+                persist_path=persist_path,
+            )
 
-        print("🛡️  Safety protocol loaded (base rules cannot be overridden):")
-        for rule in self.system_instructions.safety_protocol.rules:
-            print(f"  - {rule}")
+            print("🛡️  Safety protocol loaded (base rules cannot be overridden):")
+            for rule in self.system_instructions.safety_protocol.rules:
+                print(f"  - {rule}")
 
-        print("📜 System instructions:")
-        for instruction in self.system_instructions.instructions:
-            print(f"  - {instruction}")
+            print("📜 System instructions:")
+            for instruction in self.system_instructions.instructions:
+                print(f"  - {instruction}")
+        except Exception as exc:
+            raise RuntimeError(f"Failed to load system instructions: {exc}") from exc
     
     def record_crash(self, error: str):
         """
@@ -416,6 +434,7 @@ def main():
     elif args.prepare_shutdown:
         manager.prepare_shutdown()
     else:
+        success = False
         try:
             success = manager.startup(force_health_check=args.force_health_check)
             
