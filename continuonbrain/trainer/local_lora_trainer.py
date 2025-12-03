@@ -333,6 +333,7 @@ def evaluate_candidate_adapters(
     violates_safety = hooks.violates_safety or (lambda action: False)
 
     metrics = {"safety_violations": 0, "avg_action_delta": 0.0, "steps": 0}
+    eval_error: Optional[Exception] = None
 
     if eval_files is None or len(eval_files) == 0:
         return True  # Nothing to evaluate against; allow promotion
@@ -342,16 +343,30 @@ def evaluate_candidate_adapters(
         for sample in episode_loader(episode_path):
             obs = sample.get("obs")
             old_action = sample.get("action")
-            new_action = forward(model, obs)
-            delta = action_delta(new_action, old_action)
+            try:
+                new_action = forward(model, obs)
+                delta = action_delta(new_action, old_action)
+            except Exception as err:  # noqa: BLE001
+                eval_error = err
+                break
+
             metrics["avg_action_delta"] += delta
             metrics["steps"] += 1
-            if violates_safety(new_action):
-                metrics["safety_violations"] += 1
+            try:
+                if violates_safety(new_action):
+                    metrics["safety_violations"] += 1
+            except Exception as err:  # noqa: BLE001
+                eval_error = err
+                break
             if metrics["steps"] >= steps_budget:
                 break
         if metrics["steps"] >= steps_budget:
             break
+        if eval_error:
+            break
+
+    if eval_error:
+        return False
 
     if metrics["steps"] > 0:
         metrics["avg_action_delta"] /= metrics["steps"]
@@ -399,10 +414,43 @@ def promote_candidate_adapters_if_safe(
 
 
 def default_action_distance(new_action: Any, old_action: Any) -> float:
-    try:
-        return abs(float(new_action) - float(old_action))
-    except Exception:
-        return 0.0
+    """Compute a mean absolute delta between comparable action structures.
+
+    The default handles scalars and nested sequences (lists/tuples, including
+    numpy arrays if present) by enforcing structural compatibility and computing
+    an elementwise absolute difference. Any structural mismatch or
+    non-numeric leaf results in a ``ValueError`` so the caller can block
+    promotion rather than silently accepting a zero delta.
+    """
+
+    def is_sequence(value: Any) -> bool:
+        return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+
+    def accumulate_delta(new_val: Any, old_val: Any) -> tuple[float, int]:
+        if is_sequence(new_val) and is_sequence(old_val):
+            if len(new_val) != len(old_val):
+                raise ValueError("Action sequences are not the same length")
+
+            total = 0.0
+            count = 0
+            for child_new, child_old in zip(new_val, old_val):
+                child_total, child_count = accumulate_delta(child_new, child_old)
+                total += child_total
+                count += child_count
+            return total, count
+
+        if is_sequence(new_val) != is_sequence(old_val):
+            raise ValueError("Action structures are incompatible")
+
+        try:
+            return abs(float(new_val) - float(old_val)), 1
+        except Exception as err:  # noqa: BLE001
+            raise ValueError(f"Unable to compare actions: {err}") from err
+
+    total_delta, leaf_count = accumulate_delta(new_action, old_action)
+    if leaf_count == 0:
+        raise ValueError("No comparable elements found in actions")
+    return total_delta / leaf_count
 
 
 # ------------------------------- Scheduler hook ----------------------------- #
