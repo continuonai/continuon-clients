@@ -307,7 +307,17 @@ class ArmEpisodeRecorder:
     def _save_audio_file(
         self, file_path: Path, audio_buffer: np.ndarray, sample_rate_hz: int, num_channels: int
     ) -> None:
-        """Persist audio buffer to a WAV file."""
+        """Persist audio buffer to a WAV file.
+        
+        Args:
+            file_path: Path where the WAV file will be saved
+            audio_buffer: Audio data as numpy array (float32 or int16)
+            sample_rate_hz: Sample rate in Hz
+            num_channels: Number of audio channels
+            
+        Raises:
+            IOError: If file cannot be created or written
+        """
         if audio_buffer.dtype != np.int16:
             clipped = np.clip(audio_buffer, -1.0, 1.0)
             audio_int16 = (clipped * 32767).astype(np.int16)
