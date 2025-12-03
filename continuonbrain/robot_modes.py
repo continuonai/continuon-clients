@@ -2,12 +2,16 @@
 Robot operational modes for ContinuonBrain.
 Manages transitions between training, autonomous, and sleep modes.
 """
-import time
 import json
-from pathlib import Path
-from enum import Enum
-from typing import Optional, Dict, Any
+import subprocess
+import time
+import urllib.request
 from dataclasses import dataclass, asdict
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from continuonbrain.trainer.local_lora_trainer import LocalTrainerJobConfig
 
 
 class RobotMode(Enum):
@@ -37,6 +41,46 @@ class ModeConfig:
             self.metadata = {}
 
 
+@dataclass
+class BandwidthLimiter:
+    """Tracks download usage against a fixed ceiling."""
+
+    max_bytes: int
+    log_dir: Path
+    bytes_used: int = 0
+    limit_hit: bool = False
+    events: List[Dict[str, Any]] = None
+
+    def __post_init__(self):
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        if self.events is None:
+            self.events = []
+
+    def consume(self, byte_count: int, note: str = "") -> bool:
+        self.bytes_used += byte_count
+        self.events.append(
+            {
+                "timestamp": time.time(),
+                "note": note,
+                "bytes_used": self.bytes_used,
+            }
+        )
+        if self.bytes_used > self.max_bytes:
+            self.limit_hit = True
+        return not self.limit_hit
+
+    def remaining(self) -> int:
+        return max(0, self.max_bytes - self.bytes_used)
+
+    def snapshot(self) -> Dict[str, Any]:
+        return {
+            "max_bytes": self.max_bytes,
+            "bytes_used": self.bytes_used,
+            "limit_hit": self.limit_hit,
+            "events": self.events,
+        }
+
+
 class RobotModeManager:
     """
     Manages robot operational modes and transitions.
@@ -48,6 +92,7 @@ class RobotModeManager:
         self.state_file = self.config_dir / ".robot_mode"
         self.current_mode: RobotMode = RobotMode.IDLE
         self.mode_start_time: float = 0
+        self.trainer_log_dir = self.config_dir / "trainer" / "logs"
     
     def get_mode_config(self, mode: RobotMode) -> ModeConfig:
         """Get configuration for a specific mode."""
@@ -196,10 +241,210 @@ class RobotModeManager:
                 "metadata": config.metadata
             }
         }
-        
+
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.state_file, 'w') as f:
             json.dump(state, f, indent=2)
+
+    def _write_watchdog_log(self, payload: Dict[str, Any]) -> Path:
+        """Persist watchdog/log data to the trainer log directory."""
+        self.trainer_log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = self.trainer_log_dir / f"sleep_watchdog_{int(time.time())}.json"
+        log_path.write_text(json.dumps(payload, indent=2))
+        return log_path
+
+    def _resolve_training_config(self) -> Optional[Path]:
+        """Find a training config for sleep learning."""
+        candidates = [
+            self.config_dir / "configs" / "sleep_learning.json",
+            self.config_dir / "configs" / "pi5-donkey.json",
+            Path(__file__).parent / "configs" / "pi5-donkey.json",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _estimate_remote_size(self, url: str) -> Optional[int]:
+        """Attempt to read Content-Length for a remote resource."""
+        request = urllib.request.Request(url, method="HEAD")
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                header_value = response.getheader("Content-Length")
+                if header_value:
+                    return int(header_value)
+        except Exception:
+            return None
+        return None
+
+    def _download_with_budget(self, url: str, dest: Path, limiter: BandwidthLimiter) -> bool:
+        """Stream a download while enforcing the bandwidth ceiling."""
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        request = urllib.request.Request(url)
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response, dest.open("wb") as out:
+                while True:
+                    chunk = response.read(64 * 1024)
+                    if not chunk:
+                        break
+                    if not limiter.consume(len(chunk), note=f"download:{url}"):
+                        limiter.limit_hit = True
+                        return False
+                    out.write(chunk)
+        except Exception as exc:
+            self._write_watchdog_log(
+                {
+                    "status": "download_failed",
+                    "url": url,
+                    "error": str(exc),
+                    "bytes_used": limiter.bytes_used,
+                }
+            )
+            return False
+        return True
+
+    def _maybe_fetch_base_model(self, cfg: LocalTrainerJobConfig, limiter: BandwidthLimiter) -> bool:
+        """Ensure the base model exists or is downloaded within budget."""
+        if cfg.base_model_path and cfg.base_model_path.exists():
+            return True
+        if cfg.base_model_url is None:
+            self._write_watchdog_log(
+                {
+                    "status": "skipped_download",
+                    "reason": "base model missing and no URL provided",
+                    "bytes_used": limiter.bytes_used,
+                }
+            )
+            return False
+
+        estimated_size = self._estimate_remote_size(cfg.base_model_url)
+        if estimated_size is not None and estimated_size > limiter.remaining():
+            self._write_watchdog_log(
+                {
+                    "status": "download_budget_exceeded",
+                    "required_bytes": estimated_size,
+                    "remaining_bytes": limiter.remaining(),
+                    "url": cfg.base_model_url,
+                }
+            )
+            limiter.limit_hit = True
+            return False
+
+        destination = cfg.base_model_path or (self.config_dir / "model" / "base_model.bin")
+        succeeded = self._download_with_budget(cfg.base_model_url, destination, limiter)
+        if not succeeded:
+            return False
+        self._write_watchdog_log(
+            {
+                "status": "download_complete",
+                "url": cfg.base_model_url,
+                "bytes_used": limiter.bytes_used,
+            }
+        )
+        return True
+
+    def _launch_sleep_training_process(self, config_path: Path) -> Optional[subprocess.Popen]:
+        """Start the trainer subprocess with stub hooks to minimize deps."""
+        import sys
+
+        self.trainer_log_dir.mkdir(parents=True, exist_ok=True)
+        trainer_output = self.trainer_log_dir / "sleep_training_output.log"
+        cmd = [
+            sys.executable,
+            "-m",
+            "continuonbrain.trainer.local_lora_trainer",
+            "--config",
+            str(config_path),
+            "--use-stub-hooks",
+        ]
+        try:
+            log_handle = trainer_output.open("a", encoding="utf-8")
+            process = subprocess.Popen(cmd, stdout=log_handle, stderr=subprocess.STDOUT)
+            log_handle.close()
+            return process
+        except Exception as exc:
+            self._write_watchdog_log(
+                {
+                    "status": "trainer_launch_failed",
+                    "config": str(config_path),
+                    "error": str(exc),
+                }
+            )
+            return None
+
+    def _run_sleep_training_with_watchdog(
+        self,
+        *,
+        max_sleep_training_hours: float,
+        max_download_bytes: int,
+        config_path: Optional[Path] = None,
+    ) -> None:
+        """Run sleep training with wall-time and download ceilings."""
+        config = config_path or self._resolve_training_config()
+        if config is None:
+            self._write_watchdog_log({"status": "skipped", "reason": "no training config found"})
+            self.return_to_idle()
+            return
+
+        limiter = BandwidthLimiter(max_bytes=max_download_bytes, log_dir=self.trainer_log_dir)
+        try:
+            cfg = LocalTrainerJobConfig.from_json(config)
+        except Exception as exc:
+            self._write_watchdog_log(
+                {
+                    "status": "skipped",
+                    "reason": "invalid training config",
+                    "config": str(config),
+                    "error": str(exc),
+                }
+            )
+            self.return_to_idle()
+            return
+
+        if cfg.base_model_path and not cfg.base_model_path.exists():
+            ok = self._maybe_fetch_base_model(cfg, limiter)
+            if not ok:
+                self.return_to_idle()
+                return
+
+        time_limit_s = max_sleep_training_hours * 3600
+        start_ts = time.time()
+        process = self._launch_sleep_training_process(config)
+        if process is None:
+            self.return_to_idle()
+            return
+
+        stop_reason: Optional[str] = None
+        while process.poll() is None:
+            elapsed = time.time() - start_ts
+            if elapsed >= time_limit_s:
+                stop_reason = "time_limit_reached"
+                process.terminate()
+                break
+            if limiter.limit_hit:
+                stop_reason = "download_budget_exhausted"
+                process.terminate()
+                break
+            time.sleep(5)
+
+        try:
+            process.wait(timeout=30)
+        except Exception:
+            process.kill()
+
+        end_ts = time.time()
+        log_payload = {
+            "status": stop_reason or "trainer_complete",
+            "config": str(config),
+            "elapsed_seconds": end_ts - start_ts,
+            "max_sleep_training_hours": max_sleep_training_hours,
+            "max_download_bytes": max_download_bytes,
+            "bandwidth": limiter.snapshot(),
+        }
+        self._write_watchdog_log(log_payload)
+
+        if stop_reason:
+            self.return_to_idle()
     
     def load_state(self) -> Optional[RobotMode]:
         """Load last mode from file."""
@@ -257,21 +502,44 @@ class RobotModeManager:
         print("   Actions still recorded for continuous learning")
         self.set_mode(RobotMode.AUTONOMOUS)
     
-    def start_sleep_learning(self, episodes_to_train: Optional[int] = None):
+    def start_sleep_learning(
+        self,
+        episodes_to_train: Optional[int] = None,
+        *,
+        max_sleep_training_hours: float = 6.0,
+        max_download_bytes: int = 1024 * 1024 * 1024,
+        training_config: Optional[Path] = None,
+    ):
         """
         Enter sleep learning mode.
         Robot self-trains on saved episodes and uses Gemma for knowledge.
+
+        Args:
+            episodes_to_train: Optional count of episodes to emphasize.
+            max_sleep_training_hours: Wall-clock ceiling for training before halting.
+            max_download_bytes: Maximum bytes allowed for model/assets downloads.
+            training_config: Optional explicit path to the trainer config JSON.
         """
         print("💤 Entering sleep learning mode...")
         print("   Robot will self-train on saved memories")
         print("   Using Gemma-3 model for knowledge extraction")
         print("   Motion disabled during learning")
-        
-        metadata = {"training_type": "offline_replay", "use_gemma": True}
+
+        metadata = {
+            "training_type": "offline_replay",
+            "use_gemma": True,
+            "max_sleep_training_hours": max_sleep_training_hours,
+            "max_download_bytes": max_download_bytes,
+        }
         if episodes_to_train:
             metadata["episodes_to_train"] = episodes_to_train
-        
+
         self.set_mode(RobotMode.SLEEP_LEARNING, metadata)
+        self._run_sleep_training_with_watchdog(
+            max_sleep_training_hours=max_sleep_training_hours,
+            max_download_bytes=max_download_bytes,
+            config_path=training_config,
+        )
     
     def return_to_idle(self):
         """Return to idle mode."""
