@@ -2,6 +2,7 @@
 
 ## 1. Problem Statement
 ContinuonAI (Flutter app) currently embeds ContinuonBrain connectivity, RLDS capture, and upload helpers directly in-app. For fleet safety and resilience, we need a **private Flutter package** that can be reused across ContinuonAI shells (mobile, desktop, web) to provide:
+- Co-existence with (or a light wrapper around) the browser-hosted failover client so we can evaluate when local model access, offline caching, RLDS serialization, and OTA bundle ingestion should stay in the browser versus crossing into Flutter shells.
 - An offline-capable fallback brain client when on-device inference or OTA bundles fail.
 - A consistent RLDS capture/queue + upload path that can run browser-hosted or embedded in native shells.
 - Safety-critical controls (emergency stop, rollback-to-known-good bundle) that remain available even when Google Cloud/Vertex calls degrade.
@@ -12,9 +13,14 @@ ContinuonAI (Flutter app) currently embeds ContinuonBrain connectivity, RLDS cap
 - **Continuon platform engineers** maintaining ContinuonBrain/OS and Continuon Cloud contracts, ensuring the Flutter surfaces stay aligned with `continuonai/README.md` and the RLDS schema in `docs/rlds-schema.md`.
 
 ## 3. Goals (v1–v3)
-- **v1 – Extraction & Parity:** Extract existing `BrainClient`, `TaskRecorder`, and `CloudUploader` logic from ContinuonAI into a private package with API parity and sample wiring in the host app.
-- **v2 – Offline & Safety Hardened:** Add dual-path RLDS handling (local serialization + Python relay), offline detection, retry/backoff queues, and emergency-stop/bundle rollback hooks.
-- **v3 – Cloud-Aligned Expansion:** Plug into Google Cloud defaults (signed URLs via Cloud Storage broker, IAM/service-account auth, optional Pub/Sub alerts for safety flags, future Vertex job triggers) without hard-coding cloud dependencies into the host UI layer.
+- **v1 – Extraction & Parity:** Extract existing `BrainClient`, `TaskRecorder`, and `CloudUploader` logic from ContinuonAI into a private package with API parity and sample wiring in the host app, while preserving the browser failover client as a first-class peer.
+- **v2 – Offline & Safety Hardened:** Add dual-path RLDS handling (local serialization + Python relay), offline detection, retry/backoff queues, and emergency-stop/bundle rollback hooks; document when browser-hosted JS in-webview is preferred over native bindings for offline capture or OTA ingestion to align with the “one shell, many devices” principle.
+- **v3 – Cloud-Aligned Expansion:** Plug into Google Cloud defaults (signed URLs via Cloud Storage broker, IAM/service-account auth, optional Pub/Sub alerts for safety flags, future Vertex job triggers) without hard-coding cloud dependencies into the host UI layer, and ensure the browser failover path reuses the same cloud contracts.
+
+### Hybrid Assessment Outcomes
+- **Webview-first (JS/browser failover) paths:** Use the browser-hosted client when OTA bundle ingestion, offline caching, or IndexedDB-backed RLDS serialization needs to run without native dependencies, keeping policy evaluation consistent across the “one shell, many devices” fleet.
+- **Native-binding paths:** Prefer Flutter/Dart bindings when local model access, file-system-backed RLDS buffering, or native plugin access (camera/sensors) is required; keep interop shims thin so the browser fallback can be swapped in without changing cloud alignment.
+- **Cloud contract alignment:** Both execution modes must honor the same Google Cloud Storage signing, provenance manifests, and Pub/Sub alert hooks so browser failover remains a drop-in alternative during outages.
 
 ## 4. Non-Goals (for now)
 - Replacing the ContinuonBrain/OS runtime (lives in `continuonos`); this package is a client façade only.
