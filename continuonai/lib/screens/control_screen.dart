@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/teleop_models.dart';
 import '../services/brain_client.dart';
-import '../theme/app_theme.dart';
+import '../theme/continuon_theme.dart';
 import '../widgets/chat_overlay.dart';
 import 'manual_mode_screen.dart';
 import 'record_screen.dart';
@@ -95,7 +95,7 @@ class _ControlScreenState extends State<ControlScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: ContinuonColors.black,
       body: Stack(
         children: [
           Column(
@@ -131,7 +131,7 @@ class _ControlScreenState extends State<ControlScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.darkPanel,
+        color: ContinuonColors.gray900,
         border: const Border(bottom: BorderSide(color: Color(0xFF333333))),
         boxShadow: [
           BoxShadow(
@@ -149,10 +149,10 @@ class _ControlScreenState extends State<ControlScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.2),
+                  color: ContinuonColors.primaryBlue.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.gamepad, color: AppColors.primaryBlue, size: 20),
+                child: const Icon(Icons.gamepad, color: ContinuonColors.primaryBlue, size: 20),
               ),
               const SizedBox(width: 12),
               const Text(
@@ -258,16 +258,16 @@ class _ControlScreenState extends State<ControlScreen> {
 
   Widget _buildStatusPanel() {
     return Container(
-      color: AppColors.darkPanel,
+      color: ContinuonColors.gray900,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildStatusSection('System Status', [
-            _buildDarkStatusItem('Mode', 'MANUAL_CONTROL', color: AppColors.successGreen),
-            _buildDarkStatusItem('Gripper', _gripperOpen ? 'OPEN' : 'CLOSED', color: _gripperOpen ? AppColors.warningOrange : AppColors.successGreen),
+            _buildDarkStatusItem('Mode', 'MANUAL_CONTROL', color: Colors.green),
+            _buildDarkStatusItem('Gripper', _gripperOpen ? 'OPEN' : 'CLOSED', color: _gripperOpen ? ContinuonColors.particleOrange : Colors.green),
             if (_error != null)
-              _buildDarkStatusItem('Error', 'Active', color: AppColors.dangerRed),
+              _buildDarkStatusItem('Error', 'Active', color: Theme.of(context).colorScheme.error),
           ]),
           const SizedBox(height: 24),
           _buildStatusSection('Controls', [
@@ -276,7 +276,7 @@ class _ControlScreenState extends State<ControlScreen> {
               icon: Icon(_gripperOpen ? Icons.pan_tool_alt : Icons.back_hand),
               label: Text(_gripperOpen ? 'Close Gripper' : 'Open Gripper'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
+                backgroundColor: ContinuonColors.primaryBlue,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 44),
               ),
@@ -290,7 +290,7 @@ class _ControlScreenState extends State<ControlScreen> {
             child: ElevatedButton.icon(
               onPressed: () {}, // TODO: Implement E-Stop
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.dangerRed,
+                backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.all(16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -311,7 +311,7 @@ class _ControlScreenState extends State<ControlScreen> {
         Text(
           title.toUpperCase(),
           style: const TextStyle(
-            color: AppColors.textSecondary,
+            color: ContinuonColors.gray500,
             fontSize: 12,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
@@ -328,16 +328,16 @@ class _ControlScreenState extends State<ControlScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: ContinuonColors.gray800,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTextStyles.darkLabel),
+          Text(label, style: const TextStyle(color: ContinuonColors.gray400)),
           Text(
             value,
-            style: AppTextStyles.darkValue.copyWith(color: color ?? Colors.white),
+            style: TextStyle(color: color ?? Colors.white, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -349,14 +349,14 @@ class _ControlScreenState extends State<ControlScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.darkSurface,
+          color: ContinuonColors.gray800,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
             const Text(
               'BASE CONTROL',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
+              style: TextStyle(color: ContinuonColors.gray500, fontSize: 10),
             ),
             const SizedBox(height: 8),
             Row(
@@ -400,7 +400,7 @@ class _ControlScreenState extends State<ControlScreen> {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isCenter ? const Color(0xFF333333) : AppColors.primaryBlue,
+          backgroundColor: isCenter ? const Color(0xFF333333) : ContinuonColors.primaryBlue,
           foregroundColor: Colors.white,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

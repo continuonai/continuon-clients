@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../services/brain_client.dart';
-import '../theme/app_theme.dart';
+import '../theme/continuon_theme.dart';
 import 'control_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -55,7 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed: ${result['message'] ?? 'Unknown error'}'),
-            backgroundColor: AppColors.dangerRed,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -71,15 +71,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final hardware = (statusData['detected_hardware'] as Map?)?.cast<String, dynamic>() ?? {};
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('CraigBot Control', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.grey[200], height: 1),
+          child: Container(color: Theme.of(context).dividerColor, height: 1),
         ),
         actions: [
           if (_loading)
@@ -118,7 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       const Text('🤖', style: TextStyle(fontSize: 32)),
                       const SizedBox(width: 12),
-                      Text('ContinuonAI', style: AppTextStyles.header),
+                      Text('ContinuonAI', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -137,23 +137,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     );
                   },
                   child: Container(
-                    decoration: AppDecorations.card.copyWith(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardTheme.color,
+                      borderRadius: BorderRadius.circular(ContinuonTokens.r16),
+                      boxShadow: ContinuonTokens.midShadow,
                     ),
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
                         _buildStatusCard(mode, isRecording, allowMotion),
                         const SizedBox(height: 24),
-                        const Align(
+                        Align(
                           alignment: Alignment.centerLeft,
-                          child: Text('Hardware Sensors', style: AppTextStyles.sectionHeader),
+                          child: Text('Hardware Sensors', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                         ),
                         const SizedBox(height: 12),
                         _buildSensorsCard(hardware),
@@ -167,7 +163,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Center(
                   child: Text(
                     'ContinuonAI Robot Control Interface',
-                    style: AppTextStyles.label.copyWith(fontSize: 12),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
               ],
@@ -181,7 +177,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStatusCard(String mode, bool isRecording, bool allowMotion) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: AppDecorations.statusContainer,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(ContinuonTokens.r8),
+      ),
       child: Column(
         children: [
           _buildStatusRow('Mode', mode.toUpperCase(), isBadge: true, badgeColor: _getModeColor(mode)),
@@ -197,15 +196,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color _getModeColor(String mode) {
     switch (mode) {
       case 'idle':
-        return AppColors.textSecondary;
+        return ContinuonColors.gray700;
       case 'manual_training':
-        return AppColors.primaryBlue;
+        return ContinuonColors.primaryBlue;
       case 'autonomous':
-        return AppColors.purple;
+        return ContinuonColors.cmsViolet;
       case 'sleep_learning':
-        return AppColors.warningOrange;
+        return ContinuonColors.particleOrange;
       default:
-        return AppColors.textSecondary;
+        return ContinuonColors.gray700;
     }
   }
 
@@ -213,15 +212,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (hardware.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: AppDecorations.statusContainer,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(ContinuonTokens.r8),
+        ),
         width: double.infinity,
-        child: const Text('No hardware detected or status unavailable', style: AppTextStyles.label),
+        child: Text('No hardware detected or status unavailable', style: Theme.of(context).textTheme.bodyMedium),
       );
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: AppDecorations.statusContainer,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(ContinuonTokens.r8),
+      ),
       child: Column(
         children: [
           if (hardware['depth_camera'] != null)
@@ -247,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTextStyles.label),
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
         isBadge
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -264,7 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               )
-            : Text(value, style: AppTextStyles.value),
+            : Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -273,8 +278,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTextStyles.label),
-        Text(value, style: AppTextStyles.value),
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -284,7 +289,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         _buildActionButton(
           '🎮 Manual Control',
-          AppColors.primaryBlue,
+          ContinuonColors.primaryBlue,
           () async {
             await _setMode('manual_control');
             if (context.mounted) {
@@ -295,31 +300,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 12),
         _buildActionButton(
           '📝 Manual Training',
-          AppColors.primaryBlue,
+          ContinuonColors.primaryBlue,
           () => _setMode('manual_training'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
           '🚀 Autonomous',
-          AppColors.textSecondary,
+          ContinuonColors.cmsViolet,
           () => _setMode('autonomous'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
           '💤 Sleep Learning',
-          AppColors.textSecondary,
+          ContinuonColors.particleOrange,
           () => _setMode('sleep_learning'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
           '⏸️ Idle',
-          AppColors.textSecondary,
+          ContinuonColors.gray700,
           () => _setMode('idle'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
           '🛑 Emergency Stop',
-          AppColors.dangerRed,
+          Theme.of(context).colorScheme.error,
           () => _setMode('emergency_stop'),
         ),
       ],

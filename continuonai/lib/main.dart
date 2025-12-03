@@ -10,6 +10,10 @@ import 'screens/record_screen.dart';
 import 'screens/robot_list_screen.dart';
 import 'services/brain_client.dart';
 
+import 'theme/continuon_theme.dart';
+
+import 'screens/marketing_home.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -26,12 +30,12 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Continuon AI',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      initialRoute: LoginScreen.routeName,
+      theme: continuonLightTheme,
+      darkTheme: continuonDarkTheme,
+      themeMode: ThemeMode.system,
+      initialRoute: MarketingHomeScreen.routeName,
       routes: {
+        MarketingHomeScreen.routeName: (context) => const MarketingHomeScreen(),
         LoginScreen.routeName: (context) => const LoginScreen(),
         RobotListScreen.routeName: (context) => const RobotListScreen(),
         ConnectScreen.routeName: (context) => ConnectScreen(brainClient: BrainClient()),

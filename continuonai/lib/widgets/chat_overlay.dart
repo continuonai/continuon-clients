@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/brain_client.dart';
-import '../theme/app_theme.dart';
+import '../theme/continuon_theme.dart';
 
 class ChatOverlay extends StatefulWidget {
   const ChatOverlay({super.key, required this.brainClient});
@@ -77,7 +77,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
         width: 400,
         height: _minimized ? 50 : 600,
         decoration: BoxDecoration(
-          color: AppColors.darkSurface.withOpacity(0.95),
+          color: ContinuonColors.gray900.withOpacity(0.95),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[800]!),
           boxShadow: [
@@ -95,7 +95,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.darkPanel,
+                  color: ContinuonColors.gray800,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   border: Border(bottom: BorderSide(color: Colors.grey[800]!)),
                 ),
@@ -112,7 +112,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                     ),
                     Icon(
                       _minimized ? Icons.expand_less : Icons.expand_more,
-                      color: AppColors.textSecondary,
+                      color: ContinuonColors.gray500,
                     ),
                   ],
                 ),
@@ -138,7 +138,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                               child: Text(
                                 msg['content']!,
                                 textAlign: TextAlign.center,
-                                style: AppTextStyles.darkLabel,
+                                style: const TextStyle(color: ContinuonColors.gray500, fontSize: 12),
                               ),
                             );
                           }
@@ -150,7 +150,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               constraints: const BoxConstraints(maxWidth: 280),
                               decoration: BoxDecoration(
-                                color: isUser ? AppColors.primaryBlue : AppColors.darkPanel,
+                                color: isUser ? ContinuonColors.primaryBlue : ContinuonColors.gray800,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -190,7 +190,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                                     height: 16,
                                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                   )
-                                : const Icon(Icons.send, color: AppColors.primaryBlue),
+                                : const Icon(Icons.send, color: ContinuonColors.primaryBlue),
                           ),
                         ],
                       ),

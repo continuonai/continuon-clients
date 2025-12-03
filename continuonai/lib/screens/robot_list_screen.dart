@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../theme/continuon_theme.dart';
 import 'connect_screen.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
@@ -80,7 +81,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
       if (mounted) {
         Navigator.pop(context); // Dismiss loading
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to connect: $e'), backgroundColor: AppColors.dangerRed),
+          SnackBar(
+            content: Text('Failed to connect: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }
@@ -114,11 +118,14 @@ class _RobotListScreenState extends State<RobotListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_user == null ? 'My Robots (Guest)' : 'My Robots', style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        title: Text(
+          _user == null ? 'My Robots (Guest)' : 'My Robots',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
         actions: [
           IconButton(
@@ -142,7 +149,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
             scale: value,
             child: FloatingActionButton.extended(
               onPressed: _addRobot,
-              backgroundColor: AppColors.primaryBlue,
+              backgroundColor: ContinuonColors.primaryBlue,
               icon: const Icon(Icons.add),
               label: const Text('Add Robot'),
               elevation: 4,
@@ -208,20 +215,25 @@ class _RobotListScreenState extends State<RobotListScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withOpacity(0.1),
+              color: ContinuonColors.primaryBlue.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.smart_toy_outlined, size: 64, color: AppColors.primaryBlue),
+            child: SvgPicture.asset(
+              'assets/branding/continuon_ai_logo.svg',
+              height: 64,
+              width: 64,
+              colorFilter: const ColorFilter.mode(ContinuonColors.primaryBlue, BlendMode.srcIn),
+            ),
           ),
           const SizedBox(height: 24),
-          const Text('No robots added yet', style: AppTextStyles.label),
+          Text('No robots added yet', style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: _addRobot,
             icon: const Icon(Icons.add),
             label: const Text('Add Robot'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
+              backgroundColor: ContinuonColors.primaryBlue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -257,15 +269,9 @@ class _RobotListScreenState extends State<RobotListScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: ContinuonTokens.lowShadow,
       ),
       child: Material(
         color: Colors.transparent,
@@ -279,10 +285,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.1),
+                    color: ContinuonColors.primaryBlue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.smart_toy, color: AppColors.primaryBlue, size: 28),
+                  child: const Icon(Icons.smart_toy, color: ContinuonColors.primaryBlue, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -291,7 +297,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                     children: [
                       Text(
                         name,
-                        style: AppTextStyles.value.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -300,12 +306,12 @@ class _RobotListScreenState extends State<RobotListScreen> {
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(
-                              color: AppColors.successGreen,
+                              color: Colors.green, // Success green
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(host, style: AppTextStyles.label),
+                          Text(host, style: Theme.of(context).textTheme.bodyMedium),
                         ],
                       ),
                     ],
@@ -314,10 +320,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textSecondary),
+                  child: Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
             ),

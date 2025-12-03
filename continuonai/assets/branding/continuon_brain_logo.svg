@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="neonGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B085FF"/>
+      <stop offset="100%" stop-color="#8A52FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Brain Outline (Side Profile) -->
+  <path d="M140 360C100 330 80 280 80 220C80 130 150 60 240 60C330 60 400 130 400 220C400 280 360 330 320 360" 
+        stroke="url(#neonGradient)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Internal Convolutions (Intricate Loops) -->
+  <path d="M160 200C160 160 200 120 240 120C280 120 320 160 320 200" 
+        stroke="url(#neonGradient)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <path d="M140 260C140 260 180 220 240 220C300 220 340 260 340 300" 
+        stroke="url(#neonGradient)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+        
+  <path d="M200 320C200 320 220 280 260 280C300 280 320 320 320 320" 
+        stroke="url(#neonGradient)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Brain Stem / Cerebellum -->
+  <path d="M200 360C200 360 220 400 260 400C300 400 320 360 320 360" 
+        stroke="url(#neonGradient)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+        
+  <!-- Glow Highlights (Simulated) -->
+  <circle cx="240" cy="120" r="4" fill="#FFFFFF" fill-opacity="0.5"/>
+  <circle cx="340" cy="200" r="4" fill="#FFFFFF" fill-opacity="0.5"/>
+  <circle cx="140" cy="260" r="4" fill="#FFFFFF" fill-opacity="0.5"/>
+</svg>

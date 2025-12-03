@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="infinityGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0A84FF"/>
+      <stop offset="100%" stop-color="#00A3FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Infinity Loop Structure -->
+  <!-- Left Loop -->
+  <path d="M256 256L160 340C115.817 340 80 304.183 80 260C80 215.817 115.817 180 160 180C190 180 230 200 256 230" 
+        stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+        
+  <!-- Right Loop -->
+  <path d="M256 256L352 172C396.183 172 432 207.817 432 252C432 296.183 396.183 332 352 332C320 332 290 312 270 292" 
+        stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Crossover / Continuity -->
+  <path d="M256 230L352 332" stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+  <path d="M256 282L160 180" stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+
+  <!-- Arrows -->
+  <path d="M270 292L290 272" stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M270 292L250 272" stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <path d="M256 230L236 210" stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M256 230L276 210" stroke="url(#infinityGradient)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

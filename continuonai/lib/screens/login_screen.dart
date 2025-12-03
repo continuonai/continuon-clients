@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../theme/continuon_theme.dart';
 import 'robot_list_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -85,18 +86,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    final brand = Theme.of(context).extension<ContinuonBrandExtension>()!;
+    
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1A237E), // Deep Indigo
-              Color(0xFF0D47A1), // Blue
-              Color(0xFF01579B), // Light Blue
-            ],
-          ),
+        decoration: BoxDecoration(
+          gradient: brand.waveGradient,
         ),
         child: Center(
           child: SingleChildScrollView(
@@ -130,23 +125,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           color: Colors.white.withOpacity(0.15),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.smart_toy, size: 64, color: Colors.white),
+                        child: SvgPicture.asset(
+                          'assets/branding/continuon_ai_logo.svg',
+                          height: 64,
+                          width: 64,
+                          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                        ),
                       ),
                       const SizedBox(height: 32),
                       Text(
-                        'ContinuonAI',
-                        style: AppTextStyles.header.copyWith(
-                          fontSize: 36,
+                        'Continuon',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
+                          fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
                         ),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         'Sign in to manage your robots',
-                        style: AppTextStyles.label.copyWith(
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Colors.white.withOpacity(0.8),
-                          fontSize: 16,
                         ),
                       ),
                       const SizedBox(height: 48),
@@ -155,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           padding: const EdgeInsets.all(12),
                           margin: const EdgeInsets.only(bottom: 24),
                           decoration: BoxDecoration(
-                            color: AppColors.dangerRed.withOpacity(0.9),
+                            color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.9),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
