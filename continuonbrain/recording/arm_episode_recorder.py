@@ -166,7 +166,7 @@ class MicrophoneCapture:
             return False
 
     def _callback(self, indata, frames, callback_time, status):
-        del status  # unused
+        del status, frames  # unused
         timestamp_ns = time.time_ns()
 
         if callback_time and getattr(callback_time, "inputBufferAdcTime", None):
