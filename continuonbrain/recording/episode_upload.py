@@ -51,7 +51,7 @@ class EpisodeUploadPipeline:
     def validate_episode(self, episode_path: Path) -> bool:
         """
         Validate episode structure and metadata.
-        
+
         Required files:
         - episode.json (metadata)
         - step_*_rgb.npy (RGB frames)
@@ -77,19 +77,59 @@ class EpisodeUploadPipeline:
                 if field not in metadata:
                     print(f"ERROR: Missing required field '{field}' in episode.json")
                     return False
-            
+
             episode_metadata = metadata['metadata']
             required_metadata = ['episode_id', 'robot_type', 'xr_mode', 'action_source', 'total_steps']
             for field in required_metadata:
                 if field not in episode_metadata:
                     print(f"ERROR: Missing required metadata field '{field}'")
                     return False
-            
+
+            steps = metadata.get('steps', [])
+            if len(steps) != episode_metadata['total_steps']:
+                print(
+                    f"ERROR: Step count mismatch metadata={episode_metadata['total_steps']}"
+                    f" actual={len(steps)}"
+                )
+                return False
+
+            # Validate per-step alignment within 5ms tolerance
+            for idx, step in enumerate(steps):
+                obs = step.get('observation', {})
+                video_frame_id = obs.get('video_frame_id')
+                depth_frame_id = obs.get('depth_frame_id')
+                frame_timestamp = obs.get('frame_timestamp_ns')
+
+                if not video_frame_id or not depth_frame_id:
+                    print(f"ERROR: Missing frame_id for step {idx}")
+                    return False
+
+                if video_frame_id != depth_frame_id:
+                    print(f"ERROR: Frame ID mismatch at step {idx}")
+                    return False
+
+                robot_state = obs.get('robot_state', {})
+                robot_frame_id = robot_state.get('frame_id')
+                robot_timestamp = robot_state.get('timestamp_nanos')
+
+                if robot_frame_id and robot_frame_id != video_frame_id:
+                    print(f"ERROR: Robot state frame_id mismatch at step {idx}")
+                    return False
+
+                if frame_timestamp and robot_timestamp:
+                    skew_ns = abs(frame_timestamp - robot_timestamp)
+                    if skew_ns > 5_000_000:
+                        print(
+                            f"ERROR: Timestamp skew {skew_ns / 1_000_000:.2f}ms"
+                            f" exceeds 5ms at step {idx}"
+                        )
+                        return False
+
             # Check step count matches files
             total_steps = episode_metadata['total_steps']
             rgb_files = list(episode_path.glob("step_*_rgb.npy"))
             depth_files = list(episode_path.glob("step_*_depth.npy"))
-            
+
             if len(rgb_files) != total_steps:
                 print(f"WARNING: Expected {total_steps} RGB files, found {len(rgb_files)}")
             

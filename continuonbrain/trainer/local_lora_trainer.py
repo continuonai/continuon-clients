@@ -40,6 +40,7 @@ class LocalTrainerJobConfig:
     shuffle_buffer_multiplier: int = 4
     log_every_steps: int = 10
     base_model_path: Optional[Path] = None
+    base_model_url: Optional[str] = None
 
     @staticmethod
     def from_json(path: Path) -> "LocalTrainerJobConfig":
@@ -50,6 +51,8 @@ class LocalTrainerJobConfig:
         data["log_dir"] = Path(data.get("log_dir", LocalTrainerJobConfig.log_dir))
         if "base_model_path" in data and data["base_model_path"] is not None:
             data["base_model_path"] = Path(data["base_model_path"])
+        if "base_model_url" not in data:
+            data["base_model_url"] = None
         return LocalTrainerJobConfig(**data)
 
     def to_json(self, path: Path) -> None:
@@ -59,6 +62,8 @@ class LocalTrainerJobConfig:
         payload["log_dir"] = str(self.log_dir)
         if self.base_model_path is not None:
             payload["base_model_path"] = str(self.base_model_path)
+        if self.base_model_url is None:
+            payload.pop("base_model_url", None)
         path.write_text(json.dumps(payload, indent=2))
 
     @property

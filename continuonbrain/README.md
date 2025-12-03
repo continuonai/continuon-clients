@@ -77,4 +77,6 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 - OAK-D Lite (USB3) + AI HAT+ (independent buses)
 - SO-ARM101 servos via PCA9685 (external 5-7V power required)
 
+- Quick validation on-device: `python -m continuonbrain.pi5_hardware_validation --log-json /tmp/pi5_check.json` (creates the expected `/opt/continuonos/brain` layout, checks UVC/I2C, and exercises depth + servo timestamps).
+
 See `PI5_CAR_READINESS.md` for full hardware setup and validation steps.

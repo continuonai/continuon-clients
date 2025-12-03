@@ -18,6 +18,7 @@ This directory hosts **offline-first** scaffolding for local adapter training on
 - `safety_head_stub.py`: simple clamp/violation logger for steering/throttle; replace with your real safety head.
 - `vla_adapter.py`: routes WaveCore `encode_for_policy()` outputs plus RLDS metadata into minimal VLA heads (SkillPolicies/LanguagePlanner) with switchable routing modes.
 - `INTEGRATION_CHECKLIST.md`: step-by-step to drop the scaffold into continuonos (model loader, safety, gating, manifest, RLDS).
+- `sidecar_runner.py`: RLDS-aware wrapper so a sidecar process can gate on idle/battery/thermals and only promote adapters after the safety gate passes.
 
 ## Usage (examples)
 
