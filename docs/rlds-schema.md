@@ -3,11 +3,11 @@
 This draft defines the RLDS-style schema ContinuonXR must emit. All episodes must validate against these rules before upload.
 
 ## Episode-level metadata
-- `episode_metadata.continuon.xr_mode`: string enum — `trainer`, `workstation`, `observer`.
+- `episode_metadata.continuon.xr_mode`: string enum — `trainer`, `workstation`, `observer` (also mirrored into `episode_metadata.tags` as `continuon.xr_mode:<value>` for stratification).
 - `episode_metadata.continuon.control_role`: string enum — `human_teleop`, `human_supervisor`, `human_dev_xr`.
 - `episode_metadata.environment_id`: string — deployment target or mock instance id (e.g., `lab-mock`, `pbos-dev01`).
 - `episode_metadata.software`: object — XR app version, ContinuonBrain/OS version, glove firmware version.
-- `episode_metadata.tags`: list<string> — freeform labels such as task name, scene, robot type.
+- `episode_metadata.tags`: list<string> — freeform labels such as task name, scene, robot type, and the natural language task instruction.
 
 ## Step structure
 Each step is timestamped in monotonic time (ns) and wall-clock time (ms) for reconciliation. Steps must align robot state, video, glove, and pose to within 5 ms.
@@ -46,7 +46,8 @@ step {
 - `glove.accel`: float[3] (m/s^2).
 - `glove.valid`: boolean indicating whether glove data is present for this step.
 - `ui_context`: optional block for workstation mode (active panel id, layout state, focus context).
-- `step_metadata`: per-step string map for quick flags/ids without schema changes.
+- `language_instruction`: first step should echo the task instruction string; later steps may override if sub-tasks change.
+- `step_metadata`: per-step string map for quick flags/ids without schema changes. Use to surface `ball_reached=true` terminal markers and `safety_violations` lists when clamps/firewalls trip.
 - `diagnostics`: drop counters, latency measurements, BLE RSSI.
 
 ### `action`

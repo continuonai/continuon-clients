@@ -1,9 +1,11 @@
 """
 RLDS episode recorder for SO-ARM101 robot arm manipulation.
+"""
 Records depth vision + arm state + human teleop actions.
 Compatible with Pi5 setup per PI5_CAR_READINESS.md and docs/rlds-schema.md.
 """
 import json
+import shutil
 import time
 from pathlib import Path
 from typing import Optional, Dict, List, Any
@@ -27,7 +29,8 @@ class EpisodeMetadata:
     """Episode-level metadata per RLDS schema."""
     episode_id: str
     robot_type: str = "SO-ARM101"
-    xr_mode: str = "trainer"  # or "inference" 
+    xr_mode: str = "trainer"  # or "inference"
+    control_role: str = "human_teleop"  # aligns with docs/rlds-schema.md
     action_source: str = "human_teleop_xr"  # or "vla_policy"
     camera_config: Dict[str, Any] = None
     start_timestamp_ns: int = 0
@@ -41,13 +44,37 @@ class EpisodeMetadata:
         if self.tags is None:
             self.tags = ["pi5", "oak-d-lite", "pca9685"]
 
+    def to_dict(self, language_instruction: Optional[str] = None) -> Dict[str, Any]:
+        """Serialize metadata with continuon.* tags for downstream stratification."""
+        metadata = asdict(self)
+        # Namespaced continuon block mirrors docs/rlds-schema.md
+        metadata["continuon"] = {
+            "xr_mode": self.xr_mode,
+            "control_role": self.control_role,
+        }
+
+        # Attach instruction text to tags for easier filtering.
+        if language_instruction:
+            metadata["tags"].append(f"instruction:{language_instruction}")
+
+        # Mirror xr_mode into tags for lightweight queries.
+        metadata["tags"].append(f"continuon.xr_mode:{self.xr_mode}")
+        return metadata
+
 
 @dataclass
 class StepData:
     """Single step in an episode per RLDS schema."""
     step_index: int
     timestamp_ns: int
-    
+
+    frame_timestamp_ns: int
+    video_frame_id: str
+    depth_frame_id: str
+    robot_state_timestamp_ns: int
+    robot_state_frame_id: str
+    action_timestamp_ns: int
+
     # Observation
     rgb_image: np.ndarray  # (H, W, 3) uint8
     depth_image: np.ndarray  # (H, W) uint16 millimeters
@@ -56,27 +83,40 @@ class StepData:
     # Action
     action: List[float]  # 6 target joint positions normalized [-1, 1]
     action_source: str  # "human_teleop_xr" or "vla_policy"
-    
+
     # Metadata
     is_terminal: bool = False
     language_instruction: Optional[str] = None
     reward: float = 0.0
-    
+    step_metadata: Dict[str, str] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for JSON serialization."""
+        step_metadata = self.step_metadata or {}
         return {
             "step_index": self.step_index,
             "timestamp_ns": self.timestamp_ns,
             "observation": {
+                "frame_timestamp_ns": self.frame_timestamp_ns,
+                "video_frame_id": self.video_frame_id,
+                "depth_frame_id": self.depth_frame_id,
                 "rgb_shape": self.rgb_image.shape,
                 "depth_shape": self.depth_image.shape,
-                "robot_state": self.robot_state,
+                "robot_state": {
+                    "joint_positions": self.robot_state,
+                    "frame_id": self.robot_state_frame_id,
+                    "timestamp_nanos": self.robot_state_timestamp_ns,
+                },
             },
-            "action": self.action,
-            "action_source": self.action_source,
+            "action": {
+                "command": self.action,
+                "source": self.action_source,
+                "timestamp_nanos": self.action_timestamp_ns,
+            },
             "is_terminal": self.is_terminal,
             "language_instruction": self.language_instruction,
             "reward": self.reward,
+            "step_metadata": step_metadata,
         }
 
 
@@ -105,6 +145,7 @@ class ArmEpisodeRecorder:
         self.episode_metadata: Optional[EpisodeMetadata] = None
         self.steps: List[StepData] = []
         self.step_counter: int = 0
+        self.episode_language_instruction: Optional[str] = None
         
     def initialize_hardware(self, use_mock: bool = False, auto_detect: bool = True) -> bool:
         """
@@ -168,6 +209,7 @@ class ArmEpisodeRecorder:
         episode_id: Optional[str] = None,
         language_instruction: Optional[str] = None,
         action_source: str = "human_teleop_xr",
+        xr_mode: str = "trainer",
     ) -> str:
         """
         Start a new episode recording.
@@ -192,16 +234,17 @@ class ArmEpisodeRecorder:
         self.current_episode = episode_id
         self.step_counter = 0
         self.steps = []
-        
+        self.episode_language_instruction = language_instruction
+
         # Create metadata
         camera_config = {}
         if self.camera:
             camera_config = self.camera.get_camera_metadata()
-        
+
         self.episode_metadata = EpisodeMetadata(
             episode_id=episode_id,
             robot_type="SO-ARM101",
-            xr_mode="trainer",
+            xr_mode=xr_mode,
             action_source=action_source,
             camera_config=camera_config,
             start_timestamp_ns=time.time_ns(),
@@ -220,15 +263,21 @@ class ArmEpisodeRecorder:
         action_source: str = "human_teleop_xr",
         language_instruction: Optional[str] = None,
         is_terminal: bool = False,
+        ball_reached: bool = False,
+        safety_violations: Optional[List[str]] = None,
+        step_metadata: Optional[Dict[str, str]] = None,
     ) -> bool:
         """
         Record a single step (observation + action).
-        
+
         Args:
             action: 6D normalized action vector [-1, 1]
             action_source: Source of the action
             language_instruction: Optional per-step instruction
             is_terminal: Whether this is the final step
+            ball_reached: Flag set when the ball target is reached (auto-terminal)
+            safety_violations: Optional list of safety violations encountered
+            step_metadata: Additional step-level metadata tags
         
         Returns:
             True if successful
@@ -240,48 +289,79 @@ class ArmEpisodeRecorder:
         if self.step_counter >= self.max_steps:
             print(f"WARNING: Max steps ({self.max_steps}) reached")
             return False
-        
+
         try:
             timestamp_ns = time.time_ns()
-            
+
             # Capture observation
             rgb_image = None
             depth_image = None
-            
+            frame_timestamp_ns = timestamp_ns
+
             if self.camera:
                 frame = self.camera.capture_frame()
                 if frame:
                     rgb_image = frame['rgb']
                     depth_image = frame['depth']
-            
+                    frame_timestamp_ns = frame.get('timestamp_ns', timestamp_ns)
+
             # Generate mock data if no camera
             if rgb_image is None:
                 rgb_image = np.zeros((480, 640, 3), dtype=np.uint8)
                 depth_image = np.zeros((480, 640), dtype=np.uint16)
-            
+
+            frame_id = f"frame_{frame_timestamp_ns}"
+
             # Get current robot state
             robot_state = [0.0] * 6
+            robot_state_timestamp_ns = frame_timestamp_ns
             if self.arm:
                 robot_state = self.arm.get_normalized_state()
-            
+                robot_state_timestamp_ns = time.time_ns()
+
             # Execute action on arm
             if self.arm and not is_terminal:
                 self.arm.set_normalized_action(action)
-            
+
+            # Aggregate step metadata and safety flags
+            combined_metadata: Dict[str, str] = {}
+            if step_metadata:
+                combined_metadata.update({k: str(v) for k, v in step_metadata.items()})
+
+            if ball_reached:
+                combined_metadata["ball_reached"] = "true"
+                is_terminal = True
+
+            if safety_violations:
+                combined_metadata["has_safety_violation"] = "true"
+                combined_metadata["safety_violations"] = ";".join(safety_violations)
+
+            # Ensure first step carries the language instruction if not provided inline
+            effective_language_instruction = language_instruction
+            if effective_language_instruction is None and self.step_counter == 0:
+                effective_language_instruction = self.episode_language_instruction
+
             # Create step data
             step = StepData(
                 step_index=self.step_counter,
                 timestamp_ns=timestamp_ns,
+                frame_timestamp_ns=frame_timestamp_ns,
+                video_frame_id=frame_id,
+                depth_frame_id=frame_id,
+                robot_state_timestamp_ns=robot_state_timestamp_ns,
+                robot_state_frame_id=frame_id,
+                action_timestamp_ns=time.time_ns(),
                 rgb_image=rgb_image,
                 depth_image=depth_image,
                 robot_state=robot_state,
                 action=action,
                 action_source=action_source,
                 is_terminal=is_terminal,
-                language_instruction=language_instruction,
+                language_instruction=effective_language_instruction,
                 reward=1.0 if is_terminal else 0.0,  # Simple sparse reward
+                step_metadata=combined_metadata,
             )
-            
+
             self.steps.append(step)
             self.step_counter += 1
             
@@ -293,7 +373,33 @@ class ArmEpisodeRecorder:
         except Exception as e:
             print(f"ERROR recording step: {e}")
             return False
-    
+
+    def _validate_step_alignment(self, step: StepData, tolerance_ns: int = 5_000_000) -> bool:
+        """Validate timestamp/frame_id alignment within tolerance."""
+        if step.video_frame_id != step.depth_frame_id:
+            print(
+                f"ERROR: Frame ID mismatch video={step.video_frame_id} depth={step.depth_frame_id}"
+            )
+            return False
+
+        if step.robot_state_frame_id != step.video_frame_id:
+            print(
+                f"ERROR: Robot state frame_id {step.robot_state_frame_id}"
+                f" does not match video frame_id {step.video_frame_id}"
+            )
+            return False
+
+        skew = abs(step.frame_timestamp_ns - step.robot_state_timestamp_ns)
+        if skew > tolerance_ns:
+            skew_ms = skew / 1_000_000
+            print(
+                f"ERROR: Timestamp skew {skew_ms:.2f}ms exceeds tolerance between"
+                " vision and robot state"
+            )
+            return False
+
+        return True
+
     def end_episode(self, success: bool = True) -> Optional[Path]:
         """
         End current episode and save to disk.
@@ -307,18 +413,31 @@ class ArmEpisodeRecorder:
         if not self.current_episode:
             print("ERROR: No active episode")
             return None
-        
+
         try:
+            # Validate alignment before persisting
+            for step in self.steps:
+                if not self._validate_step_alignment(step):
+                    print("❌ Episode failed schema validation; discarding recording")
+                    self.current_episode = None
+                    self.episode_metadata = None
+                    self.steps = []
+                    self.step_counter = 0
+                    self.episode_language_instruction = None
+                    return None
+
             # Update metadata
             self.episode_metadata.end_timestamp_ns = time.time_ns()
             self.episode_metadata.total_steps = len(self.steps)
-            
+
             if not success:
                 self.episode_metadata.tags.append("failed")
-            
+
             # Prepare episode data
             episode_data = {
-                "metadata": asdict(self.episode_metadata),
+                "metadata": self.episode_metadata.to_dict(
+                    language_instruction=self.episode_language_instruction
+                ),
                 "steps": [step.to_dict() for step in self.steps],
             }
             
@@ -334,20 +453,35 @@ class ArmEpisodeRecorder:
             for i, step in enumerate(self.steps):
                 np.save(episode_path / f"step_{i:04d}_rgb.npy", step.rgb_image)
                 np.save(episode_path / f"step_{i:04d}_depth.npy", step.depth_image)
-            
-            duration_s = (self.episode_metadata.end_timestamp_ns - 
+
+            # Run schema validation on persisted data (frame_id/timestamp alignment)
+            from continuonbrain.recording.episode_upload import EpisodeUploadPipeline
+
+            pipeline = EpisodeUploadPipeline()
+            if not pipeline.validate_episode(episode_path):
+                print("❌ Episode failed on-disk validation; removing recording")
+                shutil.rmtree(episode_path, ignore_errors=True)
+                self.current_episode = None
+                self.episode_metadata = None
+                self.steps = []
+                self.step_counter = 0
+                self.episode_language_instruction = None
+                return None
+
+            duration_s = (self.episode_metadata.end_timestamp_ns -
                          self.episode_metadata.start_timestamp_ns) / 1e9
             
             print(f"\n✅ Episode saved: {self.current_episode}")
             print(f"   Steps: {len(self.steps)}")
             print(f"   Duration: {duration_s:.1f}s")
             print(f"   Path: {episode_path}")
-            
+
             # Reset state
             self.current_episode = None
             self.episode_metadata = None
             self.steps = []
             self.step_counter = 0
+            self.episode_language_instruction = None
             
             return episode_path
             
