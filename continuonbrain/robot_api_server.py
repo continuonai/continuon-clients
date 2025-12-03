@@ -182,20 +182,26 @@ class RobotService:
             if control_mode == "armJointAngles":
                 arm_cmd = command.get("arm_joint_angles", {})
                 action = arm_cmd.get("normalized_angles", [0.0] * 6)
-                
+                ball_reached = command.get("ball_reached", False)
+                safety_violations = command.get("safety_violations")
+                step_metadata = command.get("step_metadata")
+
                 # Execute on arm
                 if self.arm:
                     self.arm.set_normalized_action(action)
-                
+
                 # Record step if recording and in training mode
                 if self.is_recording and self.recorder:
                     action_source = "human_teleop_flutter"
                     if self.mode_manager and self.mode_manager.current_mode == RobotMode.AUTONOMOUS:
                         action_source = "vla_policy"
-                    
+
                     self.recorder.record_step(
                         action=action,
                         action_source=action_source,
+                        ball_reached=ball_reached,
+                        safety_violations=safety_violations if isinstance(safety_violations, list) else None,
+                        step_metadata=step_metadata if isinstance(step_metadata, dict) else None,
                     )
                 
                 return {
