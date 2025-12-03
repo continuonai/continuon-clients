@@ -6,6 +6,12 @@
 
 ---
 
+## Scoped Contributor Guidance
+
+This repository relies on nested `AGENTS.md` files for area-specific rules (toolchains, testing expectations, and product
+boundaries). See [`docs/AGENTS_ENFORCEMENT.md`](docs/AGENTS_ENFORCEMENT.md) for tips and automation ideas that help teams
+consistently follow the right scope before editing or shipping changes.
+
 ## Project Status & Milestones
 
 The roadmap below highlights where the Android XR app and data capture stack stand today, what is actively in-flight, and what is targeted next. Owners reflect day-to-day accountability for delivery.
