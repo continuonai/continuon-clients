@@ -7,6 +7,7 @@
   },
   "paths": {
     "base_model": "/opt/continuonos/brain/model/base_model/gemma-3n.tflite",
+    "adapter_dir": "/opt/continuonos/brain/model/adapters/current",
     "adapter": "/opt/continuonos/brain/model/adapters/current/lora_adapters.pt",
     "safety_head": "/opt/continuonos/brain/model/safety/current/safety_head.tflite"
   },
@@ -21,5 +22,5 @@
       "throttle": [-1.0, 1.0]
     }
   },
-  "notes": "Sample manifest including a safety head path; adjust to your actual safety model or keep using heuristics."
+  "notes": "Sample manifest including a safety head path; adjust to your actual safety model or keep using heuristics. The base model path expects the quantized Gemma 3n TFLite bundle."
 }
