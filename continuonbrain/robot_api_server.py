@@ -3,6 +3,7 @@ ContinuonBrain Robot API server for Pi5 robot arm.
 Runs against real hardware by default with optional mock fallback for dev.
 """
 import asyncio
+import os
 import time
 from typing import AsyncIterator, Optional
 import json
@@ -23,6 +24,8 @@ from continuonbrain.recording.arm_episode_recorder import ArmEpisodeRecorder
 from continuonbrain.sensors.hardware_detector import HardwareDetector
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
 from continuonbrain.gemma_chat import create_gemma_chat
+from continuonbrain.system_context import SystemContext
+from continuonbrain.system_instructions import SystemInstructions
 
 
 class RobotService:
@@ -37,6 +40,7 @@ class RobotService:
         prefer_real_hardware: bool = True,
         auto_detect: bool = True,
         allow_mock_fallback: bool = True,
+        system_instructions: Optional[SystemInstructions] = None,
     ):
         self.config_dir = config_dir
         self.prefer_real_hardware = prefer_real_hardware
@@ -52,15 +56,37 @@ class RobotService:
         self.current_episode_id: Optional[str] = None
         self.detected_config: dict = {}
         self.last_drive_result: Optional[dict] = None
-        
+        self.system_instructions: Optional[SystemInstructions] = system_instructions or SystemContext.get_instructions()
+
         # Initialize Gemma chat (will use mock if transformers not available)
         self.gemma_chat = create_gemma_chat(use_mock=False)
+
+    def _ensure_system_instructions(self) -> None:
+        """Guarantee that merged system instructions are available."""
+
+        if self.system_instructions:
+            if SystemContext.get_instructions() is None:
+                SystemContext.register_instructions(self.system_instructions)
+            return
+
+        env_path = os.environ.get("CONTINUON_SYSTEM_INSTRUCTIONS_PATH")
+        if env_path:
+            path = Path(env_path)
+            if path.exists():
+                self.system_instructions = SystemContext.load_and_register(path)
+                return
+
+        # Fall back to loading from the configured directory
+        self.system_instructions = SystemInstructions.load(Path(self.config_dir))
+        SystemContext.register_instructions(self.system_instructions)
         
     async def initialize(self):
         """Initialize hardware components with auto-detection."""
         mode_label = "REAL HARDWARE" if self.prefer_real_hardware else "MOCK"
         print(f"Initializing Robot Service ({mode_label} MODE)...")
         print()
+
+        self._ensure_system_instructions()
         
         # Auto-detect hardware (used for status reporting)
         if self.auto_detect:
@@ -122,7 +148,10 @@ class RobotService:
 
         # Initialize mode manager
         print("🎮 Initializing mode manager...")
-        self.mode_manager = RobotModeManager(config_dir=self.config_dir)
+        self.mode_manager = RobotModeManager(
+            config_dir=self.config_dir,
+            system_instructions=self.system_instructions,
+        )
         self.mode_manager.return_to_idle()  # Start in idle mode
         print("✅ Mode manager ready")
         
@@ -150,6 +179,9 @@ class RobotService:
         
         while True:
             try:
+                if not self.system_instructions:
+                    return {"success": False, "message": "System instructions unavailable"}
+
                 # Get current arm state
                 normalized_state = self.arm.get_normalized_state() if self.arm else [0.0] * 6
                 gripper_open = normalized_state[5] < 0.0  # Gripper: -1.0 = open, 1.0 = closed
@@ -181,7 +213,10 @@ class RobotService:
         try:
             client_id = command.get("client_id", "unknown")
             control_mode = command.get("control_mode")
-            
+
+            if not self.system_instructions:
+                return {"success": False, "message": "System instructions unavailable"}
+
             # Check if motion is allowed in current mode
             if self.mode_manager:
                 mode_config = self.mode_manager.get_mode_config(self.mode_manager.current_mode)
@@ -241,6 +276,9 @@ class RobotService:
             return result
 
         try:
+            if not self.system_instructions:
+                return _record_result({"success": False, "message": "System instructions unavailable"})
+
             if not self.mode_manager:
                 return _record_result({"success": False, "message": "Mode manager not initialized"})
 
@@ -297,6 +335,9 @@ class RobotService:
     async def SetRobotMode(self, mode: str) -> dict:
         """Change robot operational mode."""
         try:
+            if not self.system_instructions:
+                return {"success": False, "message": "System instructions unavailable"}
+
             if not self.mode_manager:
                 return {"success": False, "message": "Mode manager not initialized"}
             
@@ -335,7 +376,11 @@ class RobotService:
                 "hardware_mode": "real" if self.use_real_hardware else "mock",
                 "audio_recording_active": bool(self.recorder and self.recorder.audio_enabled),
             }
-            
+
+            instructions = self.system_instructions or SystemContext.get_instructions()
+            if instructions:
+                status["system_instructions"] = instructions.as_dict()
+
             if self.mode_manager:
                 mode_status = self.mode_manager.get_status()
                 status.update({
