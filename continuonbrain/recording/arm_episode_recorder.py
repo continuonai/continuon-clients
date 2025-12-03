@@ -177,6 +177,23 @@ class MicrophoneCapture:
             self.frame_counter += 1
 
     def get_aligned_block(self, target_timestamp_ns: int) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve the audio block closest to the target timestamp.
+
+        Finds the audio buffer with timestamp nearest to the target, enabling
+        synchronization with vision frames. Reports alignment delta for QA.
+
+        Args:
+            target_timestamp_ns (int): Target timestamp in nanoseconds to align to.
+
+        Returns:
+            Optional[Dict[str, Any]]: Dictionary containing:
+                - buffer: Audio data as numpy array
+                - timestamp_ns: Actual timestamp of the audio block
+                - frame_id: String identifier for the audio frame
+                - delta_ms: Time difference from target in milliseconds
+            Returns None if no audio is available or capture is inactive.
+        """
         if not self.active:
             return None
 
