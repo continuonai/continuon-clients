@@ -17,6 +17,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController, ArmConfig
+from continuonbrain.actuators.drivetrain_controller import DrivetrainController
 from continuonbrain.sensors.oak_depth import OAKDepthCapture, CameraConfig
 from continuonbrain.recording.arm_episode_recorder import ArmEpisodeRecorder
 from continuonbrain.sensors.hardware_detector import HardwareDetector
@@ -45,10 +46,12 @@ class RobotService:
         self.arm: Optional[PCA9685ArmController] = None
         self.camera: Optional[OAKDepthCapture] = None
         self.recorder: Optional[ArmEpisodeRecorder] = None
+        self.drivetrain: Optional[DrivetrainController] = None
         self.mode_manager: Optional[RobotModeManager] = None
         self.is_recording = False
         self.current_episode_id: Optional[str] = None
         self.detected_config: dict = {}
+        self.last_drive_result: Optional[dict] = None
         
         # Initialize Gemma chat (will use mock if transformers not available)
         self.gemma_chat = create_gemma_chat(use_mock=False)
@@ -107,7 +110,16 @@ class RobotService:
             self.use_real_hardware = True
         
         print("✅ Episode recorder ready")
-        
+
+        # Initialize drivetrain controller for steering/throttle
+        print("🛞 Initializing drivetrain controller...")
+        self.drivetrain = DrivetrainController()
+        drivetrain_ready = self.drivetrain.initialize()
+        if drivetrain_ready:
+            print(f"✅ Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
+        else:
+            print("⚠️  Drivetrain controller unavailable")
+
         # Initialize mode manager
         print("🎮 Initializing mode manager...")
         self.mode_manager = RobotModeManager(config_dir=self.config_dir)
@@ -220,6 +232,67 @@ class RobotService:
                 "success": False,
                 "message": f"Error: {str(e)}"
             }
+
+    async def Drive(self, steering: float, throttle: float) -> dict:
+        """Apply drivetrain command with safety checks."""
+
+        def _record_result(result: dict) -> dict:
+            self.last_drive_result = result
+            return result
+
+        try:
+            if not self.mode_manager:
+                return _record_result({"success": False, "message": "Mode manager not initialized"})
+
+            current_mode = self.mode_manager.current_mode
+            if current_mode not in {RobotMode.MANUAL_CONTROL, RobotMode.MANUAL_TRAINING}:
+                return _record_result(
+                    {
+                        "success": False,
+                        "message": "Driving allowed only in manual control or manual training modes",
+                        "mode": current_mode.value,
+                    }
+                )
+
+            mode_config = self.mode_manager.get_mode_config(current_mode)
+            if not mode_config.allow_motion:
+                return _record_result(
+                    {
+                        "success": False,
+                        "message": f"Motion not allowed in {current_mode.value} mode",
+                        "mode": current_mode.value,
+                    }
+                )
+
+            try:
+                steering_value = float(steering)
+                throttle_value = float(throttle)
+            except (TypeError, ValueError):
+                return _record_result(
+                    {
+                        "success": False,
+                        "message": "Steering and throttle must be numeric",
+                    }
+                )
+
+            if not self.drivetrain:
+                return _record_result(
+                    {
+                        "success": False,
+                        "message": "Drivetrain controller not available",
+                        "steering": steering_value,
+                        "throttle": throttle_value,
+                    }
+                )
+
+            drive_result = self.drivetrain.apply_drive(steering_value, throttle_value)
+            if "mode" not in drive_result:
+                drive_result["mode"] = self.drivetrain.mode
+
+            return _record_result(drive_result)
+
+        except Exception as e:
+            return _record_result({"success": False, "message": f"Error: {str(e)}"})
     
     async def SetRobotMode(self, mode: str) -> dict:
         """Change robot operational mode."""
@@ -229,6 +302,7 @@ class RobotService:
             
             # Map string to enum
             mode_map = {
+                "manual_control": RobotMode.MANUAL_CONTROL,
                 "manual_training": RobotMode.MANUAL_TRAINING,
                 "autonomous": RobotMode.AUTONOMOUS,
                 "sleep_learning": RobotMode.SLEEP_LEARNING,
@@ -272,10 +346,17 @@ class RobotService:
             
             if self.detected_config:
                 status["detected_hardware"] = self.detected_config.get("primary")
-            
+
             if self.arm:
                 status["joint_positions"] = self.arm.get_normalized_state()
-            
+
+            if self.drivetrain:
+                status["drivetrain"] = {
+                    "connected": self.drivetrain.initialized,
+                    "mode": self.drivetrain.mode,
+                    "last_command": self.last_drive_result or self.drivetrain.last_command,
+                }
+
             return {"success": True, "status": status}
         
         except Exception as e:
@@ -561,12 +642,8 @@ class SimpleJSONServer:
                 drive_cmd = json.loads(body.decode())
                 steering = drive_cmd.get('steering', 0.0)
                 throttle = drive_cmd.get('throttle', 0.0)
-                
-                # Send as arm command - steering affects J0 (base), throttle could trigger recording or movement
-                # For now, log the drive command (real implementation would control motors)
-                print(f"[DRIVE] Steering: {steering:.2f}, Throttle: {throttle:.2f}")
-                
-                result = {"success": True, "steering": steering, "throttle": throttle}
+
+                result = await self.service.Drive(steering, throttle)
                 response_body = json.dumps(result)
                 response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
             except Exception as e:
@@ -1181,6 +1258,14 @@ class SimpleJSONServer:
                     <div class="status-label">Recording</div>
                     <div class="status-value" id="recording-status">No</div>
                 </div>
+                <div class="status-item">
+                    <div class="status-label">Drivetrain</div>
+                    <div class="status-value" id="drivetrain-connection">Checking...</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Last Drive</div>
+                    <div class="status-value" id="drive-message">Awaiting command</div>
+                </div>
             </div>
             
             <div class="status-section">
@@ -1678,16 +1763,50 @@ class SimpleJSONServer:
             var motionEnabled = document.getElementById('motion-enabled').textContent === 'Yes';
             if (!motionEnabled) {
                 console.warn('Motion not enabled in current mode');
+                renderDriveResult({ success: false, message: 'Motion disabled in current mode' });
                 return;
             }
             
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/drive', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var result = JSON.parse(xhr.responseText);
+                        renderDriveResult(result);
+                    } catch (e) {
+                        console.error('Failed to parse drive response', e);
+                    }
+                }
+            };
+            xhr.onerror = function() {
+                renderDriveResult({ success: false, message: 'Drive command failed to reach server' });
+            };
             xhr.send(JSON.stringify({
                 steering: carSteering,
                 throttle: carThrottle
             }));
+        };
+
+        window.renderDriveResult = function(result) {
+            if (!result) return;
+            var text = (result.success ? '✅ ' : '⚠️ ') + (result.message || 'Drive command sent');
+            if (typeof result.steering === 'number' && typeof result.throttle === 'number') {
+                text += ' (S:' + parseFloat(result.steering).toFixed(2) + ', T:' + parseFloat(result.throttle).toFixed(2) + ')';
+            }
+
+            var target = document.getElementById('drive-message');
+            target.textContent = text;
+            target.className = 'status-value ' + (result.success ? 'status-good' : 'status-warning');
+
+            // Keep connection status in sync if mode returned
+            if (result.mode) {
+                var connectionText = (result.success ? 'Connected' : 'Not Connected') + ' (' + result.mode.toUpperCase() + ')';
+                var connectionClass = result.success ? 'status-good' : 'status-critical';
+                document.getElementById('drivetrain-connection').textContent = connectionText;
+                document.getElementById('drivetrain-connection').className = 'status-value ' + connectionClass;
+            }
         };
         
         window.updateControlStatus = function() {
@@ -1711,7 +1830,28 @@ class SimpleJSONServer:
                             
                             document.getElementById('recording-status').textContent = data.status.is_recording ? 'Yes' : 'No';
                             document.getElementById('recording-status').className = 'status-value ' + (data.status.is_recording ? 'status-good' : '');
-                            
+
+                            var drivetrain = data.status.drivetrain || null;
+                            if (drivetrain) {
+                                var connectionClass = drivetrain.connected ? 'status-good' : 'status-critical';
+                                var connectionText = drivetrain.connected ? 'Connected' : 'Not Connected';
+                                if (drivetrain.mode) {
+                                    connectionText += ' (' + drivetrain.mode.toUpperCase() + ')';
+                                }
+                                document.getElementById('drivetrain-connection').textContent = connectionText;
+                                document.getElementById('drivetrain-connection').className = 'status-value ' + connectionClass;
+
+                                if (drivetrain.last_command) {
+                                    var lastCmd = drivetrain.last_command;
+                                    var driveText = (lastCmd.success ? '✅ ' : '⚠️ ') + (lastCmd.message || 'Drive command sent');
+                                    if (typeof lastCmd.steering === 'number' && typeof lastCmd.throttle === 'number') {
+                                        driveText += ' (S:' + lastCmd.steering.toFixed(2) + ', T:' + lastCmd.throttle.toFixed(2) + ')';
+                                    }
+                                    document.getElementById('drive-message').textContent = driveText;
+                                    document.getElementById('drive-message').className = 'status-value ' + (lastCmd.success ? 'status-good' : 'status-warning');
+                                }
+                            }
+
                             // Update hardware details
                             if (data.status.detected_hardware) {
                                 var hw = data.status.detected_hardware;
