@@ -542,7 +542,6 @@ class ArmEpisodeRecorder:
                     and step.audio_num_channels is not None
                 ):
                     audio_filename = step.audio_uri or f"step_{i:04d}_audio.wav"
-                    step.audio_uri = audio_filename
                     audio_path = episode_path / audio_filename
                     self._save_audio_file(
                         audio_path,
