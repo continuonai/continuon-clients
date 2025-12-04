@@ -145,7 +145,7 @@ class _RecordScreenState extends State<RecordScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             DropdownButtonFormField<String>(
-              value: _controlRole,
+              initialValue: _controlRole,
               decoration: const InputDecoration(
                 labelText: 'Control role (RLDS metadata)',
                 helperText: 'Manual mode sets control_role=manual_driver',
