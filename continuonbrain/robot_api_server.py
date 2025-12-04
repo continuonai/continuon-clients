@@ -398,9 +398,12 @@ class RobotService:
                 status["joint_positions"] = self.arm.get_normalized_state()
 
             if self.drivetrain:
+                drivetrain_hardware_available = not self.drivetrain.is_mock
                 status["drivetrain"] = {
-                    "connected": self.drivetrain.initialized,
+                    "connected": self.drivetrain.initialized and drivetrain_hardware_available,
+                    "hardware_available": drivetrain_hardware_available,
                     "mode": self.drivetrain.mode,
+                    "message": "PCA9685 output inactive (mock mode)" if self.drivetrain.is_mock else "Drivetrain ready",
                     "last_command": self.last_drive_result or self.drivetrain.last_command,
                 }
 
