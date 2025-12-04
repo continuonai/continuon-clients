@@ -7,8 +7,10 @@ are unavailable.
 """
 from __future__ import annotations
 
-import importlib
+import importlib.util
 from dataclasses import dataclass
+import json
+import os
 from typing import Optional
 
 
@@ -20,20 +22,80 @@ if servokit_spec:
 
 @dataclass
 class DrivetrainConfig:
-    """Configuration for the RC drivetrain."""
+    """Configuration for the RC drivetrain.
 
-    steering_channel: int = 6
-    throttle_channel: int = 7
+    Defaults target the documented PCA9685 wiring (``servo[0]`` for steering,
+    ``continuous_servo[1]`` for throttle). Channels can be overridden via
+    environment variables or a JSON config file:
+
+    - ``DRIVETRAIN_STEERING_CHANNEL``
+    - ``DRIVETRAIN_THROTTLE_CHANNEL``
+    - ``DRIVETRAIN_I2C_ADDRESS`` (hex or int)
+    - ``DRIVETRAIN_CONFIG_PATH`` (JSON file containing these keys, optionally
+      nested under a ``"drivetrain"`` entry)
+    """
+
+    steering_channel: int = 0
+    throttle_channel: int = 1
     i2c_address: int = 0x40
     steering_range_degrees: float = 30.0  # +/- degrees from center
     steering_center_degrees: float = 90.0
+
+    @classmethod
+    def _coerce_int(cls, value: object, label: str) -> Optional[int]:
+        try:
+            return int(str(value), 0)
+        except (TypeError, ValueError):
+            print(f"⚠️  Ignoring invalid {label} override: {value}")
+            return None
+
+    @classmethod
+    def from_sources(cls, json_config_path: Optional[str] = None) -> "DrivetrainConfig":
+        """Load configuration with environment/JSON overrides applied."""
+
+        base_config = cls()
+        overrides: dict[str, object] = {}
+
+        config_path = json_config_path or os.getenv("DRIVETRAIN_CONFIG_PATH")
+        if config_path:
+            try:
+                with open(config_path, "r", encoding="utf-8") as fp:
+                    loaded = json.load(fp)
+                if isinstance(loaded, dict):
+                    candidate = loaded.get("drivetrain", loaded)
+                    overrides.update(candidate)
+            except Exception as exc:
+                print(f"⚠️  Failed to load drivetrain config from {config_path}: {exc}")
+
+        env_overrides = {
+            "steering_channel": os.getenv("DRIVETRAIN_STEERING_CHANNEL"),
+            "throttle_channel": os.getenv("DRIVETRAIN_THROTTLE_CHANNEL"),
+            "i2c_address": os.getenv("DRIVETRAIN_I2C_ADDRESS"),
+        }
+
+        sanitized_overrides: dict[str, object] = {}
+        for key, value in {**overrides, **env_overrides}.items():
+            if value is None:
+                continue
+            if key in {"steering_channel", "throttle_channel", "i2c_address"}:
+                coerced = cls._coerce_int(value, key)
+                if coerced is not None:
+                    sanitized_overrides[key] = coerced
+            elif key in {"steering_range_degrees", "steering_center_degrees"}:
+                try:
+                    sanitized_overrides[key] = float(value)
+                except (TypeError, ValueError):
+                    print(f"⚠️  Ignoring invalid {key} override: {value}")
+
+        config_values = {**base_config.__dict__, **sanitized_overrides}
+        return cls(**config_values)
 
 
 class DrivetrainController:
     """Normalized steering/throttle controller with mock fallback."""
 
-    def __init__(self, config: Optional[DrivetrainConfig] = None):
-        self.config = config or DrivetrainConfig()
+    def __init__(self, config: Optional[DrivetrainConfig] = None, json_config_path: Optional[str] = None):
+        self.config = config or DrivetrainConfig.from_sources(json_config_path=json_config_path)
         self.kit: Optional[ServoKit] = None
         self.is_mock = ServoKit is None
         self.initialized = False
@@ -42,18 +104,32 @@ class DrivetrainController:
     def initialize(self) -> bool:
         """Initialize PCA9685-backed drivetrain controller."""
 
+        channel_summary = (
+            f"steering=servo[{self.config.steering_channel}], "
+            f"throttle=continuous_servo[{self.config.throttle_channel}]"
+        )
+
         if self.is_mock:
-            print("MOCK: Initializing drivetrain controller (PCA9685 mock)")
+            print(
+                "MOCK: Initializing drivetrain controller (PCA9685 mock) "
+                f"with {channel_summary}"
+            )
             self.initialized = True
             return True
 
         try:
             self.kit = ServoKit(channels=16, address=self.config.i2c_address)  # type: ignore[arg-type]
             self.initialized = True
-            print(f"✅ Drivetrain controller ready at 0x{self.config.i2c_address:02x}")
+            print(
+                f"✅ Drivetrain controller ready at 0x{self.config.i2c_address:02x} "
+                f"using {channel_summary}"
+            )
             return True
         except Exception as exc:  # pragma: no cover - hardware init path
-            print(f"ERROR: Failed to initialize drivetrain controller: {exc}")
+            print(
+                "ERROR: Failed to initialize drivetrain controller "
+                f"at 0x{self.config.i2c_address:02x} ({channel_summary}): {exc}"
+            )
             self.initialized = False
             return False
 
