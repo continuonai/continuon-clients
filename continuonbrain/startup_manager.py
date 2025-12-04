@@ -208,8 +208,9 @@ class StartupManager:
                         "--real-hardware",  # production path uses real controllers; fail fast if missing
                     ],
                     env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
+                    # Inherit stdout/stderr to see logs in systemd
+                    # stdout=subprocess.PIPE,
+                    # stderr=subprocess.PIPE
                 )
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
                 print(f"   Endpoint: http://localhost:8080")
