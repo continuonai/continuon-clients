@@ -7,6 +7,8 @@ ContinuonBrain/OS runtime lives in the separate `continuonos` repo (platform-agn
 
 No production runtime should live here; wire real implementations inside `continuonos` while keeping the interface consistent.
 
+For training-time autonomy (when humans are away), keep the robot focused on safe, creator-aligned work items listed in `SELF_IMPROVEMENT_BACKLOG.md`. Tasks emphasize offline-first checks, system health validation, and strict adherence to the safety protocol.
+
 The Robot API server launched by `startup_manager.py` now uses `python -m continuonbrain.robot_api_server` and runs in **real hardware mode by default** (it fails fast if controllers are absent). This keeps the production path aligned with the previous mock features (UI/JSON bridge) while enforcing hardware readiness.
 
 ## Pi5 Robot Arm Integration (Design Validation)
@@ -27,7 +29,7 @@ Built SO-ARM101 + OAK-D Lite integration for design validation without physical 
 - `episode_upload.py` - Episode packaging and upload pipeline
 
 **System Management**:
-- `system_health.py` - Comprehensive hardware/software health checks
+- `system_health.py` - Comprehensive hardware/software health checks, including MCP/Gemini discovery and a $5/day API budget guard to stay offline-first
 - `startup_manager.py` - Startup orchestration with automatic wake checks and boot
   enforcement for system instructions + safety protocol
 
@@ -79,6 +81,9 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
   immutable base rules (e.g., "Do not harm humans or other organisms" and respect for
   property/laws). Setting `override_defaults` has no effect because the base rules cannot
   be removed.
+- The humanity-first **Continuon AI mission statement** is baked into boot: the firmware loads
+  `continuonbrain/MISSION_STATEMENT.md` and anchors all autonomy to the mission pillars
+  (collective intelligence in service of humans, distributed/on-device by default).
 
 ### Hardware Compatibility
 

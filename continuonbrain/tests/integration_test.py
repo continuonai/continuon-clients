@@ -1,19 +1,84 @@
 #!/usr/bin/env python3
-"""
-Integration test for Pi5 robot arm with OAK-D depth camera.
+"""Integration test for Pi5 robot arm with OAK-D depth camera.
 Tests the full ContinuonBrain OS stack: sensors → actuators → RLDS recording.
+Prints capability awareness on boot so we stay within safe hardware boundaries.
 """
+from __future__ import annotations
+
+import importlib.util
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
-# Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import pytest
+
+HAS_NUMPY = importlib.util.find_spec("numpy") is not None
+HAS_DEPTHAI = importlib.util.find_spec("depthai") is not None
+HAS_SERVOKIT = importlib.util.find_spec("adafruit_servokit") is not None
+
+if not HAS_NUMPY:
+    pytest.skip("numpy required for integration test", allow_module_level=True)
+
+import numpy as np
+
+# Add repository root to path for imports
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from continuonbrain.sensors.oak_depth import OAKDepthCapture, CameraConfig
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController, ArmConfig
 from continuonbrain.recording.arm_episode_recorder import ArmEpisodeRecorder
-from continuonbrain.sensors.hardware_detector import HardwareDetector
+from continuonbrain.sensors.hardware_detector import HardwareDetector, HardwareDevice
+
+
+@dataclass
+class CapabilityReport:
+    """Summarizes detected hardware and software readiness."""
+
+    has_numpy: bool
+    has_depthai: bool
+    has_servokit: bool
+    detected_devices: List[HardwareDevice]
+
+    @classmethod
+    def collect(cls, auto_detect: bool = True) -> "CapabilityReport":
+        detector = HardwareDetector() if auto_detect else None
+        devices: List[HardwareDevice] = detector.detect_all() if detector else []
+        return cls(
+            has_numpy=HAS_NUMPY,
+            has_depthai=HAS_DEPTHAI,
+            has_servokit=HAS_SERVOKIT,
+            detected_devices=devices,
+        )
+
+    def has_camera(self) -> bool:
+        return any(d.device_type in {"depth_camera", "camera"} for d in self.detected_devices)
+
+    def has_servo_controller(self) -> bool:
+        return any(d.device_type == "servo_controller" for d in self.detected_devices)
+
+    def ready_for_real_hardware(self) -> bool:
+        return self.has_depthai and self.has_servokit and self.has_camera() and self.has_servo_controller()
+
+    def log_summary(self) -> None:
+        print("Capability Check (software + hardware)")
+        print(f"  numpy: {'✅' if self.has_numpy else '❌'}")
+        print(f"  depthai: {'✅' if self.has_depthai else '❌'}")
+        print(f"  adafruit-servokit: {'✅' if self.has_servokit else '❌'}")
+
+        if not self.detected_devices:
+            print("  hardware: ❓ No devices detected (mock mode unless forced)")
+        else:
+            for device in self.detected_devices:
+                print(f"  hardware: {device.device_type} → {device.name} ({device.interface})")
+
+        if not self.ready_for_real_hardware():
+            print("  safety: Real hardware control disabled; missing capabilities")
+        else:
+            print("  safety: Real hardware path available (all prerequisites met)")
 
 
 def test_hardware_detection():
@@ -22,14 +87,17 @@ def test_hardware_detection():
     print("Hardware Detection Test")
     print("=" * 60)
     print()
-    
-    detector = HardwareDetector()
-    devices = detector.detect_all()
-    
+
+    report = CapabilityReport.collect(auto_detect=True)
+    report.log_summary()
+    devices = report.detected_devices
+
     if not devices:
         print("⚠️  No devices detected - will run in mock mode")
         return False
-    
+
+    detector = HardwareDetector()
+    detector.detected_devices = devices
     detector.print_summary()
     config = detector.generate_config()
     
@@ -56,6 +124,14 @@ def test_full_stack(use_real_hardware: bool = False, auto_detect: bool = True):
     print("=" * 60)
     print("ContinuonBrain OS Integration Test")
     print("=" * 60)
+
+    report = CapabilityReport.collect(auto_detect=auto_detect)
+    report.log_summary()
+
+    if use_real_hardware and not report.ready_for_real_hardware():
+        print("⚠️  Real hardware requested but prerequisites missing; using mock mode for safety")
+        use_real_hardware = False
+
     print(f"Mode: {'REAL HARDWARE' if use_real_hardware else 'MOCK/SIMULATION'}")
     print()
     

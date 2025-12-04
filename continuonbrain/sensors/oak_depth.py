@@ -3,11 +3,27 @@ OAK-D Lite depth camera capture for RLDS episodes.
 Integrates with Pi5 robot arm setup per PI5_CAR_READINESS.md.
 Updated for DepthAI v3.x API.
 """
-import depthai as dai
-import numpy as np
-from typing import Optional, Dict, Any, Tuple
-from dataclasses import dataclass
+
+from __future__ import annotations
+
+import logging
 import time
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+try:  # pragma: no cover - optional numeric dependency
+    import numpy as np
+except ImportError:  # pragma: no cover
+    np = None
+    logger.warning("numpy not available; OAK-D utilities will operate in noop mode")
+
+try:  # pragma: no cover - optional hardware dependency
+    import depthai as dai
+except ImportError:  # pragma: no cover
+    dai = None
+    logger.warning("depthai package not available; OAK-D support will be disabled")
 
 
 @dataclass
@@ -29,15 +45,29 @@ class OAKDepthCapture:
     
     def __init__(self, config: Optional[CameraConfig] = None):
         self.config = config or CameraConfig()
-        self.device: Optional[dai.Device] = None
-        self.pipeline: Optional[dai.Pipeline] = None
+        self.device: Optional["dai.Device"] = None
+        self.pipeline: Optional["dai.Pipeline"] = None
         self.calibration_data: Optional[Dict[str, Any]] = None
         self.rgb_queue = None
         self.depth_queue = None
         self._running = False
+
+    @property
+    def dependencies_ready(self) -> bool:
+        """Return True when required hardware/software is available."""
+        if np is None:
+            logger.warning("numpy missing; cannot process OAK-D frames safely")
+            return False
+        if dai is None:
+            logger.warning("DepthAI SDK missing; OAK-D support disabled")
+            return False
+        return True
         
     def initialize(self) -> bool:
         """Initialize OAK-D camera and verify connection (DepthAI v3 API)."""
+        if not self.dependencies_ready:
+            return False
+
         try:
             # V3 API: Create device first
             devices = dai.Device.getAllAvailableDevices()
@@ -115,6 +145,8 @@ class OAKDepthCapture:
     
     def start(self) -> bool:
         """Start camera capture (DepthAI v3 API)."""
+        if not self.dependencies_ready:
+            return False
         if not self.pipeline or not self.device:
             print("ERROR: Pipeline or device not initialized")
             return False
@@ -157,6 +189,8 @@ class OAKDepthCapture:
             'timestamp_ns': int,  # nanoseconds since epoch
         }
         """
+        if not self.dependencies_ready:
+            return None
         if not self.device or not self.rgb_queue or not self.depth_queue:
             return None
             
@@ -209,6 +243,10 @@ class OAKDepthCapture:
 
 def test_oak_capture():
     """Test OAK-D capture for development."""
+    if np is None or dai is None:
+        print("Dependencies missing; skipping OAK-D capture test")
+        return
+
     camera = OAKDepthCapture()
     
     if not camera.initialize():
