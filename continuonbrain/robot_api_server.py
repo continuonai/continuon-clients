@@ -737,71 +737,249 @@ class SimpleJSONServer:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CraigBot Control</title>
     <style>
+        :root {
+            --bg: #0c111b;
+            --panel: #0f1729;
+            --panel-glow: rgba(0, 170, 255, 0.15);
+            --border: #1f2a3d;
+            --text: #e8f0ff;
+            --muted: #7f8ba7;
+            --accent: #7ad7ff;
+            --accent-strong: #4f9dff;
+            --danger: #ff4d6d;
+            --success: #38d996;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            max-width: 600px;
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at 20% 20%, rgba(74, 217, 255, 0.08), transparent 25%),
+                        radial-gradient(circle at 80% 10%, rgba(137, 90, 255, 0.08), transparent 22%),
+                        radial-gradient(circle at 50% 70%, rgba(56, 217, 150, 0.06), transparent 30%),
+                        var(--bg);
+            color: var(--text);
+        }
+
+        .ide-shell {
+            max-width: 1100px;
             margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f7;
+            padding: 28px 22px 36px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
         }
-        .container {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #1d1d1f;
-            margin-top: 0;
-            font-size: 28px;
-        }
-        .status {
-            background: #f5f5f7;
-            padding: 16px;
-            border-radius: 8px;
-            margin: 16px 0;
-        }
-        .status-item {
+
+        .ide-topbar {
+            background: linear-gradient(135deg, rgba(12, 17, 27, 0.9), rgba(19, 27, 43, 0.9));
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
-            margin: 8px 0;
-            font-size: 14px;
+            align-items: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.02);
         }
-        .status-label {
-            color: #86868b;
-        }
-        .status-value {
-            font-weight: 600;
-            color: #1d1d1f;
-        }
-        .mode-buttons {
-            display: grid;
+
+        .brand {
+            display: flex;
+            align-items: center;
             gap: 12px;
-            margin: 20px 0;
         }
-        button {
-            background: #007aff;
-            color: white;
-            border: none;
-            padding: 14px 20px;
-            border-radius: 8px;
-            font-size: 16px;
+
+        .brand-mark {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: radial-gradient(circle at 30% 30%, rgba(122, 215, 255, 0.4), rgba(79, 157, 255, 0.15));
+            display: grid;
+            place-items: center;
+            font-size: 22px;
+            box-shadow: 0 0 0 1px var(--border);
+        }
+
+        .brand-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .brand-subtitle {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .top-status {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .chip {
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text);
+            font-weight: 600;
+            font-size: 13px;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        }
+
+        .ide-workspace {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 18px;
+        }
+
+        .ide-sidebar {
+            background: linear-gradient(180deg, rgba(18, 28, 44, 0.9), rgba(15, 23, 41, 0.95));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .sidebar-title {
+            font-size: 13px;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .command-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .command-btn {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            text-align: left;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: transform 0.08s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
-        button:active {
-            background: #0051d5;
+
+        .command-btn:hover {
+            border-color: var(--accent);
+            box-shadow: 0 10px 28px var(--panel-glow);
+            transform: translateY(-1px);
         }
-        button.secondary {
-            background: #86868b;
+
+        .command-btn.primary { background: linear-gradient(135deg, #0aa4ff, #4f9dff); border-color: #1c80ff; color: #0b1020; }
+        .command-btn.subtle { opacity: 0.8; }
+        .command-btn.danger { background: linear-gradient(135deg, #ff4d6d, #ff7b7b); border-color: #ff4d6d; color: #0b1020; }
+
+        .sidebar-footnote {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
         }
-        button.danger {
-            background: #ff3b30;
+
+        .ide-main {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
-        .recording {
-            background: #34c759;
+
+        .panel {
+            background: rgba(14, 21, 35, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
         }
+
+        .panel-header h2 {
+            margin: 4px 0;
+            font-size: 22px;
+        }
+
+        .panel-eyebrow {
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            font-size: 11px;
+        }
+
+        .panel-subtitle {
+            color: var(--muted);
+            margin: 4px 0 0 0;
+            font-size: 13px;
+        }
+
+        .status-deck {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .status-card {
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.02), rgba(122, 215, 255, 0.04));
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        }
+
+        .status-label { color: var(--muted); font-size: 12px; letter-spacing: 0.3px; }
+        .status-value { font-size: 18px; font-weight: 700; margin-top: 6px; }
+
+        .status-item {
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .canvas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .canvas-card {
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+            background: linear-gradient(180deg, rgba(15, 23, 41, 0.9), rgba(18, 26, 46, 0.9));
+        }
+
+        .canvas-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+        .canvas-text { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
+
+        .inline-status {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            background: linear-gradient(90deg, rgba(79, 157, 255, 0.12), rgba(122, 215, 255, 0.08));
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
         .badge {
             display: inline-block;
             padding: 4px 12px;
@@ -809,54 +987,112 @@ class SimpleJSONServer:
             font-size: 12px;
             font-weight: 600;
             background: #34c759;
-            color: white;
+            color: #0b1020;
         }
-        .badge.idle { background: #86868b; }
-        .badge.training { background: #007aff; }
-        .badge.autonomous { background: #af52de; }
-        .badge.sleeping { background: #ff9500; }
+        .badge.idle { background: #86868b; color: #0b1020; }
+        .badge.training { background: #007aff; color: #0b1020; }
+        .badge.autonomous { background: #af52de; color: #0b1020; }
+        .badge.sleeping { background: #ff9500; color: #0b1020; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>🤖 CraigBot</h1>
-        
-        <div class="status">
-            <div class="status-item">
-                <span class="status-label">Mode</span>
-                <span class="status-value" id="mode">Loading...</span>
+<body class="ide-body">
+    <div class="ide-shell">
+        <header class="ide-topbar">
+            <div class="brand">
+                <div class="brand-mark">🤖</div>
+                <div>
+                    <div class="brand-title">Robot Editor</div>
+                    <div class="brand-subtitle">ContinuonBrain live console</div>
+                </div>
             </div>
-            <div class="status-item">
-                <span class="status-label">Recording</span>
-                <span class="status-value" id="recording">No</span>
+            <div class="top-status">
+                <div class="chip" id="mode">Loading...</div>
+                <div class="chip" id="recording">No</div>
+                <div class="chip" id="motion">No</div>
             </div>
-            <div class="status-item">
-                <span class="status-label">Motion Allowed</span>
-                <span class="status-value" id="motion">No</span>
-            </div>
+        </header>
+
+        <div class="ide-workspace">
+            <aside class="ide-sidebar">
+                <div class="sidebar-title">Command Deck</div>
+                <div class="command-grid">
+                    <button class="command-btn primary" onclick="window.location.href='/control'">🎮 Manual Control</button>
+                    <button class="command-btn" onclick="setMode('manual_training')">📝 Manual Training</button>
+                    <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
+                    <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
+                    <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
+                    <button class="command-btn danger" onclick="setMode('emergency_stop')">🛑 Emergency Stop</button>
+                </div>
+                <div class="sidebar-footnote">Use the deck like an IDE command palette to swap modes quickly.</div>
+            </aside>
+
+            <main class="ide-main">
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Live State</div>
+                            <h2>Robot Health Overview</h2>
+                            <p class="panel-subtitle">Visualize safety status, recording posture, and motion gates.</p>
+                        </div>
+                    </div>
+                    <div class="status-deck">
+                        <div class="status-card">
+                            <div class="status-label">Robot Mode</div>
+                            <div class="status-value" id="mode-card">mirrors mode badge</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-label">Recording</div>
+                            <div class="status-value" id="recording-card">No</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-label">Motion Allowed</div>
+                            <div class="status-value" id="motion-card">No</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Sensors</div>
+                            <h2>Hardware Canvas</h2>
+                            <p class="panel-subtitle">Auto-discovered sensors render into a visual rack.</p>
+                        </div>
+                    </div>
+                    <div class="sensor-grid" id="hardware-status">
+                        <div class="status-item">
+                            <span class="status-label">Loading sensors...</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Workspace</div>
+                            <h2>Editor Canvas</h2>
+                            <p class="panel-subtitle">A visual staging area that mirrors robot readiness.</p>
+                        </div>
+                    </div>
+                    <div class="canvas-grid">
+                        <div class="canvas-card">
+                            <div class="canvas-title">Mode Timeline</div>
+                            <p class="canvas-text">Snapshot of the current behavior lane; switch to Manual Control for a live scene.</p>
+                        </div>
+                        <div class="canvas-card">
+                            <div class="canvas-title">Safety Boundaries</div>
+                            <p class="canvas-text">Motion gates, emergency stops, and recording toggles stay front and center in this editor skin.</p>
+                        </div>
+                        <div class="canvas-card">
+                            <div class="canvas-title">Hardware Dock</div>
+                            <p class="canvas-text">Detected cameras and controllers render as modules so you can reason about availability before deploying changes.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <div id="status-message" class="inline-status" style="display: none;"></div>
+            </main>
         </div>
-        
-        <h2 style="font-size: 20px; margin: 24px 0 12px 0; color: #1d1d1f;">Hardware Sensors</h2>
-        <div class="status" id="hardware-status">
-            <div class="status-item">
-                <span class="status-label">Loading sensors...</span>
-            </div>
-        </div>
-        
-        <div class="mode-buttons">
-            <button onclick="window.location.href='/control'">🎮 Manual Control</button>
-            <button onclick="setMode('manual_training')">📝 Manual Training</button>
-            <button onclick="setMode('autonomous')" class="secondary">🚀 Autonomous</button>
-            <button onclick="setMode('sleep_learning')" class="secondary">💤 Sleep Learning</button>
-            <button onclick="setMode('idle')" class="secondary">⏸️ Idle</button>
-            <button onclick="setMode('emergency_stop')" class="danger">🛑 Emergency Stop</button>
-        </div>
-        
-        <div id="status-message" style="margin-top: 16px; padding: 12px; border-radius: 8px; display: none;"></div>
-        
-        <p style="text-align: center; color: #86868b; font-size: 12px; margin-top: 20px;">
-            ContinuonXR Robot Control Interface
-        </p>
     </div>
     
     <script type="text/javascript">
@@ -883,9 +1119,17 @@ class SimpleJSONServer:
                         var data = JSON.parse(xhr.responseText);
                         if (data.status) {
                             var mode = data.status.mode || 'unknown';
-                            document.getElementById('mode').innerHTML = '<span class="badge ' + mode + '">' + mode.replace(/_/g, ' ').toUpperCase() + '</span>';
-                            document.getElementById('recording').textContent = data.status.is_recording ? 'Yes' : 'No';
-                            document.getElementById('motion').textContent = data.status.allow_motion ? 'Yes' : 'No';
+                            var modeText = mode.replace(/_/g, ' ').toUpperCase();
+                            document.getElementById('mode').innerHTML = '<span class="badge ' + mode + '">' + modeText + '</span>';
+                            document.getElementById('recording').textContent = data.status.is_recording ? 'Recording' : 'Idle';
+                            document.getElementById('motion').textContent = data.status.allow_motion ? 'Motion Enabled' : 'Motion Locked';
+
+                            var modeCard = document.getElementById('mode-card');
+                            if (modeCard) { modeCard.textContent = modeText; }
+                            var recordingCard = document.getElementById('recording-card');
+                            if (recordingCard) { recordingCard.textContent = data.status.is_recording ? 'Recording' : 'Idle'; }
+                            var motionCard = document.getElementById('motion-card');
+                            if (motionCard) { motionCard.textContent = data.status.allow_motion ? 'Allowed' : 'Prevented'; }
                             
                             // Update hardware sensors
                             var hardwareDiv = document.getElementById('hardware-status');
@@ -974,52 +1218,71 @@ class SimpleJSONServer:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manual Control - CraigBot</title>
     <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #0f1729;
+            --border: #1f2a3d;
+            --muted: #8b95b5;
+            --accent: #7ad7ff;
+            --accent-strong: #4f9dff;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #000;
+            background: radial-gradient(circle at 25% 20%, rgba(122, 215, 255, 0.08), transparent 30%),
+                        radial-gradient(circle at 80% 0%, rgba(79, 157, 255, 0.08), transparent 25%),
+                        var(--bg);
             color: #fff;
             overflow: hidden;
         }
         .header {
-            background: #1d1d1f;
-            padding: 12px 20px;
+            background: linear-gradient(135deg, rgba(15, 23, 41, 0.95), rgba(16, 22, 38, 0.9));
+            padding: 14px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
         }
         .header h1 {
             font-size: 18px;
             color: #fff;
+            letter-spacing: 0.3px;
         }
         .back-btn {
-            background: #333;
+            background: rgba(255, 255, 255, 0.05);
             color: #fff;
-            border: none;
+            border: 1px solid var(--border);
             padding: 8px 16px;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
+            transition: border-color 0.15s ease, transform 0.1s ease;
         }
+        .back-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
         .main-container {
             display: grid;
             grid-template-columns: 2fr 1fr;
             height: calc(100vh - 60px);
-            gap: 1px;
-            background: #111;
+            gap: 12px;
+            background: transparent;
+            padding: 12px;
         }
         .video-panel {
-            background: #000;
+            background: linear-gradient(180deg, rgba(10, 16, 32, 0.9), rgba(15, 23, 41, 0.94));
+            border: 1px solid var(--border);
+            border-radius: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             position: relative;
+            overflow: hidden;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
         }
         .video-feed {
             width: 100%;
             height: 100%;
-            background: #1a1a1a;
+            background: radial-gradient(circle at 50% 20%, rgba(74, 217, 255, 0.05), rgba(15, 23, 41, 0.9));
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1040,35 +1303,41 @@ class SimpleJSONServer:
             position: absolute;
             top: 20px;
             left: 20px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0, 0, 0, 0.55);
             padding: 12px;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
         }
         .status-panel {
-            background: #1d1d1f;
+            background: linear-gradient(180deg, rgba(14, 21, 35, 0.94), rgba(12, 18, 32, 0.94));
             padding: 20px;
             overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
         }
         .status-section {
             margin-bottom: 20px;
         }
         .status-section h3 {
             font-size: 14px;
-            color: #86868b;
+            color: var(--muted);
             margin-bottom: 10px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         .status-item {
-            background: #2a2a2c;
-            padding: 12px;
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 14px;
+            border-radius: 10px;
             margin-bottom: 8px;
+            border: 1px solid var(--border);
         }
         .status-label {
             font-size: 11px;
-            color: #86868b;
+            color: var(--muted);
             margin-bottom: 4px;
         }
         .status-value {

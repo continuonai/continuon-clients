@@ -2,9 +2,11 @@
 System health checker for ContinuonBrain OS.
 Runs comprehensive hardware and software validation on startup/wake.
 """
-import time
-import subprocess
 import json
+import os
+import shutil
+import subprocess
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
@@ -87,6 +89,9 @@ class SystemHealthChecker:
         self._check_critical_dependencies()
         self._check_model_files()
         self._check_rlds_storage()
+        self._check_developer_tooling()
+        self._check_self_update_tooling()
+        self._check_api_budget()
         print()
         
         # System resources
@@ -104,6 +109,7 @@ class SystemHealthChecker:
         print("-" * 60)
         self._check_directory_structure()
         self._check_permissions()
+        self._check_mission_statement()
         self._check_safety_config()
         print()
         
@@ -224,6 +230,166 @@ class SystemHealthChecker:
                 f"Check failed: {str(e)}",
                 {"error": str(e)}
             )
+
+    def _check_developer_tooling(self):
+        """Detect visual code editors and MCP agentic chat tooling."""
+
+        editors, editor_detail = self._detect_code_editors()
+        mcp_tooling = self._detect_mcp_tooling()
+        gemini_tooling = self._detect_gemini_cli()
+
+        details = {
+            "visual_editors": editors,
+            "editor_detail": editor_detail or "",
+            "mcp_tooling": mcp_tooling,
+            "gemini_cli": gemini_tooling,
+        }
+
+        if editors or mcp_tooling["available"] or gemini_tooling["available"]:
+            message = "Developer tooling detected; prefer onboard tools before internet access"
+            status = HealthStatus.HEALTHY
+        else:
+            message = "No visual editor or MCP tooling detected; self-maintenance will be limited"
+            status = HealthStatus.WARNING
+
+        self._add_result("Developer Tooling", status, message, details)
+
+    def _detect_code_editors(self) -> Tuple[List[str], Optional[str]]:
+        """Identify available visual code editors from common CLI shims and running processes."""
+
+        editor_commands = {
+            "VS Code": ["code", "code-insiders"],
+            "Cursor": ["cursor"],
+            "VSCodium": ["vscodium"],
+        }
+
+        found: List[str] = []
+        for name, binaries in editor_commands.items():
+            if any(shutil.which(binary) for binary in binaries):
+                found.append(name)
+
+        process_hint: Optional[str] = None
+        if not found:
+            try:
+                result = subprocess.run(
+                    ["ps", "-A", "-o", "comm="], capture_output=True, text=True, check=False
+                )
+                processes = result.stdout.lower().splitlines()
+                if any(
+                    hint in proc
+                    for proc in processes
+                    for hint in ("code", "cursor", "vscodium", "vscode")
+                ):
+                    process_hint = "Found running visual editor process"
+            except Exception as exc:  # noqa: BLE001
+                process_hint = f"Process scan failed: {exc}"
+
+        return found, process_hint
+
+    def _detect_mcp_tooling(self) -> Dict[str, object]:
+        """Detect MCP command-line tooling and configuration for agentic chat."""
+
+        binaries = [binary for binary in ("mcp", "mcp-cli", "mcp-client") if shutil.which(binary)]
+        config_candidates = [Path.home() / ".config" / "mcp", self.config_dir / "mcp"]
+        configs = [str(path) for path in config_candidates if path.exists()]
+
+        return {
+            "available": bool(binaries or configs),
+            "binaries": binaries,
+            "configs": configs,
+        }
+
+    def _detect_gemini_cli(self) -> Dict[str, object]:
+        """Detect Gemini CLI to supervise agentic self-updates."""
+
+        binaries = [binary for binary in ("gemini", "gemini-cli", "gcloud") if shutil.which(binary)]
+        config_candidates = [Path.home() / ".config" / "gemini", self.config_dir / "gemini"]
+        configs = [str(path) for path in config_candidates if path.exists()]
+
+        return {
+            "available": bool(binaries or configs),
+            "binaries": binaries,
+            "configs": configs,
+        }
+
+    def _check_self_update_tooling(self):
+        """Ensure the robot can refresh its brain safely with an offline-first plan."""
+
+        gemini_cli = self._detect_gemini_cli()
+        local_brain_present = self.config_dir.exists()
+
+        details = {
+            "gemini_cli": gemini_cli,
+            "local_brain_dir": str(self.config_dir),
+            "local_brain_present": local_brain_present,
+        }
+
+        if local_brain_present and gemini_cli["available"]:
+            status = HealthStatus.HEALTHY
+            message = (
+                "Self-update channel ready via Gemini CLI supervising antigravity agentic routines"
+            )
+        elif local_brain_present:
+            status = HealthStatus.WARNING
+            message = (
+                "Local brain present; Gemini CLI unavailable so updates stay offline-first"
+            )
+        else:
+            status = HealthStatus.CRITICAL
+            message = f"Brain directory missing at {self.config_dir}; cannot self-update safely"
+
+        self._add_result("Self-Update", status, message, details)
+
+    def _load_daily_api_budget(self) -> Tuple[float, str, Optional[str]]:
+        """Load the daily API/network spend ceiling with a $5/day default."""
+
+        default_limit = 5.0
+        warning: Optional[str] = None
+
+        env_value = os.environ.get("BRAIN_DAILY_API_BUDGET_USD")
+        if env_value:
+            try:
+                return float(env_value), "env:BRAIN_DAILY_API_BUDGET_USD", warning
+            except ValueError:
+                warning = f"Invalid env budget '{env_value}', using default ${default_limit:.2f}"
+
+        config_path = self.config_dir / "budgets" / "api_budget.json"
+        if config_path.exists():
+            try:
+                payload = json.loads(config_path.read_text())
+                limit = float(payload.get("daily_limit_usd", default_limit))
+                return limit, f"config:{config_path}", warning
+            except Exception as exc:  # noqa: BLE001
+                warning = f"Failed to read {config_path}: {exc}"
+
+        return default_limit, "default", warning
+
+    def _check_api_budget(self):
+        """Validate that API/network usage stays within the $5/day ceiling."""
+
+        limit, source, warning = self._load_daily_api_budget()
+        details = {
+            "daily_limit_usd": limit,
+            "source": source,
+            "offline_first": True,
+            "onboard_first_models": ["Gemma 3n"],
+            "internet_tools": ["Gemini CLI", "MCP clients"],
+        }
+        if warning:
+            details["warning"] = warning
+
+        if limit <= 5.0:
+            status = HealthStatus.HEALTHY
+            message = (
+                f"API/network spend capped at ${limit:.2f}/day; preferring Gemma/local tools before internet calls"
+            )
+        else:
+            status = HealthStatus.WARNING
+            message = (
+                f"API budget set to ${limit:.2f}/day (source={source}), exceeds recommended $5 ceiling; reduce spend and favor onboard models"
+            )
+
+        self._add_result("API Budget", status, message, details)
     
     def _check_battery(self):
         """Check battery monitor and charge level."""
@@ -677,6 +843,51 @@ class SystemHealthChecker:
                 {}
             )
     
+    def _check_mission_statement(self):
+        """Verify the mission statement guardrail is present for decision-making."""
+
+        mission_path = Path(__file__).resolve().parent / "MISSION_STATEMENT.md"
+
+        if not mission_path.exists():
+            self._add_result(
+                "Mission Statement",
+                HealthStatus.CRITICAL,
+                "Mission statement missing; cannot enforce humanity-first guardrail",
+                {"path": str(mission_path), "present": False},
+            )
+            return
+
+        try:
+            mission_text = mission_path.read_text(encoding="utf-8").strip()
+            if not mission_text:
+                self._add_result(
+                    "Mission Statement",
+                    HealthStatus.CRITICAL,
+                    "Mission statement file is empty; guardrail unavailable",
+                    {"path": str(mission_path), "present": True, "headline": ""},
+                )
+                return
+
+            headline = mission_text.splitlines()[0].strip()
+            details = {
+                "path": str(mission_path),
+                "present": True,
+                "headline": headline,
+            }
+            self._add_result(
+                "Mission Statement",
+                HealthStatus.HEALTHY,
+                "Mission statement loaded; align autonomy to humanity-first, collective intelligence goals",
+                details,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._add_result(
+                "Mission Statement",
+                HealthStatus.WARNING,
+                f"Could not read mission statement: {exc}",
+                {"path": str(mission_path), "present": True},
+            )
+
     def _check_safety_config(self):
         """Check safety configuration is present."""
         safety_manifest = self.config_dir / "model" / "manifest.pi5.safety.example.json"
