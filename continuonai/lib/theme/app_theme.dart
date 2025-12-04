@@ -10,7 +10,7 @@ class AppColors {
   static const purple = Color(0xFFAF52DE);
   static const textPrimary = Color(0xFF1D1D1F);
   static const textSecondary = Color(0xFF86868B);
-  
+
   // Dark mode colors
   static const darkBackground = Color(0xFF000000);
   static const darkPanel = Color(0xFF1D1D1F);
@@ -43,12 +43,12 @@ class AppTextStyles {
     fontSize: 16,
     fontWeight: FontWeight.w600,
   );
-  
+
   static const darkLabel = TextStyle(
     color: AppColors.darkTextSecondary,
     fontSize: 11,
   );
-  
+
   static const darkValue = TextStyle(
     color: AppColors.darkTextPrimary,
     fontSize: 16,
@@ -62,13 +62,13 @@ class AppDecorations {
     borderRadius: BorderRadius.circular(12),
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withOpacity(0.1),
+        color: Colors.black.withValues(alpha: 0.1),
         blurRadius: 8,
         offset: const Offset(0, 2),
       ),
     ],
   );
-  
+
   static final statusContainer = BoxDecoration(
     color: AppColors.background,
     borderRadius: BorderRadius.circular(8),

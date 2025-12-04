@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 
 class ScannedRobot {
@@ -41,7 +42,8 @@ class ScannerService {
   Timer? _pollTimer;
   bool _isScanning = false;
 
-  Future<void> startScan({String? manualHost, bool forceRestart = false}) async {
+  Future<void> startScan(
+      {String? manualHost, bool forceRestart = false}) async {
     if (_isScanning && !forceRestart) return;
     if (forceRestart) {
       await stopScan();
@@ -106,8 +108,10 @@ class ScannerService {
     }
   }
 
-  ScannedRobot? _parseRobotFromStatus(String host, Map<String, dynamic> payload) {
-    final name = (payload['robot_name'] ?? payload['name'] ?? 'ContinuonBrain').toString();
+  ScannedRobot? _parseRobotFromStatus(
+      String host, Map<String, dynamic> payload) {
+    final name = (payload['robot_name'] ?? payload['name'] ?? 'ContinuonBrain')
+        .toString();
     final httpPort = (payload['port'] is int)
         ? payload['port'] as int
         : int.tryParse('${payload['port']}') ?? 8080;
@@ -115,7 +119,8 @@ class ScannerService {
         ? payload['grpc_port'] as int
         : int.tryParse('${payload['grpc_port']}') ?? httpPort;
 
-    final resolvedHost = (payload['ip_address'] ?? payload['host'] ?? host).toString();
+    final resolvedHost =
+        (payload['ip_address'] ?? payload['host'] ?? host).toString();
     if (resolvedHost.isEmpty) return null;
 
     return ScannedRobot(
@@ -139,15 +144,19 @@ class ScannerService {
     }
 
     final locationHost = html.window.location.hostname;
-    if (locationHost.isNotEmpty && locationHost != 'localhost') {
+    if (locationHost != null &&
+        locationHost.isNotEmpty &&
+        locationHost != 'localhost') {
       hosts.add(locationHost);
     }
 
-    final prefix = _localPrefix(locationHost);
-    if (prefix != null) {
-      // Probe a small set of neighbors on the same subnet instead of scanning the full /24.
-      for (final candidate in [2, 10, 20, 42, 99, 150, 200, 220, 250]) {
-        hosts.add('$prefix$candidate');
+    if (locationHost != null && locationHost.isNotEmpty) {
+      final prefix = _localPrefix(locationHost);
+      if (prefix != null) {
+        // Probe a small set of neighbors on the same subnet instead of scanning the full /24.
+        for (final candidate in [2, 10, 20, 42, 99, 150, 200, 220, 250]) {
+          hosts.add('$prefix$candidate');
+        }
       }
     }
 

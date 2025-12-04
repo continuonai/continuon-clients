@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import '../theme/continuon_theme.dart';
-import 'connect_screen.dart';
+
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import '../services/brain_client.dart';
@@ -21,10 +21,15 @@ class RobotListScreen extends StatefulWidget {
 class _RobotListScreenState extends State<RobotListScreen> {
   final User? _user = FirebaseAuth.instance.currentUser;
   final BrainClient _brainClient = BrainClient();
-  
+
   // Local list for guest mode
   final List<Map<String, dynamic>> _guestRobots = [
-    {'name': 'Demo Robot', 'host': '192.168.1.100', 'port': 50051, 'httpPort': 8080},
+    {
+      'name': 'Demo Robot',
+      'host': '192.168.1.100',
+      'port': 50051,
+      'httpPort': 8080
+    },
   ];
 
   Future<void> _signOut() async {
@@ -90,13 +95,12 @@ class _RobotListScreenState extends State<RobotListScreen> {
     }
   }
 
-
-
   void _scanForRobots() {
     showDialog(
       context: context,
       builder: (context) => const _ScanRobotsDialog(),
     ).then((result) {
+      if (!mounted) return;
       if (result != null && result is ScannedRobot) {
         // Pre-fill add dialog
         showDialog(
@@ -122,7 +126,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
       appBar: AppBar(
         title: Text(
           _user == null ? 'My Robots (Guest)' : 'My Robots',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
@@ -215,18 +222,18 @@ class _RobotListScreenState extends State<RobotListScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: ContinuonColors.primaryBlue.withOpacity(0.1),
+              color: ContinuonColors.primaryBlue.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: SvgPicture.asset(
-              'assets/branding/continuon_ai_logo.svg',
+            child: Image.asset(
+              'assets/branding/continuon_ai_logo_text_transparent.png',
               height: 64,
               width: 64,
-              colorFilter: const ColorFilter.mode(ContinuonColors.primaryBlue, BlendMode.srcIn),
             ),
           ),
           const SizedBox(height: 24),
-          Text('No robots added yet', style: Theme.of(context).textTheme.bodyLarge),
+          Text('No robots added yet',
+              style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: _addRobot,
@@ -236,7 +243,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
               backgroundColor: ContinuonColors.primaryBlue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],
@@ -285,10 +293,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: ContinuonColors.primaryBlue.withOpacity(0.1),
+                    color: ContinuonColors.primaryBlue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.smart_toy, color: ContinuonColors.primaryBlue, size: 28),
+                  child: const Icon(Icons.smart_toy,
+                      color: ContinuonColors.primaryBlue, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -297,7 +306,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
                     children: [
                       Text(
                         name,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                                fontSize: 18, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -311,7 +324,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(host, style: Theme.of(context).textTheme.bodyMedium),
+                          Text(host,
+                              style: Theme.of(context).textTheme.bodyMedium),
                         ],
                       ),
                     ],
@@ -320,10 +334,13 @@ class _RobotListScreenState extends State<RobotListScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  child: Icon(Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -373,15 +390,19 @@ class _ScanRobotsDialogState extends State<_ScanRobotsDialog> {
             const SizedBox(height: 16),
             Expanded(
               child: _robots.isEmpty
-                  ? const Center(child: Text('Searching via WiFi (mDNS) & Bluetooth...'))
+                  ? const Center(
+                      child: Text('Searching via WiFi (mDNS) & Bluetooth...'))
                   : ListView.builder(
                       itemCount: _robots.length,
                       itemBuilder: (context, index) {
                         final robot = _robots[index];
                         return ListTile(
-                          leading: Icon(robot.isBle ? Icons.bluetooth : Icons.wifi),
+                          leading:
+                              Icon(robot.isBle ? Icons.bluetooth : Icons.wifi),
                           title: Text(robot.name),
-                          subtitle: Text(robot.isBle ? 'Bluetooth' : '${robot.host}:${robot.port}'),
+                          subtitle: Text(robot.isBle
+                              ? 'Bluetooth'
+                              : '${robot.host}:${robot.port}'),
                           onTap: () => Navigator.pop(context, robot),
                         );
                       },
@@ -422,10 +443,14 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialRobot?.name ?? '');
-    _hostController = TextEditingController(text: widget.initialRobot?.host ?? '');
-    _portController = TextEditingController(text: widget.initialRobot?.port.toString() ?? '50051');
-    _httpPortController = TextEditingController(text: widget.initialRobot?.httpPort.toString() ?? '8080');
+    _nameController =
+        TextEditingController(text: widget.initialRobot?.name ?? '');
+    _hostController =
+        TextEditingController(text: widget.initialRobot?.host ?? '');
+    _portController = TextEditingController(
+        text: widget.initialRobot?.port.toString() ?? '50051');
+    _httpPortController = TextEditingController(
+        text: widget.initialRobot?.httpPort.toString() ?? '8080');
   }
 
   @override
@@ -488,12 +513,14 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name (e.g. Home Robot)'),
+                decoration:
+                    const InputDecoration(labelText: 'Name (e.g. Home Robot)'),
                 validator: (v) => v?.isEmpty == true ? 'Required' : null,
               ),
               TextFormField(
                 controller: _hostController,
-                decoration: const InputDecoration(labelText: 'Host IP (e.g. 192.168.1.x)'),
+                decoration: const InputDecoration(
+                    labelText: 'Host IP (e.g. 192.168.1.x)'),
                 validator: (v) => v?.isEmpty == true ? 'Required' : null,
               ),
               Row(
@@ -517,6 +544,49 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+              ExpansionTile(
+                title: const Text('How to find connection details?',
+                    style: TextStyle(fontSize: 14)),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                            '• Host IP: The local IP address of your robot (e.g., 192.168.1.x).',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text(
+                            '  - Check the sticker on the back of the robot.\n  - Look at your router\'s admin page (connected devices).\n  - Use a network scanner app (e.g., Fing) to find devices named "raspberrypi" or "continuon".',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        SizedBox(height: 12),
+                        Text('• gRPC Port: Default is 50051.',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text(
+                            '  - Used for high-speed real-time control (movement, video).\n  - If 50051 fails, try 50052 or check the robot\'s config.yaml.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        SizedBox(height: 12),
+                        Text('• HTTP Port: Default is 8080.',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text(
+                            '  - Used for status updates, chat, and settings.\n  - Try opening http://<robot-ip>:8080 in a browser to verify.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        SizedBox(height: 12),
+                        Text(
+                            '• Note: Ensure your device is on the same WiFi network (2.4GHz/5GHz matters!) as the robot.',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: ContinuonColors.primaryBlue)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -529,7 +599,10 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
         ElevatedButton(
           onPressed: _saving ? null : _save,
           child: _saving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('Save'),
         ),
       ],

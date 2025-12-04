@@ -25,7 +25,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _refreshStatus();
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) => _refreshStatus());
+    _timer =
+        Timer.periodic(const Duration(seconds: 2), (_) => _refreshStatus());
   }
 
   @override
@@ -64,16 +65,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final statusData = (_status['status'] as Map?)?.cast<String, dynamic>() ?? {};
+    final statusData =
+        (_status['status'] as Map?)?.cast<String, dynamic>() ?? {};
     final mode = statusData['mode'] ?? 'unknown';
     final isRecording = statusData['is_recording'] ?? false;
     final allowMotion = statusData['allow_motion'] ?? false;
-    final hardware = (statusData['detected_hardware'] as Map?)?.cast<String, dynamic>() ?? {};
+    final hardware =
+        (statusData['detected_hardware'] as Map?)?.cast<String, dynamic>() ??
+            {};
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('CraigBot Control', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('CraigBot Control',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
@@ -118,7 +123,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       const Text('🤖', style: TextStyle(fontSize: 32)),
                       const SizedBox(width: 12),
-                      Text('ContinuonAI', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      Text('ContinuonAI',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -149,7 +158,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 24),
                         Align(
                           alignment: Alignment.centerLeft,
-                          child: Text('Hardware Sensors', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                          child: Text('Hardware Sensors',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold)),
                         ),
                         const SizedBox(height: 12),
                         _buildSensorsCard(hardware),
@@ -178,12 +191,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(ContinuonTokens.r8),
       ),
       child: Column(
         children: [
-          _buildStatusRow('Mode', mode.toUpperCase(), isBadge: true, badgeColor: _getModeColor(mode)),
+          _buildStatusRow('Mode', mode.toUpperCase(),
+              isBadge: true, badgeColor: _getModeColor(mode)),
           const SizedBox(height: 8),
           _buildStatusRow('Recording', isRecording ? 'Yes' : 'No'),
           const SizedBox(height: 8),
@@ -213,18 +230,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(ContinuonTokens.r8),
         ),
         width: double.infinity,
-        child: Text('No hardware detected or status unavailable', style: Theme.of(context).textTheme.bodyMedium),
+        child: Text('No hardware detected or status unavailable',
+            style: Theme.of(context).textTheme.bodyMedium),
       );
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(ContinuonTokens.r8),
       ),
       child: Column(
@@ -237,25 +261,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
           if (hardware['servo_controller'] != null) ...[
             const SizedBox(height: 8),
-            _buildSensorRow('🦾 Servo Controller', hardware['servo_controller']),
+            _buildSensorRow(
+                '🦾 Servo Controller', hardware['servo_controller']),
           ],
           if (hardware['servo_controller_address'] != null) ...[
             const SizedBox(height: 8),
-            _buildSensorRow('I2C Address', hardware['servo_controller_address']),
+            _buildSensorRow(
+                'I2C Address', hardware['servo_controller_address']),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildStatusRow(String label, String value, {bool isBadge = false, Color badgeColor = Colors.grey}) {
+  Widget _buildStatusRow(String label, String value,
+      {bool isBadge = false, Color badgeColor = Colors.grey}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
         isBadge
             ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: badgeColor,
                   borderRadius: BorderRadius.circular(12),
@@ -269,7 +297,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               )
-            : Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+            : Text(value,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -279,7 +311,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+        Text(value,
+            style: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -331,7 +367,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildActionButton(String label, Color color, VoidCallback? onPressed) {
+  Widget _buildActionButton(
+      String label, Color color, VoidCallback? onPressed) {
     return SizedBox(
       width: double.infinity,
       height: 50,

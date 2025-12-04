@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:nsd/nsd.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart' hide ServiceStatus;
 
 class ScannedRobot {
   final String name;
@@ -36,7 +36,8 @@ class ScannedRobot {
 }
 
 class ScannerService {
-  final StreamController<List<ScannedRobot>> _robotsController = StreamController<List<ScannedRobot>>.broadcast();
+  final StreamController<List<ScannedRobot>> _robotsController =
+      StreamController<List<ScannedRobot>>.broadcast();
   Stream<List<ScannedRobot>> get scannedRobots => _robotsController.stream;
 
   final List<ScannedRobot> _foundRobots = [];
@@ -44,15 +45,19 @@ class ScannerService {
   StreamSubscription? _bleSubscription;
   bool _isScanning = false;
 
-  Future<void> startScan() async {
-    if (_isScanning) return;
+  Future<void> startScan(
+      {String? manualHost, bool forceRestart = false}) async {
+    if (_isScanning && !forceRestart) return;
+    if (forceRestart) {
+      await stopScan();
+    }
     _isScanning = true;
     _foundRobots.clear();
     _robotsController.add([]);
 
     if (kIsWeb) {
       // Web scanning limitations
-      print('Network scanning is limited on Web.');
+      debugPrint('Network scanning is limited on Web.');
       // We could try to guess local IP or just return empty
       return;
     }
@@ -65,21 +70,22 @@ class ScannerService {
       // Note: '_continuon._tcp' would be ideal if the robot broadcasts it.
       // For now, we might scan for _http._tcp and filter, or assume the user knows.
       // Let's try scanning for a specific service type if possible, or generic.
-      _discovery = await startDiscovery('_continuon._tcp', ipVersion: IpVersion.v4);
+      _discovery = await startDiscovery('_continuon._tcp',
+          ipLookupType: IpLookupType.v4);
       _discovery!.addServiceListener((service, status) {
         if (status == ServiceStatus.found) {
           _parseMdnsService(service);
         }
       });
     } catch (e) {
-      print('mDNS Error: $e');
+      debugPrint('mDNS Error: $e');
     }
 
     // Start BLE Scan
     try {
       // Check if BLE is supported
       if (await FlutterBluePlus.isSupported == false) {
-        print("Bluetooth not supported by this device");
+        debugPrint("Bluetooth not supported by this device");
         return;
       }
 
@@ -98,13 +104,13 @@ class ScannerService {
       // Start scanning
       await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
     } catch (e) {
-      print('BLE Error: $e');
+      debugPrint('BLE Error: $e');
     }
   }
 
   Future<void> stopScan() async {
     _isScanning = false;
-    
+
     if (kIsWeb) return;
 
     try {
@@ -113,7 +119,7 @@ class ScannerService {
         _discovery = null;
       }
     } catch (e) {
-      print('Error stopping mDNS: $e');
+      debugPrint('Error stopping mDNS: $e');
     }
 
     try {
@@ -121,7 +127,7 @@ class ScannerService {
       _bleSubscription?.cancel();
       _bleSubscription = null;
     } catch (e) {
-      print('Error stopping BLE: $e');
+      debugPrint('Error stopping BLE: $e');
     }
   }
 
@@ -141,7 +147,7 @@ class ScannerService {
     final name = service.name ?? 'Unknown Robot';
     final host = service.host ?? '';
     final port = service.port ?? 50051;
-    
+
     // Simple validation
     if (host.isEmpty) return;
 
@@ -157,11 +163,12 @@ class ScannerService {
 
   void _parseBleDevice(ScanResult result) {
     if (result.device.platformName.isEmpty) return;
-    
+
     // Filter by name prefix if needed, e.g., "Continuon" or "CraigBot"
     // For now, let's just show devices with "Robot" or "Continuon" in name
     final name = result.device.platformName;
-    if (!name.toLowerCase().contains('robot') && !name.toLowerCase().contains('continuon')) {
+    if (!name.toLowerCase().contains('robot') &&
+        !name.toLowerCase().contains('continuon')) {
       return;
     }
 

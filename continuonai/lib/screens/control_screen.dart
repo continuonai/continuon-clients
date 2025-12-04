@@ -4,7 +4,7 @@ import '../models/teleop_models.dart';
 import '../services/brain_client.dart';
 import '../theme/continuon_theme.dart';
 import '../widgets/chat_overlay.dart';
-import 'manual_mode_screen.dart';
+
 import 'record_screen.dart';
 
 class ControlScreen extends StatefulWidget {
@@ -22,19 +22,21 @@ class _ControlScreenState extends State<ControlScreen> {
   late StreamSubscription<RobotState> _subscription;
   String _frameId = 'unknown';
   bool _gripperOpen = false;
-  List<double> _joints = const [];
+
   bool _sending = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _subscription = widget.brainClient.streamRobotState(widget.brainClient.clientId).listen((state) {
+    _subscription = widget.brainClient
+        .streamRobotState(widget.brainClient.clientId)
+        .listen((state) {
       if (mounted) {
         setState(() {
           _frameId = state.frameId;
           _gripperOpen = state.gripperOpen;
-          _joints = state.jointPositions;
+
           _error = null;
         });
       }
@@ -92,6 +94,30 @@ class _ControlScreenState extends State<ControlScreen> {
     await _safeSendCommand(command);
   }
 
+  Future<void> _triggerEStop() async {
+    setState(() => _sending = true);
+    try {
+      final result = await widget.brainClient.setRobotMode('emergency_stop');
+      if (mounted) {
+        if (result['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🛑 EMERGENCY STOP TRIGGERED 🛑'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        } else {
+          setState(() => _error = 'E-Stop Failed: ${result['message']}');
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'E-Stop Error: $e');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,7 +161,7 @@ class _ControlScreenState extends State<ControlScreen> {
         border: const Border(bottom: BorderSide(color: Color(0xFF333333))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -149,10 +175,11 @@ class _ControlScreenState extends State<ControlScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: ContinuonColors.primaryBlue.withOpacity(0.2),
+                  color: ContinuonColors.primaryBlue.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.gamepad, color: ContinuonColors.primaryBlue, size: 20),
+                child: const Icon(Icons.gamepad,
+                    color: ContinuonColors.primaryBlue, size: 20),
               ),
               const SizedBox(width: 12),
               const Text(
@@ -169,7 +196,8 @@ class _ControlScreenState extends State<ControlScreen> {
           Row(
             children: [
               IconButton(
-                onPressed: () => Navigator.pushNamed(context, RecordScreen.routeName),
+                onPressed: () =>
+                    Navigator.pushNamed(context, RecordScreen.routeName),
                 icon: const Icon(Icons.fiber_smart_record, color: Colors.white),
                 tooltip: 'Record',
               ),
@@ -182,7 +210,8 @@ class _ControlScreenState extends State<ControlScreen> {
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                    side:
+                        BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                   ),
                 ),
                 icon: const Icon(Icons.arrow_back, size: 18),
@@ -207,10 +236,11 @@ class _ControlScreenState extends State<ControlScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.videocam_off, size: 64, color: Colors.grey[800]),
+                  child: Icon(Icons.videocam_off,
+                      size: 64, color: Colors.grey[800]),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -223,14 +253,18 @@ class _ControlScreenState extends State<ControlScreen> {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.grey[900],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Frame: $_frameId',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12, fontFamily: 'Monospace'),
+                    style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                        fontFamily: 'Monospace'),
                   ),
                 ),
               ],
@@ -245,7 +279,7 @@ class _ControlScreenState extends State<ControlScreen> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.2),
+                    Colors.black.withValues(alpha: 0.2),
                   ],
                 ),
               ),
@@ -265,9 +299,13 @@ class _ControlScreenState extends State<ControlScreen> {
         children: [
           _buildStatusSection('System Status', [
             _buildDarkStatusItem('Mode', 'MANUAL_CONTROL', color: Colors.green),
-            _buildDarkStatusItem('Gripper', _gripperOpen ? 'OPEN' : 'CLOSED', color: _gripperOpen ? ContinuonColors.particleOrange : Colors.green),
+            _buildDarkStatusItem('Gripper', _gripperOpen ? 'OPEN' : 'CLOSED',
+                color: _gripperOpen
+                    ? ContinuonColors.particleOrange
+                    : Colors.green),
             if (_error != null)
-              _buildDarkStatusItem('Error', 'Active', color: Theme.of(context).colorScheme.error),
+              _buildDarkStatusItem('Error', 'Active',
+                  color: Theme.of(context).colorScheme.error),
           ]),
           const SizedBox(height: 24),
           _buildStatusSection('Controls', [
@@ -288,12 +326,13 @@ class _ControlScreenState extends State<ControlScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {}, // TODO: Implement E-Stop
+              onPressed: _triggerEStop, // Trigger E-Stop
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               icon: const Icon(Icons.stop_circle),
               label: const Text('EMERGENCY STOP'),
@@ -337,7 +376,8 @@ class _ControlScreenState extends State<ControlScreen> {
           Text(label, style: const TextStyle(color: ContinuonColors.gray400)),
           Text(
             value,
-            style: TextStyle(color: color ?? Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                color: color ?? Colors.white, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -393,14 +433,16 @@ class _ControlScreenState extends State<ControlScreen> {
     );
   }
 
-  Widget _buildArrowButton(IconData icon, {bool isCenter = false, VoidCallback? onPressed}) {
+  Widget _buildArrowButton(IconData icon,
+      {bool isCenter = false, VoidCallback? onPressed}) {
     return SizedBox(
       width: 50,
       height: 50,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isCenter ? const Color(0xFF333333) : ContinuonColors.primaryBlue,
+          backgroundColor:
+              isCenter ? const Color(0xFF333333) : ContinuonColors.primaryBlue,
           foregroundColor: Colors.white,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

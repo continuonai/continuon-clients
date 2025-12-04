@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:grpc/grpc.dart' as grpc;
-import 'package:grpc/grpc_connection_interface.dart' as grpc_connection;
+
 import 'package:grpc/grpc_web.dart' as grpc_web;
 
 import 'package:http/http.dart' as http;
@@ -13,18 +13,21 @@ import '../models/teleop_models.dart';
 import 'platform_channels.dart';
 
 class BrainClient {
-  static const _servicePrefix = '/continuonxr.continuonbrain.v1.ContinuonBrainBridge';
-  static final grpc.ClientMethod<String, Map<String, dynamic>> _sendCommandMethod =
-      grpc.ClientMethod<String, Map<String, dynamic>>(
+  static const _servicePrefix =
+      '/continuonxr.continuonbrain.v1.ContinuonBrainBridge';
+  static final grpc.ClientMethod<String, Map<String, dynamic>>
+      _sendCommandMethod = grpc.ClientMethod<String, Map<String, dynamic>>(
     '$_servicePrefix/SendCommand',
     utf8.encode,
-    (List<int> value) => Map<String, dynamic>.from(jsonDecode(utf8.decode(value))),
+    (List<int> value) =>
+        Map<String, dynamic>.from(jsonDecode(utf8.decode(value))),
   );
-  static final grpc.ClientMethod<String, Map<String, dynamic>> _streamRobotStateMethod =
-      grpc.ClientMethod<String, Map<String, dynamic>>(
+  static final grpc.ClientMethod<String, Map<String, dynamic>>
+      _streamRobotStateMethod = grpc.ClientMethod<String, Map<String, dynamic>>(
     '$_servicePrefix/StreamRobotState',
     utf8.encode,
-    (List<int> value) => Map<String, dynamic>.from(jsonDecode(utf8.decode(value))),
+    (List<int> value) =>
+        Map<String, dynamic>.from(jsonDecode(utf8.decode(value))),
   );
   BrainClient({
     grpc.ClientChannel? channel,
@@ -42,7 +45,8 @@ class BrainClient {
   String? _host;
   int _httpPort = 8080;
 
-  bool get isConnected => _usePlatformBridge ? _platformBridge.isConnected : _channel != null;
+  bool get isConnected =>
+      _usePlatformBridge ? _platformBridge.isConnected : _channel != null;
 
   Future<void> connect({
     required String host,
@@ -61,7 +65,8 @@ class BrainClient {
         : grpc.CallOptions();
 
     if (_usePlatformBridge) {
-      await _platformBridge.initConnection(host, port, useTls: useTls, authToken: authToken);
+      await _platformBridge.initConnection(host, port,
+          useTls: useTls, authToken: authToken);
       return;
     }
 
@@ -73,10 +78,12 @@ class BrainClient {
       // Use gRPC-Web for web platform
       // Note: This assumes the server supports gRPC-Web or is behind an Envoy proxy.
       // If not, we might need to rely solely on HTTP endpoints.
-      _channel = grpc_web.GrpcWebClientChannel.xhr(Uri.parse('http://$host:$port'));
+      _channel =
+          grpc_web.GrpcWebClientChannel.xhr(Uri.parse('http://$host:$port'));
     } else {
       final credentials = useTls
-          ? grpc.ChannelCredentials.secure(certificates: trustedRootCertificates)
+          ? grpc.ChannelCredentials.secure(
+              certificates: trustedRootCertificates)
           : const grpc.ChannelCredentials.insecure();
       _channel = grpc.ClientChannel(
         host,
@@ -114,7 +121,8 @@ class BrainClient {
     }
   }
 
-  Future<Map<String, dynamic>> chatWithGemma(String message, List<Map<String, String>> history) async {
+  Future<Map<String, dynamic>> chatWithGemma(
+      String message, List<Map<String, String>> history) async {
     if (_host == null) return {'error': 'Not connected'};
     final uri = Uri.http('$_host:$_httpPort', '/api/chat');
     try {
@@ -142,7 +150,8 @@ class BrainClient {
         await _platformBridge.sendCommand(payload);
         return;
       }
-      final channel = _channel ?? (throw StateError('BrainClient not connected'));
+      final channel =
+          _channel ?? (throw StateError('BrainClient not connected'));
       final stub = _JsonBrainClient(channel);
       await stub.unary(_sendCommandMethod, payload, _callOptions);
     } on PlatformException catch (error) {
@@ -185,7 +194,8 @@ class BrainClient {
     }
     final stub = _JsonBrainClient(channel);
     stub
-        .serverStream(_streamRobotStateMethod, jsonEncode({'client_id': clientId}), _callOptions)
+        .serverStream(_streamRobotStateMethod,
+            jsonEncode({'client_id': clientId}), _callOptions)
         .listen(
           _emitRobotState,
           onError: (error) => _stateController?.addError(error),
@@ -206,7 +216,8 @@ class BrainClient {
       final method = grpc.ClientMethod<String, Map<String, dynamic>>(
         '$_servicePrefix/$methodName',
         utf8.encode,
-        (List<int> value) => jsonDecode(utf8.decode(value)) as Map<String, dynamic>,
+        (List<int> value) =>
+            jsonDecode(utf8.decode(value)) as Map<String, dynamic>,
       );
       final stub = _JsonBrainClient(channel);
       return await stub.unary(method, jsonEncode(payload), _callOptions);
@@ -216,7 +227,8 @@ class BrainClient {
   }
 
   void _emitRobotState(Map<String, dynamic> data) {
-    final positions = (data['state']?['joint_positions'] as List<dynamic>? ?? []).cast<num>();
+    final positions =
+        (data['state']?['joint_positions'] as List<dynamic>? ?? []).cast<num>();
     _stateController?.add(
       RobotState(
         frameId: (data['state']?['frame_id'] as String?) ?? 'frame',
@@ -249,6 +261,7 @@ class _JsonBrainClient extends grpc.Client {
     String payload,
     grpc.CallOptions options,
   ) {
-    return $createStreamingCall(method, Stream.value(payload), options: options);
+    return $createStreamingCall(method, Stream.value(payload),
+        options: options);
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import '../theme/continuon_theme.dart';
 
 class MarketingHomeScreen extends StatelessWidget {
@@ -10,8 +10,8 @@ class MarketingHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Use the custom theme extension for gradients and accents
-    final brand = Theme.of(context).extension<ContinuonBrandExtension>()!;
-    
+    // final brand = Theme.of(context).extension<ContinuonBrandExtension>()!;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
@@ -23,8 +23,8 @@ class MarketingHomeScreen extends StatelessWidget {
             backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
             title: Row(
               children: [
-                SvgPicture.asset(
-                  'assets/branding/continuon_ai_logo.svg',
+                Image.asset(
+                  'assets/branding/continuon_ai_logo_text_transparent.png',
                   height: 32,
                   width: 32,
                 ),
@@ -77,7 +77,11 @@ class MarketingHomeScreen extends StatelessWidget {
                       'Continuon builds self-learning AI systems that run everywhere — on-device, on-robot, and in the cloud — enabling robots and assistive systems to learn continuously from real-world experience.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
+                            color: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.color
+                                ?.withValues(alpha: 0.8),
                           ),
                     ),
                   ),
@@ -90,7 +94,8 @@ class MarketingHomeScreen extends StatelessWidget {
                       ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 20),
                           textStyle: const TextStyle(fontSize: 18),
                         ),
                         child: const Text('Get Early Access'),
@@ -98,7 +103,8 @@ class MarketingHomeScreen extends StatelessWidget {
                       OutlinedButton(
                         onPressed: () {},
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 20),
                           textStyle: const TextStyle(fontSize: 18),
                         ),
                         child: const Text('View Architecture'),
@@ -113,7 +119,10 @@ class MarketingHomeScreen extends StatelessWidget {
           // 3. Problem / Why Now
           SliverToBoxAdapter(
             child: Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.3),
               padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 24),
               child: Column(
                 children: [
@@ -131,19 +140,22 @@ class MarketingHomeScreen extends StatelessWidget {
                       _buildFeatureCard(
                         context,
                         title: 'Static models break',
-                        description: 'Transformers trained once in the cloud can’t adapt on-device.',
+                        description:
+                            'Transformers trained once in the cloud can’t adapt on-device.',
                         icon: Icons.broken_image_outlined,
                       ),
                       _buildFeatureCard(
                         context,
                         title: 'Cloud is too slow',
-                        description: 'Round-tripping every mistake to GPUs adds latency and cost.',
+                        description:
+                            'Round-tripping every mistake to GPUs adds latency and cost.',
                         icon: Icons.cloud_off_outlined,
                       ),
                       _buildFeatureCard(
                         context,
                         title: 'Hardware is ready',
-                        description: 'Pi 5, Jetson, and XR devices can host real brains — if the architecture is right.',
+                        description:
+                            'Pi 5, Jetson, and XR devices can host real brains — if the architecture is right.',
                         icon: Icons.memory_outlined,
                       ),
                     ],
@@ -173,24 +185,30 @@ class MarketingHomeScreen extends StatelessWidget {
                         context,
                         title: 'Continuon AI',
                         subtitle: 'Platform',
-                        description: 'The parent platform that coordinates robots, XR devices, and cloud training into one continuous learning loop.',
-                        assetPath: 'assets/branding/continuon_ai_logo.svg',
+                        description:
+                            'The parent platform that coordinates robots, XR devices, and cloud training into one continuous learning loop.',
+                        assetPath:
+                            'assets/branding/continuon_ai_logo_text_transparent.png',
                         accentColor: ContinuonColors.primaryBlue,
                       ),
                       _buildProductCard(
                         context,
                         title: 'ContinuonBrain',
                         subtitle: 'On-Device World Model',
-                        description: 'A wave–particle hybrid brain that runs on Pi, Jetson, phones, and XR devices. Linear-time, memory-aware, and capable of local learning.',
-                        assetPath: 'assets/branding/continuon_brain_logo.svg',
+                        description:
+                            'A wave–particle hybrid brain that runs on Pi, Jetson, phones, and XR devices. Linear-time, memory-aware, and capable of local learning.',
+                        assetPath:
+                            'assets/branding/continuon_brain_logo_text_transparent.png',
                         accentColor: ContinuonColors.cmsViolet,
                       ),
                       _buildProductCard(
                         context,
                         title: 'ContinuonCloud',
                         subtitle: 'Cloud Trainer & Skill Hub',
-                        description: 'Where robots upload experience, get their skills validated, and receive new compressed brains as OTA updates.',
-                        assetPath: 'assets/branding/continuon_cloud_logo.svg',
+                        description:
+                            'Where robots upload experience, get their skills validated, and receive new compressed brains as OTA updates.',
+                        assetPath:
+                            'assets/branding/continuon_cloud_logo_text_transparent.png',
                         accentColor: ContinuonColors.waveBlueStart,
                         isGradient: true,
                       ),
@@ -204,7 +222,10 @@ class MarketingHomeScreen extends StatelessWidget {
           // 5. Architecture Snapshot
           SliverToBoxAdapter(
             child: Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.3),
               padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 24),
               child: Column(
                 children: [
@@ -224,9 +245,12 @@ class MarketingHomeScreen extends StatelessWidget {
                     runSpacing: 24,
                     alignment: WrapAlignment.center,
                     children: [
-                      _buildTechCard(context, 'HOPE Core', 'Hybrid dynamical system combining SSM-style wave dynamics with local nonlinear updates.'),
-                      _buildTechCard(context, 'CMS Memory', 'Multi-level memory: fast state, episodic, semantic, and skills.'),
-                      _buildTechCard(context, 'Nested Learning', 'Slow parameter updates via low-rank adapters for continual learning.'),
+                      _buildTechCard(context, 'HOPE Core',
+                          'Hybrid dynamical system combining SSM-style wave dynamics with local nonlinear updates.'),
+                      _buildTechCard(context, 'CMS Memory',
+                          'Multi-level memory: fast state, episodic, semantic, and skills.'),
+                      _buildTechCard(context, 'Nested Learning',
+                          'Slow parameter updates via low-rank adapters for continual learning.'),
                     ],
                   ),
                 ],
@@ -244,16 +268,18 @@ class MarketingHomeScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SvgPicture.asset(
-                        'assets/branding/continuon_ai_logo.svg',
+                      Image.asset(
+                        'assets/branding/continuon_ai_logo_text_transparent.png',
                         height: 24,
                         width: 24,
-                        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                       ),
                       const SizedBox(width: 12),
                       const Text(
                         'Continuon',
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -271,7 +297,10 @@ class MarketingHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureCard(BuildContext context, {required String title, required String description, required IconData icon}) {
+  Widget _buildFeatureCard(BuildContext context,
+      {required String title,
+      required String description,
+      required IconData icon}) {
     return Container(
       width: 300,
       padding: const EdgeInsets.all(24),
@@ -285,7 +314,11 @@ class MarketingHomeScreen extends StatelessWidget {
         children: [
           Icon(icon, size: 32, color: ContinuonColors.primaryBlue),
           const SizedBox(height: 16),
-          Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text(description, style: Theme.of(context).textTheme.bodyMedium),
         ],
@@ -293,7 +326,8 @@ class MarketingHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProductCard(BuildContext context, {
+  Widget _buildProductCard(
+    BuildContext context, {
     required String title,
     required String subtitle,
     required String description,
@@ -307,24 +341,35 @@ class MarketingHomeScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(ContinuonTokens.r8),
-        border: Border.all(color: accentColor.withOpacity(0.3), width: 1),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
         boxShadow: ContinuonTokens.midShadow,
       ),
       child: Column(
         children: [
-          SvgPicture.asset(assetPath, height: 80, width: 80),
+          Image.asset(assetPath, height: 80, width: 80),
           const SizedBox(height: 24),
-          Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(subtitle, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: accentColor)),
+          Text(subtitle,
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: accentColor)),
           const SizedBox(height: 16),
-          Text(description, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+          Text(description,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
   }
 
-  Widget _buildTechCard(BuildContext context, String title, String description) {
+  Widget _buildTechCard(
+      BuildContext context, String title, String description) {
     return Container(
       width: 280,
       padding: const EdgeInsets.all(24),
@@ -334,9 +379,15 @@ class MarketingHomeScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(description, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+          Text(description,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );

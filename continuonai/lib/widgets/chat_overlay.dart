@@ -16,7 +16,10 @@ class _ChatOverlayState extends State<ChatOverlay> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, String>> _messages = [
-    {'role': 'system', 'content': 'Chat with Gemma about robot control and status.'}
+    {
+      'role': 'system',
+      'content': 'Chat with Gemma about robot control and status.'
+    }
   ];
   bool _loading = false;
 
@@ -49,7 +52,8 @@ class _ChatOverlayState extends State<ChatOverlay> {
         if (result.containsKey('response')) {
           _messages.add({'role': 'assistant', 'content': result['response']});
         } else {
-          _messages.add({'role': 'system', 'content': 'Error: ${result['error']}'});
+          _messages
+              .add({'role': 'system', 'content': 'Error: ${result['error']}'});
         }
       });
       _scrollToBottom();
@@ -77,12 +81,12 @@ class _ChatOverlayState extends State<ChatOverlay> {
         width: 400,
         height: _minimized ? 50 : 600,
         decoration: BoxDecoration(
-          color: ContinuonColors.gray900.withOpacity(0.95),
+          color: ContinuonColors.gray900.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[800]!),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 32,
               offset: const Offset(0, 8),
             ),
@@ -93,10 +97,12 @@ class _ChatOverlayState extends State<ChatOverlay> {
             GestureDetector(
               onTap: _toggleMinimize,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: ContinuonColors.gray800,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
                   border: Border(bottom: BorderSide(color: Colors.grey[800]!)),
                 ),
                 child: Row(
@@ -131,31 +137,39 @@ class _ChatOverlayState extends State<ChatOverlay> {
                           final msg = _messages[index];
                           final isUser = msg['role'] == 'user';
                           final isSystem = msg['role'] == 'system';
-                          
+
                           if (isSystem) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Text(
                                 msg['content']!,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: ContinuonColors.gray500, fontSize: 12),
+                                style: const TextStyle(
+                                    color: ContinuonColors.gray500,
+                                    fontSize: 12),
                               ),
                             );
                           }
 
                           return Align(
-                            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                            alignment: isUser
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
                               constraints: const BoxConstraints(maxWidth: 280),
                               decoration: BoxDecoration(
-                                color: isUser ? ContinuonColors.primaryBlue : ContinuonColors.gray800,
+                                color: isUser
+                                    ? ContinuonColors.primaryBlue
+                                    : ContinuonColors.gray800,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 msg['content']!,
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 13),
                               ),
                             ),
                           );
@@ -165,7 +179,8 @@ class _ChatOverlayState extends State<ChatOverlay> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        border: Border(top: BorderSide(color: Colors.grey[800]!)),
+                        border:
+                            Border(top: BorderSide(color: Colors.grey[800]!)),
                       ),
                       child: Row(
                         children: [
@@ -188,9 +203,11 @@ class _ChatOverlayState extends State<ChatOverlay> {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white),
                                   )
-                                : const Icon(Icons.send, color: ContinuonColors.primaryBlue),
+                                : const Icon(Icons.send,
+                                    color: ContinuonColors.primaryBlue),
                           ),
                         ],
                       ),
