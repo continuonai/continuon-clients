@@ -7,7 +7,7 @@ are unavailable.
 """
 from __future__ import annotations
 
-import importlib
+import importlib.util
 from dataclasses import dataclass
 from typing import Optional
 
@@ -80,13 +80,14 @@ class DrivetrainController:
             )
 
             if self.is_mock:
-                # In mock mode, just record the command
+                # In mock mode, flag that hardware output is unavailable
                 result = {
-                    "success": True,
-                    "message": "MOCK drive command accepted",
+                    "success": False,
+                    "message": "MOCK mode: PCA9685 output inactive; drive command not sent",
                     "steering": steering_clamped,
                     "throttle": throttle_clamped,
                     "mode": "mock",
+                    "hardware_available": False,
                 }
                 self.last_command = result
                 return result
@@ -110,6 +111,7 @@ class DrivetrainController:
                 "steering": steering_clamped,
                 "throttle": throttle_clamped,
                 "mode": "real",
+                "hardware_available": True,
             }
             self.last_command = result
             return result
