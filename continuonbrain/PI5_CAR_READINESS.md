@@ -31,7 +31,11 @@ Goal: a repeatable Pi 5 setup that can record RLDS, train LoRA adapters locally,
       kit.servo[0].angle = 90 + steering * 45  # steering servo
       kit.continuous_servo[1].throttle = throttle  # ESC / motor
   ```
-- Sanity check the bus and a single bounded pulse with `python -m continuonbrain.pi5_hardware_validation` (timestamps and servo actions are logged with ≤5 ms skew target).
+  - `DrivetrainController` defaults to the same mapping (`servo[0]` steering,
+    `continuous_servo[1]` throttle) and can be pointed at different channels via
+    `DRIVETRAIN_STEERING_CHANNEL`/`DRIVETRAIN_THROTTLE_CHANNEL` or a JSON
+    `drivetrain` config block.
+  - Sanity check the bus and a single bounded pulse with `python -m continuonbrain.pi5_hardware_validation` (timestamps and servo actions are logged with ≤5 ms skew target).
 - Wire this to the trainer safety hooks (`build_simple_action_guards`) and to runtime control paths in `continuonos`, keeping bounds logged in RLDS `step_metadata`.
 
 ## First local training smoke test
