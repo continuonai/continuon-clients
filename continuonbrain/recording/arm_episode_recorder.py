@@ -1,6 +1,6 @@
 """
 RLDS episode recorder for SO-ARM101 robot arm manipulation.
-"""
+
 Records depth vision + arm state + human teleop actions.
 Compatible with Pi5 setup per PI5_CAR_READINESS.md and docs/rlds-schema.md.
 """
@@ -109,10 +109,6 @@ class StepData:
     audio_frame_id: Optional[str] = None
     audio_timestamp_ns: Optional[int] = None
     audio_delta_ms: Optional[float] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for JSON serialization."""
-        data = {
     step_metadata: Dict[str, str] = None
 
     def to_dict(self) -> Dict[str, Any]:

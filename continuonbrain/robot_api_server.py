@@ -180,7 +180,8 @@ class RobotService:
         while True:
             try:
                 if not self.system_instructions:
-                    return {"success": False, "message": "System instructions unavailable"}
+                    yield {"success": False, "message": "System instructions unavailable"}
+                    return
 
                 # Get current arm state
                 normalized_state = self.arm.get_normalized_state() if self.arm else [0.0] * 6
