@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/continuon_theme.dart';
 
 class MarketingHomeScreen extends StatelessWidget {
@@ -30,7 +31,7 @@ class MarketingHomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Continuon',
+                  'Continuon AI',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -38,13 +39,8 @@ class MarketingHomeScreen extends StatelessWidget {
               ],
             ),
             actions: [
-              if (MediaQuery.of(context).size.width > 600) ...[
-                TextButton(onPressed: () {}, child: const Text('Product')),
-                TextButton(onPressed: () {}, child: const Text('Architecture')),
-                TextButton(onPressed: () {}, child: const Text('Use Cases')),
-                TextButton(onPressed: () {}, child: const Text('Docs')),
-                const SizedBox(width: 16),
-              ],
+              // Nav links removed for cleaner branding
+
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: ElevatedButton(
@@ -92,22 +88,15 @@ class MarketingHomeScreen extends StatelessWidget {
                     alignment: WrapAlignment.center,
                     children: [
                       ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/login');
+                        },
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 32, vertical: 20),
                           textStyle: const TextStyle(fontSize: 18),
                         ),
                         child: const Text('Get Early Access'),
-                      ),
-                      OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 32, vertical: 20),
-                          textStyle: const TextStyle(fontSize: 18),
-                        ),
-                        child: const Text('View Architecture'),
                       ),
                     ],
                   ),
@@ -157,6 +146,78 @@ class MarketingHomeScreen extends StatelessWidget {
                         description:
                             'Pi 5, Jetson, and XR devices can host real brains — if the architecture is right.',
                         icon: Icons.memory_outlined,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 3.5 Manifesto & Design Principles
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+              child: Column(
+                children: [
+                  // Manifesto
+                  Text(
+                    'The Continuon Manifesto',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: ContinuonColors.primaryBlue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 800),
+                    child: Text(
+                      'We believe intelligence is not just about pattern matching—it is about adaptation. '
+                      'True autonomy requires a system that can learn from its own mistakes in real-time, '
+                      'without waiting for a cloud server update. \n\n'
+                      'We are building the nervous system for the next generation of machines: '
+                      'ones that grow with you, learn your preferences, and adapt to your world.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontSize: 20,
+                            height: 1.6,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 80),
+
+                  // Design Principles
+                  Text(
+                    'Design Principles',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 48),
+                  Wrap(
+                    spacing: 32,
+                    runSpacing: 32,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildTechCard(
+                        context,
+                        'Local First',
+                        'Intelligence should live where the action is. We prioritize on-device processing for speed, privacy, and reliability.',
+                      ),
+                      _buildTechCard(
+                        context,
+                        'Continuous Learning',
+                        'Deployment is just the beginning. Our systems evolve with every interaction, getting smarter over time.',
+                      ),
+                      _buildTechCard(
+                        context,
+                        'Hybrid Architecture',
+                        'We combine the best of symbolic logic, neural networks, and physical simulation to create robust, explainable AI.',
+                      ),
+                      _buildTechCard(
+                        context,
+                        'Human Centric',
+                        'Technology serves humanity. We design for intuitive interaction, transparency, and user control.',
                       ),
                     ],
                   ),
@@ -258,7 +319,54 @@ class MarketingHomeScreen extends StatelessWidget {
             ),
           ),
 
-          // 6. Footer
+          // 6. Join the Mission
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+              child: Column(
+                children: [
+                  Text(
+                    'Join the Mission',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: Text(
+                      'We are looking for curious minds and technical experts to join us on this journey. '
+                      'Whether you want to contribute to the codebase, test on your robot, or just follow our progress, we’d love to hear from you.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final Uri emailLaunchUri = Uri(
+                        scheme: 'mailto',
+                        path: 'craig@craigmerry.com',
+                        query:
+                            'subject=Continuon AI Interest&body=Hi Craig, I am interested in Continuon AI...',
+                      );
+                      if (await canLaunchUrl(emailLaunchUri)) {
+                        await launchUrl(emailLaunchUri);
+                      }
+                    },
+                    icon: const Icon(Icons.email_outlined),
+                    label: const Text('Email Craig'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 20),
+                      textStyle: const TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 7. Footer
           SliverToBoxAdapter(
             child: Container(
               color: Theme.of(context).colorScheme.onSurface,
@@ -275,7 +383,7 @@ class MarketingHomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       const Text(
-                        'Continuon',
+                        'Continuon AI',
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 20,
