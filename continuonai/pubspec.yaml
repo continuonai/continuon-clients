@@ -33,6 +33,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/
+    - assets/images/
   module:
     androidX: true
     androidPackage: com.continuonxr.fluttercompanion
