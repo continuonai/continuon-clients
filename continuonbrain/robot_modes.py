@@ -3,6 +3,7 @@ Robot operational modes for ContinuonBrain.
 Manages transitions between training, autonomous, and sleep modes.
 """
 import json
+import math
 import subprocess
 import time
 import urllib.request
@@ -489,6 +490,60 @@ class RobotModeManager:
             "config": asdict(config),
             "timestamp": time.time(),
             "system_instructions": instructions.as_dict() if instructions else None,
+        }
+
+    def get_gate_snapshot(self) -> Dict[str, Any]:
+        """Summarize gate decisions for UI and telemetry."""
+        config = self.get_mode_config(self.current_mode)
+        uptime = max(0.0, time.time() - self.mode_start_time)
+
+        return {
+            "mode": self.current_mode.value,
+            "allow_motion": config.allow_motion,
+            "record_episodes": config.record_episodes,
+            "run_inference": config.run_inference,
+            "self_train": config.self_train,
+            "mode_uptime_seconds": uptime,
+            "transition_gate": uptime > 1.0 and config.allow_motion,
+            "recording_gate": config.record_episodes and config.allow_motion,
+            "last_transition_timestamp": self.mode_start_time,
+        }
+
+    def get_loop_metrics(self) -> Dict[str, Any]:
+        """Simulate HOPE/CMS loop activity for dashboards and mock mode."""
+
+        elapsed = max(0.0, time.time() - self.mode_start_time)
+        # Create a stable but lively wave/particle mix without needing hardware signals.
+        wave_particle_balance = 0.5 + 0.45 * math.sin(elapsed / 4.0)
+
+        fast_loop_hz = 12.0 if self.get_mode_config(self.current_mode).allow_motion else 4.0
+        mid_loop_hz = fast_loop_hz / 2
+        slow_loop_hz = max(0.5, fast_loop_hz / 6)
+
+        heartbeat_period = 1.0 if fast_loop_hz > 0 else 2.0
+        beats = int(elapsed / heartbeat_period)
+        last_beat = self.mode_start_time + beats * heartbeat_period
+
+        cms_ratio = 0.55 + 0.1 * math.sin(elapsed / 9.0)
+        maintenance_ratio = 1.0 - cms_ratio
+
+        return {
+            "hope_loops": {
+                "fast": {"hz": round(fast_loop_hz, 2), "latency_ms": round(1000 / fast_loop_hz, 1)},
+                "mid": {"hz": round(mid_loop_hz, 2), "latency_ms": round(1000 / mid_loop_hz, 1)},
+                "slow": {"hz": round(slow_loop_hz, 2), "latency_ms": round(1000 / slow_loop_hz, 1)},
+            },
+            "cms": {
+                "policy_ratio": round(cms_ratio, 2),
+                "maintenance_ratio": round(maintenance_ratio, 2),
+                "buffer_fill": round(0.5 + 0.2 * math.sin(elapsed / 7.0), 2),
+            },
+            "wave_particle_balance": round(max(0.0, min(1.0, wave_particle_balance)), 2),
+            "heartbeat": {
+                "last_beat": last_beat,
+                "period_seconds": heartbeat_period,
+                "ok": (time.time() - last_beat) <= (heartbeat_period * 1.5),
+            },
         }
     
     def emergency_stop(self, reason: str = "Manual trigger"):

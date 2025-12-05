@@ -891,7 +891,7 @@ class SystemHealthChecker:
     def _check_safety_config(self):
         """Check safety configuration is present."""
         safety_manifest = self.config_dir / "model" / "manifest.pi5.safety.example.json"
-        
+
         if safety_manifest.exists():
             try:
                 with open(safety_manifest) as f:
@@ -927,6 +927,41 @@ class SystemHealthChecker:
                 "No safety manifest found",
                 {}
             )
+
+    def get_safety_head_status(self) -> Dict:
+        """Lightweight safety head status for dashboards and mock mode."""
+
+        manifest_path = self.config_dir / "model" / "manifest.pi5.safety.example.json"
+        manifest = {}
+        if manifest_path.exists():
+            try:
+                with open(manifest_path) as f:
+                    manifest = json.load(f)
+            except Exception:
+                manifest = {}
+
+        safety_cfg = manifest.get("safety", manifest.get("safety_head", {})) if isinstance(manifest, dict) else {}
+        head_path = safety_cfg.get("path") if isinstance(safety_cfg, dict) else None
+        envelope = safety_cfg.get("envelope", {}) if isinstance(safety_cfg, dict) else {}
+
+        heartbeat_ns = time.time_ns()
+        fallback_note = "stub" if not head_path else "configured"
+
+        return {
+            "configured": bool(head_path),
+            "head_path": head_path or "continuonbrain.trainer.safety_head_stub",
+            "envelope": {
+                "status": envelope.get("status", "nominal" if head_path else "simulated"),
+                "radius_m": envelope.get("radius_m", 1.2),
+                "decay": envelope.get("decay", 0.12),
+            },
+            "heartbeat": {
+                "timestamp_ns": heartbeat_ns,
+                "ok": True,
+                "source": fallback_note,
+            },
+            "notes": safety_cfg.get("notes", "Using safety head {}".format(fallback_note)),
+        }
     
     def _compute_overall_status(self) -> HealthStatus:
         """Compute overall system status from individual checks."""
