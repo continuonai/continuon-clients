@@ -34,6 +34,7 @@ The on-device editor reuses Robot API surfaces but constrains them for editor us
   - `robot_model`, `software_versions`, `safety.envelopes_supported`, `safety.estop_supported`.
   - `skills[]` with `id`, `name`, `parameters`, `required_modalities` (pose, glove, gaze), `safety_tags`.
   - `sensors[]` with `id`, `sample_rate_hz`, `latency_ms`, `frame_id_domain`, `calibration_status`.
+  - `available_cms_snapshots[]` for slow-loop bundle metadata and `safety_signals[]` definitions to seed Safety Console legend entries (see [Studio panel proto mapping](./studio-panel-proto-note.md)).
 - **UI mapping:** Populates the Capabilities panel and seeds editor templates with parameter schemas; drives validation on save.
 
 ### Telemetry Stream
@@ -44,7 +45,13 @@ The on-device editor reuses Robot API surfaces but constrains them for editor us
   - `diagnostics` (latency, packet loss, BLE RSSI, mock-mode flag).
   - `safety_state` (estop, rate-limit status, envelope violations, predicted collision horizon from SafetyHead).
   - `hope_cms_signals` (Fast loop hazard scores, Mid loop intent confidence, Slow loop policy version metadata).
+  - `safety_signals[]` values to highlight safety events in the console and `cms_snapshot` to pin the active slow-loop bundle (see [Studio panel proto mapping](./studio-panel-proto-note.md)).
 - **UI mapping:** Drives live HUD overlays, chart widgets, and logging bars inside the editor. Data should be loggable to RLDS steps when the editor is used during Trainer/Observer modes.
+
+### Proto → Panel Mapping (Studio shell)
+- **Capabilities panel:** `CapabilityManifest.robot_model` and `software_versions` populate the header and status badges, `safety` reflects estop/envelope toggles, `skills.parameters` drive schema-based form controls, and `sensors[*].frame_id_domain` routes live feeds into the Hardware Canvas.
+- **Telemetry dashboard:** `StreamRobotEditorTelemetryResponse.robot_state` feeds motion charts and RLDS logging, `diagnostics` powers connectivity badges (latency, packet loss, mock mode), and `safety_state` animates estop/envelope indicators in the Safety Console.
+- **HOPE/CMS overlays:** `hope_cms_signals.fast` renders hazard grids and SafetyHead overrides, `hope_cms_signals.mid` annotates intent timelines and suggested skills, and `hope_cms_signals.slow` surfaces the deployed policy bundle and Memory Plane version in the CMS Balance card.
 
 ### Routine Apply / Preview
 - **Endpoints:**
@@ -81,7 +88,7 @@ The on-device editor reuses Robot API surfaces but constrains them for editor us
   - Telemetry dashboard (state charts, diagnostics, HOPE/CMS overlays).
   - Routine workspace (code/graph editor with Preview/Apply controls).
   - Safety console (envelopes, estop, incident log viewer).
-- **Logging:** All panel interactions emit RLDS-consumable events via the XR logger; mock-mode marks observations with `diagnostics.mock_mode=true` but preserves schema for playback and validation.
+- **Logging:** All panel interactions emit RLDS-consumable events via the XR logger; mock-mode marks observations with `diagnostics.mock_mode=true` but preserves schema for playback and validation. See [`docs/mock-mode-validation.md`](./mock-mode-validation.md) for the checklist and CLI that gate Studio mock exports.
 
 ## Mock-mode and Offline Operation
 - **Deterministic simulation:** Preview routines against a physics or scripted simulator with seeded randomness; outputs must mirror `StreamRobotEditorTelemetry` fields so UI components do not branch on transport source.
