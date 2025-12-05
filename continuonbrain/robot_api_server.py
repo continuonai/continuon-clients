@@ -1582,6 +1582,14 @@ class SimpleJSONServer:
             box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
         }
 
+        .panel-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         .panel-header h2 {
             margin: 4px 0;
             font-size: 22px;
@@ -1615,10 +1623,69 @@ class SimpleJSONServer:
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
         }
 
+        .task-group-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .segmented-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .segmented-controls button {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .segmented-controls button.active {
+            border-color: rgba(122, 215, 255, 0.7);
+            background: rgba(122, 215, 255, 0.08);
+        }
+
+        .task-group {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 10px 12px 10px;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        }
+
+        .task-group summary {
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            gap: 8px;
+        }
+
+        .task-group summary::-webkit-details-marker { display: none; }
+
+        .task-group summary h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .task-group[open] {
+            background: rgba(122, 215, 255, 0.04);
+        }
+
         .task-panel-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 12px;
+            margin-top: 10px;
         }
 
         .task-card {
@@ -1634,6 +1701,16 @@ class SimpleJSONServer:
         .task-card h3 { margin: 0; font-size: 16px; }
         .task-card .task-meta { color: var(--muted); font-size: 12px; }
 
+        .task-card .task-description {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
         .task-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .task-tag { font-size: 12px; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
 
@@ -1643,9 +1720,31 @@ class SimpleJSONServer:
         .eligibility-marker.info { border-color: rgba(122, 215, 255, 0.6); color: #c9edff; }
         .eligibility-marker.success { border-color: rgba(56, 217, 150, 0.6); color: #c0f8e5; }
 
+        .eligibility-stack { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+
         .task-actions { display: flex; gap: 8px; justify-content: flex-start; align-items: center; }
         .task-actions button { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text); cursor: pointer; }
         .task-actions button[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+        .task-actions .ghost {
+            background: transparent;
+            border-style: dashed;
+        }
+
+        .task-detail-drawer {
+            display: none;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px dashed var(--border);
+        }
+
+        .task-detail-drawer.open { display: block; }
+
+        .task-card.expanded .task-description {
+            -webkit-line-clamp: unset;
+            max-height: none;
+        }
 
         .selected-task-pill { padding: 10px 12px; border-radius: 999px; border: 1px solid var(--border); background: rgba(122, 215, 255, 0.07); font-size: 13px; }
         .selected-task-pill.success { border-color: rgba(56, 217, 150, 0.7); color: #c0f8e5; }
@@ -1696,6 +1795,20 @@ class SimpleJSONServer:
             background: linear-gradient(90deg, rgba(79, 157, 255, 0.12), rgba(122, 215, 255, 0.08));
             border: 1px solid var(--border);
             text-align: center;
+        }
+
+        @media (max-width: 1024px) {
+            .task-panel-grid { grid-template-columns: 1fr; }
+            .panel-header { align-items: flex-start; }
+        }
+
+        @media (max-width: 480px) {
+            .panel-header { flex-direction: column; }
+            .selected-task-pill { width: 100%; text-align: center; }
+            .task-actions { flex-direction: column; align-items: stretch; }
+            .task-actions button { width: 100%; }
+            .eligibility-marker { width: 100%; text-align: center; }
+            .task-tags { width: 100%; }
         }
 
         .badge { 
@@ -2195,7 +2308,11 @@ class SimpleJSONServer:
                         </div>
                         <div class="selected-task-pill" id="current-task-pill">No task selected</div>
                     </div>
-                    <div class="task-panel-grid" id="task-groups">
+                    <div class="task-group-controls">
+                        <div class="segmented-controls" id="task-group-segments"></div>
+                        <div class="panel-subtitle" style="margin: 0;">Use the segments to filter; expand groups below on tablets/phones.</div>
+                    </div>
+                    <div class="task-groups-accordion" id="task-groups">
                         <div class="status-item">
                             <span class="status-label">Loading tasks...</span>
                         </div>
@@ -2645,6 +2762,13 @@ class SimpleJSONServer:
             ],
         };
 
+        const taskDeckState = {
+            selectedGroup: 'all',
+            expandedDetails: {},
+        };
+
+        let taskLibraryPayload = null;
+
         function renderAgentChips(agents) {
             const chipRow = document.getElementById('agent-chip-row');
             if (!chipRow) return;
@@ -2741,12 +2865,15 @@ class SimpleJSONServer:
 
         function renderTaskLibrary(payload) {
             const container = document.getElementById('task-groups');
+            const controls = document.getElementById('task-group-segments');
+            taskLibraryPayload = payload || null;
             if (!container) return;
 
             const tasks = (payload && payload.tasks) || [];
             const selectedId = payload ? payload.selected_task_id : null;
             if (!tasks.length) {
                 container.innerHTML = '<div class="status-item"><span class="status-label">No tasks available</span></div>';
+                if (controls) { controls.innerHTML = ''; }
                 return;
             }
 
@@ -2759,7 +2886,18 @@ class SimpleJSONServer:
                 groups[groupKey].push(task);
             });
 
-            container.innerHTML = Object.entries(groups).map(([groupLabel, entries]) => {
+            const groupEntries = Object.entries(groups);
+            const groupLabels = groupEntries.map(([label]) => label);
+
+            if (controls) {
+                controls.innerHTML = ['all', ...groupLabels].map(label => {
+                    const active = taskDeckState.selectedGroup === label;
+                    const displayLabel = label === 'all' ? 'All' : label;
+                    return `<button class="${active ? 'active' : ''}" data-group="${label}" onclick="window.filterTaskGroup('${label}')">${displayLabel}</button>`;
+                }).join('');
+            }
+
+            container.innerHTML = groupEntries.map(([groupLabel, entries]) => {
                 const cards = entries.map(task => {
                     const eligibility = task.eligibility || {};
                     const markers = (eligibility.markers || []).map(marker => {
@@ -2772,29 +2910,57 @@ class SimpleJSONServer:
                     const tagRow = (task.tags || []).map(tag => `<span class="task-tag">${tag}</span>`).join('');
                     const isSelected = selectedId && selectedId === task.id;
                     const selectLabel = isSelected ? 'Selected' : 'Select task';
-                    const disabledAttr = eligibility.eligible ? '' : 'disabled';
+                    const isEligible = eligibility.eligible !== false;
+                    const disabledAttr = isEligible ? '' : 'disabled';
                     const highlightStyle = isSelected ? 'style="border-color: rgba(122,215,255,0.7);"' : '';
+                    const detailOpen = !!taskDeckState.expandedDetails[task.id];
+                    const detailLabel = detailOpen ? 'Hide details' : 'Details';
+                    const detailMeta = [task.estimated_duration, task.recommended_mode].filter(Boolean).join(' • ');
 
-                    return `<div class="task-card" ${highlightStyle}>` +
+                    return `<div class="task-card ${isSelected ? 'selected' : ''} ${detailOpen ? 'expanded' : ''}" ${highlightStyle}>` +
                         `<div>` +
                             `<h3>${task.title || 'Task'}</h3>` +
-                            `<div class="task-meta">${task.description || ''}</div>` +
-                            `<div class="task-tags">${tagRow}</div>` +
+                            `<div class="task-description">${task.description || ''}</div>` +
                         `</div>` +
-                        `<div>${markers}</div>` +
                         `<div class="task-actions">` +
                             `<button onclick="window.selectTask('${task.id}')" ${disabledAttr}>${selectLabel}</button>` +
-                            `<span class="task-meta">${task.estimated_duration || ''} • ${task.recommended_mode || ''}</span>` +
+                            `<button class="ghost" onclick="window.toggleTaskDetails('${task.id}')">${detailLabel}</button>` +
+                        `</div>` +
+                        `<div class="task-detail-drawer ${detailOpen ? 'open' : ''}" id="task-detail-${task.id}">` +
+                            `<div class="task-meta">${detailMeta || 'No timing hints'}</div>` +
+                            ${(tagRow ? `<div class="task-tags">${tagRow}</div>` : '')} +
+                            `<div class="eligibility-stack">${markers}</div>` +
                         `</div>` +
                     `</div>`;
                 }).join('');
 
-                return `<div>` +
-                    `<div class="panel-eyebrow">${groupLabel}</div>` +
+                const isVisible = taskDeckState.selectedGroup === 'all' || taskDeckState.selectedGroup === groupLabel;
+                const openAttr = taskDeckState.selectedGroup === groupLabel ? 'open' : '';
+                const hiddenStyle = isVisible ? '' : 'style="display:none;"';
+
+                return `<details class="task-group" data-group="${groupLabel}" ${openAttr} ${hiddenStyle}>` +
+                    `<summary>` +
+                        `<div>` +
+                            `<div class="panel-eyebrow">${groupLabel}</div>` +
+                            `<h3>${entries.length} task${entries.length === 1 ? '' : 's'}</h3>` +
+                        `</div>` +
+                        `<div class="status-chip info">${taskDeckState.selectedGroup === groupLabel ? 'Focused' : 'Browse'}</div>` +
+                    `</summary>` +
                     `<div class="task-panel-grid">${cards}</div>` +
-                `</div>`;
+                `</details>`;
             }).join('');
         }
+
+        window.filterTaskGroup = function(group) {
+            taskDeckState.selectedGroup = group || 'all';
+            renderTaskLibrary(taskLibraryPayload || {});
+        };
+
+        window.toggleTaskDetails = function(taskId) {
+            if (!taskId) return;
+            taskDeckState.expandedDetails[taskId] = !taskDeckState.expandedDetails[taskId];
+            renderTaskLibrary(taskLibraryPayload || {});
+        };
 
         function renderAgentRail(status) {
             const agents = (status && Array.isArray(status.agent_threads) && status.agent_threads.length)
