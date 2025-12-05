@@ -1808,8 +1808,22 @@ class SimpleJSONServer:
             if (typeof text !== 'string') {
                 return '';
             }
-            // Remove any HTML tags and limit length
-            var sanitized = text.replace(/<[^>]*>/g, '');
+            // Decode HTML entities first to catch encoded attacks
+            var temp = document.createElement('textarea');
+            temp.innerHTML = text;
+            var decoded = temp.value;
+            
+            // Remove any HTML tags (including malformed ones)
+            // This catches tags like <script>, <img>, etc.
+            var sanitized = decoded.replace(/<[^>]*>/g, '');
+            
+            // Remove any remaining < or > characters that might be part of incomplete tags
+            sanitized = sanitized.replace(/[<>]/g, '');
+            
+            // Remove javascript: and data: URL schemes
+            sanitized = sanitized.replace(/javascript:/gi, '');
+            sanitized = sanitized.replace(/data:/gi, '');
+            
             // Limit length to prevent DOS attacks
             return sanitized.substring(0, 10000);
         }
@@ -2936,8 +2950,22 @@ class SimpleJSONServer:
             if (typeof text !== 'string') {
                 return '';
             }
-            // Remove any HTML tags and limit length
-            var sanitized = text.replace(/<[^>]*>/g, '');
+            // Decode HTML entities first to catch encoded attacks
+            var temp = document.createElement('textarea');
+            temp.innerHTML = text;
+            var decoded = temp.value;
+            
+            // Remove any HTML tags (including malformed ones)
+            // This catches tags like <script>, <img>, etc.
+            var sanitized = decoded.replace(/<[^>]*>/g, '');
+            
+            // Remove any remaining < or > characters that might be part of incomplete tags
+            sanitized = sanitized.replace(/[<>]/g, '');
+            
+            // Remove javascript: and data: URL schemes
+            sanitized = sanitized.replace(/javascript:/gi, '');
+            sanitized = sanitized.replace(/data:/gi, '');
+            
             // Limit length to prevent DOS attacks
             return sanitized.substring(0, 10000);
         }
