@@ -2349,6 +2349,21 @@ class SimpleJSONServer:
                         chatHistory = [];
                     }
                 } catch (parseError) {
+                    console.warn('Failed to parse chat history from localStorage:', parseError);
+                    chatHistory = [];
+                }
+                chatHistory.forEach(function(msg) {
+                    renderChatMessage(msg.content, msg.role, false);
+                });
+            }
+
+            try {
+                var storedMinimized = localStorage.getItem(chatMinimizedKey);
+                if (storedMinimized === 'true') {
+                    chatMinimized = true;
+                }
+            } catch (e) {
+                console.warn('Failed to parse chat minimized state from localStorage:', e);
                     console.warn('Failed to parse chat history from localStorage', parseError);
                     chatHistory = [];
             try {
