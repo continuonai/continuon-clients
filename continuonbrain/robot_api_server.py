@@ -2401,6 +2401,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var MAX_MESSAGE_LENGTH = 10000; // Maximum allowed message length for DoS protection
         var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         // Sanitize text to prevent XSS attacks
@@ -2455,12 +2456,34 @@ class SimpleJSONServer:
             }
         }
 
+        function validateChatContent(content) {
+            // Validate chat content to prevent injection attacks
+            // Ensure content is a string and within reasonable bounds
+            if (typeof content !== 'string') return '';
+            // Limit message length to prevent DoS
+            if (content.length > MAX_MESSAGE_LENGTH) return content.substring(0, MAX_MESSAGE_LENGTH);
+            return content;
+        }
+
+        function validateChatRole(role) {
+            // Validate role to prevent class injection
+            var validRoles = ['user', 'assistant', 'system'];
+            return validRoles.indexOf(role) !== -1 ? role : 'system';
+        }
+
         function renderChatMessage(text, role, shouldPersist) {
             if (typeof shouldPersist === 'undefined') shouldPersist = true;
 
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
+            // Validate inputs to prevent injection attacks
+            var validatedText = validateChatContent(text);
+            var validatedRole = validateChatRole(role);
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + validatedRole;
+            messageDiv.textContent = validatedText; // textContent prevents XSS
             // Sanitize text before rendering
             var sanitized = sanitizeText(text);
             
@@ -2471,6 +2494,7 @@ class SimpleJSONServer:
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
+                chatHistory.push({role: validatedRole, content: validatedText});
                 chatHistory.push({role: role, content: sanitized});
                 persistChatState();
             }
@@ -3617,6 +3641,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var MAX_MESSAGE_LENGTH = 10000; // Maximum allowed message length for DoS protection
         var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         // Sanitize text to prevent XSS attacks
@@ -3671,12 +3696,34 @@ class SimpleJSONServer:
             }
         }
 
+        function validateChatContent(content) {
+            // Validate chat content to prevent injection attacks
+            // Ensure content is a string and within reasonable bounds
+            if (typeof content !== 'string') return '';
+            // Limit message length to prevent DoS
+            if (content.length > MAX_MESSAGE_LENGTH) return content.substring(0, MAX_MESSAGE_LENGTH);
+            return content;
+        }
+
+        function validateChatRole(role) {
+            // Validate role to prevent class injection
+            var validRoles = ['user', 'assistant', 'system'];
+            return validRoles.indexOf(role) !== -1 ? role : 'system';
+        }
+
         function renderChatMessage(text, role, shouldPersist) {
             if (typeof shouldPersist === 'undefined') shouldPersist = true;
 
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
+            // Validate inputs to prevent injection attacks
+            var validatedText = validateChatContent(text);
+            var validatedRole = validateChatRole(role);
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + validatedRole;
+            messageDiv.textContent = validatedText; // textContent prevents XSS
             // Sanitize text before rendering
             var sanitized = sanitizeText(text);
             
@@ -3687,6 +3734,7 @@ class SimpleJSONServer:
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
+                chatHistory.push({role: validatedRole, content: validatedText});
                 chatHistory.push({role: role, content: sanitized});
                 persistChatState();
             }
