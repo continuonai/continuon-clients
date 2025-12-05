@@ -16,14 +16,15 @@ Use this checklist whenever enabling uploads from field hardware. It keeps offli
    - Install the upload token/API key in the secure keystore or environment file; never bake credentials into images.
 5. **Package for ContinuonAI/WorldTape portal**
    - Zip the curated RLDS episodes and include the manifest plus device/environment identifiers.
-   - Capture provenance in the manifest: Continuon Brain runtime version, Continuon AI app version, environment/deployment ID, and per-episode checksums. See the staging ingest sample in `continuonai/continuon-cloud/signed-ingestion.md`.
+   - Capture provenance in the manifest: Continuon Brain runtime version, Continuon AI app version, environment/deployment ID, per-episode checksums, and capture timestamps. See the staging ingest sample in `continuonai/continuon-cloud/signed-ingestion.md` for the required fields.
+   - Pin a deterministic `package_id` in the manifest for traceability across retries.
 6. **Provenance and security gates**
-   - Hash the archive (SHA-256) and record the checksum alongside the upload request.
-   - Sign the archive or request with the environment’s signing key; unsigned uploads are rejected by the staging bucket hook.
+   - Hash the archive (SHA-256) and record the checksum alongside the upload request; include per-episode hashes in the manifest.
+   - Sign the archive plus manifest digest with the environment’s signing key before initiating the upload; enforce the signing step in the client so unsigned payloads never leave the device.
    - Verify TLS is enforced end-to-end; reject if certificate validation fails.
 7. **Send and verify**
    - Perform a dry-run (HEAD or small sample) if bandwidth is constrained, then send the full package.
-   - Confirm server receipt, compare the returned checksum, and check for signature/manifest validation errors; log the result locally.
+   - Confirm server receipt, compare the returned checksum, and check for signature/manifest validation errors; log the result locally and keep the manifest alongside the audit record.
 8. **Post-upload hygiene**
    - Keep the local copy until cloud acknowledgment succeeds; mark episodes as exported only after verification.
    - Rotate tokens and audit logs periodically; revoke credentials on operator request.

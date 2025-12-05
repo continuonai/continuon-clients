@@ -4,12 +4,18 @@ This note describes the staging-only Continuon Cloud ingest contract for the XR/
 
 ## Upload contract
 
-- **Signed uploads are mandatory.** Every submission must include a detached signature over the payload archive or a bundled signature inside the manifest. Operators should rotate signing keys per environment (field test vs. lab) and track key IDs in the manifest.
+- **Signed uploads are mandatory and enforced client-side.** Clients must compute SHA-256 checksums for the archive and every nested episode blob, generate the manifest, and sign the archive plus manifest digest before initiating the upload. Operators should rotate signing keys per environment (field test vs. lab) and track key IDs in the manifest.
 - **Provenance metadata accompanies each submission.** Upload manifests must include:
   - Software versions for the Continuon Brain runtime and the Continuon AI app shell that produced the episodes.
   - Environment or deployment identifier (lab rig ID, field device tag, or staging fleet name).
   - Content checksums (SHA-256) for the archive and any nested episode blobs.
   - Timestamps for capture window and packaging time.
+- **Required manifest fields (minimum):**
+  - `package_id`: deterministic per bundle.
+  - `environment_id`: canonical environment/fleet identifier.
+  - `continuon_brain_runtime` and `continuon_ai_app`: semantic version strings.
+  - `checksums.archive_sha256` plus per-episode `sha256` entries.
+  - `signing.key_id` and `signing.signature` matching the bytes sent over the wire.
 - **Transport is TLS-only.** Clients must present their signing key ID and checksum in headers; unsigned or mismatched uploads are rejected before storage.
 
 ### Example manifest (minimal)
@@ -40,12 +46,13 @@ This note describes the staging-only Continuon Cloud ingest contract for the XR/
 
 ## Staging bucket verification
 
-Uploads land in a staging bucket with a hook that runs before promotion to training storage:
+Uploads land behind a pre-staging ingestion service that rejects bad payloads before they enter the staging bucket:
 
 1. Validate that a signature is present and that the advertised signing key is allowed for the declared environment ID.
 2. Recompute archive checksum and cross-check against the manifest; fail on any mismatch.
-3. Verify the signature against the archive hash and manifest digest.
-4. Ensure required provenance fields (runtime/app versions, environment ID, timestamps) are populated.
+3. Verify the signature against the archive hash and manifest digest; drop unsigned or unverifiable artifacts before any object write.
+4. Ensure required provenance fields (runtime/app versions, environment ID, timestamps) are populated; reject manifests missing required keys listed above.
 5. Emit structured errors (HTTP 400/409) back to the client on failure and tag the object with a rejection reason to block downstream trainers.
+6. Only on successful verification is the object persisted in the staging bucket for later promotion to training storage.
 
 Clients should treat any 4xx response as a hard failure and leave the local copy intact until a signed, checksum-matched re-upload succeeds.
