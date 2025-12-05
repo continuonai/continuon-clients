@@ -1851,11 +1851,11 @@ class SimpleJSONServer:
                     try {
                         chatHistory = JSON.parse(storedHistory);
                         if (!Array.isArray(chatHistory)) {
-                            console.warn('Chat history is not an array, resetting to empty');
+                            console.warn('Chat history is not an array (found ' + typeof chatHistory + '), resetting to empty');
                             chatHistory = [];
                         }
                     } catch (parseError) {
-                        console.warn('Failed to parse chat history (invalid JSON)', parseError);
+                        console.warn('Failed to parse chat history from localStorage (invalid JSON), initializing with empty history', parseError);
                         chatHistory = [];
                     }
                     chatHistory.forEach(function(msg) {
