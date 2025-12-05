@@ -81,7 +81,7 @@ The on-device editor reuses Robot API surfaces but constrains them for editor us
   - Telemetry dashboard (state charts, diagnostics, HOPE/CMS overlays).
   - Routine workspace (code/graph editor with Preview/Apply controls).
   - Safety console (envelopes, estop, incident log viewer).
-- **Logging:** All panel interactions emit RLDS-consumable events via the XR logger; mock-mode marks observations with `diagnostics.mock_mode=true` but preserves schema for playback and validation.
+- **Logging:** All panel interactions emit RLDS-consumable events via the XR logger; mock-mode marks observations with `diagnostics.mock_mode=true` but preserves schema for playback and validation. See [`docs/mock-mode-validation.md`](./mock-mode-validation.md) for the checklist and CLI that gate Studio mock exports.
 
 ## Mock-mode and Offline Operation
 - **Deterministic simulation:** Preview routines against a physics or scripted simulator with seeded randomness; outputs must mirror `StreamRobotEditorTelemetry` fields so UI components do not branch on transport source.

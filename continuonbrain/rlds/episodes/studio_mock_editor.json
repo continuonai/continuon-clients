@@ -1,0 +1,595 @@
+{
+  "episode_metadata": {
+    "episode_id": "studio_mock_mode_episode",
+    "environment_id": "studio-mock",
+    "continuon": {
+      "xr_mode": "workstation",
+      "control_role": "human_dev_xr"
+    },
+    "software": {
+      "xr_app": "studio-mock",
+      "continuonbrain_os": "mock",
+      "glove_firmware": "mock"
+    },
+    "tags": [
+      "studio",
+      "mock",
+      "continuon.xr_mode:workstation"
+    ]
+  },
+  "steps": [
+    {
+      "observation": {
+        "headset_pose": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "right_hand_pose": {
+          "position": [
+            0.02,
+            -0.02,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "left_hand_pose": {
+          "position": [
+            -0.02,
+            0.02,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "gaze": {
+          "origin": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "confidence": 0.95,
+          "target_id": "mock_widget"
+        },
+        "robot_state": {
+          "timestamp_nanos": 1764952865006200430,
+          "joint_positions": [
+            0.0,
+            0.1,
+            0.2,
+            0.1,
+            0.0,
+            -0.1
+          ],
+          "joint_velocities": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "end_effector_pose": {
+            "position": [
+              0.1,
+              0.2,
+              0.3
+            ],
+            "orientation_quat": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "valid": true
+          },
+          "gripper_open": true,
+          "frame_id": "frame_0000",
+          "end_effector_twist": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "wall_time_millis": 1764952865006
+        },
+        "glove": {
+          "timestamp_nanos": 1764952865006200430,
+          "flex": [
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6
+          ],
+          "fsr": [
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "accel": [
+            0.0,
+            9.81,
+            0.0
+          ],
+          "valid": true
+        },
+        "video_frame_id": "frame_0000",
+        "depth_frame_id": "frame_0000",
+        "diagnostics": {
+          "latency_ms": 8.5,
+          "glove_drops": 0,
+          "ble_rssi": -58,
+          "glove_sample_rate_hz": 90.0,
+          "mock_mode": true,
+          "transport": "loopback"
+        },
+        "audio": {
+          "uri": "mock://audio/frame_0000.wav",
+          "sample_rate_hz": 16000,
+          "num_channels": 1,
+          "format": "pcm16le",
+          "frame_id": "frame_0000"
+        },
+        "ui_context": {
+          "active_panel": "mock_editor",
+          "layout": {
+            "pane": "left",
+            "tab": "rlds"
+          },
+          "focus_context": {
+            "cursor": "frame_0000"
+          }
+        }
+      },
+      "action": {
+        "command": [
+          0.0,
+          0.1,
+          0.0,
+          0.0,
+          -0.1,
+          0.0
+        ],
+        "source": "human_teleop_xr",
+        "annotation": {
+          "kind": "mock_note",
+          "fields": {
+            "reason": "studio-mock"
+          }
+        },
+        "ui_action": {
+          "action_type": "panel_interaction",
+          "context": {
+            "panel": "timeline"
+          }
+        }
+      },
+      "is_terminal": false,
+      "step_metadata": {
+        "language_instruction": "Mock Studio episode",
+        "safety_violations": "none"
+      }
+    },
+    {
+      "observation": {
+        "headset_pose": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "right_hand_pose": {
+          "position": [
+            0.02,
+            -0.02,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "left_hand_pose": {
+          "position": [
+            -0.02,
+            0.02,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "gaze": {
+          "origin": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "confidence": 0.95,
+          "target_id": "mock_widget"
+        },
+        "robot_state": {
+          "timestamp_nanos": 1764952865056200430,
+          "joint_positions": [
+            0.0,
+            0.1,
+            0.2,
+            0.1,
+            0.0,
+            -0.1
+          ],
+          "joint_velocities": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "end_effector_pose": {
+            "position": [
+              0.1,
+              0.2,
+              0.3
+            ],
+            "orientation_quat": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "valid": true
+          },
+          "gripper_open": true,
+          "frame_id": "frame_0001",
+          "end_effector_twist": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "wall_time_millis": 1764952865056
+        },
+        "glove": {
+          "timestamp_nanos": 1764952865056200430,
+          "flex": [
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6
+          ],
+          "fsr": [
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "accel": [
+            0.0,
+            9.81,
+            0.0
+          ],
+          "valid": true
+        },
+        "video_frame_id": "frame_0001",
+        "depth_frame_id": "frame_0001",
+        "diagnostics": {
+          "latency_ms": 8.5,
+          "glove_drops": 0,
+          "ble_rssi": -58,
+          "glove_sample_rate_hz": 90.0,
+          "mock_mode": true,
+          "transport": "loopback"
+        },
+        "audio": {
+          "uri": "mock://audio/frame_0001.wav",
+          "sample_rate_hz": 16000,
+          "num_channels": 1,
+          "format": "pcm16le",
+          "frame_id": "frame_0001"
+        },
+        "ui_context": {
+          "active_panel": "mock_editor",
+          "layout": {
+            "pane": "left",
+            "tab": "rlds"
+          },
+          "focus_context": {
+            "cursor": "frame_0001"
+          }
+        }
+      },
+      "action": {
+        "command": [
+          0.0,
+          0.2,
+          0.0,
+          0.0,
+          -0.2,
+          0.0
+        ],
+        "source": "human_teleop_xr",
+        "annotation": {
+          "kind": "mock_note",
+          "fields": {
+            "reason": "studio-mock"
+          }
+        },
+        "ui_action": {
+          "action_type": "panel_interaction",
+          "context": {
+            "panel": "timeline"
+          }
+        }
+      },
+      "is_terminal": false,
+      "step_metadata": {
+        "language_instruction": "Mock Studio episode",
+        "safety_violations": "none"
+      }
+    },
+    {
+      "observation": {
+        "headset_pose": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "right_hand_pose": {
+          "position": [
+            0.02,
+            -0.02,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "left_hand_pose": {
+          "position": [
+            -0.02,
+            0.02,
+            0.0
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "valid": true
+        },
+        "gaze": {
+          "origin": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "confidence": 0.95,
+          "target_id": "mock_widget"
+        },
+        "robot_state": {
+          "timestamp_nanos": 1764952865106200430,
+          "joint_positions": [
+            0.0,
+            0.1,
+            0.2,
+            0.1,
+            0.0,
+            -0.1
+          ],
+          "joint_velocities": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "end_effector_pose": {
+            "position": [
+              0.1,
+              0.2,
+              0.3
+            ],
+            "orientation_quat": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "valid": true
+          },
+          "gripper_open": true,
+          "frame_id": "frame_0002",
+          "end_effector_twist": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "wall_time_millis": 1764952865106
+        },
+        "glove": {
+          "timestamp_nanos": 1764952865106200430,
+          "flex": [
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6
+          ],
+          "fsr": [
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1
+          ],
+          "orientation_quat": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "accel": [
+            0.0,
+            9.81,
+            0.0
+          ],
+          "valid": true
+        },
+        "video_frame_id": "frame_0002",
+        "depth_frame_id": "frame_0002",
+        "diagnostics": {
+          "latency_ms": 8.5,
+          "glove_drops": 0,
+          "ble_rssi": -58,
+          "glove_sample_rate_hz": 90.0,
+          "mock_mode": true,
+          "transport": "loopback"
+        },
+        "audio": {
+          "uri": "mock://audio/frame_0002.wav",
+          "sample_rate_hz": 16000,
+          "num_channels": 1,
+          "format": "pcm16le",
+          "frame_id": "frame_0002"
+        },
+        "ui_context": {
+          "active_panel": "mock_editor",
+          "layout": {
+            "pane": "left",
+            "tab": "rlds"
+          },
+          "focus_context": {
+            "cursor": "frame_0002"
+          }
+        }
+      },
+      "action": {
+        "command": [
+          0.0,
+          0.30000000000000004,
+          0.0,
+          0.0,
+          -0.30000000000000004,
+          0.0
+        ],
+        "source": "human_teleop_xr",
+        "annotation": {
+          "kind": "mock_note",
+          "fields": {
+            "reason": "studio-mock"
+          }
+        },
+        "ui_action": {
+          "action_type": "panel_interaction",
+          "context": {
+            "panel": "timeline"
+          }
+        }
+      },
+      "is_terminal": true,
+      "step_metadata": {
+        "language_instruction": "Mock Studio episode",
+        "safety_violations": "none"
+      }
+    }
+  ]
+}
