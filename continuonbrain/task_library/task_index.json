@@ -1,0 +1,69 @@
+[
+  {
+    "episode_id": "follow_user_mr_v2",
+    "task_name": "follow_user",
+    "category": {
+      "xr_mode": "mixed_reality",
+      "control_role": "pilot",
+      "tags": [
+        "follow",
+        "indoor",
+        "update"
+      ]
+    },
+    "recency": "2024-07-15T08:30:00+00:00",
+    "quality_flags": [
+      "verification_pending"
+    ],
+    "is_golden": false,
+    "eligible_for_autonomy": true,
+    "metadata_path": "continuonbrain/rlds/episodes/follow_user_mr_v2/metadata.json",
+    "steps_paths": [
+      "continuonbrain/rlds/episodes/follow_user_mr_v2/steps/000000.jsonl"
+    ]
+  },
+  {
+    "episode_id": "follow_user_mr_v1",
+    "task_name": "follow_user",
+    "category": {
+      "xr_mode": "mixed_reality",
+      "control_role": "pilot",
+      "tags": [
+        "follow",
+        "indoor"
+      ]
+    },
+    "recency": "2024-06-01T12:00:00+00:00",
+    "quality_flags": [
+      "synthetic"
+    ],
+    "is_golden": true,
+    "eligible_for_autonomy": false,
+    "metadata_path": "continuonbrain/rlds/episodes/follow_user_mr_v1/metadata.json",
+    "steps_paths": [
+      "continuonbrain/rlds/episodes/follow_user_mr_v1/steps/000000.jsonl"
+    ]
+  },
+  {
+    "episode_id": "stack_boxes_vr_001",
+    "task_name": "stack_boxes",
+    "category": {
+      "xr_mode": "virtual_reality",
+      "control_role": "copilot",
+      "tags": [
+        "stack",
+        "boxes"
+      ]
+    },
+    "recency": "2024-05-20T16:00:00+00:00",
+    "quality_flags": [
+      "demo"
+    ],
+    "is_golden": false,
+    "eligible_for_autonomy": false,
+    "metadata_path": "continuonbrain/rlds/episodes/stack_boxes_vr/metadata.json",
+    "steps_paths": [
+      "continuonbrain/rlds/episodes/stack_boxes_vr/steps/000000.jsonl"
+    ]
+  }
+]
