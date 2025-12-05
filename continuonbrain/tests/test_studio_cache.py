@@ -67,6 +67,7 @@ def test_cloud_refresh_replaces_stale_cache(tmp_path: Path) -> None:
     stored = json.loads((tmp_path / "cache" / "slow_loop.json").read_text())
     assert stored["drift_alerts"]["payload"][0] == {"id": "alert-1", "severity": "high"}
     assert stored["memory_plane_merge_state"]["payload"] == {"merged": ["alpha", "beta"]}
+    assert "expires_at" in stored["policy_bundle_ids"]
 
 
 def test_partial_cloud_failure_keeps_cached_entries(tmp_path: Path) -> None:

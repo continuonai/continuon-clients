@@ -164,7 +164,14 @@ class SlowLoopCache:
             try:
                 cached_at = datetime.fromisoformat(payload["cached_at"])
                 ttl_seconds = payload.get("ttl_seconds")
-                ttl = timedelta(seconds=ttl_seconds) if ttl_seconds else self._policies[name].ttl
+                expires_at_raw = payload.get("expires_at")
+                if expires_at_raw:
+                    expires_at = datetime.fromisoformat(expires_at_raw)
+                    ttl = expires_at - cached_at
+                elif ttl_seconds:
+                    ttl = timedelta(seconds=ttl_seconds)
+                else:
+                    ttl = self._policies[name].ttl
                 entries[name] = CachedArtifact(
                     payload=payload.get("payload"),
                     cached_at=cached_at,
@@ -184,6 +191,7 @@ class SlowLoopCache:
                 "cached_at": entry.cached_at.isoformat(),
                 "ttl_seconds": int(entry.ttl.total_seconds()),
                 "privacy_redactions": list(entry.privacy_redactions),
+                "expires_at": entry.expires_at().isoformat(),
             }
 
         self._cache_path.write_text(json.dumps(serializable, indent=2))
