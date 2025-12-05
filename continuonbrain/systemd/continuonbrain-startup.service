@@ -10,7 +10,7 @@ Environment=PYTHONPATH=/home/craigm26/ContinuonXR:/home/craigm26/.local/lib/pyth
 Environment=CONFIG_DIR=/home/craigm26/.continuonbrain
 WorkingDirectory=/home/craigm26/ContinuonXR
 User=craigm26
-ExecStart=/usr/bin/env python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR}
+ExecStart=/home/craigm26/ContinuonXR/.venv/bin/python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR}
 Restart=on-failure
 RestartSec=3
 

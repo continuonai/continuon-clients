@@ -367,7 +367,7 @@ class ArmEpisodeRecorder:
                 else:
                     print("⚠️  Camera initialization failed (continuing without camera)")
                     self.camera = None
-                    success = False
+                    # success = False  # Allow partial initialization
 
             # Initialize servo controller (auto-select based on detection)
             if PCA9685ArmController:

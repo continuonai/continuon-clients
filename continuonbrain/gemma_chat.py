@@ -20,36 +20,56 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"
+    DEFAULT_MODEL_ID = "google/gemma-3-270m-it"
     # DEFAULT_MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # Backup
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu"):
+    def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None):
         """
         Initialize Gemma chat interface.
         
         Args:
             model_name: HuggingFace model identifier
             device: 'cpu', 'cuda', or 'mps' for Apple Silicon
+            api_base: Base URL for OpenAI-compatible API (e.g., vLLM)
+            api_key: API key for OpenAI-compatible API
         """
         self.model_name = model_name
         self.device = device
+        self.api_base = api_base
+        self.api_key = api_key or "EMPTY"  # Default for local vLLM/llama.cpp
+        
         self.model = None
         self.tokenizer = None
+        self.client = None
+        
         self.chat_history: List[Dict[str, str]] = []
         self.max_history = 10  # Keep last 10 turns
         
         # Check for HuggingFace token
         self.hf_token = os.environ.get('HUGGINGFACE_TOKEN')
-        if not self.hf_token:
+        if not self.hf_token and not self.api_base:
             logger.warning("HUGGINGFACE_TOKEN not set - gated models will not be accessible")
-    
+            
+        if self.api_base:
+            try:
+                from openai import OpenAI
+                self.client = OpenAI(base_url=self.api_base, api_key=self.api_key)
+                logger.info(f"Initialized OpenAI client pointing to {self.api_base}")
+            except ImportError:
+                logger.error("openai package not installed. Cannot use remote API.")
+
     def load_model(self) -> bool:
         """
-        Load Gemma model and tokenizer.
+        Load Gemma model and tokenizer (or verify API connection).
         
         Returns:
             True if successful, False otherwise
         """
+        if self.client:
+            # For API, we just assume it's ready or do a quick check?
+            # Keeping it simple: if client is initialized, we are "loaded"
+            return True
+
         try:
             # Try importing transformers
             from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -88,7 +108,7 @@ class GemmaChat:
     
     def chat(self, message: str, system_context: Optional[str] = None) -> str:
         """
-        Generate chat response from Gemma model.
+        Generate chat response from Gemma model (local or remote).
         
         Args:
             message: User message text
@@ -97,6 +117,45 @@ class GemmaChat:
         Returns:
             Model response text
         """
+        
+        # --- PATH 1: Remote API (OpenAI/vLLM) ---
+        if self.client:
+            try:
+                messages = []
+                if system_context:
+                    messages.append({"role": "system", "content": system_context})
+                
+                # Add history
+                # Ensure history format matches OpenAI (role/content)
+                for msg in self.chat_history[-6:]:
+                    role = "user" if msg["role"].lower() in ["user"] else "assistant"
+                    messages.append({"role": role, "content": msg["content"]})
+                    
+                messages.append({"role": "user", "content": message})
+                
+                logger.info(f"Sending request to API: {self.api_base}")
+                completion = self.client.chat.completions.create(
+                    model=self.model_name, # vLLM often ignores this or needs it to match loaded model
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=256
+                )
+                
+                response = completion.choices[0].message.content
+                
+                # Update history
+                self.chat_history.append({"role": "User", "content": message})
+                self.chat_history.append({"role": "Assistant", "content": response})
+                if len(self.chat_history) > self.max_history * 2:
+                    self.chat_history = self.chat_history[-self.max_history * 2:]
+                    
+                return response
+
+            except Exception as e:
+                logger.error(f"API chat failed: {e}")
+                return f"Error from remote API: {str(e)}"
+        
+        # --- PATH 2: Local Transformers ---
         if self.model is None:
             if not self.load_model():
                 return "Error: Gemma model not available. Please install transformers library."
@@ -221,6 +280,7 @@ class MockGemmaChat:
         }
 
 
+
 # Factory function to create appropriate chat instance
 def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
     """
@@ -236,6 +296,20 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
     if use_mock:
         return MockGemmaChat(**kwargs)
     
+    # Check for OpenAI API configuration
+    api_base = os.environ.get("LLM_API_BASE")
+    api_key = os.environ.get("LLM_API_KEY")
+    
+    if api_base or api_key:
+        logger.info(f"Configuring GemmaChat with remote API: {api_base}")
+        # Pass API config to constructor
+        kwargs["api_base"] = api_base
+        kwargs["api_key"] = api_key
+        
+        # We still try to import transformers/openai inside the class, 
+        # but the class itself handles the logic.
+        return GemmaChat(**kwargs)
+
     try:
         import transformers
         import torch
@@ -243,3 +317,4 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
     except ImportError:
         logger.warning("transformers not available, using mock chat")
         return MockGemmaChat(**kwargs)
+

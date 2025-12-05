@@ -8,9 +8,17 @@ import asyncio
 import json
 import logging
 import argparse
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
+
+try:
+    import cv2
+    import numpy as np
+except ImportError:
+    cv2 = None
+    np = None
 
 # Ensure repo root on path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -46,12 +54,28 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(ui_routes.get_status_html().encode("utf-8"))
                 
             elif self.path == "/ui/dashboard":
-                # Fallback to legacy dashboard (we need to port the HTML from robot_api_server)
-                # For now returning a placeholder
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(b"<h1>Legacy Dashboard Placeholder</h1>")
+                self.wfile.write(ui_routes.get_dashboard_html().encode("utf-8"))
+
+            elif self.path == "/ui/chat":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_chat_html().encode("utf-8"))
+
+            elif self.path == "/ui/settings":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_settings_html().encode("utf-8"))
+            
+            elif self.path == "/ui/manual":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_manual_html().encode("utf-8"))
 
             elif self.path == "/api/status/introspection":
                 # Introspection endpoint for Brain Status page
@@ -63,12 +87,18 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 # Legacy robot status
                 # TODO: Implement full status serialization
                 self.send_json({"status": "ok", "mode": "idle"})
+            
+            elif self.path == "/api/camera/stream":
+                self.handle_mjpeg_stream()
+                
+            elif self.path == "/api/camera/frame":
+                self.handle_single_frame()
                 
             else:
                 self.send_error(404)
         except Exception as e:
             logger.error(f"Request error: {e}")
-            self.send_error(500)
+            # self.send_error(500) # Generating error during stream breaks things
 
     def do_POST(self):
         try:
@@ -81,8 +111,72 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 
                 response = brain_service.ChatWithGemma(msg, [])
                 self.send_json({"response": response})
+            
+            elif self.path == "/api/robot/drive":
+                data = json.loads(body)
+                steering = float(data.get("steering", 0.0))
+                throttle = float(data.get("throttle", 0.0))
+                
+                if brain_service.drivetrain:
+                    brain_service.drivetrain.apply_drive(steering, throttle)
+                    self.send_json({"success": True})
+                else:
+                    self.send_json({"success": False, "message": "No drivetrain"})
+            
+            elif self.path == "/api/robot/joints":
+                data = json.loads(body)
+                joint_idx = data.get("joint_index")
+                val = data.get("value")
+                
+                if brain_service.arm and joint_idx is not None:
+                    # Get current state first
+                    current = brain_service.arm.get_normalized_state()
+                    # Determine target
+                    target = list(current)
+                    if 0 <= joint_idx < 6:
+                        target[joint_idx] = float(val)
+                        brain_service.arm.set_normalized_action(target)
+                        self.send_json({"success": True})
+                    else:
+                        self.send_json({"success": False, "message": "Invalid joint index"})
+                else:
+                    self.send_json({"success": False, "message": "No arm or invalid data"})
+            
+            elif self.path == "/api/settings":
+                data = json.loads(body)
+                # Save to disk
+                settings_path = Path(brain_service.config_dir) / "settings.json"
+                with open(settings_path, "w") as f:
+                    json.dump(data, f, indent=2)
+                self.send_json({"success": True})
+            
+            elif self.path == "/api/hardware/scan":
+                # Manual Hardware Scan
+                try:
+                    from continuonbrain.sensors.hardware_detector import HardwareDetector
+                    detector = HardwareDetector()
+                    detector.detect_all()
+                    devices = detector.generate_config()
+                    
+                    response = {
+                        "success": True,
+                        "device_count": len(devices.get("devices", {})),
+                        "devices": {
+                            "camera": "depth_camera" in devices.get("primary", {}),
+                            "arm": "servo_controller" in devices.get("primary", {}) or "servo_controller" in devices.get("devices", {}),
+                            "drivetrain": "servo_controller" in devices.get("primary", {}) or "servo_controller" in devices.get("devices", {})
+                        },
+                        "message": "Scan complete"
+                    }
+                    self.send_json(response)
+                except ImportError:
+                    self.send_json({"success": False, "message": "Hardware Detector not available"})
+                except Exception as e:
+                    self.send_json({"success": False, "message": str(e)})
+
             else:
                 self.send_error(404)
+
         except Exception as e:
             logger.error(f"POST error: {e}")
             self.send_error(500)
@@ -94,12 +188,63 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
+    def handle_single_frame(self):
+        if not brain_service.camera:
+            self.send_error(404, "Camera not available")
+            return
+            
+        frame_data = brain_service.camera.capture_frame()
+        if frame_data and frame_data.get('rgb') is not None:
+            ret, jpeg = cv2.imencode('.jpg', frame_data['rgb'])
+            if ret:
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/jpeg')
+                self.end_headers()
+                self.wfile.write(jpeg.tobytes())
+                return
+        
+        self.send_error(503, "Frame capture failed")
+
+    def handle_mjpeg_stream(self):
+        if not brain_service.camera:
+            self.send_error(404, "Camera not available")
+            return
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
+        self.end_headers()
+
+        try:
+            while True:
+                # Limit FPS to ~15 for streaming to save bandwidth
+                start_time = time.time()
+                
+                frame_data = brain_service.camera.capture_frame()
+                if frame_data and frame_data.get('rgb') is not None:
+                    ret, jpeg = cv2.imencode('.jpg', frame_data['rgb'])
+                    if ret:
+                        self.wfile.write(b'--frame\r\n')
+                        self.send_header('Content-Type', 'image/jpeg')
+                        self.send_header('Content-Length', str(len(jpeg)))
+                        self.end_headers()
+                        self.wfile.write(jpeg.tobytes())
+                        self.wfile.write(b'\r\n')
+                
+                # Sleep to maintain FPS
+                elapsed = time.time() - start_time
+                delay = max(0.0, 0.066 - elapsed) # ~15 FPS
+                time.sleep(delay)
+                
+        except Exception as e:
+            pass # Client disconnected
+
     def log_message(self, format, *args):
         # Silence default logging
         return
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""
+    allow_reuse_address = True
     daemon_threads = True
 
 def main():
@@ -123,7 +268,6 @@ def main():
     shell_type = identity_service.identity.get("shell", {}).get("type", "Unknown")
     
     # If Desktop Station, force mock hardware for robot components?
-    # Or let BrainService handle it using "One Brain Many Shells" logic?
     # For now, we pass preferences.
     
     brain_service = BrainService(
