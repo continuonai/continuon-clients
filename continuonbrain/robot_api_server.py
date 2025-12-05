@@ -1848,7 +1848,15 @@ class SimpleJSONServer:
             try {
                 var storedHistory = localStorage.getItem(chatHistoryKey);
                 if (storedHistory) {
-                    chatHistory = JSON.parse(storedHistory) || [];
+                    try {
+                        chatHistory = JSON.parse(storedHistory);
+                        if (!Array.isArray(chatHistory)) {
+                            chatHistory = [];
+                        }
+                    } catch (parseError) {
+                        console.warn('Failed to parse chat history', parseError);
+                        chatHistory = [];
+                    }
                     chatHistory.forEach(function(msg) {
                         renderChatMessage(msg.content, msg.role, false);
                     });
