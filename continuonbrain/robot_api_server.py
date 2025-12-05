@@ -421,6 +421,13 @@ class RobotService:
                     "message": "PCA9685 output inactive (mock mode)" if self.drivetrain.is_mock else "Drivetrain ready",
                     "last_command": self.last_drive_result or self.drivetrain.last_command,
                 }
+                if self.drivetrain.is_mock:
+                    status["drivetrain"].update(
+                        {
+                            "warning": "MOCK drivetrain: hardware output unavailable",
+                            "unavailable_reason": "Mock drivers loaded instead of PCA9685",
+                        }
+                    )
 
             if self.health_checker:
                 status["safety_head"] = self.health_checker.get_safety_head_status()

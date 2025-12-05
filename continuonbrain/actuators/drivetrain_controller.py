@@ -145,28 +145,31 @@ class DrivetrainController:
                 "message": "Drivetrain not initialized",
                 "steering": steering_clamped,
                 "throttle": throttle_clamped,
+                "hardware_available": not self.is_mock,
+                "mode": self.mode,
             }
             self.last_command = result
             return result
 
         try:
-            steering_angle = (
-                self.config.steering_center_degrees
-                + steering_clamped * self.config.steering_range_degrees
-            )
-
             if self.is_mock:
-                # In mock mode, flag that hardware output is unavailable
+                # In mock mode, treat hardware as unavailable and surface a clear warning
                 result = {
                     "success": False,
-                    "message": "MOCK mode: PCA9685 output inactive; drive command not sent",
+                    "message": "MOCK mode active: PCA9685 output unavailable; drive command blocked",
                     "steering": steering_clamped,
                     "throttle": throttle_clamped,
                     "mode": "mock",
                     "hardware_available": False,
+                    "warning": "Running with mock drivers; no real drivetrain output",
                 }
                 self.last_command = result
                 return result
+
+            steering_angle = (
+                self.config.steering_center_degrees
+                + steering_clamped * self.config.steering_range_degrees
+            )
 
             if self.kit is None:
                 raise RuntimeError("ServoKit not initialized")
