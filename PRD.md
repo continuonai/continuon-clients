@@ -60,7 +60,7 @@ ContinuonXR includes applications for non-XR devices:
 
 ### 3.1 Core Platform & Architecture
 *   **Platform:** Native Android XR app built with **Kotlin + Jetpack XR (Compose for XR + SceneCore)** on Galaxy XR hardware.
-*   **Communication:** Must establish a local **gRPC/WebRTC link** to the **ContinuonBrain/OS** running on the docked Pixel 10 for real-time state and command exchange. Must use HTTPS/WebSockets to communicate with **Continuon Cloud**.
+*   **Communication:** Must establish a local **gRPC/WebRTC link** to the **ContinuonBrain/OS** runtime hosted on the paired edge device or dock for real-time state and command exchange. Must use HTTPS/WebSockets to communicate with **Continuon Cloud**.
 *   **Edge Integration:** Must respect and use the stable **Robot API** exposed by ContinuonBrain/OS.
 
 ### 3.2 RLDS Data Contract (Must be Strictly Implemented)
