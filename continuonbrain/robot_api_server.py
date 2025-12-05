@@ -1854,7 +1854,7 @@ class SimpleJSONServer:
                             chatHistory = [];
                         }
                     } catch (parseError) {
-                        console.warn('Failed to parse chat history', parseError);
+                        console.warn('Failed to parse chat history from localStorage, using empty history instead:', parseError);
                         chatHistory = [];
                     }
                     chatHistory.forEach(function(msg) {
@@ -2982,7 +2982,7 @@ class SimpleJSONServer:
                             chatHistory = [];
                         }
                     } catch (parseError) {
-                        console.warn('Failed to parse chat history', parseError);
+                        console.warn('Failed to parse chat history from localStorage, using empty history instead:', parseError);
                         chatHistory = [];
                     }
                     chatHistory.forEach(function(msg) {
