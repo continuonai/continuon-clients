@@ -5,10 +5,12 @@ Runs against real hardware by default with optional mock fallback for dev.
 import asyncio
 import os
 import time
-from typing import AsyncIterator, Optional
+from dataclasses import dataclass, field
+from typing import AsyncIterator, Dict, List, Optional
 import json
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs
 import cv2
 import numpy as np
 
@@ -27,6 +29,170 @@ from continuonbrain.gemma_chat import create_gemma_chat
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
+
+
+@dataclass
+class TaskDefinition:
+    """Static task library entry used to seed Studio panels."""
+
+    id: str
+    title: str
+    description: str
+    group: str
+    tags: List[str] = field(default_factory=list)
+    requires_motion: bool = False
+    requires_recording: bool = False
+    required_modalities: List[str] = field(default_factory=list)
+    steps: List[str] = field(default_factory=list)
+    estimated_duration: str = ""
+    recommended_mode: str = "autonomous"
+    telemetry_topic: str = "loop/tasks"
+
+
+@dataclass
+class TaskEligibilityMarker:
+    code: str
+    label: str
+    severity: str = "info"
+    blocking: bool = False
+    source: str = "runtime"
+    remediation: str = ""
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "code": self.code,
+            "label": self.label,
+            "severity": self.severity,
+            "blocking": self.blocking,
+            "source": self.source,
+            "remediation": self.remediation,
+        }
+
+
+@dataclass
+class TaskEligibility:
+    eligible: bool
+    markers: List[TaskEligibilityMarker] = field(default_factory=list)
+    next_poll_after_ms: float = 250.0
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "eligible": self.eligible,
+            "markers": [marker.to_dict() for marker in self.markers],
+            "next_poll_after_ms": self.next_poll_after_ms,
+        }
+
+
+@dataclass
+class TaskLibraryEntry:
+    id: str
+    title: str
+    description: str
+    group: str
+    tags: List[str]
+    eligibility: TaskEligibility
+    estimated_duration: str = ""
+    recommended_mode: str = "autonomous"
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "group": self.group,
+            "tags": self.tags,
+            "eligibility": self.eligibility.to_dict(),
+            "estimated_duration": self.estimated_duration,
+            "recommended_mode": self.recommended_mode,
+        }
+
+
+@dataclass
+class TaskSummary:
+    entry: TaskLibraryEntry
+    required_modalities: List[str]
+    steps: List[str]
+    owner: str
+    updated_at: str
+    telemetry_topic: str
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "entry": self.entry.to_dict(),
+            "required_modalities": self.required_modalities,
+            "steps": self.steps,
+            "owner": self.owner,
+            "updated_at": self.updated_at,
+            "telemetry_topic": self.telemetry_topic,
+        }
+
+
+class TaskLibrary:
+    """In-memory Task Library with lightweight eligibility markers."""
+
+    def __init__(self) -> None:
+        self._entries: Dict[str, TaskDefinition] = {
+            "workspace-inspection": TaskDefinition(
+                id="workspace-inspection",
+                title="Inspect Workspace",
+                description="Sweep sensors for loose cables or obstacles before enabling autonomy.",
+                group="Safety",
+                tags=["safety", "vision", "preflight"],
+                requires_motion=False,
+                requires_recording=False,
+                required_modalities=["vision"],
+                steps=[
+                    "Spin the camera and depth sensors across the workspace",
+                    "Flag blocked envelopes for operator acknowledgement",
+                    "Cache a short clip for offline review",
+                ],
+                estimated_duration="45s",
+                recommended_mode="autonomous",
+                telemetry_topic="telemetry/preflight",
+            ),
+            "pick-and-place": TaskDefinition(
+                id="pick-and-place",
+                title="Pick & Place Demo",
+                description="Run the default manipulation loop for demos and regressions.",
+                group="Autonomy",
+                tags=["manipulation", "demo", "recordable"],
+                requires_motion=True,
+                requires_recording=True,
+                required_modalities=["vision", "gripper"],
+                steps=[
+                    "Plan grasp pose",
+                    "Lift and place to bin",
+                    "Report safety margin and latency",
+                ],
+                estimated_duration="2m",
+                recommended_mode="autonomous",
+                telemetry_topic="telemetry/manipulation",
+            ),
+            "calibration-check": TaskDefinition(
+                id="calibration-check",
+                title="Calibration Check",
+                description="Verify encoders and camera alignment before overnight runs.",
+                group="Maintenance",
+                tags=["maintenance", "calibration"],
+                requires_motion=False,
+                requires_recording=False,
+                required_modalities=["vision", "arm"],
+                steps=[
+                    "Move to calibration pose",
+                    "Capture depth + RGB alignment snapshot",
+                    "Emit eligibility marker if drift detected",
+                ],
+                estimated_duration="1m",
+                recommended_mode="manual_training",
+                telemetry_topic="telemetry/calibration",
+            ),
+        }
+
+    def list_entries(self) -> List[TaskDefinition]:
+        return list(self._entries.values())
+
+    def get_entry(self, task_id: str) -> Optional[TaskDefinition]:
+        return self._entries.get(task_id)
 
 
 class RobotService:
@@ -59,6 +225,8 @@ class RobotService:
         self.last_drive_result: Optional[dict] = None
         self.system_instructions: Optional[SystemInstructions] = system_instructions or SystemContext.get_instructions()
         self.health_checker = SystemHealthChecker(config_dir=config_dir)
+        self.task_library = TaskLibrary()
+        self.selected_task_id: Optional[str] = None
 
         # Initialize Gemma chat (will use mock if transformers not available)
         self.gemma_chat = create_gemma_chat(use_mock=False)
@@ -177,6 +345,93 @@ class RobotService:
             )
             self.mode_manager.return_to_idle()
         return self.mode_manager
+
+    def _now_iso(self) -> str:
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    def _build_task_eligibility(self, task: TaskDefinition) -> TaskEligibility:
+        mode_manager = self._ensure_mode_manager()
+        gates = mode_manager.get_gate_snapshot() if mode_manager else {}
+        markers: List[TaskEligibilityMarker] = []
+
+        if task.requires_motion and not gates.get("allow_motion"):
+            markers.append(
+                TaskEligibilityMarker(
+                    code="MOTION_GATE",
+                    label="Motion is gated; unlock to run autonomy",
+                    severity="blocking",
+                    blocking=True,
+                    remediation="Enable motion gate from the command deck",
+                )
+            )
+
+        if task.requires_recording and not gates.get("record_episodes"):
+            markers.append(
+                TaskEligibilityMarker(
+                    code="RECORDING_GATE",
+                    label="Recording disabled",
+                    severity="warning",
+                    blocking=True,
+                    remediation="Enable recording to log the run",
+                )
+            )
+
+        safety_head = self.health_checker.get_safety_head_status() if self.health_checker else {}
+        if safety_head and safety_head.get("status") not in {None, "ok", "ready"}:
+            markers.append(
+                TaskEligibilityMarker(
+                    code="SAFETY_HEAD",
+                    label="Safety head degraded",
+                    severity="warning",
+                    blocking=False,
+                    source="safety_head",
+                    remediation="Reset safety head before autonomous motion",
+                )
+            )
+
+        if (
+            self.mode_manager
+            and self.mode_manager.current_mode != RobotMode.AUTONOMOUS
+            and task.recommended_mode == "autonomous"
+        ):
+            markers.append(
+                TaskEligibilityMarker(
+                    code="MODE_HINT",
+                    label="Switch to autonomous for best latency",
+                    severity="info",
+                    blocking=False,
+                    source="studio",
+                    remediation="Use the command deck to enable autonomous mode",
+                )
+            )
+
+        eligible = not any(marker.blocking for marker in markers)
+        next_poll_ms = 120.0 if task.requires_motion else 400.0
+        return TaskEligibility(eligible=eligible, markers=markers, next_poll_after_ms=next_poll_ms)
+
+    def _serialize_task_entry(self, task: TaskDefinition) -> TaskLibraryEntry:
+        eligibility = self._build_task_eligibility(task)
+        return TaskLibraryEntry(
+            id=task.id,
+            title=task.title,
+            description=task.description,
+            group=task.group,
+            tags=task.tags,
+            eligibility=eligibility,
+            estimated_duration=task.estimated_duration,
+            recommended_mode=task.recommended_mode,
+        )
+
+    def _build_task_summary(self, task: TaskDefinition) -> TaskSummary:
+        entry = self._serialize_task_entry(task)
+        return TaskSummary(
+            entry=entry,
+            required_modalities=task.required_modalities,
+            steps=task.steps,
+            owner="robot",
+            updated_at=self._now_iso(),
+            telemetry_topic=task.telemetry_topic,
+        )
     
     async def StreamRobotState(self, client_id: str) -> AsyncIterator[dict]:
         """
@@ -432,6 +687,13 @@ class RobotService:
             if self.health_checker:
                 status["safety_head"] = self.health_checker.get_safety_head_status()
 
+            if self.selected_task_id:
+                task_entry = self.task_library.get_entry(self.selected_task_id)
+                if task_entry:
+                    status["current_task"] = self._build_task_summary(task_entry).to_dict()
+            else:
+                status["current_task"] = None
+
             return {"success": True, "status": status}
 
         except Exception as e:
@@ -454,6 +716,76 @@ class RobotService:
             }
         except Exception as e:
             return {"success": False, "message": f"Error: {str(e)}"}
+
+    async def ListTasks(self, include_ineligible: bool = False) -> dict:
+        """List Task Library entries with eligibility markers."""
+
+        try:
+            entries: List[Dict[str, object]] = []
+            for task in self.task_library.list_entries():
+                entry = self._serialize_task_entry(task)
+                if include_ineligible or entry.eligibility.eligible:
+                    entries.append(entry.to_dict())
+
+            return {
+                "success": True,
+                "tasks": entries,
+                "selected_task_id": self.selected_task_id,
+                "source": "live",
+            }
+        except Exception as exc:
+            return {"success": False, "message": f"Error: {exc}"}
+
+    async def GetTaskSummary(self, task_id: str) -> dict:
+        """Return a detail-rich summary for a single task."""
+
+        try:
+            task = self.task_library.get_entry(task_id)
+            if not task:
+                return {"success": False, "message": f"Unknown task: {task_id}"}
+
+            summary = self._build_task_summary(task)
+            return {"success": True, "summary": summary.to_dict()}
+        except Exception as exc:
+            return {"success": False, "message": f"Error: {exc}"}
+
+    async def SelectTask(self, task_id: str, reason: Optional[str] = None) -> dict:
+        """Select the next task for autonomy loops and Studio previews."""
+
+        try:
+            if not task_id:
+                return {"success": False, "accepted": False, "message": "task_id is required"}
+
+            task = self.task_library.get_entry(task_id)
+            if not task:
+                return {"success": False, "accepted": False, "message": f"Unknown task: {task_id}"}
+
+            summary = self._build_task_summary(task)
+            eligibility = summary.entry.eligibility
+            if not eligibility.eligible:
+                return {
+                    "success": True,
+                    "accepted": False,
+                    "message": "Task blocked by eligibility markers",
+                    "selected_task": summary.entry.to_dict(),
+                    "eligibility": eligibility.to_dict(),
+                }
+
+            self.selected_task_id = task_id
+
+            selection_message = reason or "Studio/Robot selection"
+            if self.mode_manager and task.requires_motion and self.mode_manager.current_mode != RobotMode.AUTONOMOUS:
+                selection_message += " • enable autonomous mode to execute"
+
+            return {
+                "success": True,
+                "accepted": True,
+                "message": selection_message,
+                "selected_task": summary.entry.to_dict(),
+                "eligibility": eligibility.to_dict(),
+            }
+        except Exception as exc:
+            return {"success": False, "accepted": False, "message": f"Error: {exc}"}
 
     async def GetGates(self) -> dict:
         """Expose gate snapshot and safety envelope for UI badges."""
@@ -715,6 +1047,7 @@ class SimpleJSONServer:
         
         # Strip query string for routing
         path = full_path.split('?')[0]
+        query_params = parse_qs(full_path.split('?', 1)[1]) if '?' in full_path else {}
         
         print(f"[HTTP] {method} {path}")
         
@@ -755,6 +1088,23 @@ class SimpleJSONServer:
         elif path == "/api/gates":
             gates = await self.service.GetGates()
             response_body = json.dumps(gates)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path in {"/api/tasks", "/api/tasks/"}:
+            include_ineligible = query_params.get("include_ineligible", ["false"])[0].lower() == "true"
+            result = await self.service.ListTasks(include_ineligible=include_ineligible)
+            response_body = json.dumps(result)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path.startswith("/api/tasks/summary/"):
+            task_id = path.split("/")[-1]
+            result = await self.service.GetTaskSummary(task_id)
+            response_body = json.dumps(result)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/tasks/select" and method == "POST":
+            content_length = int(headers.get('content-length', 0))
+            body = await reader.read(content_length) if content_length > 0 else b''
+            payload = json.loads(body.decode()) if body else {}
+            result = await self.service.SelectTask(payload.get("task_id", ""), reason=payload.get("reason"))
+            response_body = json.dumps(result)
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/safety/hold":
             result = await self.service.TriggerSafetyHold()
@@ -1290,6 +1640,42 @@ class SimpleJSONServer:
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
         }
 
+        .task-panel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .task-card {
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .task-card h3 { margin: 0; font-size: 16px; }
+        .task-card .task-meta { color: var(--muted); font-size: 12px; }
+
+        .task-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .task-tag { font-size: 12px; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
+
+        .eligibility-marker { font-size: 12px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); }
+        .eligibility-marker.blocking { border-color: rgba(255, 77, 109, 0.6); color: #ffb2c0; }
+        .eligibility-marker.warning { border-color: rgba(255, 185, 87, 0.6); color: #ffd9a0; }
+        .eligibility-marker.info { border-color: rgba(122, 215, 255, 0.6); color: #c9edff; }
+        .eligibility-marker.success { border-color: rgba(56, 217, 150, 0.6); color: #c0f8e5; }
+
+        .task-actions { display: flex; gap: 8px; justify-content: flex-start; align-items: center; }
+        .task-actions button { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text); cursor: pointer; }
+        .task-actions button[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+        .selected-task-pill { padding: 10px 12px; border-radius: 999px; border: 1px solid var(--border); background: rgba(122, 215, 255, 0.07); font-size: 13px; }
+        .selected-task-pill.success { border-color: rgba(56, 217, 150, 0.7); color: #c0f8e5; }
+        .selected-task-pill.warning { border-color: rgba(255, 185, 87, 0.7); color: #ffd9a0; }
+        
         .status-label { color: var(--muted); font-size: 12px; letter-spacing: 0.3px; }
         .status-value { font-size: 18px; font-weight: 700; margin-top: 6px; }
 
@@ -1720,6 +2106,22 @@ class SimpleJSONServer:
                 <section class="panel">
                     <div class="panel-header">
                         <div>
+                            <div class="panel-eyebrow">Task Library</div>
+                            <h2>Autonomy Task Deck</h2>
+                            <p class="panel-subtitle">Group tasks by intent, check eligibility markers, and hand off to the robot.</p>
+                        </div>
+                        <div class="selected-task-pill" id="current-task-pill">No task selected</div>
+                    </div>
+                    <div class="task-panel-grid" id="task-groups">
+                        <div class="status-item">
+                            <span class="status-label">Loading tasks...</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
                             <div class="panel-eyebrow">HOPE / CMS</div>
                             <h2>Loop Telemetry & Safety</h2>
                             <p class="panel-subtitle">Wave/particle balance, safety envelopes, and gate heartbeats.</p>
@@ -2069,6 +2471,79 @@ class SimpleJSONServer:
             }).join('');
         }
 
+        function renderSelectedTask(selectedTask) {
+            const pill = document.getElementById('current-task-pill');
+            if (!pill) return;
+
+            if (!selectedTask || !selectedTask.entry) {
+                pill.textContent = 'No task selected';
+                pill.className = 'selected-task-pill warning';
+                return;
+            }
+
+            const entry = selectedTask.entry;
+            const eligible = entry.eligibility ? entry.eligibility.eligible : false;
+            pill.textContent = `${entry.title || 'Task'} • ${entry.group || 'Task Library'}`;
+            pill.className = 'selected-task-pill ' + (eligible ? 'success' : 'warning');
+        }
+
+        function renderTaskLibrary(payload) {
+            const container = document.getElementById('task-groups');
+            if (!container) return;
+
+            const tasks = (payload && payload.tasks) || [];
+            const selectedId = payload ? payload.selected_task_id : null;
+            if (!tasks.length) {
+                container.innerHTML = '<div class="status-item"><span class="status-label">No tasks available</span></div>';
+                return;
+            }
+
+            const groups = {};
+            tasks.forEach(task => {
+                const groupKey = task.group || 'Tasks';
+                if (!groups[groupKey]) {
+                    groups[groupKey] = [];
+                }
+                groups[groupKey].push(task);
+            });
+
+            container.innerHTML = Object.entries(groups).map(([groupLabel, entries]) => {
+                const cards = entries.map(task => {
+                    const eligibility = task.eligibility || {};
+                    const markers = (eligibility.markers || []).map(marker => {
+                        const severity = marker.blocking ? 'blocking' : (marker.severity || 'info');
+                        const remediation = marker.remediation ? ` — ${marker.remediation}` : '';
+                        const label = marker.label || marker.code || 'marker';
+                        return `<div class="eligibility-marker ${severity}">${label}${remediation}</div>`;
+                    }).join('') || '<div class="eligibility-marker success">Eligible</div>';
+
+                    const tagRow = (task.tags || []).map(tag => `<span class="task-tag">${tag}</span>`).join('');
+                    const isSelected = selectedId && selectedId === task.id;
+                    const selectLabel = isSelected ? 'Selected' : 'Select task';
+                    const disabledAttr = eligibility.eligible ? '' : 'disabled';
+                    const highlightStyle = isSelected ? 'style="border-color: rgba(122,215,255,0.7);"' : '';
+
+                    return `<div class="task-card" ${highlightStyle}>` +
+                        `<div>` +
+                            `<h3>${task.title || 'Task'}</h3>` +
+                            `<div class="task-meta">${task.description || ''}</div>` +
+                            `<div class="task-tags">${tagRow}</div>` +
+                        `</div>` +
+                        `<div>${markers}</div>` +
+                        `<div class="task-actions">` +
+                            `<button onclick="window.selectTask('${task.id}')" ${disabledAttr}>${selectLabel}</button>` +
+                            `<span class="task-meta">${task.estimated_duration || ''} • ${task.recommended_mode || ''}</span>` +
+                        `</div>` +
+                    `</div>`;
+                }).join('');
+
+                return `<div>` +
+                    `<div class="panel-eyebrow">${groupLabel}</div>` +
+                    `<div class="task-panel-grid">${cards}</div>` +
+                `</div>`;
+            }).join('');
+        }
+
         function renderAgentRail(status) {
             const agents = (status && Array.isArray(status.agent_threads) && status.agent_threads.length)
                 ? status.agent_threads
@@ -2221,6 +2696,48 @@ class SimpleJSONServer:
             }
         }
 
+        window.selectTask = async function(taskId) {
+            if (!taskId) return;
+            try {
+                const response = await fetch('/api/tasks/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: taskId, reason: 'studio-selection' })
+                });
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                const payload = await response.json();
+                window.showMessage(payload.message || 'Task selection updated', !payload.accepted);
+                if (payload.selected_task) {
+                    renderSelectedTask({ entry: payload.selected_task });
+                }
+                window.fetchTaskLibrary();
+                window.updateStatus();
+            } catch (err) {
+                console.warn('Task selection failed', err);
+                window.showMessage('Failed to select task', true);
+            }
+        };
+
+        window.fetchTaskLibrary = async function() {
+            try {
+                const response = await fetch('/api/tasks?include_ineligible=true');
+                if (!response.ok) { return; }
+                const payload = await response.json();
+                renderTaskLibrary(payload);
+
+                if (payload && payload.selected_task_id && Array.isArray(payload.tasks)) {
+                    const selected = payload.tasks.find(task => task.id === payload.selected_task_id);
+                    if (selected) {
+                        renderSelectedTask({ entry: selected });
+                    }
+                }
+            } catch (err) {
+                console.warn('Task library fetch failed', err);
+            }
+        };
+
         // Tab switching logic for Manual Control
         window.switchTab = function(tabName) {
             // Update tab buttons
@@ -2259,6 +2776,7 @@ class SimpleJSONServer:
 
                             renderLoopTelemetry(data.status);
                             renderAgentRail(data.status);
+                            renderSelectedTask(data.status.current_task);
 
                             // Update hardware sensors
                             var hardwareDiv = document.getElementById('hardware-status');
@@ -2656,8 +3174,10 @@ class SimpleJSONServer:
         renderAgentRail();
         window.updateStatus();
         window.pollLoopHealth();
+        window.fetchTaskLibrary();
         setInterval(window.updateStatus, 2000);
         setInterval(window.pollLoopHealth, 1500);
+        setInterval(window.fetchTaskLibrary, 1000);
     </script>
 </body>
 </html>"""
@@ -3925,11 +4445,24 @@ class SimpleJSONServer:
                             response_json = json.dumps(state) + "\n"
                             writer.write(response_json.encode())
                             await writer.drain()
-                            
+
                             # Check for client disconnect
                             if reader.at_eof():
                                 break
                         continue
+                    elif method == "list_tasks":
+                        params = command.get("params", {})
+                        include_ineligible = bool(params.get("include_ineligible")) if isinstance(params, dict) else False
+                        response = await self.service.ListTasks(include_ineligible=include_ineligible)
+                    elif method == "get_task_summary":
+                        response = await self.service.GetTaskSummary(
+                            command.get("params", {}).get("task_id", "")
+                        )
+                    elif method == "select_task":
+                        params = command.get("params", {})
+                        response = await self.service.SelectTask(
+                            params.get("task_id", ""), reason=params.get("reason") if isinstance(params, dict) else None
+                        )
                     else:
                         response = {"success": False, "message": f"Unknown method: {method}"}
                     

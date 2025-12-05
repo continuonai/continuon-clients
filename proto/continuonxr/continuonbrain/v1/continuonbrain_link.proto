@@ -18,6 +18,15 @@ service ContinuonBrainBridgeService {
 
   // Low-latency telemetry stream used by Continuon Brain Studio.
   rpc StreamRobotEditorTelemetry(StreamRobotEditorTelemetryRequest) returns (stream StreamRobotEditorTelemetryResponse);
+
+  // Task library queries used by Studio and the runtime when running autonomy loops.
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+
+  // Retrieve a detail-rich summary for a single task entry.
+  rpc GetTaskSummary(GetTaskSummaryRequest) returns (GetTaskSummaryResponse);
+
+  // Select the next task to execute; autonomy loops poll this in latency-sensitive paths.
+  rpc SelectTask(SelectTaskRequest) returns (SelectTaskResponse);
 }
 
 // Identify the XR client in upstream streams.
@@ -274,4 +283,73 @@ message StreamRobotEditorTelemetryResponse {
   HopeCmsSignals hope_cms_signals = 4;
   repeated SafetySignal safety_signals = 5;
   CmsSnapshot cms_snapshot = 6;
+}
+
+// Task Library entries surfaced to Studio and the runtime for autonomy scheduling.
+message TaskLibraryEntry {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string group = 4; // grouping label for Studio UI sections
+  repeated string tags = 5;
+  TaskEligibility eligibility = 6;
+  string estimated_duration = 7; // human-readable (e.g., "2m", "45s")
+  string recommended_mode = 8; // e.g., autonomous, manual_training
+}
+
+message TaskEligibility {
+  bool eligible = 1;
+  repeated TaskEligibilityMarker markers = 2;
+  double next_poll_after_ms = 3; // latency budget for the next query
+}
+
+message TaskEligibilityMarker {
+  string code = 1;
+  string label = 2;
+  string severity = 3; // info, warning, blocking
+  bool blocking = 4;
+  string source = 5; // runtime, studio, safety_head
+  string remediation = 6;
+}
+
+message TaskSummary {
+  TaskLibraryEntry entry = 1;
+  repeated string required_modalities = 2;
+  repeated string steps = 3;
+  string owner = 4;
+  string updated_at = 5; // ISO-8601 timestamp
+  string telemetry_topic = 6;
+}
+
+message ListTasksRequest {
+  string client_id = 1;
+  bool include_ineligible = 2;
+}
+
+message ListTasksResponse {
+  repeated TaskLibraryEntry tasks = 1;
+  string selected_task_id = 2;
+  string source = 3; // live, cached, mock
+}
+
+message GetTaskSummaryRequest {
+  string client_id = 1;
+  string task_id = 2;
+}
+
+message GetTaskSummaryResponse {
+  TaskSummary summary = 1;
+}
+
+message SelectTaskRequest {
+  string client_id = 1;
+  string task_id = 2;
+  string reason = 3;
+}
+
+message SelectTaskResponse {
+  bool accepted = 1;
+  string message = 2;
+  TaskLibraryEntry selected_task = 3;
+  TaskEligibility eligibility = 4;
 }
