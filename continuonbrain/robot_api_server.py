@@ -2660,14 +2660,16 @@ class SimpleJSONServer:
 
         // Event delegation for task deck interactions to prevent XSS vulnerabilities
         // Only register the listener once to prevent memory leaks
-        if (!window._taskDeckEventListenerRegistered) {
-            window._taskDeckEventListenerRegistered = true;
+        if (!window.taskDeckState._eventListenerRegistered) {
+            window.taskDeckState._eventListenerRegistered = true;
             document.addEventListener('click', function(e) {
-                const target = e.target;
+                // Use closest() to handle clicks on child elements within buttons
+                let target = e.target;
                 
                 // Handle task group filter clicks
-                if (target.classList.contains('task-group-filter')) {
-                    const group = target.getAttribute('data-group');
+                const filterBtn = target.closest('.task-group-filter');
+                if (filterBtn) {
+                    const group = filterBtn.getAttribute('data-group');
                     if (group) {
                         window.filterTaskGroup(group);
                     }
@@ -2675,17 +2677,19 @@ class SimpleJSONServer:
                 }
                 
                 // Handle task selection clicks
-                if (target.classList.contains('task-select-btn')) {
-                    const taskId = target.getAttribute('data-task-id');
-                    if (taskId && !target.disabled) {
+                const selectBtn = target.closest('.task-select-btn');
+                if (selectBtn) {
+                    const taskId = selectBtn.getAttribute('data-task-id');
+                    if (taskId && !selectBtn.disabled) {
                         window.selectTask(taskId);
                     }
                     return;
                 }
                 
                 // Handle task details toggle clicks
-                if (target.classList.contains('task-details-btn')) {
-                    const taskId = target.getAttribute('data-task-id');
+                const detailsBtn = target.closest('.task-details-btn');
+                if (detailsBtn) {
+                    const taskId = detailsBtn.getAttribute('data-task-id');
                     if (taskId) {
                         window.toggleTaskDetails(taskId);
                     }
