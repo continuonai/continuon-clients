@@ -1803,6 +1803,17 @@ class SimpleJSONServer:
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
 
+        // Sanitize text to prevent XSS attacks
+        function sanitizeText(text) {
+            if (typeof text !== 'string') {
+                return '';
+            }
+            // Remove any HTML tags and limit length
+            var sanitized = text.replace(/<[^>]*>/g, '');
+            // Limit length to prevent DOS attacks
+            return sanitized.substring(0, 10000);
+        }
+
         function persistChatState() {
             try {
                 localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
@@ -1832,14 +1843,17 @@ class SimpleJSONServer:
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
+            // Sanitize text before rendering
+            var sanitized = sanitizeText(text);
+            
             var messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = text;
+            messageDiv.textContent = sanitized;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
+                chatHistory.push({role: role, content: sanitized});
                 persistChatState();
             }
         }
@@ -1850,7 +1864,9 @@ class SimpleJSONServer:
                 if (storedHistory) {
                     chatHistory = JSON.parse(storedHistory) || [];
                     chatHistory.forEach(function(msg) {
-                        renderChatMessage(msg.content, msg.role, false);
+                        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                            renderChatMessage(msg.content, msg.role, false);
+                        }
                     });
                 }
 
@@ -2915,6 +2931,17 @@ class SimpleJSONServer:
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
 
+        // Sanitize text to prevent XSS attacks
+        function sanitizeText(text) {
+            if (typeof text !== 'string') {
+                return '';
+            }
+            // Remove any HTML tags and limit length
+            var sanitized = text.replace(/<[^>]*>/g, '');
+            // Limit length to prevent DOS attacks
+            return sanitized.substring(0, 10000);
+        }
+
         function persistChatState() {
             try {
                 // Trim in-memory history as well
@@ -2950,14 +2977,17 @@ class SimpleJSONServer:
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
+            // Sanitize text before rendering
+            var sanitized = sanitizeText(text);
+            
             var messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = text;
+            messageDiv.textContent = sanitized;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
+                chatHistory.push({role: role, content: sanitized});
                 persistChatState();
             }
         }
