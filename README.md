@@ -77,6 +77,12 @@ The central intelligence (the "Brain") is morphology-agnostic and can inhabit an
 - **Rapid Deployment**: New robot platforms can be supported by implementing a standard Hardware Abstraction Layer
 - **Continuous Improvement**: The brain evolves through multi-modal data from diverse deployment contexts
 
+### Terminology: Runtime, Studio, and Companion App
+
+- **Continuon Brain Runtime**: The on-robot execution environment that exposes the shared Robot API over gRPC/WebRTC, manages discovery/ownership, and hosts control/telemetry services for any shell (edge boards, XR shells, browser-hosted panels, or other form factors).
+- **Continuon Brain Studio (Robot Editor)**: A shell-agnostic editor that runs wherever a browser can render panels, letting operators inspect Robot API streams, edit routines, and visualize HOPE/CMS signals without requiring XR-specific inputs. See [`docs/continuon-studio-spec.md`](docs/continuon-studio-spec.md) for the panel contract.
+- **Continuon AI App**: The consumer-facing companion (mobile/web) that uses the same Robot API to discover and control robots, handles owner sign-in/claims, and provides the entry point for owners to access their robots, recordings, and OTA updates from anywhere.
+
 ---
 
 ## Architectural Overview
