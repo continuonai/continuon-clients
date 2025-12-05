@@ -2589,7 +2589,7 @@ class SimpleJSONServer:
                 controls.innerHTML = ['all', ...groupLabels].map(label => {
                     const active = taskDeckState.selectedGroup === label;
                     const displayLabel = label === 'all' ? 'All' : label;
-                    return `<button class="${active ? 'active' : ''}" data-group="${label}" onclick="window.filterTaskGroup('${label}')">${displayLabel}</button>`;
+                    return `<button class="task-group-filter ${active ? 'active' : ''}" data-group="${label}">${displayLabel}</button>`;
                 }).join('');
             }
 
@@ -2619,8 +2619,8 @@ class SimpleJSONServer:
                             `<div class="task-description">${task.description || ''}</div>` +
                         `</div>` +
                         `<div class="task-actions">` +
-                            `<button onclick="window.selectTask('${task.id}')" ${disabledAttr}>${selectLabel}</button>` +
-                            `<button class="ghost" onclick="window.toggleTaskDetails('${task.id}')">${detailLabel}</button>` +
+                            `<button class="task-select-btn" data-task-id="${task.id}" ${disabledAttr}>${selectLabel}</button>` +
+                            `<button class="ghost task-details-btn" data-task-id="${task.id}">${detailLabel}</button>` +
                         `</div>` +
                         `<div class="task-detail-drawer ${detailOpen ? 'open' : ''}" id="task-detail-${task.id}">` +
                             `<div class="task-meta">${detailMeta || 'No timing hints'}</div>` +
@@ -2657,6 +2657,38 @@ class SimpleJSONServer:
             taskDeckState.expandedDetails[taskId] = !taskDeckState.expandedDetails[taskId];
             renderTaskLibrary(taskLibraryPayload || {});
         };
+
+        // Event delegation for task deck interactions to prevent XSS vulnerabilities
+        document.addEventListener('click', function(e) {
+            const target = e.target;
+            
+            // Handle task group filter clicks
+            if (target.classList.contains('task-group-filter')) {
+                const group = target.getAttribute('data-group');
+                if (group) {
+                    window.filterTaskGroup(group);
+                }
+                return;
+            }
+            
+            // Handle task selection clicks
+            if (target.classList.contains('task-select-btn')) {
+                const taskId = target.getAttribute('data-task-id');
+                if (taskId && !target.disabled) {
+                    window.selectTask(taskId);
+                }
+                return;
+            }
+            
+            // Handle task details toggle clicks
+            if (target.classList.contains('task-details-btn')) {
+                const taskId = target.getAttribute('data-task-id');
+                if (taskId) {
+                    window.toggleTaskDetails(taskId);
+                }
+                return;
+            }
+        });
 
         function renderAgentRail(status) {
             const agents = (status && Array.isArray(status.agent_threads) && status.agent_threads.length)
