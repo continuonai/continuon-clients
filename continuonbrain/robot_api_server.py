@@ -699,6 +699,9 @@ class SimpleJSONServer:
     Supports both HTTP endpoints and raw JSON protocol.
     """
     
+    # Chat configuration
+    CHAT_HISTORY_LIMIT = 50  # Maximum number of chat messages to persist
+    
     def __init__(self, service: RobotService):
         self.service = service
         self.server = None
@@ -832,6 +835,144 @@ class SimpleJSONServer:
         writer.close()
         await writer.wait_closed()
     
+    def get_shared_chat_javascript(self):
+        """Generate shared chat overlay JavaScript for both /ui and /control pages."""
+        return f"""
+        // Chat overlay persistence (shared between /ui and /control)
+        var chatMinimized = false;
+        var chatHistory = [];
+        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
+        var chatHistoryKey = chatStoragePrefix + '_history';
+        var chatMinimizedKey = chatStoragePrefix + '_minimized';
+
+        function persistChatState() {{
+            try {{
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-{self.CHAT_HISTORY_LIMIT})));
+                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
+            }} catch (e) {{
+                console.warn('Unable to persist chat state', e);
+            }}
+        }}
+
+        function applyChatMinimized() {{
+            var panel = document.getElementById('chat-panel');
+            var toggle = document.getElementById('chat-toggle');
+            if (!panel || !toggle) return;
+
+            if (chatMinimized) {{
+                panel.classList.add('minimized');
+                toggle.textContent = '+';
+            }} else {{
+                panel.classList.remove('minimized');
+                toggle.textContent = '−';
+            }}
+        }}
+
+        function renderChatMessage(text, role, shouldPersist) {{
+            if (typeof shouldPersist === 'undefined') shouldPersist = true;
+
+            var messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + role;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            if (shouldPersist) {{
+                chatHistory.push({{role: role, content: text}});
+                persistChatState();
+            }}
+        }}
+
+        function hydrateChatOverlay() {{
+            try {{
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {{
+                    chatHistory = JSON.parse(storedHistory) || [];
+                    chatHistory.forEach(function(msg) {{
+                        renderChatMessage(msg.content, msg.role, false);
+                    }});
+                }}
+
+                var storedMinimized = localStorage.getItem(chatMinimizedKey);
+                if (storedMinimized === 'true') {{
+                    chatMinimized = true;
+                }}
+            }} catch (e) {{
+                console.warn('Unable to hydrate chat state', e);
+            }}
+
+            applyChatMinimized();
+        }}
+
+        window.toggleChat = function() {{
+            chatMinimized = !chatMinimized;
+            persistChatState();
+            applyChatMinimized();
+        }};
+
+        window.addChatMessage = function(text, role) {{
+            renderChatMessage(text, role, true);
+        }};
+
+        window.sendChatMessage = function() {{
+            var input = document.getElementById('chat-input');
+            var sendBtn = document.getElementById('chat-send');
+            var message = input ? input.value.trim() : '';
+
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            if (input) input.value = '';
+
+            // Disable input while processing
+            if (input) input.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+
+            // Send to Gemma endpoint
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/chat', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {{
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+
+                if (xhr.status === 200) {{
+                    try {{
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.response) {{
+                            addChatMessage(data.response, 'assistant');
+                        }} else if (data.error) {{
+                            addChatMessage('Error: ' + data.error, 'system');
+                        }}
+                    }} catch (e) {{
+                        addChatMessage('Error parsing response', 'system');
+                    }}
+                }} else {{
+                    addChatMessage('Server error: ' + xhr.status, 'system');
+                }}
+
+                if (input) input.focus();
+            }};
+            xhr.onerror = function() {{
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                addChatMessage('Connection error', 'system');
+                if (input) input.focus();
+            }};
+
+            // Include chat history for context
+            xhr.send(JSON.stringify({{
+                message: message,
+                history: chatHistory.slice(-10) // Last 10 messages for context
+            }}));
+        }};
+
+        hydrateChatOverlay();"""
+    
     def get_web_ui_html(self):
         """Generate simple web UI for robot control."""
         return """<!DOCTYPE html>
@@ -933,7 +1074,8 @@ class SimpleJSONServer:
 
         .ide-workspace {
             display: grid;
-            grid-template-columns: 280px 1fr;
+            grid-template-columns: 280px 1fr 320px;
+            align-items: start;
             gap: 18px;
         }
 
@@ -1273,6 +1415,135 @@ class SimpleJSONServer:
         }
 
         .chat-send-btn:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+        .agent-rail {
+            background: linear-gradient(180deg, rgba(16, 24, 38, 0.96), rgba(13, 20, 32, 0.96));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 300px;
+        }
+
+        .rail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rail-title {
+            margin: 4px 0 0 0;
+            font-size: 18px;
+        }
+
+        .rail-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .rail-btn {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .rail-btn:hover { border-color: var(--accent); }
+        .rail-btn.primary { background: linear-gradient(135deg, #7ad7ff, #4f9dff); color: #0b1020; }
+
+        .human-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+        }
+
+        .human-toggle.active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(122, 215, 255, 0.2); }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .status-chip.active { border-color: rgba(56, 217, 150, 0.5); color: #8df5c7; }
+        .status-chip.paused { border-color: rgba(255, 149, 0, 0.5); color: #ffcf99; }
+        .status-chip.focus { border-color: rgba(79, 157, 255, 0.5); color: #a9c7ff; }
+
+        .agent-thread-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .agent-thread {
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+        }
+
+        .agent-thread h4 { margin: 0; font-size: 15px; }
+        .agent-meta { color: var(--muted); font-size: 12px; }
+
+        .learning-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+        .learning-item {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px dashed var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .learning-item strong { display: block; font-size: 13px; margin-bottom: 4px; }
+        .learning-meta { color: var(--muted); font-size: 12px; }
+
+        .milestone-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+        .milestone-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4f9dff, #7ad7ff);
+            transition: width 0.25s ease;
+        }
+
+        .agent-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body class="ide-body">
@@ -1297,7 +1568,7 @@ class SimpleJSONServer:
                 <div class="sidebar-section">
                     <div class="sidebar-title">Command Deck</div>
                     <div class="command-grid">
-                        <button class="command-btn primary" onclick="window.location.href='/control'">🎮 Manual Control</button>
+                        <button id="manual-control-btn" class="command-btn primary" onclick="startManualControl(this)">🎮 Manual Control</button>
                         <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
                         <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
                         <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
@@ -1339,6 +1610,9 @@ class SimpleJSONServer:
                             <div class="status-label">Motion Allowed</div>
                             <div class="status-value" id="motion-card">No</div>
                         </div>
+                    </div>
+                    <div class="agent-chip-row" id="agent-chip-row">
+                        <!-- Agent status chips injected by JS -->
                     </div>
                 </section>
 
@@ -1524,20 +1798,53 @@ class SimpleJSONServer:
 
                 <div id="status-message" class="inline-status" style="display: none;"></div>
             </main>
+
+            <aside class="agent-rail">
+                <div class="rail-header">
+                    <div>
+                        <div class="panel-eyebrow">Agent Manager</div>
+                        <div class="rail-title">Threads & Guidance</div>
+                    </div>
+                    <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
+                        <span>Human mode</span>
+                        <strong id="human-toggle-state">Off</strong>
+                    </div>
+                </div>
+
+                <div class="rail-actions">
+                    <button class="rail-btn primary" onclick="resumeAgents()">▶️ Resume agents</button>
+                    <button class="rail-btn" onclick="pauseAgents()">⏸️ Pause agents</button>
+                    <button class="rail-btn" onclick="reviewLearning()">📒 Review learning</button>
+                </div>
+
+                <div class="panel" style="padding: 14px; background: rgba(255,255,255,0.01); border-color: var(--border);">
+                    <div class="panel-eyebrow">Active Agents</div>
+                    <div class="agent-thread-list" id="agent-thread-list"></div>
+                </div>
+
+                <div class="panel" style="padding: 14px; background: rgba(255,255,255,0.01); border-color: var(--border);">
+                    <div class="panel-eyebrow">Robot Mode Self-Learning</div>
+                    <div class="milestone-list" id="learning-milestones"></div>
+                </div>
+
+                <div class="panel" style="padding: 14px; background: rgba(255,255,255,0.01); border-color: var(--border);">
+                    <div class="panel-eyebrow">Recent Learning Events</div>
+                    <div class="learning-list" id="learning-events"></div>
+                </div>
+            </aside>
         </div>
     </div>
 
     <!-- Chat Interface -->
     <div class="chat-overlay" id="chat-panel">
-        <div class="chat-header" onclick="toggleChat()">
+        <div class="chat-header" onclick="toggleChat()" onkeypress="if(event.key==='Enter'||event.key===' ') toggleChat()" tabindex="0" role="button" aria-label="Toggle chat panel">
             <h3>🤖 Gemma 3n Assistant</h3>
             <button class="chat-toggle" id="chat-toggle">−</button>
         </div>
         <div class="chat-messages" id="chat-messages">
-            <div class="chat-message system">Chat with Gemma 3n about robot control</div>
         </div>
         <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
             <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
         </div>
     </div>
@@ -1567,6 +1874,149 @@ class SimpleJSONServer:
             setTimeout(function() {
                 msgDiv.style.display = 'none';
             }, 3000);
+        };
+
+        const agentManagerState = {
+            humanMode: false,
+            agents: [
+                { name: 'Safety Guardian', status: 'active', threads: 2, focus: 'Gates + envelopes', milestone: 'Monitoring' },
+                { name: 'Navigator', status: 'active', threads: 1, focus: 'Drive pathfinding', milestone: 'Updating map' },
+                { name: 'Trainer', status: 'paused', threads: 1, focus: 'Self-learning batches', milestone: 'Queued' },
+            ],
+            learningEvents: [
+                { title: 'Episode flagged for replay', time: '2m ago', detail: 'Marked safe drive lane for offline finetune' },
+                { title: 'Gate alignment saved', time: '8m ago', detail: 'Motion + recording gates synced to idle baseline' },
+                { title: 'Autonomy pulse', time: '12m ago', detail: 'Wave/particle balance stable; buffer widened' },
+            ],
+        };
+
+        function renderAgentChips(agents) {
+            const chipRow = document.getElementById('agent-chip-row');
+            if (!chipRow) return;
+
+            chipRow.innerHTML = agents.map(agent => {
+                const normalizedStatus = (agent.status || 'active').toLowerCase();
+                return `<span class="status-chip ${normalizedStatus}"><span class="badge-dot"></span>${agent.name} — ${agent.threads || 1} thread${(agent.threads || 1) > 1 ? 's' : ''}</span>`;
+            }).join('');
+        }
+
+        function renderAgentThreads(agents) {
+            const list = document.getElementById('agent-thread-list');
+            if (!list) return;
+
+            if (!agents || !agents.length) {
+                list.innerHTML = '<div class="agent-thread"><span class="agent-meta">No active agents</span></div>';
+                return;
+            }
+
+            list.innerHTML = agents.map(agent => {
+                const normalizedStatus = (agent.status || 'active').toLowerCase();
+                const chip = `<span class="status-chip ${normalizedStatus}">${normalizedStatus === 'active' ? '🟢' : '⏸️'} ${normalizedStatus}</span>`;
+                return `<div class="agent-thread">` +
+                    `<div>` +
+                        `<h4>${agent.name || 'Agent'}</h4>` +
+                        `<div class="agent-meta">${agent.focus || 'Monitoring'} • ${agent.threads || 1} thread${(agent.threads || 1) > 1 ? 's' : ''}</div>` +
+                    `</div>` +
+                    `<div>${chip}</div>` +
+                `</div>`;
+            }).join('');
+        }
+
+        function renderLearningMilestones(status) {
+            const container = document.getElementById('learning-milestones');
+            if (!container) return;
+
+            const gateSnapshot = status.gate_snapshot || status.gates || {};
+            const modeLabel = (status.mode || 'idle').replace(/_/g, ' ');
+            const uptime = gateSnapshot.mode_uptime_seconds || 0;
+            const progress = Math.min(100, Math.round((uptime % 180) / 180 * 100));
+
+            const milestones = [
+                { label: 'Motion gate open', done: !!gateSnapshot.allow_motion, detail: gateSnapshot.allow_motion ? 'Ready to move' : 'Waiting for clearance' },
+                { label: 'Recording allowed', done: !!gateSnapshot.record_episodes, detail: gateSnapshot.record_episodes ? 'Episodes gated in' : 'Recording gated off' },
+                { label: 'Self-train enabled', done: !!gateSnapshot.self_train, detail: gateSnapshot.self_train ? 'Robot learning live' : 'Manual/human-in-loop' },
+                { label: `${modeLabel} uptime`, done: progress > 40, detail: `${Math.round(uptime)}s in mode`, progress },
+            ];
+
+            container.innerHTML = milestones.map(item => {
+                const chipClass = item.done ? 'status-chip active' : 'status-chip paused';
+                const progressBar = typeof item.progress === 'number'
+                    ? `<div class="progress-bar"><div class="progress-fill" style="width:${item.progress}%"></div></div>`
+                    : '';
+                return `<div class="milestone-row">` +
+                    `<div>` +
+                        `<div>${item.label}</div>` +
+                        `<div class="learning-meta">${item.detail}</div>` +
+                        `${progressBar}` +
+                    `</div>` +
+                    `<span class="${chipClass}">${item.done ? '✅' : '…'} ${item.done ? 'Complete' : 'Pending'}</span>` +
+                `</div>`;
+            }).join('');
+        }
+
+        function renderLearningEvents(events) {
+            const list = document.getElementById('learning-events');
+            if (!list) return;
+            const items = events && events.length ? events : [{ title: 'No learning events yet', time: '', detail: 'Agents will surface new checkpoints here.' }];
+
+            list.innerHTML = items.map(event => {
+                return `<div class="learning-item">` +
+                    `<strong>${event.title}</strong>` +
+                    `<div class="learning-meta">${event.detail || 'Update pending'}</div>` +
+                    (event.time ? `<div class="learning-meta">${event.time}</div>` : '') +
+                `</div>`;
+            }).join('');
+        }
+
+        function renderAgentRail(status) {
+            const agents = (status && Array.isArray(status.agent_threads) && status.agent_threads.length)
+                ? status.agent_threads
+                : agentManagerState.agents;
+
+            const events = (status && Array.isArray(status.learning_events) && status.learning_events.length)
+                ? status.learning_events
+                : agentManagerState.learningEvents;
+
+            renderAgentThreads(agents);
+            renderAgentChips(agents);
+            renderLearningMilestones(status || {});
+            renderLearningEvents(events);
+
+            const toggle = document.getElementById('human-toggle');
+            const toggleState = document.getElementById('human-toggle-state');
+            if (toggle) {
+                toggle.classList.toggle('active', agentManagerState.humanMode);
+            }
+            if (toggleState) {
+                toggleState.textContent = agentManagerState.humanMode ? 'On' : 'Off';
+            }
+        }
+
+        window.toggleHumanMode = function() {
+            agentManagerState.humanMode = !agentManagerState.humanMode;
+            window.showMessage(agentManagerState.humanMode ? 'Human guidance injected' : 'Human mode disabled');
+            renderAgentRail();
+        };
+
+        window.pauseAgents = function() {
+            agentManagerState.agents = agentManagerState.agents.map(agent => ({ ...agent, status: 'paused' }));
+            window.showMessage('Agents paused for inspection');
+            renderAgentRail();
+        };
+
+        window.resumeAgents = function() {
+            agentManagerState.agents = agentManagerState.agents.map(agent => ({ ...agent, status: 'active' }));
+            window.showMessage('Agents resumed');
+            renderAgentRail();
+        };
+
+        window.reviewLearning = function() {
+            window.showMessage('Learning feed refreshed');
+            renderAgentRail();
+            const events = document.getElementById('learning-events');
+            if (events) {
+                events.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         };
 
         window.triggerSafetyHold = async function() {
@@ -1707,6 +2157,7 @@ class SimpleJSONServer:
                             if (motionCard) { motionCard.textContent = data.status.allow_motion ? 'Allowed' : 'Prevented'; }
 
                             renderLoopTelemetry(data.status);
+                            renderAgentRail(data.status);
 
                             // Update hardware sensors
                             var hardwareDiv = document.getElementById('hardware-status');
@@ -1779,6 +2230,49 @@ class SimpleJSONServer:
             xhr.send();
         };
 
+        window.startManualControl = async function(buttonEl) {
+            const manualButton = buttonEl || document.getElementById('manual-control-btn');
+            if (!manualButton) {
+                window.showMessage('Manual Control button not found', true);
+                return;
+            }
+
+            if (manualButton.disabled) {
+                return;
+            }
+
+            const originalText = manualButton.textContent;
+            manualButton.disabled = true;
+            manualButton.textContent = 'Switching...';
+
+            try {
+                window.showMessage('Switching to manual control...');
+                const response = await fetch('/api/mode/manual_control', { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error('Server responded with ' + response.status);
+                }
+
+                const payload = await response.json();
+                if (payload && payload.success) {
+                    window.showMessage('Manual control enabled, redirecting...');
+                    window.updateStatus();
+                    setTimeout(() => { window.location.href = '/control'; }, 300);
+                } else {
+                    const message = (payload && payload.message) ? payload.message : 'Unable to enable manual control';
+                    window.showMessage(message, true);
+                    window.updateStatus();
+                    manualButton.disabled = false;
+                    manualButton.textContent = originalText;
+                }
+            } catch (err) {
+                console.error('Manual control switch failed', err);
+                window.showMessage('Failed to switch to manual control', true);
+                window.updateStatus();
+                manualButton.disabled = false;
+                manualButton.textContent = originalText;
+            }
+        };
+
         window.pollLoopHealth = async function() {
             try {
                 const response = await fetch('/api/loops');
@@ -1795,6 +2289,7 @@ class SimpleJSONServer:
                 console.warn('Loop telemetry fetch failed', err);
             }
         };
+""" + self.get_shared_chat_javascript() + """
 
         // Chat overlay persistence (/ui + /control)
         var chatMinimized = false;
@@ -1802,6 +2297,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         function persistChatState() {
             try {
@@ -1855,6 +2351,33 @@ class SimpleJSONServer:
                 } catch (parseError) {
                     console.warn('Failed to parse chat history from localStorage', parseError);
                     chatHistory = [];
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    try {
+                        chatHistory = JSON.parse(storedHistory);
+                        if (!Array.isArray(chatHistory)) {
+                            console.warn('Chat history is not an array (found ' + typeof chatHistory + '), resetting to empty');
+                            chatHistory = [];
+                        }
+                    } catch (parseError) {
+                        console.warn('Failed to parse chat history from localStorage (invalid JSON), initializing with empty history', parseError);
+                            chatHistory = [];
+                        }
+                    } catch (parseError) {
+                        console.warn('Failed to parse chat history', parseError);
+                        chatHistory = [];
+                    }
+                    chatHistory.forEach(function(msg) {
+                        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                            renderChatMessage(msg.content, msg.role, false);
+                        }
+                    });
+                } else {
+                    // Only add initial message if no history exists
+                    chatHistory.push({role: 'system', content: initialChatMessage});
+                    renderChatMessage(initialChatMessage, 'system', false);
+                    persistChatState();
                 }
                 chatHistory.forEach(function(msg) {
                     if (msg && typeof msg === 'object' && typeof msg.role === 'string' && typeof msg.content === 'string') {
@@ -1938,6 +2461,7 @@ class SimpleJSONServer:
         hydrateChatOverlay();
 
         // Update status every 2 seconds
+        renderAgentRail();
         window.updateStatus();
         window.pollLoopHealth();
         setInterval(window.updateStatus, 2000);
@@ -2420,7 +2944,6 @@ class SimpleJSONServer:
             <button class="chat-toggle" id="chat-toggle">−</button>
         </div>
         <div class="chat-messages" id="chat-messages">
-            <div class="chat-message system">Chat with Gemma 3n about robot control</div>
         </div>
         <div class="chat-input-area">
             <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." onkeypress="if(event.key==='Enter') sendChatMessage()">
@@ -2913,6 +3436,7 @@ class SimpleJSONServer:
             };
             xhr.send();
         };
+        """ + self.get_shared_chat_javascript() + """
         
         // Chat functionality with persistence
         var chatMinimized = false;
@@ -2920,6 +3444,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         function persistChatState() {
             try {
@@ -2969,23 +3494,49 @@ class SimpleJSONServer:
         }
 
         function hydrateChatOverlay() {
+            var storedHistory = localStorage.getItem(chatHistoryKey);
+            if (storedHistory) {
+                try {
+                    chatHistory = JSON.parse(storedHistory);
+                    if (!Array.isArray(chatHistory)) {
+                        chatHistory = [];
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse chat history', parseError);
+                    chatHistory = [];
             try {
                 var storedHistory = localStorage.getItem(chatHistoryKey);
                 if (storedHistory) {
-                    chatHistory = JSON.parse(storedHistory) || [];
+                    try {
+                        chatHistory = JSON.parse(storedHistory);
+                        if (!Array.isArray(chatHistory)) {
+                            chatHistory = [];
+                        }
+                    } catch (parseError) {
+                        console.warn('Failed to parse chat history', parseError);
+                        chatHistory = [];
+                    }
                     chatHistory.forEach(function(msg) {
                         if (msg && typeof msg === 'object' && msg.role && msg.content) {
                             renderChatMessage(msg.content, msg.role, false);
                         }
                     });
+                } else {
+                    // Only add initial message if no history exists
+                    chatHistory.push({role: 'system', content: initialChatMessage});
+                    renderChatMessage(initialChatMessage, 'system', false);
+                    persistChatState();
                 }
+                chatHistory.forEach(function(msg) {
+                    if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                        renderChatMessage(msg.content, msg.role, false);
+                    }
+                });
+            }
 
-                var storedMinimized = localStorage.getItem(chatMinimizedKey);
-                if (storedMinimized === 'true') {
-                    chatMinimized = true;
-                }
-            } catch (e) {
-                console.warn('Unable to hydrate chat state', e);
+            var storedMinimized = localStorage.getItem(chatMinimizedKey);
+            if (storedMinimized === 'true') {
+                chatMinimized = true;
             }
 
             applyChatMinimized();
