@@ -14,6 +14,7 @@ from continuonbrain.robot_modes import RobotModeManager, RobotMode
 from continuonbrain.network_discovery import LANDiscoveryService
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_instructions import SystemInstructions
+from continuonbrain.agent_identity import AgentIdentity
 
 
 class StartupMode(Enum):
@@ -187,12 +188,14 @@ class StartupManager:
         print("🌐 Starting Robot API server...")
         try:
             repo_root = Path(__file__).parent.parent
-            server_module = "continuonbrain.robot_api_server"
-            server_path = repo_root / "continuonbrain" / "robot_api_server.py"
+            server_module = "continuonbrain.api.server"
+            server_path = repo_root / "continuonbrain" / "api" / "server.py"
             
             if server_path.exists():
                 # Start in background
                 env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
+                # Inject HF Token for Gemma 3n
+                env["HUGGINGFACE_TOKEN"] = "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"
 
                 instructions_path = SystemContext.get_persist_path()
                 if instructions_path:
@@ -214,6 +217,21 @@ class StartupManager:
                 )
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
                 print(f"   Endpoint: http://localhost:8080")
+                
+                # Start Nested Learning Sidecar
+                print("🧠 Starting Nested Learning Sidecar...")
+                trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
+                if trainer_path.exists():
+                    self.trainer_process = subprocess.Popen(
+                        [sys.executable, "-m", "continuonbrain.run_trainer"],
+                        env=env,
+                        stdout=subprocess.DEVNULL,  # Keep console clean
+                        stderr=subprocess.DEVNULL
+                    )
+                    print(f"   Sidecar Trainer started (PID: {self.trainer_process.pid})")
+                else:
+                    print(f"   ⚠️ Trainer script not found: {trainer_path}")
+
             else:
                 print(f"   ⚠️  Robot API module not found: {server_path}")
         except Exception as e:
@@ -231,8 +249,14 @@ class StartupManager:
         print("  • Autonomous - VLA policy control")
         print("  • Sleep Learning - Self-train on memories")
         print("=" * 60)
+        print("=" * 60)
         print()
         
+        # Run Auto-Agent Checks (Self-Activation)
+        print("🤖 Running Self-Activation Checks...")
+        identity = AgentIdentity(config_dir=str(self.config_dir))
+        identity.self_report()
+
         # Launch UI if configured
         self.launch_ui()
         
@@ -293,15 +317,21 @@ class StartupManager:
             self.discovery_service.stop()
         
         # Stop Robot API server
-        if self.robot_api_process:
+        if hasattr(self, 'robot_api_process') and self.robot_api_process:
+            self.robot_api_process.terminate()
             try:
-                self.robot_api_process.terminate()
                 self.robot_api_process.wait(timeout=5)
-                print("   Robot API stopped")
-            except Exception as e:
-                print(f"   Error stopping Robot API: {e}")
+            except subprocess.TimeoutExpired:
+                self.robot_api_process.kill()
         
-        print("✅ Services shutdown complete")
+        if hasattr(self, 'trainer_process') and self.trainer_process:
+            self.trainer_process.terminate()
+            try:
+                self.trainer_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.trainer_process.kill()
+        
+        print("✅ Services stopped.")
     
     def prepare_sleep(
         self,

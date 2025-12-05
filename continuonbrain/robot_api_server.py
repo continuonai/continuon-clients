@@ -5,6 +5,7 @@ Runs against real hardware by default with optional mock fallback for dev.
 import asyncio
 import os
 import time
+import datetime
 from dataclasses import dataclass, field
 from typing import AsyncIterator, Dict, List, Optional
 import json
@@ -206,7 +207,7 @@ class RobotService:
         config_dir: str = "/tmp/continuonbrain_demo",
         prefer_real_hardware: bool = True,
         auto_detect: bool = True,
-        allow_mock_fallback: bool = True,
+        allow_mock_fallback: bool = False,
         system_instructions: Optional[SystemInstructions] = None,
     ):
         self.config_dir = config_dir
@@ -405,9 +406,40 @@ class RobotService:
                 )
             )
 
+        # Hardware Capability Checks
+        caps = self.capabilities
+        for modality in task.required_modalities:
+            if modality == "vision" and not caps["has_vision"]:
+                markers.append(TaskEligibilityMarker(
+                    code="MISSING_VISION", label="Vision hardware required",
+                    severity="error", blocking=True, remediation="Connect camera"
+                ))
+            elif (modality == "arm" or modality == "gripper") and not caps["has_manipulator"]:
+                markers.append(TaskEligibilityMarker(
+                    code="MISSING_ARM", label="Manipulator required",
+                    severity="error", blocking=True, remediation="Connect arm actuators"
+                ))
+            elif modality == "mobile_base" and not caps["has_mobile_base"]:
+                markers.append(TaskEligibilityMarker(
+                    code="MISSING_BASE", label="Mobile base required",
+                    severity="error", blocking=True, remediation="Connect drivetrain"
+                ))
+
         eligible = not any(marker.blocking for marker in markers)
         next_poll_ms = 120.0 if task.requires_motion else 400.0
         return TaskEligibility(eligible=eligible, markers=markers, next_poll_after_ms=next_poll_ms)
+
+    @property
+    def capabilities(self) -> Dict[str, bool]:
+        """Return detected hardware capabilities."""
+        # In mock mode, we usually simulate everything, but let's respect the initialization state
+        # effectively if self.arm is None, we don't have an arm.
+        return {
+            "has_vision": self.camera is not None,
+            "has_manipulator": self.arm is not None,
+            "has_mobile_base": self.drivetrain is not None and self.drivetrain.initialized,
+            "has_audio": bool(self.recorder and self.recorder.audio_enabled),
+        }
 
     def _serialize_task_entry(self, task: TaskDefinition) -> TaskLibraryEntry:
         eligibility = self._build_task_eligibility(task)
@@ -644,6 +676,7 @@ class RobotService:
                 "current_episode": self.current_episode_id,
                 "hardware_mode": "real" if self.use_real_hardware else "mock",
                 "audio_recording_active": bool(self.recorder and self.recorder.audio_enabled),
+                "capabilities": self.capabilities,
             }
 
             instructions = self.system_instructions or SystemContext.get_instructions()
@@ -932,7 +965,7 @@ class RobotService:
     
     async def ChatWithGemma(self, message: str, history: list) -> dict:
         """
-        Chat with Gemma 3n model about robot control and status.
+        Chat with Gemma 3n model acting as the Agent Manager.
         
         Args:
             message: User's message
@@ -942,37 +975,52 @@ class RobotService:
             dict with 'response' or 'error'
         """
         try:
-            # Get current robot status for context
+            # 1. Get current status for context
             status_data = await self.GetRobotStatus()
+            status = status_data.get('status', {})
+            mode = status.get('mode', 'unknown')
+            hardware = status.get('hardware_mode', 'unknown')
+
+            # 2. Build Agent Manager System Prompt
+            AGENT_MANAGER_PROMPT = f"""You are the Agent Manager for the Continuon robot (Gemma 3n).
+Your goal is to help the robot self-improve, manage sub-agents, and resolve issues.
+You are running on-device.
+Current Status:
+- Mode: {mode}
+- Hardware: {hardware}
+- Motion Allowed: {status.get('allow_motion', False)}
+
+Answer as the Agent Manager. Be helpful, concise, and technical when needed."""
             
-            # Build context from robot status
-            context_parts = []
-            if status_data.get('success') and status_data.get('status'):
-                status = status_data['status']
-                context_parts.append(f"Current mode: {status.get('mode', 'unknown')}")
-                context_parts.append(f"Motion allowed: {status.get('allow_motion', False)}")
-                context_parts.append(f"Recording: {status.get('is_recording', False)}")
-                context_parts.append(f"Hardware: {status.get('hardware_mode', 'unknown')}")
-                
-                if status.get('joint_positions'):
-                    joints_str = ', '.join([f"J{i}:{v:.2f}" for i, v in enumerate(status['joint_positions'])])
-                    context_parts.append(f"Joint positions: {joints_str}")
+            # 3. Get Response
+            # Pass the Agent Manager prompt as system context
+            response = self.gemma_chat.chat(message, system_context=AGENT_MANAGER_PROMPT)
             
-            robot_context = " | ".join(context_parts)
-            
-            # Try to use real Gemma model, fall back to simple responses
+            # 4. Log Conversation for Self-Improvement
             try:
-                # Use the Gemma chat instance for real AI responses
-                response = self.gemma_chat.chat(message, system_context=robot_context)
-            except Exception as gemma_error:
-                print(f"Gemma chat error: {gemma_error}, using fallback")
-                # Fallback to simple keyword-based responses
-                response = self._generate_gemma_response(message, robot_context)
+                log_dir = Path(self.config_dir) / "memories" / "chat_logs"
+                log_dir.mkdir(parents=True, exist_ok=True)
+                
+                log_entry = {
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "user_message": message,
+                    "agent_response": response,
+                    "context": status
+                }
+                
+                # Append to daily log file
+                date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+                log_file = log_dir / f"chat_{date_str}.jsonl"
+                with open(log_file, "a") as f:
+                    f.write(json.dumps(log_entry) + "\n")
+                    
+            except Exception as log_error:
+                print(f"Failed to log chat: {log_error}")
             
             return {"response": response}
-            
+
         except Exception as e:
-            print(f"Error in ChatWithGemma: {e}")
+            print(f"Chat error: {e}")
             return {"error": str(e)}
     
     def _generate_gemma_response(self, message: str, context: str) -> str:

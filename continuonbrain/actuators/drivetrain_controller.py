@@ -17,7 +17,11 @@ from typing import Optional
 ServoKit = None
 servokit_spec = importlib.util.find_spec("adafruit_servokit")
 if servokit_spec:
-    from adafruit_servokit import ServoKit  # type: ignore
+    try:
+        from adafruit_servokit import ServoKit  # type: ignore
+    except ImportError as e:
+        print(f"Warning: adafruit_servokit import failed: {e}")
+        ServoKit = None
 
 
 @dataclass

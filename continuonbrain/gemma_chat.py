@@ -20,8 +20,10 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    
-    def __init__(self, model_name: str = "google/gemma-3n-E2B-it", device: str = "cpu"):
+    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"
+    # DEFAULT_MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # Backup
+
+    def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu"):
         """
         Initialize Gemma chat interface.
         
@@ -77,8 +79,8 @@ class GemmaChat:
             logger.info("Gemma model loaded successfully")
             return True
             
-        except ImportError:
-            logger.error("transformers library not installed. Install with: pip install transformers torch")
+        except ImportError as e:
+            logger.error(f"transformers library or dependency missing: {e}")
             return False
         except Exception as e:
             logger.error(f"Failed to load Gemma model: {e}")

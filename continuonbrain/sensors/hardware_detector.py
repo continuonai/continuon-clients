@@ -49,6 +49,7 @@ class HardwareDetector:
         self.detect_cameras()
         self.detect_hats()
         self.detect_gpio_devices()
+        self.detect_desktop_peripherals()
         
         return self.detected_devices
     
@@ -334,6 +335,41 @@ class HardwareDetector:
         # This is harder to auto-detect without probing
         # Could check for known GPIO usage patterns
         pass
+
+    def detect_desktop_peripherals(self):
+        """Detect desktop-class peripherals (Monitor, KBM)."""
+        import shutil
+        
+        # Check for Display (xrandr)
+        if shutil.which("xrandr"):
+            try:
+                res = subprocess.run(["xrandr"], capture_output=True, text=True)
+                if " connected" in res.stdout:
+                    self.detected_devices.append(HardwareDevice(
+                        device_type="display", name="Desktop Monitor", vendor="Generic", interface="hdmi/dp",
+                        capabilities=["visual_output"]
+                    ))
+                    print("✅ Found: Desktop Monitor")
+            except Exception:
+                pass
+        
+        # Check for Input Devices (simple check)
+        # On Linux, /proc/bus/input/devices is good
+        try:
+            if Path("/proc/bus/input/devices").exists():
+                text = Path("/proc/bus/input/devices").read_text()
+                if "Handlers=mouse" in text:
+                    self.detected_devices.append(HardwareDevice(
+                        device_type="human_interface", name="Mouse", vendor="Generic", interface="usb/bt",
+                        capabilities=["pointer_input"]
+                    ))
+                if "Handlers=kbd" in text or "sysrq" in text: # approximate
+                    self.detected_devices.append(HardwareDevice(
+                        device_type="human_interface", name="Keyboard", vendor="Generic", interface="usb/bt",
+                        capabilities=["text_input"]
+                    ))
+        except Exception:
+            pass
     
     def generate_config(self) -> Dict[str, Any]:
         """
