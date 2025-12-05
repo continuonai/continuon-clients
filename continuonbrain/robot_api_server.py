@@ -25,6 +25,7 @@ from continuonbrain.sensors.hardware_detector import HardwareDetector
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
 from continuonbrain.gemma_chat import create_gemma_chat
 from continuonbrain.system_context import SystemContext
+from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 
 
@@ -57,6 +58,7 @@ class RobotService:
         self.detected_config: dict = {}
         self.last_drive_result: Optional[dict] = None
         self.system_instructions: Optional[SystemInstructions] = system_instructions or SystemContext.get_instructions()
+        self.health_checker = SystemHealthChecker(config_dir=config_dir)
 
         # Initialize Gemma chat (will use mock if transformers not available)
         self.gemma_chat = create_gemma_chat(use_mock=False)
@@ -390,7 +392,9 @@ class RobotService:
                     "allow_motion": mode_status["config"]["allow_motion"],
                     "recording_enabled": mode_status["config"]["record_episodes"],
                 })
-            
+                status["gate_snapshot"] = self.mode_manager.get_gate_snapshot()
+                status["loop_metrics"] = self.mode_manager.get_loop_metrics()
+
             if self.detected_config:
                 status["detected_hardware"] = self.detected_config.get("primary")
 
@@ -407,8 +411,30 @@ class RobotService:
                     "last_command": self.last_drive_result or self.drivetrain.last_command,
                 }
 
+            if self.health_checker:
+                status["safety_head"] = self.health_checker.get_safety_head_status()
+
             return {"success": True, "status": status}
         
+        except Exception as e:
+            return {"success": False, "message": f"Error: {str(e)}"}
+
+    async def GetLoopHealth(self) -> dict:
+        """Expose HOPE/CMS loop metrics, safety head status, and gates."""
+        try:
+            if not self.mode_manager:
+                return {"success": False, "message": "Mode manager not initialized"}
+
+            metrics = self.mode_manager.get_loop_metrics()
+            gates = self.mode_manager.get_gate_snapshot()
+            safety_head = self.health_checker.get_safety_head_status() if self.health_checker else None
+
+            return {
+                "success": True,
+                "metrics": metrics,
+                "gates": gates,
+                "safety_head": safety_head,
+            }
         except Exception as e:
             return {"success": False, "message": f"Error: {str(e)}"}
     
@@ -655,6 +681,10 @@ class SimpleJSONServer:
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/status":
             status = await self.service.GetRobotStatus()
+            response_body = json.dumps(status)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/loops":
+            status = await self.service.GetLoopHealth()
             response_body = json.dumps(status)
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path.startswith("/api/mode/"):
@@ -980,7 +1010,7 @@ class SimpleJSONServer:
             text-align: center;
         }
 
-        .badge {
+        .badge { 
             display: inline-block;
             padding: 4px 12px;
             border-radius: 12px;
@@ -993,6 +1023,64 @@ class SimpleJSONServer:
         .badge.training { background: #007aff; color: #0b1020; }
         .badge.autonomous { background: #af52de; color: #0b1020; }
         .badge.sleeping { background: #ff9500; color: #0b1020; }
+
+        .chip.success { background: rgba(56, 217, 150, 0.12); color: #8df5c7; border-color: rgba(56, 217, 150, 0.4); }
+        .chip.danger { background: rgba(255, 77, 109, 0.12); color: #ff99ae; border-color: rgba(255, 77, 109, 0.4); }
+
+        .loop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .loop-card {
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: linear-gradient(160deg, rgba(122, 215, 255, 0.06), rgba(79, 157, 255, 0.04));
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        }
+
+        .loop-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+        .loop-meta { color: var(--muted); font-size: 12px; }
+
+        .gauge-bar {
+            position: relative;
+            height: 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            margin: 8px 0;
+        }
+
+        .gauge-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4f9dff, #7ad7ff);
+            transition: width 0.25s ease;
+        }
+
+        .safety-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .badge-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            background: #38d996;
+            box-shadow: 0 0 0 4px rgba(56, 217, 150, 0.12);
+        }
     </style>
 </head>
 <body class="ide-body">
@@ -1022,6 +1110,8 @@ class SimpleJSONServer:
                     <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
                     <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
                     <button class="command-btn danger" onclick="setMode('emergency_stop')">🛑 Emergency Stop</button>
+                    <button class="command-btn" onclick="window.triggerSafetyHold()">🛡️ Safety Hold</button>
+                    <button class="command-btn subtle" onclick="window.resetSafetyGates()">♻️ Reset Gates</button>
                 </div>
                 <div class="sidebar-footnote">Use the deck like an IDE command palette to swap modes quickly.</div>
             </aside>
@@ -1047,6 +1137,57 @@ class SimpleJSONServer:
                         <div class="status-card">
                             <div class="status-label">Motion Allowed</div>
                             <div class="status-value" id="motion-card">No</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">HOPE / CMS</div>
+                            <h2>Loop Telemetry & Safety</h2>
+                            <p class="panel-subtitle">Wave/particle balance, safety envelopes, and gate heartbeats.</p>
+                        </div>
+                    </div>
+                    <div class="loop-grid">
+                        <div class="loop-card">
+                            <div class="loop-title">Wave / Particle</div>
+                            <div class="gauge-bar"><div class="gauge-fill" id="wave-meter"></div></div>
+                            <div class="loop-meta" id="wave-value">--</div>
+                        </div>
+                        <div class="loop-card">
+                            <div class="loop-title">HOPE Loops</div>
+                            <div class="loop-meta" id="hope-fast">Fast: --</div>
+                            <div class="loop-meta" id="hope-mid">Mid: --</div>
+                            <div class="loop-meta" id="hope-slow">Slow: --</div>
+                        </div>
+                        <div class="loop-card">
+                            <div class="loop-title">CMS Balance</div>
+                            <div class="loop-meta" id="cms-ratio">--</div>
+                            <div class="loop-meta" id="cms-buffer">Buffer: --</div>
+                            <div class="chip" id="heartbeat-badge">Heartbeat...</div>
+                        </div>
+                    </div>
+                    <div class="safety-grid">
+                        <div class="status-item">
+                            <span class="status-label">Safety Head</span>
+                            <span class="status-value" id="safety-head-path">loading...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Envelope</span>
+                            <span class="status-value" id="safety-envelope">--</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Motion Gate</span>
+                            <span class="status-value" id="gate-allow">--</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Recording Gate</span>
+                            <span class="status-value" id="gate-record">--</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Safety Heartbeat</span>
+                            <span class="status-value" id="safety-heartbeat">--</span>
                         </div>
                     </div>
                 </section>
@@ -1109,6 +1250,78 @@ class SimpleJSONServer:
                 msgDiv.style.display = 'none';
             }, 3000);
         };
+
+        window.triggerSafetyHold = function() {
+            window.showMessage('Engaging safety hold...');
+            setMode('emergency_stop');
+        };
+
+        window.resetSafetyGates = function() {
+            window.showMessage('Resetting gates to idle baseline...');
+            setMode('idle');
+        };
+
+        function renderLoopTelemetry(status) {
+            var loops = status.loop_metrics || {};
+            var gates = status.gate_snapshot || {};
+            var safety = status.safety_head || {};
+
+            var wave = (typeof loops.wave_particle_balance === 'number') ? Math.min(1, Math.max(0, loops.wave_particle_balance)) : 0;
+            var waveFill = document.getElementById('wave-meter');
+            if (waveFill) {
+                waveFill.style.width = Math.round(wave * 100) + '%';
+            }
+            var waveLabel = document.getElementById('wave-value');
+            if (waveLabel) {
+                var wavePercent = Math.round(wave * 100);
+                waveLabel.textContent = wavePercent + '% wave / ' + (100 - wavePercent) + '% particle';
+            }
+
+            var hope = loops.hope_loops || {};
+            var fast = hope.fast || {};
+            var mid = hope.mid || {};
+            var slow = hope.slow || {};
+            var hopeFast = document.getElementById('hope-fast');
+            if (hopeFast) { hopeFast.textContent = 'Fast: ' + (fast.hz ? fast.hz + ' Hz (' + fast.latency_ms + ' ms)' : '--'); }
+            var hopeMid = document.getElementById('hope-mid');
+            if (hopeMid) { hopeMid.textContent = 'Mid: ' + (mid.hz ? mid.hz + ' Hz (' + mid.latency_ms + ' ms)' : '--'); }
+            var hopeSlow = document.getElementById('hope-slow');
+            if (hopeSlow) { hopeSlow.textContent = 'Slow: ' + (slow.hz ? slow.hz + ' Hz (' + slow.latency_ms + ' ms)' : '--'); }
+
+            var cms = loops.cms || {};
+            var cmsRatio = document.getElementById('cms-ratio');
+            if (cmsRatio) {
+                cmsRatio.textContent = cms.policy_ratio ? 'Policy ' + cms.policy_ratio + ' | Maintenance ' + cms.maintenance_ratio : '--';
+            }
+            var cmsBuffer = document.getElementById('cms-buffer');
+            if (cmsBuffer) {
+                cmsBuffer.textContent = cms.buffer_fill ? 'Buffer fill: ' + Math.round(cms.buffer_fill * 100) + '%' : 'Buffer fill: --';
+            }
+
+            var heartbeat = loops.heartbeat || {};
+            var heartbeatBadge = document.getElementById('heartbeat-badge');
+            if (heartbeatBadge) {
+                heartbeatBadge.textContent = heartbeat.ok ? 'Heartbeat stable' : 'Heartbeat delayed';
+                heartbeatBadge.className = 'chip ' + (heartbeat.ok ? 'success' : 'danger');
+            }
+
+            var gateAllow = document.getElementById('gate-allow');
+            if (gateAllow) { gateAllow.textContent = gates.allow_motion ? 'Open' : 'Locked'; }
+            var gateRecord = document.getElementById('gate-record');
+            if (gateRecord) { gateRecord.textContent = gates.recording_gate ? 'Armed' : 'Off'; }
+
+            var safetyHead = document.getElementById('safety-head-path');
+            if (safetyHead) { safetyHead.textContent = safety.head_path || 'stub'; }
+            var safetyEnvelope = document.getElementById('safety-envelope');
+            if (safetyEnvelope) {
+                var env = safety.envelope || {};
+                safetyEnvelope.textContent = (env.status || 'simulated') + ' • ' + (env.radius_m || '?') + 'm radius';
+            }
+            var safetyHeartbeat = document.getElementById('safety-heartbeat');
+            if (safetyHeartbeat) {
+                safetyHeartbeat.textContent = safety.heartbeat && safety.heartbeat.ok ? 'Online (' + safety.heartbeat.source + ')' : 'Simulated';
+            }
+        }
         
         window.updateStatus = function() {
             var xhr = new XMLHttpRequest();
@@ -1130,7 +1343,9 @@ class SimpleJSONServer:
                             if (recordingCard) { recordingCard.textContent = data.status.is_recording ? 'Recording' : 'Idle'; }
                             var motionCard = document.getElementById('motion-card');
                             if (motionCard) { motionCard.textContent = data.status.allow_motion ? 'Allowed' : 'Prevented'; }
-                            
+
+                            renderLoopTelemetry(data.status);
+
                             // Update hardware sensors
                             var hardwareDiv = document.getElementById('hardware-status');
                             if (data.status.detected_hardware) {
