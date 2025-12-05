@@ -14,11 +14,18 @@ This document outlines the on-device Robot Editor that ships as part of Continuo
 
 ## Architecture Alignment
 - **Bridge orientation:** The editor is a panel set that sits alongside teleop and workstation experiences; it consumes the same gRPC/WebRTC Robot API and RLDS logging path to avoid divergent schemas. Panels should degrade cleanly between browser canvases and native shells.
+- **Continuon Brain packaging:** Continuon Brain ships the Robot Editor as a standard tool (Continuon Brain Studio) alongside trained model+memory OTA drops so owners get a consistent workspace whenever a new brain is installed.
 - **HOPE/CMS linkage:** Visualizations read RLDS-compatible streams and labels so Fast/Mid/Slow loop diagnostics shown in panels match the learning flows defined in the HOPE/CMS note. Mid/Slow visualizations rely on episodic summaries cached on-device, while Fast visual overlays run against live telemetry.
 - **Data plane:** Control and telemetry flows reuse the `ContinuonBrainBridgeService` contract. WebRTC is preferred for low latency; gRPC is the fallback. Both transports must tag `client_id` and propagate diagnostics for RLDS logging.
 
 ## Required Robot Editor Endpoints
 The on-device editor reuses Robot API surfaces but constrains them for editor use. All endpoints should be available over gRPC and mirrored over WebRTC data channels when negotiated.
+
+## Access and Ownership Flow
+- **Login surface:** Owners authenticate through the Continuon AI Flutter app; once logged in, they select a registered robot from their account to launch the Robot Editor (Studio) session.
+- **Initial registration:** Robots must first be initialized and registered on the local network so the app can discover the device, exchange certificates, and bind the owner account.
+- **Remote access:** After registration, owners can reach the same robot remotely from the app; the editor session uses the account-bound connection metadata to negotiate secure gRPC/WebRTC channels without redoing local pairing.
+- **Fallbacks:** If remote reachability drops, the app prompts to retry via local network discovery or offers mock-mode panels so workflows stay usable.
 
 ### Capability Manifest
 - **Endpoint:** `GetCapabilityManifest(GetCapabilityManifestRequest) -> CapabilityManifest`.
