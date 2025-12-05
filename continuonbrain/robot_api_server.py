@@ -933,7 +933,8 @@ class SimpleJSONServer:
 
         .ide-workspace {
             display: grid;
-            grid-template-columns: 280px 1fr;
+            grid-template-columns: 280px 1fr 320px;
+            align-items: start;
             gap: 18px;
         }
 
@@ -1165,6 +1166,136 @@ class SimpleJSONServer:
             background: #38d996;
             box-shadow: 0 0 0 4px rgba(56, 217, 150, 0.12);
         }
+
+        .agent-rail {
+            background: linear-gradient(180deg, rgba(16, 24, 38, 0.96), rgba(13, 20, 32, 0.96));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 300px;
+        }
+
+        .rail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rail-title {
+            margin: 4px 0 0 0;
+            font-size: 18px;
+        }
+
+        .rail-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .rail-btn {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .rail-btn:hover { border-color: var(--accent); }
+        .rail-btn.primary { background: linear-gradient(135deg, #7ad7ff, #4f9dff); color: #0b1020; }
+
+        .human-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+        }
+
+        .human-toggle.active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(122, 215, 255, 0.2); }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .status-chip.active { border-color: rgba(56, 217, 150, 0.5); color: #8df5c7; }
+        .status-chip.paused { border-color: rgba(255, 149, 0, 0.5); color: #ffcf99; }
+        .status-chip.focus { border-color: rgba(79, 157, 255, 0.5); color: #a9c7ff; }
+
+        .agent-thread-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .agent-thread {
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+        }
+
+        .agent-thread h4 { margin: 0; font-size: 15px; }
+        .agent-meta { color: var(--muted); font-size: 12px; }
+
+        .learning-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+        .learning-item {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px dashed var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .learning-item strong { display: block; font-size: 13px; margin-bottom: 4px; }
+        .learning-meta { color: var(--muted); font-size: 12px; }
+
+        .milestone-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+        .milestone-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4f9dff, #7ad7ff);
+            transition: width 0.25s ease;
+        }
+
+        .agent-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body class="ide-body">
@@ -1231,6 +1362,9 @@ class SimpleJSONServer:
                             <div class="status-label">Motion Allowed</div>
                             <div class="status-value" id="motion-card">No</div>
                         </div>
+                    </div>
+                    <div class="agent-chip-row" id="agent-chip-row">
+                        <!-- Agent status chips injected by JS -->
                     </div>
                 </section>
 
@@ -1416,6 +1550,40 @@ class SimpleJSONServer:
 
                 <div id="status-message" class="inline-status" style="display: none;"></div>
             </main>
+
+            <aside class="agent-rail">
+                <div class="rail-header">
+                    <div>
+                        <div class="panel-eyebrow">Agent Manager</div>
+                        <div class="rail-title">Threads & Guidance</div>
+                    </div>
+                    <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
+                        <span>Human mode</span>
+                        <strong id="human-toggle-state">Off</strong>
+                    </div>
+                </div>
+
+                <div class="rail-actions">
+                    <button class="rail-btn primary" onclick="resumeAgents()">▶️ Resume agents</button>
+                    <button class="rail-btn" onclick="pauseAgents()">⏸️ Pause agents</button>
+                    <button class="rail-btn" onclick="reviewLearning()">📒 Review learning</button>
+                </div>
+
+                <div class="panel" style="padding: 14px; background: rgba(255,255,255,0.01); border-color: var(--border);">
+                    <div class="panel-eyebrow">Active Agents</div>
+                    <div class="agent-thread-list" id="agent-thread-list"></div>
+                </div>
+
+                <div class="panel" style="padding: 14px; background: rgba(255,255,255,0.01); border-color: var(--border);">
+                    <div class="panel-eyebrow">Robot Mode Self-Learning</div>
+                    <div class="milestone-list" id="learning-milestones"></div>
+                </div>
+
+                <div class="panel" style="padding: 14px; background: rgba(255,255,255,0.01); border-color: var(--border);">
+                    <div class="panel-eyebrow">Recent Learning Events</div>
+                    <div class="learning-list" id="learning-events"></div>
+                </div>
+            </aside>
         </div>
     </div>
     
@@ -1444,6 +1612,149 @@ class SimpleJSONServer:
             setTimeout(function() {
                 msgDiv.style.display = 'none';
             }, 3000);
+        };
+
+        const agentManagerState = {
+            humanMode: false,
+            agents: [
+                { name: 'Safety Guardian', status: 'active', threads: 2, focus: 'Gates + envelopes', milestone: 'Monitoring' },
+                { name: 'Navigator', status: 'active', threads: 1, focus: 'Drive pathfinding', milestone: 'Updating map' },
+                { name: 'Trainer', status: 'paused', threads: 1, focus: 'Self-learning batches', milestone: 'Queued' },
+            ],
+            learningEvents: [
+                { title: 'Episode flagged for replay', time: '2m ago', detail: 'Marked safe drive lane for offline finetune' },
+                { title: 'Gate alignment saved', time: '8m ago', detail: 'Motion + recording gates synced to idle baseline' },
+                { title: 'Autonomy pulse', time: '12m ago', detail: 'Wave/particle balance stable; buffer widened' },
+            ],
+        };
+
+        function renderAgentChips(agents) {
+            const chipRow = document.getElementById('agent-chip-row');
+            if (!chipRow) return;
+
+            chipRow.innerHTML = agents.map(agent => {
+                const normalizedStatus = (agent.status || 'active').toLowerCase();
+                return `<span class="status-chip ${normalizedStatus}"><span class="badge-dot"></span>${agent.name} — ${agent.threads || 1} thread${(agent.threads || 1) > 1 ? 's' : ''}</span>`;
+            }).join('');
+        }
+
+        function renderAgentThreads(agents) {
+            const list = document.getElementById('agent-thread-list');
+            if (!list) return;
+
+            if (!agents || !agents.length) {
+                list.innerHTML = '<div class="agent-thread"><span class="agent-meta">No active agents</span></div>';
+                return;
+            }
+
+            list.innerHTML = agents.map(agent => {
+                const normalizedStatus = (agent.status || 'active').toLowerCase();
+                const chip = `<span class="status-chip ${normalizedStatus}">${normalizedStatus === 'active' ? '🟢' : '⏸️'} ${normalizedStatus}</span>`;
+                return `<div class="agent-thread">` +
+                    `<div>` +
+                        `<h4>${agent.name || 'Agent'}</h4>` +
+                        `<div class="agent-meta">${agent.focus || 'Monitoring'} • ${agent.threads || 1} thread${(agent.threads || 1) > 1 ? 's' : ''}</div>` +
+                    `</div>` +
+                    `<div>${chip}</div>` +
+                `</div>`;
+            }).join('');
+        }
+
+        function renderLearningMilestones(status) {
+            const container = document.getElementById('learning-milestones');
+            if (!container) return;
+
+            const gateSnapshot = status.gate_snapshot || status.gates || {};
+            const modeLabel = (status.mode || 'idle').replace(/_/g, ' ');
+            const uptime = gateSnapshot.mode_uptime_seconds || 0;
+            const progress = Math.min(100, Math.round((uptime % 180) / 180 * 100));
+
+            const milestones = [
+                { label: 'Motion gate open', done: !!gateSnapshot.allow_motion, detail: gateSnapshot.allow_motion ? 'Ready to move' : 'Waiting for clearance' },
+                { label: 'Recording allowed', done: !!gateSnapshot.record_episodes, detail: gateSnapshot.record_episodes ? 'Episodes gated in' : 'Recording gated off' },
+                { label: 'Self-train enabled', done: !!gateSnapshot.self_train, detail: gateSnapshot.self_train ? 'Robot learning live' : 'Manual/human-in-loop' },
+                { label: `${modeLabel} uptime`, done: progress > 40, detail: `${Math.round(uptime)}s in mode`, progress },
+            ];
+
+            container.innerHTML = milestones.map(item => {
+                const chipClass = item.done ? 'status-chip active' : 'status-chip paused';
+                const progressBar = typeof item.progress === 'number'
+                    ? `<div class="progress-bar"><div class="progress-fill" style="width:${item.progress}%"></div></div>`
+                    : '';
+                return `<div class="milestone-row">` +
+                    `<div>` +
+                        `<div>${item.label}</div>` +
+                        `<div class="learning-meta">${item.detail}</div>` +
+                        `${progressBar}` +
+                    `</div>` +
+                    `<span class="${chipClass}">${item.done ? '✅' : '…'} ${item.done ? 'Complete' : 'Pending'}</span>` +
+                `</div>`;
+            }).join('');
+        }
+
+        function renderLearningEvents(events) {
+            const list = document.getElementById('learning-events');
+            if (!list) return;
+            const items = events && events.length ? events : [{ title: 'No learning events yet', time: '', detail: 'Agents will surface new checkpoints here.' }];
+
+            list.innerHTML = items.map(event => {
+                return `<div class="learning-item">` +
+                    `<strong>${event.title}</strong>` +
+                    `<div class="learning-meta">${event.detail || 'Update pending'}</div>` +
+                    (event.time ? `<div class="learning-meta">${event.time}</div>` : '') +
+                `</div>`;
+            }).join('');
+        }
+
+        function renderAgentRail(status) {
+            const agents = (status && Array.isArray(status.agent_threads) && status.agent_threads.length)
+                ? status.agent_threads
+                : agentManagerState.agents;
+
+            const events = (status && Array.isArray(status.learning_events) && status.learning_events.length)
+                ? status.learning_events
+                : agentManagerState.learningEvents;
+
+            renderAgentThreads(agents);
+            renderAgentChips(agents);
+            renderLearningMilestones(status || {});
+            renderLearningEvents(events);
+
+            const toggle = document.getElementById('human-toggle');
+            const toggleState = document.getElementById('human-toggle-state');
+            if (toggle) {
+                toggle.classList.toggle('active', agentManagerState.humanMode);
+            }
+            if (toggleState) {
+                toggleState.textContent = agentManagerState.humanMode ? 'On' : 'Off';
+            }
+        }
+
+        window.toggleHumanMode = function() {
+            agentManagerState.humanMode = !agentManagerState.humanMode;
+            window.showMessage(agentManagerState.humanMode ? 'Human guidance injected' : 'Human mode disabled');
+            renderAgentRail();
+        };
+
+        window.pauseAgents = function() {
+            agentManagerState.agents = agentManagerState.agents.map(agent => ({ ...agent, status: 'paused' }));
+            window.showMessage('Agents paused for inspection');
+            renderAgentRail();
+        };
+
+        window.resumeAgents = function() {
+            agentManagerState.agents = agentManagerState.agents.map(agent => ({ ...agent, status: 'active' }));
+            window.showMessage('Agents resumed');
+            renderAgentRail();
+        };
+
+        window.reviewLearning = function() {
+            window.showMessage('Learning feed refreshed');
+            renderAgentRail();
+            const events = document.getElementById('learning-events');
+            if (events) {
+                events.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         };
 
         window.triggerSafetyHold = async function() {
@@ -1584,6 +1895,7 @@ class SimpleJSONServer:
                             if (motionCard) { motionCard.textContent = data.status.allow_motion ? 'Allowed' : 'Prevented'; }
 
                             renderLoopTelemetry(data.status);
+                            renderAgentRail(data.status);
 
                             // Update hardware sensors
                             var hardwareDiv = document.getElementById('hardware-status');
@@ -1674,6 +1986,7 @@ class SimpleJSONServer:
         };
 
         // Update status every 2 seconds
+        renderAgentRail();
         window.updateStatus();
         window.pollLoopHealth();
         setInterval(window.updateStatus, 2000);
