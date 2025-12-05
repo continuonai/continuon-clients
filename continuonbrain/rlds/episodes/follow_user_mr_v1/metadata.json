@@ -1,0 +1,16 @@
+{
+  "episode_metadata": {
+    "episode_id": "follow_user_mr_v1",
+    "task_name": "follow_user",
+    "recorded_at": "2024-06-01T12:00:00Z",
+    "continuon": {
+      "xr_mode": "mixed_reality",
+      "control_role": "pilot",
+      "tags": ["follow", "indoor"],
+      "quality_flags": ["synthetic"],
+      "is_golden": true,
+      "eligible_for_autonomy": false
+    },
+    "notes": "Synthetic MR follow task run with pilot control."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "episode_metadata": {
+    "episode_id": "follow_user_mr_v2",
+    "task_name": "follow_user",
+    "recorded_at": "2024-07-15T08:30:00Z",
+    "continuon": {
+      "xr_mode": "mixed_reality",
+      "control_role": "pilot",
+      "tags": ["follow", "indoor", "update"],
+      "quality_flags": ["verification_pending"],
+      "is_golden": false,
+      "eligible_for_autonomy": true
+    },
+    "notes": "Latest MR follow capture with tuned throttle limits."
+  }
+}
