@@ -117,7 +117,14 @@ class ContinuonBrainWebRtcClient(
         if (telemetrySubscribed && editorTelemetryCallback != null) {
             runCatching { ContinuonbrainLink.StreamRobotEditorTelemetryResponse.parseFrom(payload) }
                 .onSuccess { response ->
-                    if (response.hasDiagnostics() || response.hasSafetyState() || response.hasHopeCmsSignals()) {
+                    if (
+                        response.hasDiagnostics() ||
+                        response.hasSafetyState() ||
+                        response.hasHopeCmsSignals() ||
+                        response.safetySignalsCount > 0 ||
+                        response.hasCmsSnapshot() ||
+                        response.hasRobotState()
+                    ) {
                         editorTelemetryCallback?.invoke(response.toDomain())
                         return
                     }

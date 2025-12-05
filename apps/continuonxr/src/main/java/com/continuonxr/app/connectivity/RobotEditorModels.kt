@@ -11,6 +11,8 @@ data class CapabilityManifest(
     val skills: List<Skill> = emptyList(),
     val sensors: List<Sensor> = emptyList(),
     val source: String = "",
+    val availableCmsSnapshots: List<CmsSnapshot> = emptyList(),
+    val safetySignals: List<SafetySignalDefinition> = emptyList(),
 )
 
 @Serializable
@@ -62,11 +64,44 @@ data class Sensor(
 )
 
 @Serializable
+data class CmsSnapshot(
+    val snapshotId: String = "",
+    val policyVersion: String = "",
+    val memoryPlaneVersion: String = "",
+    val cmsBalance: String = "",
+    val createdAt: String = "",
+    val source: String = "",
+    val lastTrainingSummaryId: String = "",
+)
+
+@Serializable
+data class SafetySignalDefinition(
+    val id: String = "",
+    val label: String = "",
+    val description: String = "",
+    val unit: String = "",
+    val tags: List<String> = emptyList(),
+)
+
+@Serializable
+data class SafetySignal(
+    val id: String = "",
+    val value: Double = 0.0,
+    val severity: String = "",
+    val source: String = "",
+    val frameId: String = "",
+    val label: String = "",
+    val confidence: Double = 0.0,
+)
+
+@Serializable
 data class RobotEditorTelemetry(
     val robotState: RobotState,
     val diagnostics: EditorDiagnostics = EditorDiagnostics(),
     val safetyState: SafetyState = SafetyState(),
     val hopeCmsSignals: HopeCmsSignals = HopeCmsSignals(),
+    val safetySignals: List<SafetySignal> = emptyList(),
+    val cmsSnapshot: CmsSnapshot? = null,
 )
 
 @Serializable
@@ -126,6 +161,8 @@ internal fun ContinuonbrainLink.CapabilityManifest.toDomain(): CapabilityManifes
         skills = skillsList.map { it.toDomain() },
         sensors = sensorsList.map { it.toDomain() },
         source = source,
+        availableCmsSnapshots = availableCmsSnapshotsList.map { it.toDomain() },
+        safetySignals = safetySignalsList.map { it.toDomain() },
     )
 
 internal fun ContinuonbrainLink.RobotSoftwareVersions.toDomain() =
@@ -176,12 +213,45 @@ internal fun ContinuonbrainLink.Sensor.toDomain() =
         vendor = vendor,
     )
 
+internal fun ContinuonbrainLink.CmsSnapshot.toDomain() =
+    CmsSnapshot(
+        snapshotId = snapshotId,
+        policyVersion = policyVersion,
+        memoryPlaneVersion = memoryPlaneVersion,
+        cmsBalance = cmsBalance,
+        createdAt = createdAt,
+        source = source,
+        lastTrainingSummaryId = lastTrainingSummaryId,
+    )
+
+internal fun ContinuonbrainLink.SafetySignalDefinition.toDomain() =
+    SafetySignalDefinition(
+        id = id,
+        label = label,
+        description = description,
+        unit = unit,
+        tags = tagsList,
+    )
+
+internal fun ContinuonbrainLink.SafetySignal.toDomain() =
+    SafetySignal(
+        id = id,
+        value = value,
+        severity = severity,
+        source = source,
+        frameId = frameId,
+        label = label,
+        confidence = confidence,
+    )
+
 internal fun ContinuonbrainLink.StreamRobotEditorTelemetryResponse.toDomain(): RobotEditorTelemetry =
     RobotEditorTelemetry(
         robotState = robotState.toDomain(),
         diagnostics = if (hasDiagnostics()) diagnostics.toDomain() else EditorDiagnostics(),
         safetyState = if (hasSafetyState()) safetyState.toDomain() else SafetyState(),
         hopeCmsSignals = if (hasHopeCmsSignals()) hopeCmsSignals.toDomain() else HopeCmsSignals(),
+        safetySignals = safetySignalsList.map { it.toDomain() },
+        cmsSnapshot = if (hasCmsSnapshot()) cmsSnapshot.toDomain() else null,
     )
 
 internal fun ContinuonbrainLink.EditorDiagnostics.toDomain() =

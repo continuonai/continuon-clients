@@ -34,6 +34,7 @@ The on-device editor reuses Robot API surfaces but constrains them for editor us
   - `robot_model`, `software_versions`, `safety.envelopes_supported`, `safety.estop_supported`.
   - `skills[]` with `id`, `name`, `parameters`, `required_modalities` (pose, glove, gaze), `safety_tags`.
   - `sensors[]` with `id`, `sample_rate_hz`, `latency_ms`, `frame_id_domain`, `calibration_status`.
+  - `available_cms_snapshots[]` for slow-loop bundle metadata and `safety_signals[]` definitions to seed Safety Console legend entries (see [Studio panel proto mapping](./studio-panel-proto-note.md)).
 - **UI mapping:** Populates the Capabilities panel and seeds editor templates with parameter schemas; drives validation on save.
 
 ### Telemetry Stream
@@ -44,6 +45,7 @@ The on-device editor reuses Robot API surfaces but constrains them for editor us
   - `diagnostics` (latency, packet loss, BLE RSSI, mock-mode flag).
   - `safety_state` (estop, rate-limit status, envelope violations, predicted collision horizon from SafetyHead).
   - `hope_cms_signals` (Fast loop hazard scores, Mid loop intent confidence, Slow loop policy version metadata).
+  - `safety_signals[]` values to highlight safety events in the console and `cms_snapshot` to pin the active slow-loop bundle (see [Studio panel proto mapping](./studio-panel-proto-note.md)).
 - **UI mapping:** Drives live HUD overlays, chart widgets, and logging bars inside the editor. Data should be loggable to RLDS steps when the editor is used during Trainer/Observer modes.
 
 ### Proto → Panel Mapping (Studio shell)
