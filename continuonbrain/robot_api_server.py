@@ -1167,6 +1167,113 @@ class SimpleJSONServer:
             box-shadow: 0 0 0 4px rgba(56, 217, 150, 0.12);
         }
 
+        /* Chat overlay shared with /control */
+        .chat-overlay {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 360px;
+            background: rgba(10, 12, 20, 0.95);
+            border-radius: 12px;
+            border: 1px solid rgba(122, 215, 255, 0.2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+            color: #e8f0ff;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(8px);
+            overflow: hidden;
+            z-index: 999;
+        }
+
+        .chat-overlay.minimized {
+            height: 52px;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(90deg, rgba(122, 215, 255, 0.15), rgba(79, 157, 255, 0.1));
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(122, 215, 255, 0.2);
+            cursor: pointer;
+        }
+
+        .chat-header h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            color: #e8f0ff;
+        }
+
+        .chat-toggle {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e8f0ff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .chat-messages {
+            padding: 14px;
+            height: 340px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-message {
+            padding: 10px 12px;
+            border-radius: 10px;
+            max-width: 85%;
+            font-size: 13px;
+            line-height: 1.45;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+        }
+
+        .chat-message.user { margin-left: auto; background: #4f9dff; color: #0b1020; }
+        .chat-message.assistant { background: rgba(122, 215, 255, 0.08); border: 1px solid rgba(122, 215, 255, 0.2); }
+        .chat-message.system { margin: 0 auto; background: rgba(255,255,255,0.05); color: #9aa3ba; }
+
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 12px 14px;
+            border-top: 1px solid rgba(122, 215, 255, 0.15);
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: #e8f0ff;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .chat-input:focus { border-color: rgba(122, 215, 255, 0.6); box-shadow: 0 0 0 3px rgba(122, 215, 255, 0.12); }
+
+        .chat-send-btn {
+            background: linear-gradient(135deg, #4f9dff, #7ad7ff);
+            color: #0b1020;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-weight: 700;
+            box-shadow: 0 10px 30px rgba(79, 157, 255, 0.35);
+        }
+
+        .chat-send-btn:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
         .agent-rail {
             background: linear-gradient(180deg, rgba(16, 24, 38, 0.96), rgba(13, 20, 32, 0.96));
             border: 1px solid var(--border);
@@ -1445,11 +1552,11 @@ class SimpleJSONServer:
                     </section>
 
                     <section class="panel" style="margin-top: 14px;">
-                        <div class="panel-header">
-                            <div>
-                                <div class="panel-eyebrow">Workspace</div>
-                                <h2>Editor Canvas</h2>
-                                <p class="panel-subtitle">A visual staging area that mirrors robot readiness.</p>
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-eyebrow">Workspace</div>
+                        <h2>Editor Canvas</h2>
+                        <p class="panel-subtitle">A visual staging area that mirrors robot readiness.</p>
                             </div>
                         </div>
                         <div class="canvas-grid">
@@ -1586,7 +1693,22 @@ class SimpleJSONServer:
             </aside>
         </div>
     </div>
-    
+
+    <!-- Chat Interface -->
+    <div class="chat-overlay" id="chat-panel">
+        <div class="chat-header" onclick="toggleChat()" onkeypress="if(event.key==='Enter'||event.key===' ') toggleChat()" tabindex="0" role="button" aria-label="Toggle chat panel">
+            <h3>🤖 Gemma 3n Assistant</h3>
+            <button class="chat-toggle" id="chat-toggle">−</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-message system">Chat with Gemma 3n about robot control</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
+        </div>
+    </div>
+
     <script type="text/javascript">
         // Tab switching for Home Page
         window.switchHomeTab = function(tabName) {
@@ -2027,6 +2149,143 @@ class SimpleJSONServer:
                 console.warn('Loop telemetry fetch failed', err);
             }
         };
+
+        // Chat overlay persistence (/ui + /control)
+        var chatMinimized = false;
+        var chatHistory = [];
+        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
+        var chatHistoryKey = chatStoragePrefix + '_history';
+        var chatMinimizedKey = chatStoragePrefix + '_minimized';
+
+        function persistChatState() {
+            try {
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
+                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
+            } catch (e) {
+                console.warn('Unable to persist chat state', e);
+            }
+        }
+
+        function applyChatMinimized() {
+            var panel = document.getElementById('chat-panel');
+            var toggle = document.getElementById('chat-toggle');
+            if (!panel || !toggle) return;
+
+            if (chatMinimized) {
+                panel.classList.add('minimized');
+                toggle.textContent = '+';
+            } else {
+                panel.classList.remove('minimized');
+                toggle.textContent = '−';
+            }
+        }
+
+        function renderChatMessage(text, role, shouldPersist) {
+            if (typeof shouldPersist === 'undefined') shouldPersist = true;
+
+            var messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + role;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            if (shouldPersist) {
+                chatHistory.push({role: role, content: text});
+                persistChatState();
+            }
+        }
+
+        function hydrateChatOverlay() {
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    chatHistory = JSON.parse(storedHistory) || [];
+                    chatHistory.forEach(function(msg) {
+                        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                            renderChatMessage(msg.content, msg.role, false);
+                        }
+                    });
+                }
+
+                var storedMinimized = localStorage.getItem(chatMinimizedKey);
+                if (storedMinimized === 'true') {
+                    chatMinimized = true;
+                }
+            } catch (e) {
+                console.warn('Unable to hydrate chat state', e);
+            }
+
+            applyChatMinimized();
+        }
+
+        window.toggleChat = function() {
+            chatMinimized = !chatMinimized;
+            persistChatState();
+            applyChatMinimized();
+        };
+
+        window.addChatMessage = function(text, role) {
+            renderChatMessage(text, role, true);
+        };
+
+        window.sendChatMessage = function() {
+            var input = document.getElementById('chat-input');
+            var sendBtn = document.getElementById('chat-send');
+            var message = input ? input.value.trim() : '';
+
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            if (input) input.value = '';
+
+            // Disable input while processing
+            if (input) input.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+
+            // Send to Gemma endpoint
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/chat', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.response) {
+                            addChatMessage(data.response, 'assistant');
+                        } else if (data.error) {
+                            addChatMessage('Error: ' + data.error, 'system');
+                        }
+                    } catch (e) {
+                        addChatMessage('Error parsing response', 'system');
+                    }
+                } else {
+                    addChatMessage('Server error: ' + xhr.status, 'system');
+                }
+
+                if (input) input.focus();
+            };
+            xhr.onerror = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                addChatMessage('Connection error', 'system');
+                if (input) input.focus();
+            };
+
+            // Include chat history for context
+            xhr.send(JSON.stringify({
+                message: message,
+                history: chatHistory.slice(-10) // Last 10 messages for context
+            }));
+        };
+
+        hydrateChatOverlay();
 
         // Update status every 2 seconds
         renderAgentRail();
@@ -3006,15 +3265,33 @@ class SimpleJSONServer:
             xhr.send();
         };
         
-        // Chat functionality
+        // Chat functionality with persistence
         var chatMinimized = false;
         var chatHistory = [];
-        
-        window.toggleChat = function() {
-            chatMinimized = !chatMinimized;
+        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
+        var chatHistoryKey = chatStoragePrefix + '_history';
+        var chatMinimizedKey = chatStoragePrefix + '_minimized';
+
+        function persistChatState() {
+            try {
+                // Trim in-memory history as well
+                if (chatHistory.length > 50) {
+                    chatHistory = chatHistory.slice(-50);
+                }
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory));
+                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
+            } catch (e) {
+                console.warn('Unable to persist chat state', e);
+                // Show a user-visible warning
+                alert('Warning: Unable to save chat history. Your messages may not be saved.');
+            }
+        }
+
+        function applyChatMinimized() {
             var panel = document.getElementById('chat-panel');
             var toggle = document.getElementById('chat-toggle');
-            
+            if (!panel || !toggle) return;
+
             if (chatMinimized) {
                 panel.classList.add('minimized');
                 toggle.textContent = '+';
@@ -3022,42 +3299,82 @@ class SimpleJSONServer:
                 panel.classList.remove('minimized');
                 toggle.textContent = '−';
             }
-        };
-        
-        window.addChatMessage = function(text, role) {
+        }
+
+        function renderChatMessage(text, role, shouldPersist) {
+            if (typeof shouldPersist === 'undefined') shouldPersist = true;
+
             var messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
             var messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message ' + role;
             messageDiv.textContent = text;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            
-            chatHistory.push({role: role, content: text});
+
+            if (shouldPersist) {
+                chatHistory.push({role: role, content: text});
+                persistChatState();
+            }
+        }
+
+        function hydrateChatOverlay() {
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    chatHistory = JSON.parse(storedHistory) || [];
+                    chatHistory.forEach(function(msg) {
+                        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                            renderChatMessage(msg.content, msg.role, false);
+                        }
+                    });
+                }
+
+                var storedMinimized = localStorage.getItem(chatMinimizedKey);
+                if (storedMinimized === 'true') {
+                    chatMinimized = true;
+                }
+            } catch (e) {
+                console.warn('Unable to hydrate chat state', e);
+            }
+
+            applyChatMinimized();
+        }
+
+        window.toggleChat = function() {
+            chatMinimized = !chatMinimized;
+            persistChatState();
+            applyChatMinimized();
         };
-        
+
+        window.addChatMessage = function(text, role) {
+            renderChatMessage(text, role, true);
+        };
+
         window.sendChatMessage = function() {
             var input = document.getElementById('chat-input');
             var sendBtn = document.getElementById('chat-send');
-            var message = input.value.trim();
-            
+            var message = input ? input.value.trim() : '';
+
             if (!message) return;
-            
+
             // Add user message
             addChatMessage(message, 'user');
-            input.value = '';
-            
+            if (input) input.value = '';
+
             // Disable input while processing
-            input.disabled = true;
-            sendBtn.disabled = true;
-            
+            if (input) input.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+
             // Send to Gemma endpoint
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/chat', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.onload = function() {
-                input.disabled = false;
-                sendBtn.disabled = false;
-                
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+
                 if (xhr.status === 200) {
                     try {
                         var data = JSON.parse(xhr.responseText);
@@ -3072,22 +3389,24 @@ class SimpleJSONServer:
                 } else {
                     addChatMessage('Server error: ' + xhr.status, 'system');
                 }
-                
-                input.focus();
+
+                if (input) input.focus();
             };
             xhr.onerror = function() {
-                input.disabled = false;
-                sendBtn.disabled = false;
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
                 addChatMessage('Connection error', 'system');
-                input.focus();
+                if (input) input.focus();
             };
-            
+
             // Include chat history for context
             xhr.send(JSON.stringify({
                 message: message,
                 history: chatHistory.slice(-10) // Last 10 messages for context
             }));
         };
+
+        hydrateChatOverlay();
         
         // Update every 100ms for responsive control
         window.updateControlStatus();
