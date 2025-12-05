@@ -4,6 +4,6 @@ Cloud ingest/train/packaging should live in a dedicated repo. This `continuonai/
 
 ## Staging ingest expectations
 
-- All uploads into the staging bucket must be signed and include provenance metadata (runtime + Continuon AI app versions, environment ID, SHA-256 checksums).
-- The staging hook rejects unsigned or checksum-mismatched artifacts and surfaces 4xx errors to clients; keep local copies until a signed re-upload succeeds.
-- See [signed-ingestion.md](./signed-ingestion.md) for the minimal manifest format and the verification steps enforced before promotion to training storage.
+- All uploads into the staging bucket must be signed client-side and include a manifest with provenance metadata (Continuon Brain runtime + Continuon AI app versions), environment ID, deterministic package ID, and SHA-256 checksums for the archive and every episode blob.
+- The ingestion service rejects unsigned, unverifiable, or checksum-mismatched artifacts before they ever reach the staging bucket and surfaces 4xx errors to clients; keep local copies until a signed re-upload succeeds.
+- See [signed-ingestion.md](./signed-ingestion.md) for the required manifest fields and the verification steps enforced before promotion to training storage.
