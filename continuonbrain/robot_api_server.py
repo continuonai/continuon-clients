@@ -1529,7 +1529,7 @@ class SimpleJSONServer:
 
     <!-- Chat Interface -->
     <div class="chat-overlay" id="chat-panel">
-        <div class="chat-header" onclick="toggleChat()">
+        <div class="chat-header" onclick="toggleChat()" onkeypress="if(event.key==='Enter'||event.key===' ') toggleChat()" tabindex="0" role="button" aria-label="Toggle chat panel">
             <h3>🤖 Gemma 3n Assistant</h3>
             <button class="chat-toggle" id="chat-toggle">−</button>
         </div>
