@@ -1320,7 +1320,7 @@ class SimpleJSONServer:
                 <div class="sidebar-section">
                     <div class="sidebar-title">Command Deck</div>
                     <div class="command-grid">
-                        <button class="command-btn primary" onclick="window.location.href='/control'">🎮 Manual Control</button>
+                        <button id="manual-control-btn" class="command-btn primary" onclick="startManualControl(this)">🎮 Manual Control</button>
                         <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
                         <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
                         <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
@@ -1966,6 +1966,49 @@ class SimpleJSONServer:
                 window.showMessage('Connection failed', true);
             };
             xhr.send();
+        };
+
+        window.startManualControl = async function(buttonEl) {
+            const manualButton = buttonEl || document.getElementById('manual-control-btn');
+            if (!manualButton) {
+                window.showMessage('Manual Control button not found', true);
+                return;
+            }
+
+            if (manualButton.disabled) {
+                return;
+            }
+
+            const originalText = manualButton.textContent;
+            manualButton.disabled = true;
+            manualButton.textContent = 'Switching...';
+
+            try {
+                window.showMessage('Switching to manual control...');
+                const response = await fetch('/api/mode/manual_control', { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error('Server responded with ' + response.status);
+                }
+
+                const payload = await response.json();
+                if (payload && payload.success) {
+                    window.showMessage('Manual control enabled, redirecting...');
+                    window.updateStatus();
+                    setTimeout(() => { window.location.href = '/control'; }, 300);
+                } else {
+                    const message = (payload && payload.message) ? payload.message : 'Unable to enable manual control';
+                    window.showMessage(message, true);
+                    window.updateStatus();
+                    manualButton.disabled = false;
+                    manualButton.textContent = originalText;
+                }
+            } catch (err) {
+                console.error('Manual control switch failed', err);
+                window.showMessage('Failed to switch to manual control', true);
+                window.updateStatus();
+                manualButton.disabled = false;
+                manualButton.textContent = originalText;
+            }
         };
 
         window.pollLoopHealth = async function() {
