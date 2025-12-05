@@ -30,6 +30,7 @@ from continuonbrain.gemma_chat import create_gemma_chat
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
+from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
 
 
 @dataclass
@@ -1137,6 +1138,11 @@ class SimpleJSONServer:
             gates = await self.service.GetGates()
             response_body = json.dumps(gates)
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/settings" and method == "GET":
+            store = SettingsStore(Path(self.service.config_dir))
+            settings = store.load()
+            response_body = json.dumps({"success": True, "settings": settings})
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path in {"/api/tasks", "/api/tasks/"}:
             include_ineligible = query_params.get("include_ineligible", ["false"])[0].lower() == "true"
             result = await self.service.ListTasks(include_ineligible=include_ineligible)
@@ -1154,6 +1160,27 @@ class SimpleJSONServer:
             result = await self.service.SelectTask(payload.get("task_id", ""), reason=payload.get("reason"))
             response_body = json.dumps(result)
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/settings" and method == "POST":
+            content_length = int(headers.get('content-length', 0))
+            body = await reader.read(content_length) if content_length > 0 else b''
+            payload = json.loads(body.decode()) if body else {}
+            store = SettingsStore(Path(self.service.config_dir))
+            try:
+                validated = store.save(payload)
+                response_body = json.dumps(
+                    {"success": True, "settings": validated, "message": "Settings saved"}
+                )
+                status_line = "HTTP/1.1 200 OK"
+            except SettingsValidationError as exc:
+                response_body = json.dumps({"success": False, "message": str(exc)})
+                status_line = "HTTP/1.1 400 Bad Request"
+
+            response = (
+                f"{status_line}\r\n"
+                f"Content-Type: application/json\r\n"
+                f"Access-Control-Allow-Origin: *\r\n"
+                f"Content-Length: {len(response_body)}\r\n\r\n{response_body}"
+            )
         elif path == "/api/safety/hold":
             result = await self.service.TriggerSafetyHold()
             response_body = json.dumps(result)
@@ -1979,6 +2006,114 @@ class SimpleJSONServer:
             gap: 6px;
             margin-top: 10px;
         }
+
+        /* Settings modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            z-index: 900;
+            display: none;
+        }
+
+        .settings-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 901;
+            padding: 20px;
+        }
+
+        .settings-modal.open,
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .modal-card {
+            background: linear-gradient(160deg, rgba(20, 28, 44, 0.96), rgba(12, 17, 27, 0.95));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            max-width: 640px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .settings-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .settings-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .settings-row label { color: var(--muted); font-size: 13px; }
+
+        .settings-row input[type="number"],
+        .settings-row select {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            color: var(--text);
+            width: 120px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .modal-status {
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--muted);
+        }
     </style>
 </head>
 <body class="ide-body">
@@ -2016,7 +2151,7 @@ class SimpleJSONServer:
                         <button class="command-btn danger" onclick="setMode('emergency_stop')">🛑 Emergency Stop</button>
                         <button class="command-btn" onclick="window.triggerSafetyHold()">🛡️ Safety Hold</button>
                         <button class="command-btn subtle" onclick="window.resetSafetyGates()">♻️ Reset Gates</button>
-                        <button class="command-btn subtle" onclick="alert('Settings modal would open here')">⚙️ Settings</button>
+                        <button class="command-btn subtle" onclick="openSettingsModal()">⚙️ Settings</button>
                     </div>
                 </div>
                 
@@ -2286,6 +2421,66 @@ class SimpleJSONServer:
         </div>
     </div>
 
+    <div class="modal-backdrop" id="settings-backdrop"></div>
+    <div class="settings-modal" id="settings-modal" aria-hidden="true" role="dialog" aria-labelledby="settings-title">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title" id="settings-title">Runtime Settings</h3>
+                <button class="close-btn" type="button" onclick="closeSettingsModal()">✕</button>
+            </div>
+
+            <form id="settings-form">
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <h4>Safety Gates</h4>
+                        <div class="settings-row">
+                            <label for="settings-allow-motion">Allow motion</label>
+                            <input type="checkbox" id="settings-allow-motion">
+                        </div>
+                        <div class="settings-row">
+                            <label for="settings-record-episodes">Record episodes</label>
+                            <input type="checkbox" id="settings-record-episodes">
+                        </div>
+                        <div class="settings-row">
+                            <label for="settings-require-supervision">Require supervision</label>
+                            <input type="checkbox" id="settings-require-supervision">
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h4>Telemetry</h4>
+                        <div class="settings-row">
+                            <label for="telemetry-rate">Broadcast rate (Hz)</label>
+                            <input type="number" id="telemetry-rate" min="0.1" max="30" step="0.1" value="2.0">
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h4>Chat Persona</h4>
+                        <div class="settings-row">
+                            <label for="chat-persona">Role</label>
+                            <select id="chat-persona">
+                                <option value="operator">Operator</option>
+                                <option value="safety_officer">Safety Officer</option>
+                                <option value="demo_host">Demo Host</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label for="chat-temperature">Response creativity</label>
+                            <input type="number" id="chat-temperature" min="0" max="1" step="0.05" value="0.35">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="closeSettingsModal()">Cancel</button>
+                    <button type="submit" class="btn primary">Save</button>
+                </div>
+                <div class="modal-status" id="settings-status">Changes are persisted to your config directory.</div>
+            </form>
+        </div>
+    </div>
+
     <!-- Chat Interface -->
     <div class="chat-overlay" id="chat-panel">
         <div class="chat-header" onclick="toggleChat()" onkeypress="if(event.key==='Enter'||event.key===' ') toggleChat()" tabindex="0" role="button" aria-label="Toggle chat panel">
@@ -2326,6 +2521,115 @@ class SimpleJSONServer:
                 msgDiv.style.display = 'none';
             }, 3000);
         };
+
+        const settingsModal = document.getElementById('settings-modal');
+        const settingsBackdrop = document.getElementById('settings-backdrop');
+        const settingsForm = document.getElementById('settings-form');
+        const settingsStatus = document.getElementById('settings-status');
+
+        function setSettingsStatus(message, isError) {
+            if (!settingsStatus) return;
+            settingsStatus.textContent = message;
+            settingsStatus.style.color = isError ? '#ff7b7b' : 'var(--muted)';
+        }
+
+        function populateSettingsForm(settings) {
+            document.getElementById('settings-allow-motion').checked = !!settings?.safety?.allow_motion;
+            document.getElementById('settings-record-episodes').checked = !!settings?.safety?.record_episodes;
+            document.getElementById('settings-require-supervision').checked = !!settings?.safety?.require_supervision;
+            document.getElementById('telemetry-rate').value = settings?.telemetry?.rate_hz ?? 2.0;
+            document.getElementById('chat-persona').value = settings?.chat?.persona ?? 'operator';
+            document.getElementById('chat-temperature').value = settings?.chat?.temperature ?? 0.35;
+        }
+
+        async function fetchSettings() {
+            const response = await fetch('/api/settings');
+            if (!response.ok) {
+                throw new Error('Server responded with ' + response.status);
+            }
+            const payload = await response.json();
+            if (!payload.success) {
+                throw new Error(payload.message || 'Unable to load settings');
+            }
+            return payload.settings || {};
+        }
+
+        window.openSettingsModal = async function() {
+            settingsModal?.classList.add('open');
+            settingsBackdrop?.classList.add('open');
+            settingsModal?.setAttribute('aria-hidden', 'false');
+            setSettingsStatus('Loading current settings...');
+
+            try {
+                const settings = await fetchSettings();
+                populateSettingsForm(settings);
+                setSettingsStatus('Loaded from config directory.');
+            } catch (err) {
+                console.error(err);
+                setSettingsStatus(err.message || 'Failed to load settings', true);
+            }
+        };
+
+        window.closeSettingsModal = function() {
+            settingsModal?.classList.remove('open');
+            settingsBackdrop?.classList.remove('open');
+            settingsModal?.setAttribute('aria-hidden', 'true');
+        };
+
+        settingsBackdrop?.addEventListener('click', closeSettingsModal);
+
+        settingsForm?.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const telemetryRate = parseFloat(document.getElementById('telemetry-rate').value);
+            const chatTemperature = parseFloat(document.getElementById('chat-temperature').value);
+
+            if (Number.isNaN(telemetryRate) || telemetryRate <= 0 || telemetryRate > 30) {
+                setSettingsStatus('Telemetry rate must be between 0.1 and 30 Hz', true);
+                return;
+            }
+
+            if (Number.isNaN(chatTemperature) || chatTemperature < 0 || chatTemperature > 1) {
+                setSettingsStatus('Chat temperature must be between 0 and 1', true);
+                return;
+            }
+
+            const payload = {
+                safety: {
+                    allow_motion: document.getElementById('settings-allow-motion').checked,
+                    record_episodes: document.getElementById('settings-record-episodes').checked,
+                    require_supervision: document.getElementById('settings-require-supervision').checked,
+                },
+                telemetry: { rate_hz: telemetryRate },
+                chat: {
+                    persona: document.getElementById('chat-persona').value,
+                    temperature: chatTemperature,
+                },
+            };
+
+            setSettingsStatus('Saving...');
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Save failed');
+                }
+
+                populateSettingsForm(result.settings || payload);
+                setSettingsStatus('Settings saved to config directory.');
+                window.showMessage('Settings updated successfully');
+                setTimeout(closeSettingsModal, 300);
+            } catch (err) {
+                console.error('Save failed', err);
+                setSettingsStatus(err.message || 'Unable to save settings', true);
+                window.showMessage('Unable to save settings', true);
+            }
+        });
 
         const agentManagerState = {
             humanMode: false,

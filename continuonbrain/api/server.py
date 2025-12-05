@@ -28,6 +28,7 @@ if str(REPO_ROOT) not in sys.path:
 from continuonbrain.services.brain_service import BrainService
 from continuonbrain.agent_identity import AgentIdentity
 from continuonbrain.api.routes import ui_routes
+from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
@@ -98,13 +99,17 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 # Legacy robot status
                 # TODO: Implement full status serialization
                 self.send_json({"status": "ok", "mode": "idle"})
-            
+
             elif self.path == "/api/camera/stream":
                 self.handle_mjpeg_stream()
-                
+
             elif self.path == "/api/camera/frame":
                 self.handle_single_frame()
-                
+
+            elif self.path == "/api/settings":
+                store = SettingsStore(Path(brain_service.config_dir))
+                self.send_json({"success": True, "settings": store.load()})
+
             else:
                 self.send_error(404)
         except Exception as e:
@@ -154,13 +159,16 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     self.send_json({"success": False, "message": "No arm or invalid data"})
             
             elif self.path == "/api/settings":
-                data = json.loads(body)
-                # Save to disk
-                settings_path = Path(brain_service.config_dir) / "settings.json"
-                with open(settings_path, "w") as f:
-                    json.dump(data, f, indent=2)
-                self.send_json({"success": True})
-            
+                data = json.loads(body) if body else {}
+                store = SettingsStore(Path(brain_service.config_dir))
+                try:
+                    settings = store.save(data)
+                    self.send_json(
+                        {"success": True, "settings": settings, "message": "Settings saved"}
+                    )
+                except SettingsValidationError as e:
+                    self.send_json({"success": False, "message": str(e)}, status=400)
+
             elif self.path == "/api/hardware/scan":
                 # Manual Hardware Scan
                 try:
@@ -210,8 +218,8 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
             logger.error(f"POST error: {e}")
             self.send_error(500)
 
-    def send_json(self, data):
-        self.send_response(200)
+    def send_json(self, data, status: int = 200):
+        self.send_response(status)
         self.send_header("Content-type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
