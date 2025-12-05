@@ -5,9 +5,9 @@ package continuonxr.rlds.v1;
 // Draft RLDS schema for ContinuonXR. Matches docs/rlds-schema.md.
 
 message EpisodeMetadata {
-  string xr_mode = 1;           // trainer | workstation | observer
-  string control_role = 2;      // human_teleop | human_supervisor | human_dev_xr
-  string environment_id = 3;    // lab-mock, pbos-dev01, etc.
+  string xr_mode = 1; // trainer | workstation | observer
+  string control_role = 2; // human_teleop | human_supervisor | human_dev_xr
+  string environment_id = 3; // lab-mock, pbos-dev01, etc.
   repeated string tags = 4;
 
   SoftwareVersions software = 5;
@@ -41,13 +41,13 @@ message Observation {
 
 message Action {
   repeated float command = 1; // normalized control vector
-  string source = 2;          // e.g., human_teleop_xr
+  string source = 2; // e.g., human_teleop_xr
   Annotation annotation = 3;
   UiAction ui_action = 4;
 }
 
 message Pose {
-  repeated float position = 1;      // [x, y, z]
+  repeated float position = 1; // [x, y, z]
   repeated float orientation_quat = 2; // [x, y, z, w]
   bool valid = 3;
 }
@@ -67,7 +67,7 @@ message RobotState {
 message GloveFrame {
   int64 timestamp_nanos = 1;
   repeated float flex = 2; // size 5, normalized
-  repeated float fsr = 3;  // size 8, normalized
+  repeated float fsr = 3; // size 8, normalized
   repeated float orientation_quat = 4; // size 4
   repeated float accel = 5; // size 3, m/s^2
   bool valid = 6;
@@ -105,10 +105,10 @@ message UiContext {
 }
 
 message Gaze {
-  repeated float origin = 1;    // [x, y, z]
+  repeated float origin = 1; // [x, y, z]
   repeated float direction = 2; // normalized vector [x, y, z]
-  float confidence = 3;         // 0..1
-  string target_id = 4;         // optional UI/scene object id
+  float confidence = 3; // 0..1
+  string target_id = 4; // optional UI/scene object id
 }
 
 message Step {
