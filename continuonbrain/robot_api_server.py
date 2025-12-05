@@ -832,6 +832,144 @@ class SimpleJSONServer:
         writer.close()
         await writer.wait_closed()
     
+    def get_shared_chat_javascript(self):
+        """Generate shared chat overlay JavaScript for both /ui and /control pages."""
+        return """
+        // Chat overlay persistence (shared between /ui and /control)
+        var chatMinimized = false;
+        var chatHistory = [];
+        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
+        var chatHistoryKey = chatStoragePrefix + '_history';
+        var chatMinimizedKey = chatStoragePrefix + '_minimized';
+
+        function persistChatState() {
+            try {
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
+                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
+            } catch (e) {
+                console.warn('Unable to persist chat state', e);
+            }
+        }
+
+        function applyChatMinimized() {
+            var panel = document.getElementById('chat-panel');
+            var toggle = document.getElementById('chat-toggle');
+            if (!panel || !toggle) return;
+
+            if (chatMinimized) {
+                panel.classList.add('minimized');
+                toggle.textContent = '+';
+            } else {
+                panel.classList.remove('minimized');
+                toggle.textContent = '−';
+            }
+        }
+
+        function renderChatMessage(text, role, shouldPersist) {
+            if (typeof shouldPersist === 'undefined') shouldPersist = true;
+
+            var messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + role;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            if (shouldPersist) {
+                chatHistory.push({role: role, content: text});
+                persistChatState();
+            }
+        }
+
+        function hydrateChatOverlay() {
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    chatHistory = JSON.parse(storedHistory) || [];
+                    chatHistory.forEach(function(msg) {
+                        renderChatMessage(msg.content, msg.role, false);
+                    });
+                }
+
+                var storedMinimized = localStorage.getItem(chatMinimizedKey);
+                if (storedMinimized === 'true') {
+                    chatMinimized = true;
+                }
+            } catch (e) {
+                console.warn('Unable to hydrate chat state', e);
+            }
+
+            applyChatMinimized();
+        }
+
+        window.toggleChat = function() {
+            chatMinimized = !chatMinimized;
+            persistChatState();
+            applyChatMinimized();
+        };
+
+        window.addChatMessage = function(text, role) {
+            renderChatMessage(text, role, true);
+        };
+
+        window.sendChatMessage = function() {
+            var input = document.getElementById('chat-input');
+            var sendBtn = document.getElementById('chat-send');
+            var message = input ? input.value.trim() : '';
+
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            if (input) input.value = '';
+
+            // Disable input while processing
+            if (input) input.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+
+            // Send to Gemma endpoint
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/chat', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.response) {
+                            addChatMessage(data.response, 'assistant');
+                        } else if (data.error) {
+                            addChatMessage('Error: ' + data.error, 'system');
+                        }
+                    } catch (e) {
+                        addChatMessage('Error parsing response', 'system');
+                    }
+                } else {
+                    addChatMessage('Server error: ' + xhr.status, 'system');
+                }
+
+                if (input) input.focus();
+            };
+            xhr.onerror = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                addChatMessage('Connection error', 'system');
+                if (input) input.focus();
+            };
+
+            // Include chat history for context
+            xhr.send(JSON.stringify({
+                message: message,
+                history: chatHistory.slice(-10) // Last 10 messages for context
+            }));
+        };
+
+        hydrateChatOverlay();"""
+    
     def get_web_ui_html(self):
         """Generate simple web UI for robot control."""
         return """<!DOCTYPE html>
@@ -1795,141 +1933,7 @@ class SimpleJSONServer:
                 console.warn('Loop telemetry fetch failed', err);
             }
         };
-
-        // Chat overlay persistence (/ui + /control)
-        var chatMinimized = false;
-        var chatHistory = [];
-        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
-        var chatHistoryKey = chatStoragePrefix + '_history';
-        var chatMinimizedKey = chatStoragePrefix + '_minimized';
-
-        function persistChatState() {
-            try {
-                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
-                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
-            } catch (e) {
-                console.warn('Unable to persist chat state', e);
-            }
-        }
-
-        function applyChatMinimized() {
-            var panel = document.getElementById('chat-panel');
-            var toggle = document.getElementById('chat-toggle');
-            if (!panel || !toggle) return;
-
-            if (chatMinimized) {
-                panel.classList.add('minimized');
-                toggle.textContent = '+';
-            } else {
-                panel.classList.remove('minimized');
-                toggle.textContent = '−';
-            }
-        }
-
-        function renderChatMessage(text, role, shouldPersist) {
-            if (typeof shouldPersist === 'undefined') shouldPersist = true;
-
-            var messagesDiv = document.getElementById('chat-messages');
-            if (!messagesDiv) return;
-
-            var messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = text;
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-            if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
-                persistChatState();
-            }
-        }
-
-        function hydrateChatOverlay() {
-            try {
-                var storedHistory = localStorage.getItem(chatHistoryKey);
-                if (storedHistory) {
-                    chatHistory = JSON.parse(storedHistory) || [];
-                    chatHistory.forEach(function(msg) {
-                        renderChatMessage(msg.content, msg.role, false);
-                    });
-                }
-
-                var storedMinimized = localStorage.getItem(chatMinimizedKey);
-                if (storedMinimized === 'true') {
-                    chatMinimized = true;
-                }
-            } catch (e) {
-                console.warn('Unable to hydrate chat state', e);
-            }
-
-            applyChatMinimized();
-        }
-
-        window.toggleChat = function() {
-            chatMinimized = !chatMinimized;
-            persistChatState();
-            applyChatMinimized();
-        };
-
-        window.addChatMessage = function(text, role) {
-            renderChatMessage(text, role, true);
-        };
-
-        window.sendChatMessage = function() {
-            var input = document.getElementById('chat-input');
-            var sendBtn = document.getElementById('chat-send');
-            var message = input ? input.value.trim() : '';
-
-            if (!message) return;
-
-            // Add user message
-            addChatMessage(message, 'user');
-            if (input) input.value = '';
-
-            // Disable input while processing
-            if (input) input.disabled = true;
-            if (sendBtn) sendBtn.disabled = true;
-
-            // Send to Gemma endpoint
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/chat', true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = function() {
-                if (input) input.disabled = false;
-                if (sendBtn) sendBtn.disabled = false;
-
-                if (xhr.status === 200) {
-                    try {
-                        var data = JSON.parse(xhr.responseText);
-                        if (data.response) {
-                            addChatMessage(data.response, 'assistant');
-                        } else if (data.error) {
-                            addChatMessage('Error: ' + data.error, 'system');
-                        }
-                    } catch (e) {
-                        addChatMessage('Error parsing response', 'system');
-                    }
-                } else {
-                    addChatMessage('Server error: ' + xhr.status, 'system');
-                }
-
-                if (input) input.focus();
-            };
-            xhr.onerror = function() {
-                if (input) input.disabled = false;
-                if (sendBtn) sendBtn.disabled = false;
-                addChatMessage('Connection error', 'system');
-                if (input) input.focus();
-            };
-
-            // Include chat history for context
-            xhr.send(JSON.stringify({
-                message: message,
-                history: chatHistory.slice(-10) // Last 10 messages for context
-            }));
-        };
-
-        hydrateChatOverlay();
+""" + self.get_shared_chat_javascript() + """
 
         // Update status every 2 seconds
         window.updateStatus();
@@ -2907,141 +2911,7 @@ class SimpleJSONServer:
             };
             xhr.send();
         };
-        
-        // Chat functionality with persistence
-        var chatMinimized = false;
-        var chatHistory = [];
-        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
-        var chatHistoryKey = chatStoragePrefix + '_history';
-        var chatMinimizedKey = chatStoragePrefix + '_minimized';
-
-        function persistChatState() {
-            try {
-                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
-                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
-            } catch (e) {
-                console.warn('Unable to persist chat state', e);
-            }
-        }
-
-        function applyChatMinimized() {
-            var panel = document.getElementById('chat-panel');
-            var toggle = document.getElementById('chat-toggle');
-            if (!panel || !toggle) return;
-
-            if (chatMinimized) {
-                panel.classList.add('minimized');
-                toggle.textContent = '+';
-            } else {
-                panel.classList.remove('minimized');
-                toggle.textContent = '−';
-            }
-        }
-
-        function renderChatMessage(text, role, shouldPersist) {
-            if (typeof shouldPersist === 'undefined') shouldPersist = true;
-
-            var messagesDiv = document.getElementById('chat-messages');
-            if (!messagesDiv) return;
-
-            var messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = text;
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-            if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
-                persistChatState();
-            }
-        }
-
-        function hydrateChatOverlay() {
-            try {
-                var storedHistory = localStorage.getItem(chatHistoryKey);
-                if (storedHistory) {
-                    chatHistory = JSON.parse(storedHistory) || [];
-                    chatHistory.forEach(function(msg) {
-                        renderChatMessage(msg.content, msg.role, false);
-                    });
-                }
-
-                var storedMinimized = localStorage.getItem(chatMinimizedKey);
-                if (storedMinimized === 'true') {
-                    chatMinimized = true;
-                }
-            } catch (e) {
-                console.warn('Unable to hydrate chat state', e);
-            }
-
-            applyChatMinimized();
-        }
-
-        window.toggleChat = function() {
-            chatMinimized = !chatMinimized;
-            persistChatState();
-            applyChatMinimized();
-        };
-
-        window.addChatMessage = function(text, role) {
-            renderChatMessage(text, role, true);
-        };
-
-        window.sendChatMessage = function() {
-            var input = document.getElementById('chat-input');
-            var sendBtn = document.getElementById('chat-send');
-            var message = input ? input.value.trim() : '';
-
-            if (!message) return;
-
-            // Add user message
-            addChatMessage(message, 'user');
-            if (input) input.value = '';
-
-            // Disable input while processing
-            if (input) input.disabled = true;
-            if (sendBtn) sendBtn.disabled = true;
-
-            // Send to Gemma endpoint
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/chat', true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = function() {
-                if (input) input.disabled = false;
-                if (sendBtn) sendBtn.disabled = false;
-
-                if (xhr.status === 200) {
-                    try {
-                        var data = JSON.parse(xhr.responseText);
-                        if (data.response) {
-                            addChatMessage(data.response, 'assistant');
-                        } else if (data.error) {
-                            addChatMessage('Error: ' + data.error, 'system');
-                        }
-                    } catch (e) {
-                        addChatMessage('Error parsing response', 'system');
-                    }
-                } else {
-                    addChatMessage('Server error: ' + xhr.status, 'system');
-                }
-
-                if (input) input.focus();
-            };
-            xhr.onerror = function() {
-                if (input) input.disabled = false;
-                if (sendBtn) sendBtn.disabled = false;
-                addChatMessage('Connection error', 'system');
-                if (input) input.focus();
-            };
-
-            // Include chat history for context
-            xhr.send(JSON.stringify({
-                message: message,
-                history: chatHistory.slice(-10) // Last 10 messages for context
-            }));
-        };
-
-        hydrateChatOverlay();
+        """ + self.get_shared_chat_javascript() + """
         
         // Update every 100ms for responsive control
         window.updateControlStatus();
