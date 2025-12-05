@@ -239,6 +239,7 @@ class StartupManager:
     def launch_ui(self):
         """Launch the web UI in the default browser if configured."""
         import webbrowser
+        import shutil
         
         ui_config_path = self.config_dir / "ui_config.json"
         auto_launch = True  # Default to True
@@ -254,9 +255,29 @@ class StartupManager:
         if auto_launch:
             url = f"http://{self.discovery_service.get_robot_info()['ip_address']}:8080/ui"
             print(f"🌐 Launching UI: {url}")
+            
+            # Try to launch known browsers with flags to avoid keyring prompts
+            browser_cmd = None
+            for browser in ["chromium-browser", "chromium", "google-chrome", "google-chrome-stable"]:
+                if shutil.which(browser):
+                    browser_cmd = browser
+                    break
+            
+            if browser_cmd:
+                print(f"   Using browser: {browser_cmd} (with --password-store=basic)")
+                try:
+                    subprocess.Popen(
+                        [browser_cmd, "--password-store=basic", "--no-default-browser-check", url],
+                        stdout=subprocess.DEVNULL, 
+                        stderr=subprocess.DEVNULL
+                    )
+                    return
+                except Exception as e:
+                    print(f"   ⚠️  Failed to launch {browser_cmd}: {e}")
+            
+            # Fallback to standard webbrowser module
+            print("   Using default system browser...")
             try:
-                # Use a separate thread or process to avoid blocking if browser launch hangs
-                # But webbrowser.open is usually non-blocking or returns quickly
                 webbrowser.open(url)
             except Exception as e:
                 print(f"⚠️  Could not launch browser: {e}")

@@ -835,16 +835,7 @@ class SimpleJSONServer:
         writer.close()
         await writer.wait_closed()
     
-    def get_chat_overlay_js(self):
-        """Generate shared JavaScript code for chat overlay functionality.
-        
-        This code handles:
-        - Chat state persistence in localStorage
-        - Chat UI minimize/maximize toggle
-        - Message rendering and history management
-        - Sending messages to the Gemma chat API
-        """
-        return """
+
     def get_shared_chat_javascript(self):
         """Generate shared chat overlay JavaScript for both /ui and /control pages."""
         return f"""
@@ -855,16 +846,6 @@ class SimpleJSONServer:
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
 
-        function persistChatState() {
-            try {
-                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
-                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
-            } catch (e) {
-                console.warn('Unable to persist chat state', e);
-            }
-        }
-
-        function applyChatMinimized() {
         function persistChatState() {{
             try {{
                 localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-{self.CHAT_HISTORY_LIMIT})));
@@ -879,16 +860,6 @@ class SimpleJSONServer:
             var toggle = document.getElementById('chat-toggle');
             if (!panel || !toggle) return;
 
-            if (chatMinimized) {
-                panel.classList.add('minimized');
-                toggle.textContent = '+';
-            } else {
-                panel.classList.remove('minimized');
-                toggle.textContent = '−';
-            }
-        }
-
-        function renderChatMessage(text, role, shouldPersist) {
             if (chatMinimized) {{
                 panel.classList.add('minimized');
                 toggle.textContent = '+';
@@ -910,44 +881,6 @@ class SimpleJSONServer:
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-            if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
-                persistChatState();
-            }
-        }
-
-        function hydrateChatOverlay() {
-            try {
-                var storedHistory = localStorage.getItem(chatHistoryKey);
-                if (storedHistory) {
-                    chatHistory = JSON.parse(storedHistory) || [];
-                    chatHistory.forEach(function(msg) {
-                        renderChatMessage(msg.content, msg.role, false);
-                    });
-                }
-
-                var storedMinimized = localStorage.getItem(chatMinimizedKey);
-                if (storedMinimized === 'true') {
-                    chatMinimized = true;
-                }
-            } catch (e) {
-                console.warn('Unable to hydrate chat state', e);
-            }
-
-            applyChatMinimized();
-        }
-
-        window.toggleChat = function() {
-            chatMinimized = !chatMinimized;
-            persistChatState();
-            applyChatMinimized();
-        };
-
-        window.addChatMessage = function(text, role) {
-            renderChatMessage(text, role, true);
-        };
-
-        window.sendChatMessage = function() {
             if (shouldPersist) {{
                 chatHistory.push({{role: role, content: text}});
                 persistChatState();
@@ -1004,28 +937,6 @@ class SimpleJSONServer:
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/chat', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = function() {
-                if (input) input.disabled = false;
-                if (sendBtn) sendBtn.disabled = false;
-
-                if (xhr.status === 200) {
-                    try {
-                        var data = JSON.parse(xhr.responseText);
-                        if (data.response) {
-                            addChatMessage(data.response, 'assistant');
-                        } else if (data.error) {
-                            addChatMessage('Error: ' + data.error, 'system');
-                        }
-                    } catch (e) {
-                        addChatMessage('Error parsing response', 'system');
-                    }
-                } else {
-                    addChatMessage('Server error: ' + xhr.status, 'system');
-                }
-
-                if (input) input.focus();
-            };
-            xhr.onerror = function() {
             xhr.onload = function() {{
                 if (input) input.disabled = false;
                 if (sendBtn) sendBtn.disabled = false;
@@ -1052,17 +963,6 @@ class SimpleJSONServer:
                 if (sendBtn) sendBtn.disabled = false;
                 addChatMessage('Connection error', 'system');
                 if (input) input.focus();
-            };
-
-            // Include chat history for context
-            xhr.send(JSON.stringify({
-                message: message,
-                history: chatHistory.slice(-10) // Last 10 messages for context
-            }));
-        };
-
-        hydrateChatOverlay();
-"""
             }};
 
             // Include chat history for context
@@ -2662,7 +2562,7 @@ class SimpleJSONServer:
 </body>
 </html>"""
         
-        return html_before_chat_js + self.get_chat_overlay_js() + html_after_chat_js
+        return html_before_chat_js + self.get_shared_chat_javascript() + html_after_chat_js
     
     def get_control_interface_html(self):
         """Generate live control interface with camera feed and system status."""
@@ -3867,7 +3767,7 @@ class SimpleJSONServer:
 </body>
 </html>"""
         
-        return html_before_chat_js + self.get_chat_overlay_js() + html_after_chat_js
+        return html_before_chat_js + self.get_shared_chat_javascript() + html_after_chat_js
     
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a single client connection."""

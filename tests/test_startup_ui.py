@@ -26,20 +26,41 @@ class TestStartupUI(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     @patch('webbrowser.open')
-    def test_launch_ui_default(self, mock_open):
-        """Test that UI launches by default when no config exists."""
+    @patch('shutil.which')
+    def test_launch_ui_default(self, mock_which, mock_open):
+        """Test that UI launches using fallback when no specific browser found."""
+        mock_which.return_value = None
         self.manager.launch_ui()
         mock_open.assert_called_once_with("http://127.0.0.1:8080/ui")
 
     @patch('webbrowser.open')
-    def test_launch_ui_enabled(self, mock_open):
-        """Test that UI launches when explicitly enabled."""
-        config_path = self.config_dir / "ui_config.json"
-        with open(config_path, 'w') as f:
-            json.dump({"auto_launch": True}, f)
-            
+    @patch('continuonbrain.startup_manager.subprocess.Popen')
+    @patch('shutil.which')
+    def test_launch_ui_specific_browser(self, mock_which, mock_popen, mock_webbrowser):
+        """Test that specific browser is used if found."""
+        mock_which.return_value = "/usr/bin/chromium-browser"
+        
         self.manager.launch_ui()
-        mock_open.assert_called_once_with("http://127.0.0.1:8080/ui")
+        
+        mock_which.assert_called()
+        mock_popen.assert_called()
+        args = mock_popen.call_args[0][0]
+        self.assertIn("--password-store=basic", args)
+        self.assertIn("http://127.0.0.1:8080/ui", args)
+        # Verify fallback wasn't called
+        mock_webbrowser.assert_not_called()
+
+    @patch('webbrowser.open')
+    @patch('continuonbrain.startup_manager.subprocess.Popen')
+    @patch('shutil.which')
+    def test_launch_ui_fallback(self, mock_which, mock_popen, mock_webbrowser):
+        """Test fallback to default browser if no specific one found."""
+        mock_which.return_value = None
+        
+        self.manager.launch_ui()
+        
+        mock_popen.assert_not_called()
+        mock_webbrowser.assert_called_once_with("http://127.0.0.1:8080/ui")
 
     @patch('webbrowser.open')
     def test_launch_ui_disabled(self, mock_open):
