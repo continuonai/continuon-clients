@@ -89,7 +89,7 @@ class RobotService:
         print()
 
         self._ensure_system_instructions()
-        
+
         # Auto-detect hardware (used for status reporting)
         if self.auto_detect:
             print("🔍 Auto-detecting hardware...")
@@ -102,14 +102,14 @@ class RobotService:
             else:
                 print("⚠️  No hardware detected!")
                 print()
-        
+
         # Initialize recorder and hardware (prefers real, falls back to mock if allowed)
         print("📼 Initializing episode recorder...")
         self.recorder = ArmEpisodeRecorder(
             episodes_dir=f"{self.config_dir}/episodes",
             max_steps=500,
         )
-        
+
         hardware_ready = False
         if self.prefer_real_hardware:
             print("🦾 Initializing hardware via ContinuonBrain...")
@@ -119,13 +119,13 @@ class RobotService:
             )
             self.arm = self.recorder.arm
             self.camera = self.recorder.camera
-            
+
             if not hardware_ready:
                 print("⚠️  Real hardware initialization incomplete")
                 if not self.allow_mock_fallback:
                     raise RuntimeError("Failed to initialize arm or camera in real mode")
                 print("↩️  Falling back to mock mode")
-        
+
         if not hardware_ready:
             # Ensure clean mock state
             self.recorder.initialize_hardware(use_mock=True, auto_detect=self.auto_detect)
@@ -136,7 +136,7 @@ class RobotService:
             self.use_real_hardware = False
         else:
             self.use_real_hardware = True
-        
+
         print("✅ Episode recorder ready")
 
         # Initialize drivetrain controller for steering/throttle
@@ -156,7 +156,7 @@ class RobotService:
         )
         self.mode_manager.return_to_idle()  # Start in idle mode
         print("✅ Mode manager ready")
-        
+
         print()
         print("=" * 60)
         print(f"✅ Robot Service Ready ({'REAL' if self.use_real_hardware else 'MOCK'} MODE)")
@@ -166,6 +166,17 @@ class RobotService:
             for key, value in self.detected_config["primary"].items():
                 print(f"  {key.replace('_', ' ').title()}: {value}")
         print()
+
+    def _ensure_mode_manager(self) -> RobotModeManager:
+        """Guarantee a mode manager exists for telemetry and gates."""
+
+        if self.mode_manager is None:
+            self.mode_manager = RobotModeManager(
+                config_dir=self.config_dir,
+                system_instructions=self.system_instructions,
+            )
+            self.mode_manager.return_to_idle()
+        return self.mode_manager
     
     async def StreamRobotState(self, client_id: str) -> AsyncIterator[dict]:
         """
@@ -283,7 +294,7 @@ class RobotService:
                 return _record_result({"success": False, "message": "System instructions unavailable"})
 
             if not self.mode_manager:
-                return _record_result({"success": False, "message": "Mode manager not initialized"})
+                self._ensure_mode_manager()
 
             current_mode = self.mode_manager.current_mode
             if current_mode not in {RobotMode.MANUAL_CONTROL, RobotMode.MANUAL_TRAINING}:
@@ -342,8 +353,8 @@ class RobotService:
                 return {"success": False, "message": "System instructions unavailable"}
 
             if not self.mode_manager:
-                return {"success": False, "message": "Mode manager not initialized"}
-            
+                self._ensure_mode_manager()
+
             # Map string to enum
             mode_map = {
                 "manual_control": RobotMode.MANUAL_CONTROL,
@@ -394,7 +405,7 @@ class RobotService:
                 })
                 status["gate_snapshot"] = self.mode_manager.get_gate_snapshot()
                 status["loop_metrics"] = self.mode_manager.get_loop_metrics()
-
+            
             if self.detected_config:
                 status["detected_hardware"] = self.detected_config.get("primary")
 
@@ -415,18 +426,17 @@ class RobotService:
                 status["safety_head"] = self.health_checker.get_safety_head_status()
 
             return {"success": True, "status": status}
-        
+
         except Exception as e:
             return {"success": False, "message": f"Error: {str(e)}"}
 
     async def GetLoopHealth(self) -> dict:
         """Expose HOPE/CMS loop metrics, safety head status, and gates."""
         try:
-            if not self.mode_manager:
-                return {"success": False, "message": "Mode manager not initialized"}
+            mode_manager = self._ensure_mode_manager()
 
-            metrics = self.mode_manager.get_loop_metrics()
-            gates = self.mode_manager.get_gate_snapshot()
+            metrics = mode_manager.get_loop_metrics()
+            gates = mode_manager.get_gate_snapshot()
             safety_head = self.health_checker.get_safety_head_status() if self.health_checker else None
 
             return {
@@ -437,6 +447,51 @@ class RobotService:
             }
         except Exception as e:
             return {"success": False, "message": f"Error: {str(e)}"}
+
+    async def GetGates(self) -> dict:
+        """Expose gate snapshot and safety envelope for UI badges."""
+
+        try:
+            mode_manager = self._ensure_mode_manager()
+            gates = mode_manager.get_gate_snapshot()
+            safety_head = self.health_checker.get_safety_head_status() if self.health_checker else None
+
+            return {
+                "success": True,
+                "gates": gates,
+                "safety_head": safety_head,
+                "mode": mode_manager.current_mode.value,
+            }
+        except Exception as e:
+            return {"success": False, "message": f"Error: {str(e)}"}
+
+    async def TriggerSafetyHold(self) -> dict:
+        """Shortcut to emergency stop while returning gate state."""
+
+        try:
+            mode_manager = self._ensure_mode_manager()
+            mode_manager.emergency_stop("Web safety hold")
+            return {
+                "success": True,
+                "mode": mode_manager.current_mode.value,
+                "gates": mode_manager.get_gate_snapshot(),
+            }
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+
+    async def ResetSafetyGates(self) -> dict:
+        """Return to idle to clear gate state for mock and hardware modes."""
+
+        try:
+            mode_manager = self._ensure_mode_manager()
+            mode_manager.return_to_idle()
+            return {
+                "success": True,
+                "mode": mode_manager.current_mode.value,
+                "gates": mode_manager.get_gate_snapshot(),
+            }
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
     
     async def StartEpisodeRecording(self, language_instruction: str) -> dict:
         """Start RLDS episode recording."""
@@ -686,6 +741,18 @@ class SimpleJSONServer:
         elif path == "/api/loops":
             status = await self.service.GetLoopHealth()
             response_body = json.dumps(status)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/gates":
+            gates = await self.service.GetGates()
+            response_body = json.dumps(gates)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/safety/hold":
+            result = await self.service.TriggerSafetyHold()
+            response_body = json.dumps(result)
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/safety/reset":
+            result = await self.service.ResetSafetyGates()
+            response_body = json.dumps(result)
             response = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path.startswith("/api/mode/"):
             mode = path.split("/")[-1]
@@ -1251,19 +1318,43 @@ class SimpleJSONServer:
             }, 3000);
         };
 
-        window.triggerSafetyHold = function() {
+        window.triggerSafetyHold = async function() {
             window.showMessage('Engaging safety hold...');
-            setMode('emergency_stop');
+            try {
+                const response = await fetch('/api/safety/hold', { method: 'POST' });
+                const data = await response.json();
+                if (data && data.success) {
+                    window.showMessage('Safety hold engaged');
+                    window.updateStatus();
+                } else {
+                    window.showMessage('Hold failed', true);
+                }
+            } catch (err) {
+                console.error(err);
+                window.showMessage('Hold request failed', true);
+            }
         };
 
-        window.resetSafetyGates = function() {
+        window.resetSafetyGates = async function() {
             window.showMessage('Resetting gates to idle baseline...');
-            setMode('idle');
+            try {
+                const response = await fetch('/api/safety/reset', { method: 'POST' });
+                const data = await response.json();
+                if (data && data.success) {
+                    window.showMessage('Gates reset to idle');
+                    window.updateStatus();
+                } else {
+                    window.showMessage('Reset failed', true);
+                }
+            } catch (err) {
+                console.error(err);
+                window.showMessage('Reset request failed', true);
+            }
         };
 
         function renderLoopTelemetry(status) {
-            var loops = status.loop_metrics || {};
-            var gates = status.gate_snapshot || {};
+            var loops = status.loop_metrics || status.metrics || {};
+            var gates = status.gate_snapshot || status.gates || {};
             var safety = status.safety_head || {};
 
             var wave = (typeof loops.wave_particle_balance === 'number') ? Math.min(1, Math.max(0, loops.wave_particle_balance)) : 0;
@@ -1301,7 +1392,9 @@ class SimpleJSONServer:
             var heartbeat = loops.heartbeat || {};
             var heartbeatBadge = document.getElementById('heartbeat-badge');
             if (heartbeatBadge) {
-                heartbeatBadge.textContent = heartbeat.ok ? 'Heartbeat stable' : 'Heartbeat delayed';
+                var beatAgeMs = heartbeat.last_beat ? (Date.now() - heartbeat.last_beat * 1000) : null;
+                var beatAgeLabel = beatAgeMs ? ' • ' + Math.round(beatAgeMs) + 'ms ago' : '';
+                heartbeatBadge.textContent = heartbeat.ok ? 'Heartbeat stable' + beatAgeLabel : 'Heartbeat delayed';
                 heartbeatBadge.className = 'chip ' + (heartbeat.ok ? 'success' : 'danger');
             }
 
@@ -1319,7 +1412,10 @@ class SimpleJSONServer:
             }
             var safetyHeartbeat = document.getElementById('safety-heartbeat');
             if (safetyHeartbeat) {
-                safetyHeartbeat.textContent = safety.heartbeat && safety.heartbeat.ok ? 'Online (' + safety.heartbeat.source + ')' : 'Simulated';
+                var safetyBeat = safety.heartbeat || {};
+                var beatDelta = safetyBeat.timestamp_ns ? ((Date.now() * 1e6 - safetyBeat.timestamp_ns) / 1e9).toFixed(1) : null;
+                var beatLabel = beatDelta ? ' • ' + beatDelta + 's ago' : '';
+                safetyHeartbeat.textContent = safetyBeat.ok ? 'Online (' + (safetyBeat.source || 'safety') + beatLabel + ')' : 'Simulated';
             }
         }
         
@@ -1389,7 +1485,7 @@ class SimpleJSONServer:
         window.setMode = function(mode) {
             console.log('Setting mode to:', mode);
             window.showMessage('Changing mode to ' + mode.replace(/_/g, ' ') + '...');
-            
+
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '/api/mode/' + mode, true);
             xhr.onload = function() {
@@ -1416,10 +1512,29 @@ class SimpleJSONServer:
             };
             xhr.send();
         };
-        
+
+        window.pollLoopHealth = async function() {
+            try {
+                const response = await fetch('/api/loops');
+                if (!response.ok) { return; }
+                const payload = await response.json();
+                if (payload && payload.success) {
+                    renderLoopTelemetry({
+                        loop_metrics: payload.metrics,
+                        gate_snapshot: payload.gates,
+                        safety_head: payload.safety_head
+                    });
+                }
+            } catch (err) {
+                console.warn('Loop telemetry fetch failed', err);
+            }
+        };
+
         // Update status every 2 seconds
         window.updateStatus();
+        window.pollLoopHealth();
         setInterval(window.updateStatus, 2000);
+        setInterval(window.pollLoopHealth, 1500);
     </script>
 </body>
 </html>"""
