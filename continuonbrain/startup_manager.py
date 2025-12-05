@@ -232,6 +232,36 @@ class StartupManager:
         print("  • Sleep Learning - Self-train on memories")
         print("=" * 60)
         print()
+        
+        # Launch UI if configured
+        self.launch_ui()
+        
+    def launch_ui(self):
+        """Launch the web UI in the default browser if configured."""
+        import webbrowser
+        
+        ui_config_path = self.config_dir / "ui_config.json"
+        auto_launch = True  # Default to True
+        
+        if ui_config_path.exists():
+            try:
+                with open(ui_config_path, 'r') as f:
+                    config = json.load(f)
+                    auto_launch = config.get("auto_launch", True)
+            except Exception as e:
+                print(f"⚠️  Could not read UI config: {e}")
+        
+        if auto_launch:
+            url = f"http://{self.discovery_service.get_robot_info()['ip_address']}:8080/ui"
+            print(f"🌐 Launching UI: {url}")
+            try:
+                # Use a separate thread or process to avoid blocking if browser launch hangs
+                # But webbrowser.open is usually non-blocking or returns quickly
+                webbrowser.open(url)
+            except Exception as e:
+                print(f"⚠️  Could not launch browser: {e}")
+        else:
+            print("ℹ️  UI auto-launch disabled in config")
     
     def shutdown_services(self):
         """Shutdown all robot services."""
