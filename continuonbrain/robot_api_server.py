@@ -1802,6 +1802,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var MAX_MESSAGE_LENGTH = 10000; // Maximum allowed message length for DoS protection
 
         function persistChatState() {
             try {
@@ -1831,7 +1832,7 @@ class SimpleJSONServer:
             // Ensure content is a string and within reasonable bounds
             if (typeof content !== 'string') return '';
             // Limit message length to prevent DoS
-            if (content.length > 10000) return content.substring(0, 10000);
+            if (content.length > MAX_MESSAGE_LENGTH) return content.substring(0, MAX_MESSAGE_LENGTH);
             return content;
         }
 
@@ -2935,6 +2936,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var MAX_MESSAGE_LENGTH = 10000; // Maximum allowed message length for DoS protection
 
         function persistChatState() {
             try {
@@ -2970,7 +2972,7 @@ class SimpleJSONServer:
             // Ensure content is a string and within reasonable bounds
             if (typeof content !== 'string') return '';
             // Limit message length to prevent DoS
-            if (content.length > 10000) return content.substring(0, 10000);
+            if (content.length > MAX_MESSAGE_LENGTH) return content.substring(0, MAX_MESSAGE_LENGTH);
             return content;
         }
 
