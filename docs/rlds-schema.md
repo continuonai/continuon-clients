@@ -3,11 +3,11 @@
 This draft defines the RLDS-style schema ContinuonXR must emit. All episodes must validate against these rules before upload.
 
 ## Episode-level metadata
-- `episode_metadata.continuon.xr_mode`: string enum — `trainer`, `workstation`, `observer` (also mirrored into `episode_metadata.tags` as `continuon.xr_mode:<value>` for stratification).
-- `episode_metadata.continuon.control_role`: string enum — `human_teleop`, `human_supervisor`, `human_dev_xr`.
-- `episode_metadata.environment_id`: string — deployment target or mock instance id (e.g., `lab-mock`, `pbos-dev01`).
-- `episode_metadata.software`: object — XR app version, ContinuonBrain/OS version, glove firmware version.
-- `episode_metadata.tags`: list<string> — freeform labels such as task name, scene, robot type, and the natural language task instruction.
+- `metadata.xr_mode`: string enum — `trainer`, `workstation`, `observer` (also mirrored into `metadata.tags` as `continuon.xr_mode:<value>` for stratification).
+- `metadata.control_role`: string enum — `human_teleop`, `human_supervisor`, `human_dev_xr`.
+- `metadata.environment_id`: string — deployment target or mock instance id (e.g., `lab-mock`, `pbos-dev01`).
+- `metadata.software`: object — XR app version, Continuon Brain runtime version, glove firmware version.
+- `metadata.tags`: list<string> — freeform labels such as task name, scene, robot type, and the natural language task instruction.
 
 ## Step structure
 Each step is timestamped in monotonic time (ns) and wall-clock time (ms) for reconciliation. Steps must align robot state, video, glove, and pose to within 5 ms.
