@@ -2589,7 +2589,7 @@ class SimpleJSONServer:
                 controls.innerHTML = ['all', ...groupLabels].map(label => {
                     const active = taskDeckState.selectedGroup === label;
                     const displayLabel = label === 'all' ? 'All' : label;
-                    return `<button class="${active ? 'active' : ''}" data-group="${label}" onclick="window.filterTaskGroup('${label}')">${displayLabel}</button>`;
+                    return `<button class="task-group-filter ${active ? 'active' : ''}" data-group="${label}">${displayLabel}</button>`;
                 }).join('');
             }
 
@@ -2619,8 +2619,8 @@ class SimpleJSONServer:
                             `<div class="task-description">${task.description || ''}</div>` +
                         `</div>` +
                         `<div class="task-actions">` +
-                            `<button onclick="window.selectTask('${task.id}')" ${disabledAttr}>${selectLabel}</button>` +
-                            `<button class="ghost" onclick="window.toggleTaskDetails('${task.id}')">${detailLabel}</button>` +
+                            `<button class="task-select-btn" data-task-id="${task.id}" ${disabledAttr}>${selectLabel}</button>` +
+                            `<button class="ghost task-details-btn" data-task-id="${task.id}">${detailLabel}</button>` +
                         `</div>` +
                         `<div class="task-detail-drawer ${detailOpen ? 'open' : ''}" id="task-detail-${task.id}">` +
                             `<div class="task-meta">${detailMeta || 'No timing hints'}</div>` +
@@ -2657,6 +2657,46 @@ class SimpleJSONServer:
             taskDeckState.expandedDetails[taskId] = !taskDeckState.expandedDetails[taskId];
             renderTaskLibrary(taskLibraryPayload || {});
         };
+
+        // Event delegation for task deck interactions to prevent XSS vulnerabilities
+        // Only register the listener once to prevent memory leaks
+        if (!window.taskDeckState._eventListenerRegistered) {
+            window.taskDeckState._eventListenerRegistered = true;
+            document.addEventListener('click', function(e) {
+                // Use closest() to handle clicks on child elements within buttons
+                let target = e.target;
+                
+                // Handle task group filter clicks
+                const filterBtn = target.closest('.task-group-filter');
+                if (filterBtn) {
+                    const group = filterBtn.getAttribute('data-group');
+                    if (group) {
+                        window.filterTaskGroup(group);
+                    }
+                    return;
+                }
+                
+                // Handle task selection clicks
+                const selectBtn = target.closest('.task-select-btn');
+                if (selectBtn) {
+                    const taskId = selectBtn.getAttribute('data-task-id');
+                    if (taskId && !selectBtn.disabled) {
+                        window.selectTask(taskId);
+                    }
+                    return;
+                }
+                
+                // Handle task details toggle clicks
+                const detailsBtn = target.closest('.task-details-btn');
+                if (detailsBtn) {
+                    const taskId = detailsBtn.getAttribute('data-task-id');
+                    if (taskId) {
+                        window.toggleTaskDetails(taskId);
+                    }
+                    return;
+                }
+            });
+        }
 
         function renderAgentRail(status) {
             const agents = (status && Array.isArray(status.agent_threads) && status.agent_threads.length)
