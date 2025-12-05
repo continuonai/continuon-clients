@@ -2624,7 +2624,7 @@ class SimpleJSONServer:
                         `</div>` +
                         `<div class="task-detail-drawer ${detailOpen ? 'open' : ''}" id="task-detail-${task.id}">` +
                             `<div class="task-meta">${detailMeta || 'No timing hints'}</div>` +
-                            `<div class="task-tags">${tagRow || '<span class="task-tag">Unlabeled</span>'}</div>` +
+                            ${(tagRow ? `<div class="task-tags">${tagRow}</div>` : '')} +
                             `<div class="eligibility-stack">${markers}</div>` +
                         `</div>` +
                     `</div>`;
