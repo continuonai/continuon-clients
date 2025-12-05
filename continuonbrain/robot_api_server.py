@@ -2962,7 +2962,9 @@ class SimpleJSONServer:
                 if (storedHistory) {
                     chatHistory = JSON.parse(storedHistory) || [];
                     chatHistory.forEach(function(msg) {
-                        renderChatMessage(msg.content, msg.role, false);
+                        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                            renderChatMessage(msg.content, msg.role, false);
+                        }
                     });
                 }
 
