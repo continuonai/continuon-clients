@@ -1826,12 +1826,19 @@ class SimpleJSONServer:
             }
         }
 
-        function sanitizeText(text) {
-            // Sanitize text to prevent XSS attacks by escaping HTML entities
-            if (typeof text !== 'string') return '';
-            var div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        function validateChatContent(content) {
+            // Validate chat content to prevent injection attacks
+            // Ensure content is a string and within reasonable bounds
+            if (typeof content !== 'string') return '';
+            // Limit message length to prevent DoS
+            if (content.length > 10000) return content.substring(0, 10000);
+            return content;
+        }
+
+        function validateChatRole(role) {
+            // Validate role to prevent class injection
+            var validRoles = ['user', 'assistant', 'system'];
+            return validRoles.indexOf(role) !== -1 ? role : 'system';
         }
 
         function renderChatMessage(text, role, shouldPersist) {
@@ -1840,17 +1847,18 @@ class SimpleJSONServer:
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
-            // Sanitize text before rendering
-            var sanitizedText = sanitizeText(text);
+            // Validate inputs to prevent injection attacks
+            var validatedText = validateChatContent(text);
+            var validatedRole = validateChatRole(role);
 
             var messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = sanitizedText;
+            messageDiv.className = 'chat-message ' + validatedRole;
+            messageDiv.textContent = validatedText; // textContent prevents XSS
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: role, content: sanitizedText});
+                chatHistory.push({role: validatedRole, content: validatedText});
                 persistChatState();
             }
         }
@@ -2957,12 +2965,19 @@ class SimpleJSONServer:
             }
         }
 
-        function sanitizeText(text) {
-            // Sanitize text to prevent XSS attacks by escaping HTML entities
-            if (typeof text !== 'string') return '';
-            var div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        function validateChatContent(content) {
+            // Validate chat content to prevent injection attacks
+            // Ensure content is a string and within reasonable bounds
+            if (typeof content !== 'string') return '';
+            // Limit message length to prevent DoS
+            if (content.length > 10000) return content.substring(0, 10000);
+            return content;
+        }
+
+        function validateChatRole(role) {
+            // Validate role to prevent class injection
+            var validRoles = ['user', 'assistant', 'system'];
+            return validRoles.indexOf(role) !== -1 ? role : 'system';
         }
 
         function renderChatMessage(text, role, shouldPersist) {
@@ -2971,17 +2986,18 @@ class SimpleJSONServer:
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
-            // Sanitize text before rendering
-            var sanitizedText = sanitizeText(text);
+            // Validate inputs to prevent injection attacks
+            var validatedText = validateChatContent(text);
+            var validatedRole = validateChatRole(role);
 
             var messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = sanitizedText;
+            messageDiv.className = 'chat-message ' + validatedRole;
+            messageDiv.textContent = validatedText; // textContent prevents XSS
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: role, content: sanitizedText});
+                chatHistory.push({role: validatedRole, content: validatedText});
                 persistChatState();
             }
         }
