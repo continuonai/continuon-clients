@@ -1537,7 +1537,7 @@ class SimpleJSONServer:
             <div class="chat-message system">Chat with Gemma 3n about robot control</div>
         </div>
         <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
             <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
         </div>
     </div>
