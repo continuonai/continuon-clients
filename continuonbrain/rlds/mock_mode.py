@@ -57,14 +57,12 @@ def _robot_state(timestamp_ns: int, frame_id: str) -> Dict[str, Any]:
     }
 
 
-def _diagnostics(mock_mode: bool) -> Dict[str, Any]:
+def _diagnostics() -> Dict[str, Any]:
     return {
         "latency_ms": 8.5,
         "glove_drops": 0,
         "ble_rssi": -58,
         "glove_sample_rate_hz": 90.0,
-        "mock_mode": mock_mode,
-        "transport": "loopback",
     }
 
 
@@ -114,7 +112,7 @@ def generate_mock_mode_episode(config: MockGeneratorConfig | None = None) -> Dic
             "glove": _glove(valid=True, timestamp_ns=timestamp_ns),
             "video_frame_id": frame_id,
             "depth_frame_id": frame_id,
-            "diagnostics": _diagnostics(mock_mode=True),
+            "diagnostics": _diagnostics(),
             "audio": {
                 "uri": f"mock://audio/{frame_id}.wav",
                 "sample_rate_hz": 16000,
@@ -136,13 +134,10 @@ def generate_mock_mode_episode(config: MockGeneratorConfig | None = None) -> Dic
         }
         steps.append(step)
 
-    episode_metadata = {
-        "episode_id": cfg.episode_id,
+    metadata = {
+        "xr_mode": cfg.xr_mode,
+        "control_role": cfg.control_role,
         "environment_id": cfg.environment_id,
-        "continuon": {
-            "xr_mode": cfg.xr_mode,
-            "control_role": cfg.control_role,
-        },
         "software": {
             "xr_app": "studio-mock",
             "continuonbrain_os": "mock",
@@ -151,4 +146,4 @@ def generate_mock_mode_episode(config: MockGeneratorConfig | None = None) -> Dic
         "tags": ["studio", "mock", f"continuon.xr_mode:{cfg.xr_mode}"],
     }
 
-    return {"episode_metadata": episode_metadata, "steps": steps}
+    return {"metadata": metadata, "steps": steps}
