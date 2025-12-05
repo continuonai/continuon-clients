@@ -2659,36 +2659,40 @@ class SimpleJSONServer:
         };
 
         // Event delegation for task deck interactions to prevent XSS vulnerabilities
-        document.addEventListener('click', function(e) {
-            const target = e.target;
-            
-            // Handle task group filter clicks
-            if (target.classList.contains('task-group-filter')) {
-                const group = target.getAttribute('data-group');
-                if (group) {
-                    window.filterTaskGroup(group);
+        // Only register the listener once to prevent memory leaks
+        if (!window._taskDeckEventListenerRegistered) {
+            window._taskDeckEventListenerRegistered = true;
+            document.addEventListener('click', function(e) {
+                const target = e.target;
+                
+                // Handle task group filter clicks
+                if (target.classList.contains('task-group-filter')) {
+                    const group = target.getAttribute('data-group');
+                    if (group) {
+                        window.filterTaskGroup(group);
+                    }
+                    return;
                 }
-                return;
-            }
-            
-            // Handle task selection clicks
-            if (target.classList.contains('task-select-btn')) {
-                const taskId = target.getAttribute('data-task-id');
-                if (taskId && !target.disabled) {
-                    window.selectTask(taskId);
+                
+                // Handle task selection clicks
+                if (target.classList.contains('task-select-btn')) {
+                    const taskId = target.getAttribute('data-task-id');
+                    if (taskId && !target.disabled) {
+                        window.selectTask(taskId);
+                    }
+                    return;
                 }
-                return;
-            }
-            
-            // Handle task details toggle clicks
-            if (target.classList.contains('task-details-btn')) {
-                const taskId = target.getAttribute('data-task-id');
-                if (taskId) {
-                    window.toggleTaskDetails(taskId);
+                
+                // Handle task details toggle clicks
+                if (target.classList.contains('task-details-btn')) {
+                    const taskId = target.getAttribute('data-task-id');
+                    if (taskId) {
+                        window.toggleTaskDetails(taskId);
+                    }
+                    return;
                 }
-                return;
-            }
-        });
+            });
+        }
 
         function renderAgentRail(status) {
             const agents = (status && Array.isArray(status.agent_threads) && status.agent_threads.length)
