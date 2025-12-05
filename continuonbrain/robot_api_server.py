@@ -2341,6 +2341,16 @@ class SimpleJSONServer:
         }
 
         function hydrateChatOverlay() {
+            var storedHistory = localStorage.getItem(chatHistoryKey);
+            if (storedHistory) {
+                try {
+                    chatHistory = JSON.parse(storedHistory);
+                    if (!Array.isArray(chatHistory)) {
+                        chatHistory = [];
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse chat history from localStorage', parseError);
+                    chatHistory = [];
             try {
                 var storedHistory = localStorage.getItem(chatHistoryKey);
                 if (storedHistory) {
@@ -2369,13 +2379,16 @@ class SimpleJSONServer:
                     renderChatMessage(initialChatMessage, 'system', false);
                     persistChatState();
                 }
+                chatHistory.forEach(function(msg) {
+                    if (msg && typeof msg === 'object' && typeof msg.role === 'string' && typeof msg.content === 'string') {
+                        renderChatMessage(msg.content, msg.role, false);
+                    }
+                });
+            }
 
-                var storedMinimized = localStorage.getItem(chatMinimizedKey);
-                if (storedMinimized === 'true') {
-                    chatMinimized = true;
-                }
-            } catch (e) {
-                console.warn('Unable to hydrate chat state', e);
+            var storedMinimized = localStorage.getItem(chatMinimizedKey);
+            if (storedMinimized === 'true') {
+                chatMinimized = true;
             }
 
             applyChatMinimized();
