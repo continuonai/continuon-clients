@@ -123,6 +123,10 @@ message CapabilityManifest {
   repeated Sensor sensors = 5;
   // Source of the manifest: live, cached, or mock. Kept flexible for offline mode.
   string source = 6;
+  // Cached HOPE/CMS bundles surfaced to Studio for offline previews or diffing.
+  repeated CmsSnapshot available_cms_snapshots = 7;
+  // Safety signals surfaced in telemetry and visualized in the Safety Console.
+  repeated SafetySignalDefinition safety_signals = 8;
 }
 
 message RobotSoftwareVersions {
@@ -142,6 +146,24 @@ message SafetyFeatures {
   bool safety_head_present = 3;
   bool rate_limiter_present = 4;
   repeated string default_envelopes = 5;
+}
+
+message CmsSnapshot {
+  string snapshot_id = 1;
+  string policy_version = 2;
+  string memory_plane_version = 3;
+  string cms_balance = 4;
+  string created_at = 5; // ISO-8601 timestamp for Studio timelines.
+  string source = 6; // live, cached, mock
+  string last_training_summary_id = 7;
+}
+
+message SafetySignalDefinition {
+  string id = 1;
+  string label = 2;
+  string description = 3;
+  string unit = 4; // e.g., probability, meters, unitless
+  repeated string tags = 5; // envelope, reflex, override
 }
 
 message SkillParameter {
@@ -204,6 +226,16 @@ message SafetyState {
   repeated string active_envelopes = 6;
 }
 
+message SafetySignal {
+  string id = 1;
+  double value = 2;
+  string severity = 3; // info, warning, critical
+  string source = 4; // safety_head, envelope, reflex
+  string frame_id = 5;
+  string label = 6;
+  double confidence = 7;
+}
+
 message HopeCmsSignals {
   HopeFastSignals fast = 1;
   HopeMidSignals mid = 2;
@@ -240,4 +272,6 @@ message StreamRobotEditorTelemetryResponse {
   EditorDiagnostics diagnostics = 2;
   SafetyState safety_state = 3;
   HopeCmsSignals hope_cms_signals = 4;
+  repeated SafetySignal safety_signals = 5;
+  CmsSnapshot cms_snapshot = 6;
 }

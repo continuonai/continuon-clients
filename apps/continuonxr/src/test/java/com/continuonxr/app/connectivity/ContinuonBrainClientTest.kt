@@ -128,6 +128,15 @@ class ContinuonBrainClientTest {
                     .addActiveEnvelopes("workspace")
                     .build()
             )
+            .addSafetySignals(
+                ContinuonbrainLink.SafetySignal.newBuilder()
+                    .setId("estop_override")
+                    .setLabel("E-Stop Override")
+                    .setSeverity("critical")
+                    .setSource("safety_head")
+                    .setValue(1.0)
+                    .build()
+            )
             .setHopeCmsSignals(
                 ContinuonbrainLink.HopeCmsSignals.newBuilder()
                     .setMid(
@@ -136,6 +145,16 @@ class ContinuonBrainClientTest {
                             .setIntentConfidence(0.82f)
                             .build()
                     )
+                    .build()
+            )
+            .setCmsSnapshot(
+                ContinuonbrainLink.CmsSnapshot.newBuilder()
+                    .setSnapshotId("slow-loop-123")
+                    .setPolicyVersion("policy-a")
+                    .setMemoryPlaneVersion("memory-1")
+                    .setCmsBalance("stable")
+                    .setCreatedAt("2024-05-01T12:00:00Z")
+                    .setSource("live")
                     .build()
             )
             .build()
@@ -149,6 +168,8 @@ class ContinuonBrainClientTest {
         assertEquals(true, telemetry.safetyState.estopEngaged)
         assertEquals(2.5f, telemetry.diagnostics.latencyMs)
         assertEquals("pick_place", telemetry.hopeCmsSignals.mid.intentLabel)
+        assertEquals("estop_override", telemetry.safetySignals.first().id)
+        assertEquals("slow-loop-123", telemetry.cmsSnapshot?.snapshotId)
         assertEquals(listOf("workspace"), telemetry.safetyState.activeEnvelopes)
     }
 }
