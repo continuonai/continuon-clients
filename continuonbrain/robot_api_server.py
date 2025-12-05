@@ -938,21 +938,31 @@ class SimpleJSONServer:
         }
 
         .ide-sidebar {
-            background: linear-gradient(180deg, rgba(18, 28, 44, 0.9), rgba(15, 23, 41, 0.95));
+            background: linear-gradient(180deg, rgba(18, 28, 44, 0.95), rgba(15, 23, 41, 0.98));
             border: 1px solid var(--border);
             border-radius: 14px;
-            padding: 16px;
+            padding: 24px 20px;
             box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 16px;
+            min-width: 280px;
         }
 
         .sidebar-title {
             font-size: 13px;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
             color: var(--muted);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 12px;
         }
 
         .command-grid {
@@ -1176,17 +1186,26 @@ class SimpleJSONServer:
 
         <div class="ide-workspace">
             <aside class="ide-sidebar">
-                <div class="sidebar-title">Command Deck</div>
-                <div class="command-grid">
-                    <button class="command-btn primary" onclick="window.location.href='/control'">🎮 Manual Control</button>
-                    <button class="command-btn" onclick="setMode('manual_training')">📝 Manual Training</button>
-                    <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
-                    <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
-                    <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
-                    <button class="command-btn danger" onclick="setMode('emergency_stop')">🛑 Emergency Stop</button>
-                    <button class="command-btn" onclick="window.triggerSafetyHold()">🛡️ Safety Hold</button>
-                    <button class="command-btn subtle" onclick="window.resetSafetyGates()">♻️ Reset Gates</button>
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Command Deck</div>
+                    <div class="command-grid">
+                        <button class="command-btn primary" onclick="window.location.href='/control'">🎮 Manual Control</button>
+                        <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
+                        <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
+                        <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
+                    </div>
                 </div>
+                
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Safety & System</div>
+                    <div class="command-grid">
+                        <button class="command-btn danger" onclick="setMode('emergency_stop')">🛑 Emergency Stop</button>
+                        <button class="command-btn" onclick="window.triggerSafetyHold()">🛡️ Safety Hold</button>
+                        <button class="command-btn subtle" onclick="window.resetSafetyGates()">♻️ Reset Gates</button>
+                        <button class="command-btn subtle" onclick="alert('Settings modal would open here')">⚙️ Settings</button>
+                    </div>
+                </div>
+                
                 <div class="sidebar-footnote">Use the deck like an IDE command palette to swap modes quickly.</div>
             </aside>
 
@@ -1266,20 +1285,110 @@ class SimpleJSONServer:
                     </div>
                 </section>
 
-                <section class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <div class="panel-eyebrow">Sensors</div>
-                            <h2>Hardware Canvas</h2>
-                            <p class="panel-subtitle">Auto-discovered sensors render into a visual rack.</p>
-                        </div>
-                    </div>
-                    <div class="sensor-grid" id="hardware-status">
-                        <div class="status-item">
-                            <span class="status-label">Loading sensors...</span>
-                        </div>
-                    </div>
                 </section>
+
+                <!-- Tabs for View Switcher -->
+                <div class="tabs-container">
+                    <button class="tab-btn active" data-tab="dashboard" onclick="switchHomeTab('dashboard')">📊 Dashboard</button>
+                    <button class="tab-btn" data-tab="robot-view" onclick="switchHomeTab('robot-view')">🤖 Robot Layout</button>
+                </div>
+
+                <!-- Dashboard View (Sensors + Workspace) -->
+                <div id="dashboard-panel" class="home-panel">
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-eyebrow">Sensors</div>
+                                <h2>Hardware Canvas</h2>
+                                <p class="panel-subtitle">Auto-discovered sensors render into a visual rack.</p>
+                            </div>
+                        </div>
+                        <div class="sensor-grid" id="hardware-status">
+                            <div class="status-item">
+                                <span class="status-label">Loading sensors...</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel" style="margin-top: 14px;">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-eyebrow">Workspace</div>
+                                <h2>Editor Canvas</h2>
+                                <p class="panel-subtitle">A visual staging area that mirrors robot readiness.</p>
+                            </div>
+                        </div>
+                        <div class="canvas-grid">
+                            <div class="canvas-card">
+                                <div class="canvas-title">Mode Timeline</div>
+                                <p class="canvas-text">Snapshot of the current behavior lane.</p>
+                            </div>
+                            <div class="canvas-card">
+                                <div class="canvas-title">Safety Boundaries</div>
+                                <p class="canvas-text">Motion gates active.</p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Robot Layout View -->
+                <div id="robot-view-panel" class="home-panel" style="display: none;">
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="panel-eyebrow">Visual Status</div>
+                                <h2>System Health Map</h2>
+                                <p class="panel-subtitle">Component-level health and connectivity status.</p>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; padding: 40px 0;">
+                            <!-- Visual Robot Representation -->
+                            <div style="position: relative; width: 300px; height: 300px; border: 1px dashed var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                
+                                <!-- Base -->
+                                <div style="position: absolute; bottom: 40px; width: 120px; height: 60px; background: rgba(255,255,255,0.05); border: 1px solid var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                                    <span style="font-size: 10px; color: var(--accent);">BASE / DRIVETRAIN</span>
+                                    <span id="viz-base-status" style="font-size: 16px;">🟢</span>
+                                </div>
+                                
+                                <!-- Arm -->
+                                <div style="position: absolute; top: 80px; right: 40px; width: 40px; height: 120px; background: rgba(255,255,255,0.05); border: 1px solid var(--accent); border-radius: 8px; transform: rotate(15deg); display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                                    <span style="font-size: 10px; color: var(--accent); writing-mode: vertical-lr;">ARM/GRIPPER</span>
+                                    <span id="viz-arm-status" style="font-size: 16px; margin-top: 4px;">🟢</span>
+                                </div>
+
+                                <!-- Head/Camera -->
+                                <div style="position: absolute; top: 40px; left: 80px; width: 80px; height: 60px; background: rgba(255,255,255,0.05); border: 1px solid var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                                    <span style="font-size: 10px; color: var(--accent);">VISION</span>
+                                    <span id="viz-vision-status" style="font-size: 16px;">🟢</span>
+                                </div>
+                                
+                                <!-- Core -->
+                                <div style="width: 80px; height: 80px; background: rgba(122, 215, 255, 0.1); border-radius: 50%; border: 2px solid var(--accent-strong); display: flex; align-items: center; justify-content: center; flex-direction: column; box-shadow: 0 0 30px rgba(79, 157, 255, 0.2);">
+                                    <span style="font-size: 10px; color: #fff; font-weight: bold;">BRAIN</span>
+                                    <span id="viz-brain-status" style="font-size: 20px;">🧠</span>
+                                </div>
+                            </div>
+                            
+                            <div style="flex: 1; min-width: 250px;">
+                                <div class="status-item">
+                                    <span class="status-label">Overall Safety Check</span>
+                                    <span class="status-value status-good">PASSED</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Battery / Power</span>
+                                    <span class="status-value">100% (Simulated)</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">NPU Load</span>
+                                    <span class="status-value">Low</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
 
                 <section class="panel">
                     <div class="panel-header">
@@ -1311,6 +1420,18 @@ class SimpleJSONServer:
     </div>
     
     <script type="text/javascript">
+        // Tab switching for Home Page
+        window.switchHomeTab = function(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if(btn.dataset.tab === tabName) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            document.querySelectorAll('.home-panel').forEach(panel => {
+                if(panel.id === tabName + '-panel') panel.style.display = 'block';
+                else panel.style.display = 'none';
+            });
+        };
         // Global functions for onclick handlers
         window.showMessage = function(message, isError) {
             if (typeof isError === 'undefined') { isError = false; }
@@ -1425,6 +1546,21 @@ class SimpleJSONServer:
                 safetyHeartbeat.textContent = safetyBeat.ok ? 'Online (' + (safetyBeat.source || 'safety') + beatLabel + ')' : 'Simulated';
             }
         }
+
+        // Tab switching logic for Manual Control
+        window.switchTab = function(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if(btn.dataset.tab === tabName) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            // Update panels
+            document.querySelectorAll('.control-panel').forEach(panel => {
+                if(panel.id === tabName + '-panel') panel.style.display = 'block';
+                else panel.style.display = 'none';
+            });
+        };
         
         window.updateStatus = function() {
             var xhr = new XMLHttpRequest();
@@ -1566,152 +1702,177 @@ class SimpleJSONServer:
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: radial-gradient(circle at 25% 20%, rgba(122, 215, 255, 0.08), transparent 30%),
-                        radial-gradient(circle at 80% 0%, rgba(79, 157, 255, 0.08), transparent 25%),
-                        var(--bg);
+            background: #000;
             color: #fff;
             overflow: hidden;
         }
-        .header {
-            background: linear-gradient(135deg, rgba(15, 23, 41, 0.95), rgba(16, 22, 38, 0.9));
-            padding: 14px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
-        }
-        .header h1 {
-            font-size: 18px;
-            color: #fff;
-            letter-spacing: 0.3px;
-        }
-        .back-btn {
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            border: 1px solid var(--border);
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: border-color 0.15s ease, transform 0.1s ease;
-        }
-        .back-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
-        .main-container {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            height: calc(100vh - 60px);
-            gap: 12px;
-            background: transparent;
-            padding: 12px;
-        }
+        
+        /* Fullscreen Video Background */
         .video-panel {
-            background: linear-gradient(180deg, rgba(10, 16, 32, 0.9), rgba(15, 23, 41, 0.94));
-            border: 1px solid var(--border);
-            border-radius: 16px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 0;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
         }
+        
         .video-feed {
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at 50% 20%, rgba(74, 217, 255, 0.05), rgba(15, 23, 41, 0.9));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: #666;
-            position: relative;
+            object-fit: cover;
+            opacity: 0.8;
         }
-        .video-feed img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-        .video-placeholder {
-            text-align: center;
-            position: absolute;
-        }
-        .video-info {
+        
+        .video-overlay {
             position: absolute;
             top: 20px;
             left: 20px;
-            background: rgba(0, 0, 0, 0.55);
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 12px;
+            border-radius: 8px;
+            pointer-events: none;
         }
-        .status-panel {
-            background: linear-gradient(180deg, rgba(14, 21, 35, 0.94), rgba(12, 18, 32, 0.94));
-            padding: 20px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+
+        /* Floating Header */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(15, 23, 41, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 12px 24px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .status-section {
-            margin-bottom: 20px;
-        }
-        .status-section h3 {
-            font-size: 14px;
-            color: var(--muted);
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .status-item {
-            background: rgba(255, 255, 255, 0.02);
-            padding: 14px;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            border: 1px solid var(--border);
-        }
-        .status-label {
-            font-size: 11px;
-            color: var(--muted);
-            margin-bottom: 4px;
-        }
-        .status-value {
+        
+        .header h1 {
             font-size: 16px;
-            font-weight: 600;
             color: #fff;
+            margin: 0;
         }
-        .status-good { color: #34c759; }
-        .status-warning { color: #ff9500; }
-        .status-critical { color: #ff3b30; }
-        .joint-controls {
-            display: grid;
-            gap: 8px;
+        
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
         }
-        .joint-slider {
+        .back-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+        /* Tabs Centered Bottom */
+        .tabs-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            background: rgba(15, 23, 41, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 6px;
+            border-radius: 100px;
+            display: flex;
+            gap: 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn.active {
+            background: var(--accent);
+            color: #0b1020;
+            box-shadow: 0 4px 12px rgba(122, 215, 255, 0.3);
+        }
+        
+        /* Layout Container (Right Side Overlay) */
+        .main-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 360px;
+            z-index: 10;
+            padding: 80px 20px 20px 0;
+            pointer-events: none; /* Let clicks pass through empty areas */
+            display: block; /* Reset grid */
+            background: transparent;
+            height: auto;
+            max-width: none;
+            margin: 0;
+        }
+
+        .status-panel {
+            pointer-events: auto;
+            background: transparent;
+            border: none;
+            padding: 0;
+            box-shadow: none;
+            overflow: visible;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 16px;
+            height: 100%;
         }
-        .joint-slider label {
-            font-size: 11px;
-            color: #86868b;
+
+        .control-panel {
+            background: rgba(16, 22, 38, 0.85);
+            backdrop-filter: blur(16px);
+            padding: 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
         }
-        .joint-slider input {
-            width: 100%;
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
         }
+
+        .status-section { display: none; } /* Hide generic status blocks in immersive mode */
+
+        /* Joint Sliders & buttons styling (Keep existing logic but refine) */
+        .joint-slider {
+            background: rgba(0,0,0,0.2);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        .joint-slider label { color: #ccc; font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .val-badge { color: var(--accent); font-family: monospace; }
+        
+        .arrow-group { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; }
+        .arrow-btn { background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; }
+        .arrow-btn:active { background: var(--accent); color: #000; }
+        
         .emergency-btn {
-            width: 100%;
             background: #ff3b30;
             color: white;
             border: none;
             padding: 16px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 20px;
         }
         .arrow-controls {
             display: grid;
@@ -1871,144 +2032,91 @@ class SimpleJSONServer:
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🎮 Manual Control - CraigBot</h1>
-        <button class="back-btn" onclick="window.location.href='/ui'">← Back to Menu</button>
-    </div>
-    
-    <div class="main-container">
-        <div class="video-panel">
-            <div class="video-info">
-                <div>Mode: <strong id="current-mode">Manual Control</strong></div>
-                <div>FPS: <span id="fps">0</span></div>
-                <div>Latency: <span id="latency">0</span>ms</div>
-            </div>
-            <div class="video-feed" id="video-container">
-                <img id="camera-stream" style="display:none;" alt="Camera Feed">
-                <div class="video-placeholder" id="video-placeholder">
-                    <div>📹</div>
-                    <div>Camera Feed</div>
-                    <div style="font-size: 14px; color: #444; margin-top: 10px;">
-                        Connecting to OAK-D Lite...
-                    </div>
-                </div>
+    <div class="video-panel">
+        <img src="/api/camera/stream" class="video-feed" onerror="this.src='data:image/svg+xml;base64,...'">
+        <div class="video-overlay">
+             <div class="status-item">
+                <span style="width: 8px; height: 8px; background: #34c759; border-radius: 50%; display: inline-block; margin-right: 6px;"></span>
+                LIVE FEED (CAM_1)
             </div>
         </div>
-        
+    </div>
+
+    <div class="header">
+        <h1>🎮 Manual Control</h1>
+        <button class="back-btn" onclick="window.location.href='/ui'">Exit</button>
+    </div>
+
+    <!-- Tabs (Bottom Center) -->
+    <div class="tabs-container">
+        <button class="tab-btn active" data-tab="arm" onclick="switchTab('arm')">🦾 Arm</button>
+        <button class="tab-btn" data-tab="drive" onclick="switchTab('drive')">🏎️ Drive</button>
+    </div>
+
+    <div class="main-container">
         <div class="status-panel">
-            <div class="status-section">
-                <h3>System Status</h3>
-                <div class="status-item">
-                    <div class="status-label">Hardware Mode</div>
-                    <div class="status-value status-good" id="hardware-mode">REAL</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Robot Mode</div>
-                    <div class="status-value status-good" id="robot-mode">MANUAL</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Motion Enabled</div>
-                    <div class="status-value status-good" id="motion-enabled">Yes</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Recording</div>
-                    <div class="status-value" id="recording-status">No</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Drivetrain</div>
-                    <div class="status-value" id="drivetrain-connection">Checking...</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Last Drive</div>
-                    <div class="status-value" id="drive-message">Awaiting command</div>
-                </div>
-            </div>
-            
-            <div class="status-section">
-                <h3>Hardware Status</h3>
-                <div id="hardware-details">
-                    <div class="status-item">
-                        <div class="status-label">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="status-section">
-                <h3>Joint Control</h3>
+            <!-- Joint/Arm Control Panel (Overlay) -->
+            <div id="arm-panel" class="control-panel">
+                <h3>Arm Manipulation</h3>
+                <!-- ... existing controls ... -->
                 <div class="joint-controls">
                     <div class="joint-slider">
-                        <label>J0 (Base): <span id="j0-display">0.0</span></label>
+                        <label>J0 (Base Rotation) <span class="val-badge" id="j0-display">0.0</span></label>
                         <input type="range" id="j0" min="-100" max="100" value="0" oninput="updateJointDisplay(0, this.value); sendJointCommand()">
                     </div>
+                    <!-- ... other sliders ... -->
                     <div class="joint-slider">
-                        <label>J1 (Shoulder): <span id="j1-display">0.0</span></label>
+                        <label>J1 (Shoulder) <span class="val-badge" id="j1-display">0.0</span></label>
                         <input type="range" id="j1" min="-100" max="100" value="0" oninput="updateJointDisplay(1, this.value); sendJointCommand()">
                     </div>
                     <div class="joint-slider">
-                        <label>J2 (Elbow): <span id="j2-display">0.0</span></label>
+                        <label>J2 (Elbow) <span class="val-badge" id="j2-display">0.0</span></label>
                         <input type="range" id="j2" min="-100" max="100" value="0" oninput="updateJointDisplay(2, this.value); sendJointCommand()">
                     </div>
                     <div class="joint-slider">
-                        <label>J3 (Wrist Roll): <span id="j3-display">0.0</span></label>
+                        <label>J3 (Wrist Roll) <span class="val-badge" id="j3-display">0.0</span></label>
                         <input type="range" id="j3" min="-100" max="100" value="0" oninput="updateJointDisplay(3, this.value); sendJointCommand()">
                     </div>
                     <div class="joint-slider">
-                        <label>J4 (Wrist Pitch): <span id="j4-display">0.0</span></label>
+                        <label>J4 (Wrist Pitch) <span class="val-badge" id="j4-display">0.0</span></label>
                         <input type="range" id="j4" min="-100" max="100" value="0" oninput="updateJointDisplay(4, this.value); sendJointCommand()">
                     </div>
                     <div class="joint-slider">
-                        <label>Gripper: <span id="j5-display">-1.0</span></label>
+                        <label>Gripper State <span class="val-badge" id="j5-display">-1.0</span></label>
                         <input type="range" id="j5" min="-100" max="100" value="-100" oninput="updateJointDisplay(5, this.value); sendJointCommand()">
                     </div>
                 </div>
-            </div>
-            
-            <div class="status-section">
-                <h3>Arrow Controls</h3>
-                <div class="arrow-controls">
-                    <div class="arrow-group">
-                        <div class="arrow-group-title">Base Rotation (J0)</div>
-                        <div class="arrow-grid">
-                            <div></div>
-                            <button class="arrow-btn" onmousedown="startMove(0, 0.1)" onmouseup="stopMove()" ontouchstart="startMove(0, 0.1)" ontouchend="stopMove()">⬆</button>
-                            <div></div>
-                            <button class="arrow-btn" onmousedown="startMove(0, -0.1)" onmouseup="stopMove()" ontouchstart="startMove(0, -0.1)" ontouchend="stopMove()">⬅</button>
-                            <button class="arrow-btn center" disabled>J0</button>
-                            <button class="arrow-btn" onmousedown="startMove(0, 0.1)" onmouseup="stopMove()" ontouchstart="startMove(0, 0.1)" ontouchend="stopMove()">➡</button>
-                            <div></div>
-                            <button class="arrow-btn" onmousedown="startMove(0, -0.1)" onmouseup="stopMove()" ontouchstart="startMove(0, -0.1)" ontouchend="stopMove()">⬇</button>
-                            <div></div>
-                        </div>
-                    </div>
-                    <div class="arrow-group">
-                        <div class="arrow-group-title">Shoulder/Elbow (J1/J2)</div>
-                        <div class="arrow-grid">
-                            <button class="arrow-btn" onmousedown="startMove(1, 0.1)" onmouseup="stopMove()" ontouchstart="startMove(1, 0.1)" ontouchend="stopMove()">J1⬆</button>
-                            <button class="arrow-btn" onmousedown="startMove(2, 0.1)" onmouseup="stopMove()" ontouchstart="startMove(2, 0.1)" ontouchend="stopMove()">J2⬆</button>
-                            <div></div>
-                            <button class="arrow-btn" onmousedown="startMove(1, -0.1)" onmouseup="stopMove()" ontouchstart="startMove(1, -0.1)" ontouchend="stopMove()">J1⬇</button>
-                            <button class="arrow-btn" onmousedown="startMove(2, -0.1)" onmouseup="stopMove()" ontouchstart="startMove(2, -0.1)" ontouchend="stopMove()">J2⬇</button>
-                            <div></div>
-                        </div>
-                    </div>
-                    <div class="arrow-group">
-                        <div class="arrow-group-title">Wrist (J3/J4)</div>
-                        <div class="arrow-grid">
-                            <button class="arrow-btn" onmousedown="startMove(3, 0.1)" onmouseup="stopMove()" ontouchstart="startMove(3, 0.1)" ontouchend="stopMove()">J3⬆</button>
-                            <button class="arrow-btn" onmousedown="startMove(4, 0.1)" onmouseup="stopMove()" ontouchstart="startMove(4, 0.1)" ontouchend="stopMove()">J4⬆</button>
-                            <div></div>
-                            <button class="arrow-btn" onmousedown="startMove(3, -0.1)" onmouseup="stopMove()" ontouchstart="startMove(3, -0.1)" ontouchend="stopMove()">J3⬇</button>
-                            <button class="arrow-btn" onmousedown="startMove(4, -0.1)" onmouseup="stopMove()" ontouchstart="startMove(4, -0.1)" ontouchend="stopMove()">J4⬇</button>
-                            <div></div>
-                        </div>
-                        <div class="keyboard-hint">Use arrow keys + WASD for keyboard control</div>
+                
+                 <div style="margin-top: 20px;">
+                    <span class="status-label">Presets & Actions</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                        <button class="action-btn" onclick="gotoHome()">🏠 Home</button>
+                        <button class="action-btn" onclick="gotoZero()">0️⃣ Zero</button>
+                        <button class="action-btn success" onclick="openGripper()">✋ Open</button>
+                        <button class="action-btn warning" onclick="closeGripper()">✊ Close</button>
                     </div>
                 </div>
+
+                     <div class="arrow-controls" style="margin-top: 20px;">
+                        <div class="arrow-group">
+                            <div class="arrow-group-title">Fine Control (Selected Joint)</div>
+                            <div class="arrow-grid">
+                                <div></div>
+                                <button class="arrow-btn" onmousedown="startMove(activeJoint, 0.1)" onmouseup="stopMove()">+</button>
+                                <div></div>
+                                <button class="arrow-btn" onmousedown="startMove(activeJoint, -0.1)" onmouseup="stopMove()">-</button>
+                                <div></div>
+                            </div>
+                            <div class="keyboard-hint" style="margin-top: 8px;">Select a joint slider first</div>
+                        </div>
+                    </div>
             </div>
-            
-            <div class="status-section">
-                <h3>🏎️ Car Driving Controls</h3>
-                <div class="arrow-controls">
+
+            <!-- Drive Control Panel (Overlay) -->
+            <div id="drive-panel" class="control-panel" style="display: none;">
+                <h3>Drivetrain</h3>
+                <!-- ... existing controls ... -->
+                 <div class="arrow-controls">
                     <div class="arrow-group">
                         <div class="arrow-group-title">Steering & Throttle</div>
                         <div class="arrow-grid">
@@ -2024,24 +2132,17 @@ class SimpleJSONServer:
                         </div>
                         <div class="keyboard-hint">Arrow keys or WASD to drive</div>
                     </div>
-                    <div class="arrow-group">
-                        <div class="arrow-group-title">Speed: <span id="speed-level">SLOW</span> (<span id="speed-value">0.3</span>)</div>
+
+                    <div class="arrow-group" style="margin-top: 20px;">
+                        <div class="arrow-group-title">Speed limit: <span id="speed-level">SLOW</span> (<span id="speed-value">0.3</span>)</div>
                         <div style="display: flex; gap: 4px;">
-                            <button style="flex: 1; background: #34c759; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.2, 'CRAWL')">🐌 Crawl</button>
-                            <button style="flex: 1; background: #007aff; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.3, 'SLOW')">🚪 Slow</button>
-                            <button style="flex: 1; background: #ff9500; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.5, 'MED')">🚶 Med</button>
-                            <button style="flex: 1; background: #ff3b30; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.7, 'FAST')">🏃 Fast</button>
+                            <button style="flex: 1; background: #34c759; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.2, 'CRAWL')">🐌 Crawl</button>
+                            <button style="flex: 1; background: #007aff; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.3, 'SLOW')">🚪 Slow</button>
+                            <button style="flex: 1; background: #ff9500; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.5, 'MED')">🚶 Med</button>
+                            <button style="flex: 1; background: #ff3b30; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.7, 'FAST')">🏃 Fast</button>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="status-section">
-                <h3>🦾 Arm Preset Positions</h3>
-                <button style="width: 100%; margin-bottom: 8px; background: #007aff; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;" onclick="gotoHome()">🏠 Home Position</button>
-                <button style="width: 100%; margin-bottom: 8px; background: #007aff; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;" onclick="gotoZero()">0️⃣ Zero Position</button>
-                <button style="width: 100%; margin-bottom: 8px; background: #34c759; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;" onclick="openGripper()">✋ Open Gripper</button>
-                <button style="width: 100%; margin-bottom: 8px; background: #ff9500; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;" onclick="closeGripper()">✊ Close Gripper</button>
             </div>
             
             <button class="emergency-btn" onclick="emergencyStop()">🛑 EMERGENCY STOP</button>

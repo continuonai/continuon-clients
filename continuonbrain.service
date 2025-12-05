@@ -1,0 +1,18 @@
+[Unit]
+Description=ContinuonBrain Robot startup (health checks + Robot API server)
+After=network-online.target graphical-session.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=PYTHONPATH=/home/craigm26/ContinuonXR:/home/craigm26/.local/lib/python3.13/site-packages
+Environment=CONFIG_DIR=/home/craigm26/.continuonbrain
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/craigm26/.Xauthority
+WorkingDirectory=/home/craigm26/ContinuonXR
+ExecStart=/usr/bin/env python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR}
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
