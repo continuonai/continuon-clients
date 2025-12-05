@@ -1801,6 +1801,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         function persistChatState() {
             try {
@@ -1853,8 +1854,8 @@ class SimpleJSONServer:
                     });
                 } else {
                     // Only add initial message if no history exists
-                    chatHistory.push({role: 'system', content: 'Chat with Gemma 3n about robot control'});
-                    renderChatMessage('Chat with Gemma 3n about robot control', 'system', false);
+                    chatHistory.push({role: 'system', content: initialChatMessage});
+                    renderChatMessage(initialChatMessage, 'system', false);
                     persistChatState();
                 }
 
@@ -2917,6 +2918,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         function persistChatState() {
             try {
@@ -2977,8 +2979,8 @@ class SimpleJSONServer:
                     });
                 } else {
                     // Only add initial message if no history exists
-                    chatHistory.push({role: 'system', content: 'Chat with Gemma 3n about robot control'});
-                    renderChatMessage('Chat with Gemma 3n about robot control', 'system', false);
+                    chatHistory.push({role: 'system', content: initialChatMessage});
+                    renderChatMessage(initialChatMessage, 'system', false);
                     persistChatState();
                 }
 
