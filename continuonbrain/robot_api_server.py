@@ -1701,7 +1701,6 @@ class SimpleJSONServer:
             <button class="chat-toggle" id="chat-toggle">−</button>
         </div>
         <div class="chat-messages" id="chat-messages">
-            <div class="chat-message system">Chat with Gemma 3n about robot control</div>
         </div>
         <div class="chat-input-area">
             <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
@@ -2156,6 +2155,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         function persistChatState() {
             try {
@@ -2208,6 +2208,11 @@ class SimpleJSONServer:
                             renderChatMessage(msg.content, msg.role, false);
                         }
                     });
+                } else {
+                    // Only add initial message if no history exists
+                    chatHistory.push({role: 'system', content: initialChatMessage});
+                    renderChatMessage(initialChatMessage, 'system', false);
+                    persistChatState();
                 }
 
                 var storedMinimized = localStorage.getItem(chatMinimizedKey);
@@ -2771,7 +2776,6 @@ class SimpleJSONServer:
             <button class="chat-toggle" id="chat-toggle">−</button>
         </div>
         <div class="chat-messages" id="chat-messages">
-            <div class="chat-message system">Chat with Gemma 3n about robot control</div>
         </div>
         <div class="chat-input-area">
             <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." onkeypress="if(event.key==='Enter') sendChatMessage()">
@@ -3271,6 +3275,7 @@ class SimpleJSONServer:
         var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
         var chatHistoryKey = chatStoragePrefix + '_history';
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
         function persistChatState() {
             try {
@@ -3329,6 +3334,11 @@ class SimpleJSONServer:
                             renderChatMessage(msg.content, msg.role, false);
                         }
                     });
+                } else {
+                    // Only add initial message if no history exists
+                    chatHistory.push({role: 'system', content: initialChatMessage});
+                    renderChatMessage(initialChatMessage, 'system', false);
+                    persistChatState();
                 }
 
                 var storedMinimized = localStorage.getItem(chatMinimizedKey);
