@@ -12,6 +12,12 @@ service ContinuonBrainBridgeService {
 
   // XR sends normalized commands derived from teleop input.
   rpc SendCommand(SendCommandRequest) returns (SendCommandResponse);
+
+  // Studio panels pull a declarative list of skills, sensors, and safety hooks.
+  rpc GetCapabilityManifest(GetCapabilityManifestRequest) returns (GetCapabilityManifestResponse);
+
+  // Low-latency telemetry stream used by Continuon Brain Studio.
+  rpc StreamRobotEditorTelemetry(StreamRobotEditorTelemetryRequest) returns (stream StreamRobotEditorTelemetryResponse);
 }
 
 // Identify the XR client in upstream streams.
@@ -106,4 +112,132 @@ message SendCommandResponse {
   bool estop_engaged = 3;
   // True when the requested rate exceeded the controller budget and was throttled.
   bool rate_limited = 4;
+}
+
+// Declarative manifest for panels to render skills, sensors, and safety posture.
+message CapabilityManifest {
+  string robot_model = 1;
+  RobotSoftwareVersions software_versions = 2;
+  SafetyFeatures safety = 3;
+  repeated Skill skills = 4;
+  repeated Sensor sensors = 5;
+  // Source of the manifest: live, cached, or mock. Kept flexible for offline mode.
+  string source = 6;
+}
+
+message RobotSoftwareVersions {
+  // Version of the on-device runtime executing the behaviors/skills.
+  string runtime = 1;
+  // Version of the Studio shell (web/native) connected to the robot.
+  string studio = 2;
+  // Version of the HOPE/CMS bundle currently loaded on the robot.
+  string hope_cms_bundle = 3;
+  // Optional glove or peripheral firmware version for tactile skills.
+  string glove_firmware = 4;
+}
+
+message SafetyFeatures {
+  bool envelopes_supported = 1;
+  bool estop_supported = 2;
+  bool safety_head_present = 3;
+  bool rate_limiter_present = 4;
+  repeated string default_envelopes = 5;
+}
+
+message SkillParameter {
+  string name = 1;
+  string description = 2;
+  string type = 3; // e.g., float, enum, pose
+  string default_value = 4;
+  bool required = 5;
+  repeated string enum_values = 6;
+}
+
+message Skill {
+  string id = 1;
+  string name = 2;
+  repeated SkillParameter parameters = 3;
+  // Required inputs such as pose, glove, or gaze.
+  repeated string required_modalities = 4;
+  // Safety tags applied by SafetyHead or envelope validators.
+  repeated string safety_tags = 5;
+  string documentation_uri = 6;
+}
+
+message Sensor {
+  string id = 1;
+  string modality = 2; // e.g., depth, rgb, glove
+  double sample_rate_hz = 3;
+  double latency_ms = 4;
+  string frame_id_domain = 5;
+  string calibration_status = 6;
+  string vendor = 7;
+}
+
+message GetCapabilityManifestRequest {
+  string client_id = 1;
+  // When true, allows mock/offline manifests for editor-only sessions.
+  bool include_mock_capabilities = 2;
+}
+
+message GetCapabilityManifestResponse {
+  CapabilityManifest manifest = 1;
+}
+
+// Diagnostics surfaced alongside robot telemetry for Studio HUDs.
+message EditorDiagnostics {
+  float latency_ms = 1;
+  float packet_loss_rate = 2;
+  int32 ble_rssi = 3;
+  bool mock_mode = 4;
+  float uplink_kbps = 5;
+  float downlink_kbps = 6;
+}
+
+// Safety overlays and predicted hazards derived from SafetyHead.
+message SafetyState {
+  bool estop_engaged = 1;
+  bool rate_limited = 2;
+  bool envelope_violated = 3;
+  double predicted_collision_horizon_s = 4;
+  string safety_head_state = 5;
+  repeated string active_envelopes = 6;
+}
+
+message HopeCmsSignals {
+  HopeFastSignals fast = 1;
+  HopeMidSignals mid = 2;
+  HopeSlowSignals slow = 3;
+}
+
+message HopeFastSignals {
+  repeated float hazard_scores = 1;
+  repeated string hazard_labels = 2;
+  float safety_head_override = 3;
+}
+
+message HopeMidSignals {
+  string intent_label = 1;
+  float intent_confidence = 2;
+  repeated string suggested_skills = 3;
+}
+
+message HopeSlowSignals {
+  string policy_version = 1;
+  string memory_plane_version = 2;
+  string cms_balance = 3;
+  string last_training_summary_id = 4;
+}
+
+message StreamRobotEditorTelemetryRequest {
+  string client_id = 1;
+  bool include_hope_cms_signals = 2;
+  bool include_diagnostics = 3;
+}
+
+message StreamRobotEditorTelemetryResponse {
+  continuonxr.rlds.v1.RobotState robot_state = 1;
+  EditorDiagnostics diagnostics = 2;
+  SafetyState safety_state = 3;
+  HopeCmsSignals hope_cms_signals = 4;
 }

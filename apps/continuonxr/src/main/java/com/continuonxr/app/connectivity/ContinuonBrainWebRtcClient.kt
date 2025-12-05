@@ -11,6 +11,8 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.decodeBase64
 import okio.ByteString.Companion.encodeUtf8
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * Lightweight WebRTC/WebSocket transport for ContinuonBrain Link proto frames.
@@ -23,9 +25,14 @@ class ContinuonBrainWebRtcClient(
 ) : WebSocketListener() {
     private var webSocket: WebSocket? = null
     private var stateCallback: ((RobotState) -> Unit)? = null
+    private var editorTelemetryCallback: ((RobotEditorTelemetry) -> Unit)? = null
+    private val pendingManifestCallbacks = mutableListOf<(CapabilityManifest) -> Unit>()
+    private var stateSubscribed = false
+    private var telemetrySubscribed = false
 
-    fun connect(onState: ((RobotState) -> Unit)? = null) {
+    fun connect(onState: ((RobotState) -> Unit)? = null, onTelemetry: ((RobotEditorTelemetry) -> Unit)? = null) {
         onState?.let { stateCallback = it }
+        onTelemetry?.let { editorTelemetryCallback = it }
         val signalingUrl = config.signalingUrl
             ?: throw IllegalStateException("WebRTC path selected but signalingUrl is null")
         val request = Request.Builder().url(signalingUrl).build()
@@ -43,17 +50,46 @@ class ContinuonBrainWebRtcClient(
 
     fun observeState(onState: (RobotState) -> Unit) {
         stateCallback = onState
+        subscribeToStateStream()
+    }
+
+    fun observeEditorTelemetry(onTelemetry: (RobotEditorTelemetry) -> Unit) {
+        editorTelemetryCallback = onTelemetry
+        subscribeToTelemetryStream()
+    }
+
+    suspend fun requestCapabilityManifest(): CapabilityManifest? = suspendCancellableCoroutine { continuation ->
+        val socket = webSocket
+        if (socket == null) {
+            continuation.resume(null)
+            return@suspendCancellableCoroutine
+        }
+
+        val callback: (CapabilityManifest) -> Unit = { manifest ->
+            if (continuation.isActive) continuation.resume(manifest)
+        }
+        pendingManifestCallbacks += callback
+        continuation.invokeOnCancellation { pendingManifestCallbacks.remove(callback) }
+        val request = ContinuonbrainLink.GetCapabilityManifestRequest.newBuilder()
+            .setClientId(clientId)
+            .setIncludeMockCapabilities(true)
+            .build()
+        socket.send(ByteString.of(*request.toByteArray()))
     }
 
     fun close() {
         webSocket?.close(1000, "shutdown")
         okHttpClient.connectionPool.evictAll()
+        stateSubscribed = false
+        telemetrySubscribed = false
     }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         super.onOpen(webSocket, response)
-        val subscription = ContinuonbrainLink.StreamRobotStateRequest.newBuilder().setClientId(clientId).build()
-        webSocket.send(ByteString.of(*subscription.toByteArray()))
+        stateSubscribed = false
+        telemetrySubscribed = false
+        subscribeToStateStream()
+        subscribeToTelemetryStream()
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -76,13 +112,68 @@ class ContinuonBrainWebRtcClient(
     }
 
     private fun handleIncoming(bytes: ByteString) {
-        runCatching {
-            ContinuonbrainLink.StreamRobotStateResponse.parseFrom(bytes.toByteArray())
-        }.onSuccess { response ->
-            stateCallback?.invoke(response.toDomain())
-        }.onFailure {
-            Log.w(TAG, "Failed to decode robot state envelope", it)
+        val payload = bytes.toByteArray()
+
+        if (telemetrySubscribed && editorTelemetryCallback != null) {
+            runCatching { ContinuonbrainLink.StreamRobotEditorTelemetryResponse.parseFrom(payload) }
+                .onSuccess { response ->
+                    if (response.hasDiagnostics() || response.hasSafetyState() || response.hasHopeCmsSignals()) {
+                        editorTelemetryCallback?.invoke(response.toDomain())
+                        return
+                    }
+                }
         }
+
+        runCatching { ContinuonbrainLink.GetCapabilityManifestResponse.parseFrom(payload) }
+            .onSuccess { response ->
+                if (response.hasManifest()) {
+                    deliverManifest(response.manifest.toDomain())
+                    return
+                }
+            }
+
+        runCatching { ContinuonbrainLink.CapabilityManifest.parseFrom(payload) }
+            .onSuccess { manifest ->
+                if (manifest.robotModel.isNotEmpty() || manifest.skillsCount > 0 || manifest.sensorsCount > 0) {
+                    deliverManifest(manifest.toDomain())
+                    return
+                }
+            }
+
+        runCatching { ContinuonbrainLink.StreamRobotStateResponse.parseFrom(payload) }
+            .onSuccess { response ->
+                stateCallback?.invoke(response.toDomain())
+            }
+            .onFailure {
+                Log.w(TAG, "Failed to decode robot state envelope", it)
+            }
+    }
+
+    private fun subscribeToStateStream() {
+        if (stateSubscribed) return
+        val socket = webSocket ?: return
+        val subscription = ContinuonbrainLink.StreamRobotStateRequest.newBuilder().setClientId(clientId).build()
+        socket.send(ByteString.of(*subscription.toByteArray()))
+        stateSubscribed = true
+    }
+
+    private fun subscribeToTelemetryStream() {
+        if (telemetrySubscribed || editorTelemetryCallback == null) return
+        val socket = webSocket ?: return
+        val subscription = ContinuonbrainLink.StreamRobotEditorTelemetryRequest.newBuilder()
+            .setClientId(clientId)
+            .setIncludeDiagnostics(true)
+            .setIncludeHopeCmsSignals(true)
+            .build()
+        socket.send(ByteString.of(*subscription.toByteArray()))
+        telemetrySubscribed = true
+    }
+
+    private fun deliverManifest(manifest: CapabilityManifest) {
+        if (pendingManifestCallbacks.isEmpty()) return
+        val callbacks = pendingManifestCallbacks.toList()
+        pendingManifestCallbacks.clear()
+        callbacks.forEach { callback -> callback(manifest) }
     }
 
     companion object {
