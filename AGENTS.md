@@ -3,6 +3,11 @@
 Scope: All files in this repository unless a deeper `AGENTS.md` overrides these notes.
 
 - Preserve the product boundaries documented in `README.md` and `PRD.md`; do not merge code across products without updating the relevant product README and contracts.
+- Standardize product naming (avoid deprecated labels):
+  - **Continuon Brain runtime** (preferred) vs. legacy **ContinuonBrain/OS** label; use "runtime" when referring to the on-device executor.
+  - **Continuon Brain Studio**: desktop editor/IDE for authoring and testing experiences.
+  - **Continuon AI app**: mobile companion client.
+  - **Continuon Cloud**: hosted services, APIs, and orchestration.
 - Favor the existing toolchains: Gradle wrapper for Kotlin/Android, Flutter CLI for Dart, Node/TypeScript for mocks, and Python tooling already in `continuonbrain`. Avoid introducing alternate package managers for the same language.
 - Proto/schema changes must stay backward-compatible. When editing files under `proto/`, run `./gradlew formatProto validateProtoSchemas` and regenerate language stubs where applicable before submitting.
 - Keep placeholder directories (e.g., cloud, org, web) lightweight: update specs and contracts here, but push production implementations to their dedicated repos as described in `README.md`.
