@@ -1845,21 +1845,29 @@ class SimpleJSONServer:
         }
 
         function hydrateChatOverlay() {
-            try {
-                var storedHistory = localStorage.getItem(chatHistoryKey);
-                if (storedHistory) {
-                    chatHistory = JSON.parse(storedHistory) || [];
-                    chatHistory.forEach(function(msg) {
-                        renderChatMessage(msg.content, msg.role, false);
-                    });
+            var storedHistory = localStorage.getItem(chatHistoryKey);
+            if (storedHistory) {
+                try {
+                    chatHistory = JSON.parse(storedHistory);
+                    if (!Array.isArray(chatHistory)) {
+                        chatHistory = [];
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse chat history', parseError);
+                    chatHistory = [];
                 }
+                chatHistory.forEach(function(msg) {
+                    renderChatMessage(msg.content, msg.role, false);
+                });
+            }
 
+            try {
                 var storedMinimized = localStorage.getItem(chatMinimizedKey);
                 if (storedMinimized === 'true') {
                     chatMinimized = true;
                 }
             } catch (e) {
-                console.warn('Unable to hydrate chat state', e);
+                console.warn('Unable to hydrate chat minimized state', e);
             }
 
             applyChatMinimized();
