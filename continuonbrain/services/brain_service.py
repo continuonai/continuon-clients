@@ -386,7 +386,16 @@ class BrainService:
             config_dir=self.config_dir,
             system_instructions=self.system_instructions,
         )
-        self.mode_manager.return_to_idle()
+        # Always start in AUTONOMOUS mode for production (motion + inference + training enabled)
+        print("🤖 Activating AUTONOMOUS mode (motion + inference + training enabled)")
+        self.mode_manager.set_mode(
+            RobotMode.AUTONOMOUS,
+            metadata={
+                "startup_time": time.strftime('%Y-%m-%d %H:%M:%S'),
+                "auto_activated": True,
+                "self_training_enabled": True
+            }
+        )
         print("✅ Mode manager ready")
         
         print("=" * 60)
@@ -466,6 +475,35 @@ class BrainService:
             entry=entry, required_modalities=task.required_modalities, steps=task.steps,
             owner="robot", updated_at=self._now_iso(), telemetry_topic=task.telemetry_topic
         )
+    
+    def get_task_library(self) -> List[Dict]:
+        """Get all tasks with eligibility checks for the UI."""
+        tasks = []
+        for task_def in self.task_library.list_entries():
+            entry = self._serialize_task_entry(task_def)
+            tasks.append({
+                "id": task_def.id,
+                "title": task_def.title,
+                "description": task_def.description,
+                "group": task_def.group,
+                "tags": task_def.tags,
+                "icon": self._get_task_icon(task_def.group),
+                "estimated_duration": task_def.estimated_duration,
+                "eligibility": entry.eligibility.to_dict(),
+                "required_modalities": task_def.required_modalities,
+                "steps": task_def.steps
+            })
+        return tasks
+    
+    def _get_task_icon(self, group: str) -> str:
+        """Get emoji icon for task group."""
+        icons = {
+            "Safety": "🔍",
+            "Demo": "🦾",
+            "System": "⚙️",
+            "Training": "📹"
+        }
+        return icons.get(group, "📋")
     
     async def Drive(self, steering: float, throttle: float) -> dict:
         """Apply drivetrain command with safety checks."""

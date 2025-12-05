@@ -173,16 +173,16 @@ class StartupManager:
             system_instructions=self.system_instructions,
         )
         
-        # Restore last mode or default to idle
-        last_mode = self.mode_manager.load_state()
-        if last_mode == RobotMode.SLEEP_LEARNING:
-            # If we were sleep learning, return to idle on wake
-            self.mode_manager.return_to_idle()
-        elif last_mode:
-            print(f"   Restored mode: {last_mode.value}")
-            self.mode_manager.current_mode = last_mode
-        else:
-            self.mode_manager.return_to_idle()
+        # Always start in AUTONOMOUS mode for production (motion + inference enabled)
+        print("🤖 Activating AUTONOMOUS mode (motion + inference + training enabled)")
+        self.mode_manager.set_mode(
+            RobotMode.AUTONOMOUS,
+            metadata={
+                "startup_time": time.strftime('%Y-%m-%d %H:%M:%S'),
+                "auto_activated": True,
+                "self_training_enabled": True
+            }
+        )
         
         # Start Robot API server (production entry point)
         print("🌐 Starting Robot API server...")

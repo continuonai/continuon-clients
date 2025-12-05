@@ -21,12 +21,14 @@ COMMON_CSS = """
     
     body { font-family: var(--font-main); background: var(--bg-color); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
     
-    /* Layout */
+    /* Layout - IDE style with left nav, main content, right chat */
     #sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding-top: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 10; }
     #sidebar .logo { padding: 0 24px 24px; font-weight: 800; font-size: 1.4em; letter-spacing: -0.5px; color: #fff; display: flex; align-items: center; gap: 10px; }
     #sidebar .logo span { color: var(--accent-color); }
     
-    #content { flex: 1; position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; }
+    #main-area { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
+    #content { flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+    #chat-sidebar { width: 400px; background: var(--sidebar-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; }
     
     iframe { flex: 1; border: none; width: 100%; height: 100%; }
     
@@ -35,8 +37,25 @@ COMMON_CSS = """
     #sidebar a:hover { color: #fff; background: rgba(255,255,255,0.03); }
     #sidebar a.active { background: var(--accent-dim); color: var(--accent-color); border-left-color: var(--accent-color); font-weight: 500; }
     
-    /* Icons (using unicode for portability or SVG) */
+    /* Icons */
     .icon { width: 20px; text-align: center; }
+    
+    /* Chat Sidebar */
+    .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 1.1em; display: flex; align-items: center; gap: 10px; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .chat-message { display: flex; flex-direction: column; gap: 8px; }
+    .chat-message.user { align-items: flex-end; }
+    .chat-message.agent { align-items: flex-start; }
+    .chat-message .sender { font-size: 0.85em; color: var(--text-dim); font-weight: 600; }
+    .chat-message .bubble { max-width: 85%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; }
+    .chat-message.user .bubble { background: var(--accent-color); color: #000; font-weight: 500; }
+    .chat-message.agent .bubble { background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); }
+    .chat-input-area { padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; }
+    .chat-input-area textarea { flex: 1; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 12px; border-radius: 8px; font-family: var(--font-main); font-size: 0.95em; resize: none; min-height: 60px; }
+    .chat-input-area textarea:focus { outline: none; border-color: var(--accent-color); }
+    .chat-input-area button { padding: 12px 24px; background: var(--accent-color); color: #000; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .chat-input-area button:hover { background: #00dd77; }
+    .chat-input-area button:disabled { background: #333; color: #666; cursor: not-allowed; }
     
     /* System Status Footer in Sidebar */
     .sidebar-footer { margin-top: auto; padding: 20px; font-size: 0.8em; color: var(--text-dim); border-top: 1px solid var(--border-color); }
@@ -58,27 +77,88 @@ HOME_HTML = f"""
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <script>
+        let chatHistory = [];
+        
         function selectNav(el) {{
             document.querySelectorAll('#sidebar a').forEach(a => a.classList.remove('active'));
             el.classList.add('active');
         }}
+        
+        async function sendMessage() {{
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            // Add user message
+            addMessage('user', 'You', message);
+            input.value = '';
+            input.disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            
+            try {{
+                const response = await fetch('/api/chat', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ message, history: chatHistory }})
+                }});
+                const data = await response.json();
+                addMessage('agent', 'Agent Manager', data.response || 'No response');
+            }} catch(e) {{
+                addMessage('agent', 'Agent Manager', 'Error: ' + e.message);
+            }}
+            
+            input.disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            input.focus();
+        }}
+        
+        function addMessage(type, sender, text) {{
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${{type}}`;
+            messageDiv.innerHTML = `
+                <div class="sender">${{sender}}</div>
+                <div class="bubble">${{escapeHtml(text)}}</div>
+            `;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            chatHistory.push({{ role: type === 'user' ? 'user' : 'assistant', content: text }});
+        }}
+        
+        function escapeHtml(text) {{
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/\\n/g, '<br>');
+        }}
+        
+        // Handle Enter key
+        document.addEventListener('DOMContentLoaded', () => {{
+            const input = document.getElementById('chatInput');
+            input.addEventListener('keydown', (e) => {{
+                if (e.key === 'Enter' && !e.shiftKey) {{
+                    e.preventDefault();
+                    sendMessage();
+                }}
+            }});
+        }});
     </script>
 </head>
 <body>
     <div id="sidebar">
         <div class="logo">
-            <span style="font-size: 1.2em;">🧠</span> Continuon<span>OS</span>
+            <span style="font-size: 1.2em;">🧠</span> Continuon<span>Brain</span>
         </div>
         
         <div style="flex: 1;">
             <a href="/ui/dashboard" target="main_frame" class="active" onclick="selectNav(this)">
                 <span class="icon">📊</span> Dashboard
             </a>
+            <a href="/ui/tasks" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">📋</span> Task Library
+            </a>
             <a href="/ui/manual" target="main_frame" onclick="selectNav(this)">
                 <span class="icon">🎮</span> Manual Control
-            </a>
-            <a href="/ui/chat" target="main_frame" onclick="selectNav(this)">
-                <span class="icon">💬</span> Agent Chat
             </a>
             <a href="/ui/status" target="main_frame" onclick="selectNav(this)">
                 <span class="icon">🔍</span> Brain Status
@@ -94,8 +174,26 @@ HOME_HTML = f"""
         </div>
     </div>
     
-    <div id="content">
-        <iframe name="main_frame" src="/ui/dashboard"></iframe>
+    <div id="main-area">
+        <div id="content">
+            <iframe name="main_frame" src="/ui/dashboard"></iframe>
+        </div>
+        
+        <div id="chat-sidebar">
+            <div class="chat-header">
+                <span>🤖</span> Agent Manager
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-message agent">
+                    <div class="sender">Agent Manager</div>
+                    <div class="bubble">Hello! I'm the lead agent managing tasks and coordinating sub-agents. How can I help you today?</div>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <textarea id="chatInput" placeholder="Ask about tasks, control the robot, or chat with sub-agents..."></textarea>
+                <button id="sendBtn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
     </div>
 </body>
 </html>
@@ -747,6 +845,279 @@ MANUAL_HTML = f"""
 </html>
 """
 
+TASKS_HTML = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Task Library</title>
+    <style>
+        {COMMON_CSS}
+        
+        body {{ margin: 0; padding: 24px; background: var(--bg-color); color: var(--text-color); font-family: var(--font-main); overflow-y: auto; }}
+        
+        h1 {{ font-size: 2em; margin: 0 0 8px; font-weight: 800; }}
+        .subtitle {{ color: var(--text-dim); margin-bottom: 32px; }}
+        
+        .filter-bar {{ display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }}
+        .filter-bar button {{ padding: 8px 16px; background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: all 0.2s; }}
+        .filter-bar button:hover {{ background: var(--accent-dim); border-color: var(--accent-color); }}
+        .filter-bar button.active {{ background: var(--accent-color); color: #000; font-weight: 600; }}
+        
+        .task-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }}
+        
+        .task-card {{ background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; transition: all 0.3s ease; cursor: pointer; position: relative; }}
+        .task-card:hover {{ border-color: var(--accent-color); box-shadow: 0 4px 20px rgba(0, 255, 136, 0.15); transform: translateY(-2px); }}
+        
+        .task-header {{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }}
+        .task-icon {{ font-size: 2em; }}
+        .task-status {{ padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }}
+        .status-ready {{ background: rgba(0, 255, 136, 0.2); color: var(--accent-color); }}
+        .status-blocked {{ background: rgba(255, 68, 68, 0.2); color: #ff4444; }}
+        .status-partial {{ background: rgba(255, 187, 0, 0.2); color: #ffbb00; }}
+        
+        .task-title {{ font-size: 1.1em; font-weight: 600; margin-bottom: 8px; }}
+        .task-description {{ color: var(--text-dim); font-size: 0.9em; line-height: 1.5; margin-bottom: 16px; }}
+        
+        .task-meta {{ display: flex; gap: 16px; font-size: 0.85em; color: var(--text-dim); }}
+        .task-meta span {{ display: flex; align-items: center; gap: 6px; }}
+        
+        .task-tags {{ display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }}
+        .task-tag {{ padding: 4px 10px; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 0.75em; color: var(--text-dim); }}
+        
+        .task-details {{ margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); display: none; }}
+        .task-card.expanded .task-details {{ display: block; }}
+        
+        .task-steps {{ list-style: none; padding: 0; margin: 12px 0; }}
+        .task-steps li {{ padding: 8px 0; padding-left: 24px; position: relative; }}
+        .task-steps li:before {{ content: "→"; position: absolute; left: 0; color: var(--accent-color); }}
+        
+        .execute-btn {{ width: 100%; padding: 12px; background: var(--accent-color); color: #000; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 12px; }}
+        .execute-btn:hover {{ background: #00dd77; }}
+        .execute-btn:disabled {{ background: #333; color: #666; cursor: not-allowed; }}
+    </style>
+</head>
+<body>
+    <h1>📋 Task Library</h1>
+    <div class="subtitle">Available robot tasks with real-time capability checks</div>
+    
+    <div class="filter-bar">
+        <button class="active" onclick="filterTasks('all')">All Tasks</button>
+        <button onclick="filterTasks('ready')">Ready</button>
+        <button onclick="filterTasks('Safety')">Safety</button>
+        <button onclick="filterTasks('Demo')">Demo</button>
+        <button onclick="filterTasks('Training')">Training</button>
+    </div>
+    
+    <div class="task-grid" id="taskGrid">
+        <div class="loading">Loading tasks...</div>
+    </div>
+    
+    <script>
+        let allTasks = [];
+        let currentFilter = 'all';
+        
+        async function loadTasks() {{
+            try {{
+                const response = await fetch('/api/tasks/library');
+                const data = await response.json();
+                allTasks = data.tasks || [];
+                renderTasks();
+            }} catch(e) {{
+                console.error('Failed to load tasks:', e);
+                document.getElementById('taskGrid').innerHTML = '<div style="color: #ff4444;">Failed to load tasks. Using demo data.</div>';
+                loadDemoTasks();
+            }}
+        }}
+        
+        function loadDemoTasks() {{
+            // Demo tasks matching BrainService TaskLibrary
+            allTasks = [
+                {{
+                    id: 'workspace-inspection',
+                    title: 'Inspect Workspace',
+                    description: 'Sweep sensors for loose cables or obstacles before enabling autonomy.',
+                    group: 'Safety',
+                    tags: ['safety', 'vision', 'preflight'],
+                    icon: '🔍',
+                    estimated_duration: '45s',
+                    eligibility: {{ eligible: true, markers: [] }},
+                    required_modalities: ['vision'],
+                    steps: [
+                        'Spin the camera and depth sensors across the workspace',
+                        'Flag blocked envelopes for operator acknowledgement',
+                        'Cache a short clip for offline review'
+                    ]
+                }},
+                {{
+                    id: 'pick-and-place',
+                    title: 'Pick & Place Demo',
+                    description: 'Run the default manipulation loop for demos and regressions.',
+                    group: 'Demo',
+                    tags: ['manipulation', 'vision', 'demo'],
+                    icon: '🦾',
+                    estimated_duration: '2m',
+                    eligibility: {{ eligible: false, markers: [{{ code: 'NO_ARM', label: 'Arm required', blocking: true }}] }},
+                    required_modalities: ['vision', 'manipulation'],
+                    steps: [
+                        'Detect object on table',
+                        'Plan grasp approach',
+                        'Execute pick motion',
+                        'Place at target location'
+                    ]
+                }},
+                {{
+                    id: 'self-calibration',
+                    title: 'Self-Calibration Routine',
+                    description: 'Run joint calibration and depth sensor alignment check.',
+                    group: 'System',
+                    tags: ['calibration', 'system', 'maintenance'],
+                    icon: '⚙️',
+                    estimated_duration: '3m',
+                    eligibility: {{ eligible: true, markers: [] }},
+                    required_modalities: ['manipulation'],
+                    steps: [
+                        'Move each joint through full range',
+                        'Record encoder readings',
+                        'Align depth camera reference frame',
+                        'Save calibration parameters'
+                    ]
+                }},
+                {{
+                    id: 'episode-collection',
+                    title: 'Collect Training Episode',
+                    description: 'Record a new teleoperation episode for VLA training.',
+                    group: 'Training',
+                    tags: ['training', 'data', 'teleoperation'],
+                    icon: '📹',
+                    estimated_duration: '1-5m',
+                    eligibility: {{ eligible: true, markers: [] }},
+                    required_modalities: ['vision', 'manipulation'],
+                    steps: [
+                        'Start episode recording',
+                        'Accept human teleoperation commands',
+                        'Capture RGB-D + proprioception at 10Hz',
+                        'Save RLDS episode to local storage'
+                    ]
+                }}
+            ];
+            renderTasks();
+        }}
+        
+        function renderTasks() {{
+            const grid = document.getElementById('taskGrid');
+            let filtered = allTasks;
+            
+            if (currentFilter !== 'all') {{
+                if (currentFilter === 'ready') {{
+                    filtered = allTasks.filter(t => t.eligibility.eligible);
+                }} else {{
+                    filtered = allTasks.filter(t => t.group === currentFilter || t.tags.includes(currentFilter.toLowerCase()));
+                }}
+            }}
+            
+            if (filtered.length === 0) {{
+                grid.innerHTML = '<div style="color: var(--text-dim);">No tasks match this filter.</div>';
+                return;
+            }}
+            
+            grid.innerHTML = filtered.map(task => `
+                <div class="task-card" onclick="toggleTask(this, '${{task.id}}')">
+                    <div class="task-header">
+                        <div class="task-icon">${{task.icon || '📋'}}</div>
+                        <div class="task-status ${{getStatusClass(task.eligibility)}}">
+                            ${{getStatusLabel(task.eligibility)}}
+                        </div>
+                    </div>
+                    <div class="task-title">${{task.title}}</div>
+                    <div class="task-description">${{task.description}}</div>
+                    <div class="task-meta">
+                        <span>⏱️ ${{task.estimated_duration || 'N/A'}}</span>
+                        <span>📦 ${{task.group}}</span>
+                    </div>
+                    <div class="task-tags">
+                        ${{task.tags.map(tag => `<span class="task-tag">${{tag}}</span>`).join('')}}
+                    </div>
+                    <div class="task-details">
+                        <div style="font-weight: 600; margin-bottom: 8px;">Required:</div>
+                        <div style="color: var(--text-dim); margin-bottom: 12px;">
+                            ${{task.required_modalities.join(', ')}}
+                        </div>
+                        <div style="font-weight: 600; margin-bottom: 8px;">Steps:</div>
+                        <ul class="task-steps">
+                            ${{task.steps.map(step => `<li>${{step}}</li>`).join('')}}
+                        </ul>
+                        ${{renderEligibilityMarkers(task.eligibility)}}
+                        <button class="execute-btn" 
+                                onclick="executeTask('${{task.id}}', event)" 
+                                ${{task.eligibility.eligible ? '' : 'disabled'}}>
+                            Execute Task
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }}
+        
+        function getStatusClass(eligibility) {{
+            if (eligibility.eligible) return 'status-ready';
+            const blocking = eligibility.markers.some(m => m.blocking);
+            return blocking ? 'status-blocked' : 'status-partial';
+        }}
+        
+        function getStatusLabel(eligibility) {{
+            if (eligibility.eligible) return 'Ready';
+            const blocking = eligibility.markers.some(m => m.blocking);
+            return blocking ? 'Blocked' : 'Warning';
+        }}
+        
+        function renderEligibilityMarkers(eligibility) {{
+            if (!eligibility.markers || eligibility.markers.length === 0) return '';
+            return `
+                <div style="margin-top: 12px; padding: 12px; background: rgba(255,68,68,0.1); border-radius: 6px;">
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #ff4444;">Issues:</div>
+                    ${{eligibility.markers.map(m => `
+                        <div style="font-size: 0.85em; margin: 4px 0;">
+                            ⚠️ ${{m.label}}${{m.remediation ? ': ' + m.remediation : ''}}
+                        </div>
+                    `).join('')}}
+                </div>
+            `;
+        }}
+        
+        function toggleTask(card, taskId) {{
+            if (event.target.classList.contains('execute-btn')) return;
+            card.classList.toggle('expanded');
+        }}
+        
+        function filterTasks(filter) {{
+            currentFilter = filter;
+            document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderTasks();
+        }}
+        
+        async function executeTask(taskId, event) {{
+            event.stopPropagation();
+            if (!confirm(`Execute task: ${{taskId}}?`)) return;
+            
+            try {{
+                const response = await fetch(`/api/tasks/${{taskId}}/execute`, {{
+                    method: 'POST'
+                }});
+                const result = await response.json();
+                alert(result.message || 'Task started');
+            }} catch(e) {{
+                alert('Failed to execute task: ' + e.message);
+            }}
+        }}
+        
+        // Load on page load
+        loadTasks();
+    </script>
+</body>
+</html>
+"""
+
 def get_home_html() -> str:
     return HOME_HTML
 
@@ -764,3 +1135,6 @@ def get_settings_html() -> str:
 
 def get_manual_html() -> str:
     return MANUAL_HTML
+
+def get_tasks_html() -> str:
+    return TASKS_HTML

@@ -77,6 +77,17 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(ui_routes.get_manual_html().encode("utf-8"))
 
+            elif self.path == "/ui/tasks":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_tasks_html().encode("utf-8"))
+
+            elif self.path == "/api/tasks/library":
+                # Return task library with eligibility checks
+                tasks = brain_service.get_task_library()
+                self.send_json({"tasks": tasks})
+
             elif self.path == "/api/status/introspection":
                 # Introspection endpoint for Brain Status page
                 identity_service.self_report() # Updates internal state
@@ -172,6 +183,24 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 except ImportError:
                     self.send_json({"success": False, "message": "Hardware Detector not available"})
                 except Exception as e:
+                    self.send_json({"success": False, "message": str(e)})
+            
+            elif self.path.startswith("/api/tasks/") and self.path.endswith("/execute"):
+                # Execute task: /api/tasks/{task_id}/execute
+                task_id = self.path.split("/")[3]
+                try:
+                    summary = brain_service.GetTaskSummary(task_id)
+                    if not summary:
+                        self.send_json({"success": False, "message": f"Task {task_id} not found"})
+                    elif not summary.entry.eligibility.eligible:
+                        blocking = [m.label for m in summary.entry.eligibility.markers if m.blocking]
+                        self.send_json({"success": False, "message": f"Task blocked: {', '.join(blocking)}"})
+                    else:
+                        # TODO: Implement actual task execution
+                        # For now, just acknowledge
+                        self.send_json({"success": True, "message": f"Task {task_id} execution started (stub)"})
+                except Exception as e:
+                    logger.error(f"Task execution error: {e}")
                     self.send_json({"success": False, "message": str(e)})
 
             else:
