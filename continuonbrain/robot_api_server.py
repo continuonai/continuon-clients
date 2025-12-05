@@ -1853,11 +1853,11 @@ class SimpleJSONServer:
                         chatHistory = [];
                     }
                 } catch (parseError) {
-                    console.warn('Failed to parse chat history', parseError);
+                    console.warn('Failed to parse chat history from localStorage', parseError);
                     chatHistory = [];
                 }
                 chatHistory.forEach(function(msg) {
-                    if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                    if (msg && typeof msg === 'object' && typeof msg.role === 'string' && typeof msg.content === 'string') {
                         renderChatMessage(msg.content, msg.role, false);
                     }
                 });
