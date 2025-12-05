@@ -46,6 +46,11 @@ The on-device editor reuses Robot API surfaces but constrains them for editor us
   - `hope_cms_signals` (Fast loop hazard scores, Mid loop intent confidence, Slow loop policy version metadata).
 - **UI mapping:** Drives live HUD overlays, chart widgets, and logging bars inside the editor. Data should be loggable to RLDS steps when the editor is used during Trainer/Observer modes.
 
+### Proto → Panel Mapping (Studio shell)
+- **Capabilities panel:** `CapabilityManifest.robot_model` and `software_versions` populate the header and status badges, `safety` reflects estop/envelope toggles, `skills.parameters` drive schema-based form controls, and `sensors[*].frame_id_domain` routes live feeds into the Hardware Canvas.
+- **Telemetry dashboard:** `StreamRobotEditorTelemetryResponse.robot_state` feeds motion charts and RLDS logging, `diagnostics` powers connectivity badges (latency, packet loss, mock mode), and `safety_state` animates estop/envelope indicators in the Safety Console.
+- **HOPE/CMS overlays:** `hope_cms_signals.fast` renders hazard grids and SafetyHead overrides, `hope_cms_signals.mid` annotates intent timelines and suggested skills, and `hope_cms_signals.slow` surfaces the deployed policy bundle and Memory Plane version in the CMS Balance card.
+
 ### Routine Apply / Preview
 - **Endpoints:**
   - `PreviewRoutine(PreviewRoutineRequest) -> PreviewRoutineResponse` for deterministic simulation on-device (mock-mode and live robot should both be supported).
