@@ -2405,10 +2405,16 @@ class SimpleJSONServer:
 
         function persistChatState() {
             try {
-                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
+                // Trim in-memory history as well
+                if (chatHistory.length > 50) {
+                    chatHistory = chatHistory.slice(-50);
+                }
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory));
                 localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
             } catch (e) {
                 console.warn('Unable to persist chat state', e);
+                // Show a user-visible warning
+                alert('Warning: Unable to save chat history. Your messages may not be saved.');
             }
         }
 
@@ -2445,6 +2451,15 @@ class SimpleJSONServer:
         }
 
         function hydrateChatOverlay() {
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    chatHistory = JSON.parse(storedHistory) || [];
+                    chatHistory.forEach(function(msg) {
+                        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                            renderChatMessage(msg.content, msg.role, false);
+                        }
+                    });
             var storedHistory = localStorage.getItem(chatHistoryKey);
             if (storedHistory) {
                 try {
