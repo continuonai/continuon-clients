@@ -1853,7 +1853,7 @@ class SimpleJSONServer:
                         chatHistory = [];
                     }
                 } catch (parseError) {
-                    console.warn('Failed to parse chat history', parseError);
+                    console.warn('Failed to parse chat history from localStorage:', parseError);
                     chatHistory = [];
                 }
                 chatHistory.forEach(function(msg) {
@@ -1867,7 +1867,7 @@ class SimpleJSONServer:
                     chatMinimized = true;
                 }
             } catch (e) {
-                console.warn('Unable to hydrate chat minimized state', e);
+                console.warn('Failed to parse chat minimized state from localStorage:', e);
             }
 
             applyChatMinimized();
