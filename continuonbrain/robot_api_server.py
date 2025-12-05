@@ -1855,6 +1855,7 @@ class SimpleJSONServer:
                     // Only add initial message if no history exists
                     chatHistory.push({role: 'system', content: 'Chat with Gemma 3n about robot control'});
                     renderChatMessage('Chat with Gemma 3n about robot control', 'system', false);
+                    persistChatState();
                 }
 
                 var storedMinimized = localStorage.getItem(chatMinimizedKey);
@@ -2978,6 +2979,7 @@ class SimpleJSONServer:
                     // Only add initial message if no history exists
                     chatHistory.push({role: 'system', content: 'Chat with Gemma 3n about robot control'});
                     renderChatMessage('Chat with Gemma 3n about robot control', 'system', false);
+                    persistChatState();
                 }
 
                 var storedMinimized = localStorage.getItem(chatMinimizedKey);
