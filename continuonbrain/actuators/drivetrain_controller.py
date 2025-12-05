@@ -8,7 +8,7 @@ are unavailable.
 from __future__ import annotations
 
 import importlib.util
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import json
 import os
 from typing import Optional
@@ -48,6 +48,14 @@ class DrivetrainConfig:
         except (TypeError, ValueError):
             print(f"⚠️  Ignoring invalid {label} override: {value}")
             return None
+
+    def channel_summary(self) -> str:
+        """Return a human-readable summary of the configured channels."""
+
+        return (
+            f"steering=servo[{self.steering_channel}], "
+            f"throttle=continuous_servo[{self.throttle_channel}]"
+        )
 
     @classmethod
     def from_sources(cls, json_config_path: Optional[str] = None) -> "DrivetrainConfig":
@@ -104,10 +112,7 @@ class DrivetrainController:
     def initialize(self) -> bool:
         """Initialize PCA9685-backed drivetrain controller."""
 
-        channel_summary = (
-            f"steering=servo[{self.config.steering_channel}], "
-            f"throttle=continuous_servo[{self.config.throttle_channel}]"
-        )
+        channel_summary = self.config.channel_summary()
 
         if self.is_mock:
             print(
@@ -132,6 +137,18 @@ class DrivetrainController:
             )
             self.initialized = False
             return False
+
+    def status(self) -> dict:
+        """Return a status summary including selected channels for troubleshooting."""
+
+        mode = self.mode
+        return {
+            "mode": mode,
+            "initialized": self.initialized,
+            "hardware_available": mode == "real",
+            "channels": self.config.channel_summary(),
+            "config": asdict(self.config),
+        }
 
     def apply_drive(self, steering: float, throttle: float) -> dict:
         """Apply steering/throttle after clamping to [-1, 1]."""
