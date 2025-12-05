@@ -2403,6 +2403,29 @@ class SimpleJSONServer:
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
         var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
+        // Sanitize text to prevent XSS attacks
+        function sanitizeText(text) {
+            if (typeof text !== 'string') {
+                return '';
+            }
+            
+            // Remove any HTML tags first
+            var sanitized = text.replace(/<[^>]*>/g, '');
+            
+            // Remove any remaining < or > characters that might be part of incomplete tags
+            sanitized = sanitized.replace(/[<>]/g, '');
+            
+            // Remove javascript: and data: URL schemes
+            sanitized = sanitized.replace(/javascript:/gi, '');
+            sanitized = sanitized.replace(/data:/gi, '');
+            
+            // Remove common XSS event handlers
+            sanitized = sanitized.replace(/on\\w+\\s*=/gi, '');
+            
+            // Limit length to prevent DOS attacks
+            return sanitized.substring(0, 10000);
+        }
+
         function persistChatState() {
             try {
                 // Trim in-memory history as well
@@ -2438,14 +2461,17 @@ class SimpleJSONServer:
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
+            // Sanitize text before rendering
+            var sanitized = sanitizeText(text);
+            
             var messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = text;
+            messageDiv.textContent = sanitized;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
+                chatHistory.push({role: role, content: sanitized});
                 persistChatState();
             }
         }
@@ -3585,6 +3611,29 @@ class SimpleJSONServer:
         var chatMinimizedKey = chatStoragePrefix + '_minimized';
         var initialChatMessage = 'Chat with Gemma 3n about robot control';
 
+        // Sanitize text to prevent XSS attacks
+        function sanitizeText(text) {
+            if (typeof text !== 'string') {
+                return '';
+            }
+            
+            // Remove any HTML tags first
+            var sanitized = text.replace(/<[^>]*>/g, '');
+            
+            // Remove any remaining < or > characters that might be part of incomplete tags
+            sanitized = sanitized.replace(/[<>]/g, '');
+            
+            // Remove javascript: and data: URL schemes
+            sanitized = sanitized.replace(/javascript:/gi, '');
+            sanitized = sanitized.replace(/data:/gi, '');
+            
+            // Remove common XSS event handlers
+            sanitized = sanitized.replace(/on\\w+\\s*=/gi, '');
+            
+            // Limit length to prevent DOS attacks
+            return sanitized.substring(0, 10000);
+        }
+
         function persistChatState() {
             try {
                 // Trim in-memory history as well
@@ -3620,14 +3669,17 @@ class SimpleJSONServer:
             var messagesDiv = document.getElementById('chat-messages');
             if (!messagesDiv) return;
 
+            // Sanitize text before rendering
+            var sanitized = sanitizeText(text);
+            
             var messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = text;
+            messageDiv.textContent = sanitized;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
+                chatHistory.push({role: role, content: sanitized});
                 persistChatState();
             }
         }
