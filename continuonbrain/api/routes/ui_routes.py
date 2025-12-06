@@ -17,23 +17,34 @@ COMMON_CSS = """
         --border-color: #333;
         --font-main: 'Inter', system-ui, -apple-system, sans-serif;
         --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+        --sidebar-width: 260px;
+        --chat-width: 400px;
     }
     
     body { font-family: var(--font-main); background: var(--bg-color); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
     
     /* Layout - IDE style with left nav, main content, right chat */
-    #sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding-top: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 10; }
-    #sidebar .logo { padding: 0 24px 24px; font-weight: 800; font-size: 1.4em; letter-spacing: -0.5px; color: #fff; display: flex; align-items: center; gap: 10px; }
+    #sidebar { width: var(--sidebar-width); background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding-top: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 10; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    #sidebar.collapsed { transform: translateX(calc(-1 * var(--sidebar-width))); }
+    #sidebar .logo { padding: 0 24px 24px; font-weight: 800; font-size: 1.4em; letter-spacing: -0.5px; color: #fff; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
     #sidebar .logo span { color: var(--accent-color); }
     
     #main-area { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
     #content { flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden; }
-    #chat-sidebar { width: 400px; background: var(--sidebar-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; }
+    #chat-sidebar { width: var(--chat-width); background: var(--sidebar-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    #chat-sidebar.collapsed { transform: translateX(var(--chat-width)); }
     
     iframe { flex: 1; border: none; width: 100%; height: 100%; }
     
+    /* Toggle Buttons */
+    .panel-toggle { position: absolute; top: 10px; z-index: 100; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; font-size: 1.2em; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .panel-toggle:hover { background: var(--accent-dim); border-color: var(--accent-color); color: var(--accent-color); transform: scale(1.05); }
+    .panel-toggle:active { transform: scale(0.95); }
+    #toggle-left { left: 10px; }
+    #toggle-right { right: 10px; }
+    
     /* Navigation */
-    #sidebar a { padding: 14px 24px; color: var(--text-dim); text-decoration: none; display: flex; align-items: center; gap: 12px; font-size: 0.95em; transition: all 0.2s ease; border-left: 3px solid transparent; }
+    #sidebar a { padding: 14px 24px; color: var(--text-dim); text-decoration: none; display: flex; align-items: center; gap: 12px; font-size: 0.95em; transition: all 0.2s ease; border-left: 3px solid transparent; white-space: nowrap; }
     #sidebar a:hover { color: #fff; background: rgba(255,255,255,0.03); }
     #sidebar a.active { background: var(--accent-dim); color: var(--accent-color); border-left-color: var(--accent-color); font-weight: 500; }
     
@@ -78,6 +89,41 @@ HOME_HTML = f"""
     
     <script>
         let chatHistory = [];
+        
+        // Panel toggle functions
+        function toggleLeftPanel() {{
+            const sidebar = document.getElementById('sidebar');
+            const btn = document.getElementById('toggle-left');
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            btn.innerHTML = isCollapsed ? '☰' : '◀';
+            localStorage.setItem('leftPanelCollapsed', isCollapsed);
+        }}
+        
+        function toggleRightPanel() {{
+            const chatSidebar = document.getElementById('chat-sidebar');
+            const btn = document.getElementById('toggle-right');
+            chatSidebar.classList.toggle('collapsed');
+            const isCollapsed = chatSidebar.classList.contains('collapsed');
+            btn.innerHTML = isCollapsed ? '💬' : '▶';
+            localStorage.setItem('rightPanelCollapsed', isCollapsed);
+        }}
+        
+        // Restore panel states from localStorage
+        function restorePanelStates() {{
+            const leftCollapsed = localStorage.getItem('leftPanelCollapsed') === 'true';
+            const rightCollapsed = localStorage.getItem('rightPanelCollapsed') === 'true';
+            
+            if (leftCollapsed) {{
+                document.getElementById('sidebar').classList.add('collapsed');
+                document.getElementById('toggle-left').innerHTML = '☰';
+            }}
+            
+            if (rightCollapsed) {{
+                document.getElementById('chat-sidebar').classList.add('collapsed');
+                document.getElementById('toggle-right').innerHTML = '💬';
+            }}
+        }}
         
         function selectNav(el) {{
             document.querySelectorAll('#sidebar a').forEach(a => a.classList.remove('active'));
@@ -132,7 +178,7 @@ HOME_HTML = f"""
             return div.innerHTML.replace(/\\n/g, '<br>');
         }}
         
-        // Handle Enter key
+        // Handle Enter key and restore panel states on load
         document.addEventListener('DOMContentLoaded', () => {{
             const input = document.getElementById('chatInput');
             input.addEventListener('keydown', (e) => {{
@@ -141,6 +187,9 @@ HOME_HTML = f"""
                     sendMessage();
                 }}
             }});
+            
+            // Restore panel states
+            restorePanelStates();
         }});
     </script>
 </head>
@@ -200,6 +249,9 @@ HOME_HTML = f"""
     
     <div id="main-area">
         <div id="content">
+            <!-- Panel Toggle Buttons -->
+            <button id="toggle-left" class="panel-toggle" onclick="toggleLeftPanel()" title="Toggle Navigation Panel">◀</button>
+            <button id="toggle-right" class="panel-toggle" onclick="toggleRightPanel()" title="Toggle Chat Panel">▶</button>
             <iframe name="main_frame" src="/ui/dashboard"></iframe>
         </div>
         
