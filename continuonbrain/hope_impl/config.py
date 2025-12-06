@@ -1,0 +1,147 @@
+"""
+HOPE Configuration
+
+Configuration management for HOPE architecture with sensible defaults
+optimized for Raspberry Pi 5 deployment.
+"""
+
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+
+@dataclass
+class HOPEConfig:
+    """
+    Configuration for HOPE architecture.
+    
+    Dimensions:
+        d_s: Fast state dimension
+        d_w: Wave state dimension
+        d_p: Particle state dimension
+        d_e: Encoded input dimension
+        d_k: Key dimension for CMS attention
+        d_c: Mixed context dimension
+    
+    CMS Hierarchy:
+        num_levels: Number of CMS levels (0=episodic, L=semantic)
+        cms_sizes: Number of slots per level [N_0, N_1, ..., N_L]
+        cms_dims: Dimension per level [d_0, d_1, ..., d_L]
+        cms_decays: Decay coefficient per level [d_0, d_1, ..., d_L]
+    
+    Optimization:
+        use_quantization: Enable INT8/FP16 quantization
+        quantization_dtype: "int8" or "fp16"
+        device: Target device ("cpu", "cuda", etc.)
+        dtype: Default tensor dtype
+    
+    Training:
+        learning_rate: Base learning rate
+        eta_init: Initial nested learning rate
+        gradient_clip: Gradient clipping threshold
+    """
+    
+    # Dimensions
+    d_s: int = 256
+    d_w: int = 256
+    d_p: int = 128
+    d_e: int = 256
+    d_k: int = 64
+    d_c: int = 256
+    
+    # CMS hierarchy (3 levels: episodic, working, semantic)
+    num_levels: int = 3
+    cms_sizes: List[int] = field(default_factory=lambda: [64, 128, 256])
+    cms_dims: List[int] = field(default_factory=lambda: [128, 256, 512])
+    cms_decays: List[float] = field(default_factory=lambda: [0.1, 0.05, 0.01])
+    
+    # Optimization
+    use_quantization: bool = False  # Disabled by default, enable for deployment
+    quantization_dtype: str = "int8"  # "int8" or "fp16"
+    device: str = "cpu"
+    dtype: str = "float32"
+    
+    # Training
+    learning_rate: float = 1e-4
+    eta_init: float = 0.01
+    gradient_clip: float = 1.0
+    
+    # Stability
+    use_layer_norm: bool = True
+    lyapunov_weight: float = 1e-3
+    
+    def __post_init__(self):
+        """Validate configuration."""
+        assert self.num_levels == len(self.cms_sizes), \
+            f"num_levels ({self.num_levels}) must match cms_sizes length ({len(self.cms_sizes)})"
+        assert self.num_levels == len(self.cms_dims), \
+            f"num_levels ({self.num_levels}) must match cms_dims length ({len(self.cms_dims)})"
+        assert self.num_levels == len(self.cms_decays), \
+            f"num_levels ({self.num_levels}) must match cms_decays length ({len(self.cms_decays)})"
+        
+        # Validate decay coefficients
+        for i, d in enumerate(self.cms_decays):
+            assert 0 < d < 1, f"cms_decays[{i}] = {d} must be in (0, 1)"
+        
+        # Validate timescale separation (faster levels decay more)
+        for i in range(len(self.cms_decays) - 1):
+            assert self.cms_decays[i] >= self.cms_decays[i+1], \
+                f"Decay rates must be non-increasing: cms_decays[{i}] = {self.cms_decays[i]} < cms_decays[{i+1}] = {self.cms_decays[i+1]}"
+        
+        assert self.quantization_dtype in ["int8", "fp16"], \
+            f"quantization_dtype must be 'int8' or 'fp16', got {self.quantization_dtype}"
+    
+    @classmethod
+    def pi5_optimized(cls) -> "HOPEConfig":
+        """
+        Create configuration optimized for Raspberry Pi 5.
+        
+        Targets:
+        - Memory usage < 2GB
+        - Inference speed > 10 steps/sec
+        - Model size < 500MB
+        """
+        return cls(
+            # Smaller dimensions for memory efficiency
+            d_s=128,
+            d_w=128,
+            d_p=64,
+            d_e=128,
+            d_k=32,
+            d_c=128,
+            
+            # Smaller CMS for memory efficiency
+            num_levels=3,
+            cms_sizes=[32, 64, 128],
+            cms_dims=[64, 128, 256],
+            cms_decays=[0.1, 0.05, 0.01],
+            
+            # Enable quantization for deployment
+            use_quantization=True,
+            quantization_dtype="int8",
+            device="cpu",
+            dtype="float32",
+        )
+    
+    @classmethod
+    def development(cls) -> "HOPEConfig":
+        """
+        Create configuration for development/debugging.
+        
+        Smaller sizes for faster iteration.
+        """
+        return cls(
+            d_s=64,
+            d_w=64,
+            d_p=32,
+            d_e=64,
+            d_k=16,
+            d_c=64,
+            
+            num_levels=2,
+            cms_sizes=[16, 32],
+            cms_dims=[32, 64],
+            cms_decays=[0.1, 0.05],
+            
+            use_quantization=False,
+            device="cpu",
+        )
