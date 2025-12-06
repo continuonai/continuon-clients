@@ -223,8 +223,8 @@ class BrainService:
         # Initialize Gemma chat
         self.gemma_chat = create_gemma_chat(use_mock=False)
 
-    def ChatWithGemma(self, message: str, history: list) -> str:
-        """New Agent Manager chat logic with Tools."""
+    def ChatWithGemma(self, message: str, history: list) -> dict:
+        """Enhanced Agent Manager chat with decision confidence and intervention support."""
         
         # Build System Context
         status_lines = []
@@ -249,8 +249,32 @@ class BrainService:
         # Tool Instructions
         system_context += "\\nTOOLS: You can use tools by outputting: [TOOL: ACTION args]. Valid: [TOOL: SCREENSHOT], [TOOL: MOVE x y], [TOOL: TYPE text], [TOOL: CLICK]."
         
+        # Status updates list
+        status_updates = []
+        
         # Execute Chat
         response = self.gemma_chat.chat(message, system_context=system_context)
+        
+        # Calculate decision confidence (simple heuristic based on response characteristics)
+        confidence = self._calculate_confidence(response)
+        
+        # Get settings (with defaults if not set)
+        settings = getattr(self, 'agent_settings', {})
+        enable_intervention = settings.get('enable_intervention_prompts', True)
+        confidence_threshold = settings.get('intervention_confidence_threshold', 0.5)
+        enable_status = settings.get('enable_status_updates', True)
+        
+        # Detect if intervention is needed (low confidence or explicit uncertainty)
+        intervention_needed = False
+        intervention_question = None
+        intervention_options = []
+        
+        if enable_intervention and (confidence < confidence_threshold or any(word in response.lower() for word in ['should i', 'which one', 'not sure', 'uncertain'])):
+            intervention_needed = True
+            intervention_question = self._extract_question(response)
+            intervention_options = self._generate_options(message, response)
+            if enable_status:
+                status_updates.append(f"Decision confidence: {confidence:.0%} - requesting human input")
         
         # Log to chat_logs
         log_dir = Path(self.config_dir) / "memories" / "chat_logs"
@@ -263,7 +287,9 @@ class BrainService:
             "role": "user",
             "content": message,
             "context": system_context,
-            "response": response
+            "response": response,
+            "confidence": confidence,
+            "intervention_needed": intervention_needed
         }
         
         # Tool Parsing (Simple Post-Processing)
@@ -280,16 +306,20 @@ class BrainService:
                     if action == "SCREENSHOT":
                         path = self.desktop.take_screenshot()
                         result = f"Screenshot saved to {path}"
+                        status_updates.append(f"Tool: Screenshot captured")
                     elif action == "MOVE" and len(parts) >= 3:
                         self.desktop.move_mouse(int(parts[1]), int(parts[2]))
                         result = "Mouse moved"
+                        status_updates.append(f"Tool: Mouse moved to ({parts[1]}, {parts[2]})")
                     elif action == "CLICK":
                         self.desktop.click()
                         result = "Clicked"
+                        status_updates.append(f"Tool: Mouse clicked")
                     elif action == "TYPE" and len(parts) >= 2:
                         text = " ".join(parts[1:])
                         self.desktop.type_text(text)
                         result = f"Typed: {text}"
+                        status_updates.append(f"Tool: Typed text")
                         
                     entry["tool_action"] = tool_cmd
                     entry["tool_result"] = result
@@ -303,7 +333,76 @@ class BrainService:
         except Exception:
             pass
             
-        return response
+        return {
+            "response": response,
+            "confidence": confidence,
+            "intervention_needed": intervention_needed,
+            "intervention_question": intervention_question,
+            "intervention_options": intervention_options,
+            "status_updates": status_updates
+        }
+    
+    def _calculate_confidence(self, response: str) -> float:
+        """Calculate decision confidence based on response characteristics."""
+        # Simple heuristic: longer, more detailed responses = higher confidence
+        # Presence of uncertainty words = lower confidence
+        
+        uncertainty_words = ['maybe', 'perhaps', 'might', 'could', 'unsure', 'not sure', 'uncertain', 'don\'t know']
+        confidence_words = ['definitely', 'certainly', 'sure', 'confident', 'will', 'should']
+        
+        score = 0.7  # Base confidence
+        
+        # Adjust for uncertainty
+        for word in uncertainty_words:
+            if word in response.lower():
+                score -= 0.15
+        
+        # Adjust for confidence
+        for word in confidence_words:
+            if word in response.lower():
+                score += 0.1
+        
+        # Adjust for response length (longer = more thought out)
+        if len(response) > 200:
+            score += 0.1
+        elif len(response) < 50:
+            score -= 0.1
+        
+        return max(0.0, min(1.0, score))
+    
+    def _extract_question(self, response: str) -> str:
+        """Extract the main question from a response."""
+        # Look for question marks
+        sentences = response.split('.')
+        for sentence in sentences:
+            if '?' in sentence:
+                return sentence.strip()
+        
+        # If no question found, return a generic prompt
+        return "What would you like me to do?"
+    
+    def _generate_options(self, user_message: str, agent_response: str) -> list:
+        """Generate intervention options based on context."""
+        # Simple heuristic: extract key phrases or provide generic options
+        options = []
+        
+        # Check for common decision patterns
+        if 'or' in agent_response.lower():
+            # Try to extract options from "A or B" pattern
+            parts = agent_response.lower().split(' or ')
+            if len(parts) >= 2:
+                options.append(parts[0].strip().split()[-3:])  # Last few words before 'or'
+                options.append(parts[1].strip().split()[:3])   # First few words after 'or'
+        
+        # Generic fallback options
+        if len(options) < 2:
+            options = [
+                "Continue with current approach",
+                "Try alternative method",
+                "Let agent decide"
+            ]
+        
+        return options[:3]  # Limit to 3 options
 
     def _ensure_system_instructions(self) -> None:
         """Guarantee that merged system instructions are available."""

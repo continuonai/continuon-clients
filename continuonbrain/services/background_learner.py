@@ -11,8 +11,8 @@ import numpy as np
 from typing import Optional
 import logging
 
-from hope_impl.curiosity_env import CuriosityEnvironment
-from services.checkpoint_manager import CheckpointManager
+from continuonbrain.hope_impl.curiosity_env import CuriosityEnvironment
+from continuonbrain.services.checkpoint_manager import CheckpointManager
 
 
 logger = logging.getLogger(__name__)

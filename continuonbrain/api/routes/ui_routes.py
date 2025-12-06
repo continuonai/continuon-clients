@@ -141,21 +141,109 @@ HOME_HTML = f"""
             input.disabled = true;
             document.getElementById('sendBtn').disabled = true;
             
+            // Show agent status
+            showAgentStatus('thinking', 'Thinking...');
+            
             try {{
-                const response = await fetch('/api/chat', {{
+                const response = await fetch('/api/chat', {
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ message, history: chatHistory }})
-                }});
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, history: chatHistory })
+                });
                 const data = await response.json();
+                
+                // Hide agent status
+                hideAgentStatus();
+                
+                // Check for intervention needed
+                if (data.intervention_needed) {{
+                    showInterventionPrompt(data.intervention_question, data.intervention_options);
+                }}
+                
+                // Check for status updates
+                if (data.status_updates && data.status_updates.length > 0) {{
+                    for (const update of data.status_updates) {{
+                        addStatusUpdate(update);
+                    }}
+                }}
+                
                 addMessage('agent', 'Agent Manager', data.response || 'No response');
             }} catch(e) {{
+                hideAgentStatus();
                 addMessage('agent', 'Agent Manager', 'Error: ' + e.message);
             }}
             
             input.disabled = false;
             document.getElementById('sendBtn').disabled = false;
             input.focus();
+        }}
+        
+        function showAgentStatus(state, text) {{
+            const statusBar = document.getElementById('agent-status-bar');
+            const statusText = document.getElementById('agent-status-text');
+            const progress = document.getElementById('agent-progress');
+            
+            statusBar.style.display = 'block';
+            statusText.textContent = '● ' + text;
+            
+            if (state === 'thinking') {{
+                progress.style.display = 'block';
+                animateProgress();
+            }}
+        }}
+        
+        function hideAgentStatus() {{
+            const statusBar = document.getElementById('agent-status-bar');
+            const progress = document.getElementById('agent-progress');
+            statusBar.style.display = 'none';
+            progress.style.display = 'none';
+        }}
+        
+        function animateProgress() {{
+            const bar = document.getElementById('progress-bar');
+            let width = 0;
+            const interval = setInterval(() => {{
+                if (width >= 90) {{
+                    clearInterval(interval);
+                }} else {{
+                    width += Math.random() * 10;
+                    bar.style.width = Math.min(width, 90) + '%';
+                }}
+            }}, 200);
+        }}
+        
+        function showInterventionPrompt(question, options) {{
+            const prompt = document.getElementById('intervention-prompt');
+            const questionEl = document.getElementById('intervention-question');
+            const optionsEl = document.getElementById('intervention-options');
+            
+            questionEl.textContent = question;
+            optionsEl.innerHTML = '';
+            
+            options.forEach(option => {{
+                const btn = document.createElement('button');
+                btn.textContent = option;
+                btn.style.cssText = 'padding: 8px 16px; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; cursor: pointer; font-size: 0.9em;';
+                btn.onmouseover = () => btn.style.background = '#333';
+                btn.onmouseout = () => btn.style.background = 'var(--card-bg)';
+                btn.onclick = () => {{
+                    prompt.style.display = 'none';
+                    document.getElementById('chatInput').value = option;
+                    sendMessage();
+                }};
+                optionsEl.appendChild(btn);
+            }});
+            
+            prompt.style.display = 'block';
+        }}
+        
+        function addStatusUpdate(update) {{
+            const messagesDiv = document.getElementById('chatMessages');
+            const updateDiv = document.createElement('div');
+            updateDiv.style.cssText = 'padding: 8px 12px; margin: 8px 0; background: rgba(0,255,136,0.05); border-left: 3px solid var(--accent-color); border-radius: 4px; font-size: 0.85em; color: var(--text-dim);';
+            updateDiv.innerHTML = `<span style=\"color: var(--accent-color);\">●</span> ${{escapeHtml(update)}}`;
+            messagesDiv.appendChild(updateDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }}
         
         function addMessage(type, sender, text) {{
@@ -258,12 +346,28 @@ HOME_HTML = f"""
         <div id="chat-sidebar">
             <div class="chat-header">
                 <span>🤖</span> Agent Manager
+                <!-- Agent Status Bar -->
+                <div id="agent-status-bar" style="margin-top: 8px; padding: 6px 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 0.8em; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span id="agent-status-text" style="color: var(--accent-color);">● Ready</span>
+                        <span id="sub-agents-count" style="color: var(--text-dim); font-size: 0.85em;"></span>
+                    </div>
+                    <div id="agent-progress" style="margin-top: 4px; height: 2px; background: rgba(0,255,136,0.2); border-radius: 1px; overflow: hidden; display: none;">
+                        <div style="height: 100%; background: var(--accent-color); width: 0%; transition: width 0.3s;" id="progress-bar"></div>
+                    </div>
+                </div>
             </div>
             <div class="chat-messages" id="chatMessages">
                 <div class="chat-message agent">
                     <div class="sender">Agent Manager</div>
                     <div class="bubble">Hello! I'm the lead agent managing tasks and coordinating sub-agents. How can I help you today?</div>
                 </div>
+            </div>
+            <!-- Intervention Prompt (hidden by default) -->
+            <div id="intervention-prompt" style="display: none; padding: 16px; background: rgba(255,165,0,0.1); border-top: 2px solid #ffa500; border-bottom: 1px solid var(--border-color);">
+                <div style="font-weight: 600; margin-bottom: 8px; color: #ffa500;">🤷 I need your help deciding</div>
+                <div id="intervention-question" style="margin-bottom: 12px; font-size: 0.9em;"></div>
+                <div id="intervention-options" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
             </div>
             <div class="chat-input-area">
                 <textarea id="chatInput" placeholder="Ask about tasks, control the robot, or chat with sub-agents..."></textarea>
@@ -612,19 +716,95 @@ SETTINGS_HTML = f"""
         </div>
     </div>
     
+    <div class="section">
+        <h2>Agent Manager</h2>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="enable_thinking_indicator" checked> Show Thinking Indicator
+            </label>
+            <small style="color: var(--text-dim); display: block; margin-left: 30px;">Display animated progress bar when agent is processing</small>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="enable_intervention_prompts" checked> Enable Intervention Prompts
+            </label>
+            <small style="color: var(--text-dim); display: block; margin-left: 30px;">Ask for human help when agent is uncertain</small>
+        </div>
+        <div class="form-group">
+            <label>Intervention Confidence Threshold</label>
+            <input type="number" id="intervention_confidence_threshold" value="0.5" min="0" max="1" step="0.05" style="max-width: 150px;">
+            <small style="color: var(--text-dim); display: block; margin-top: 4px;">Trigger intervention when confidence is below this value (0.0 - 1.0)</small>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="enable_status_updates" checked> Show Status Updates
+            </label>
+            <small style="color: var(--text-dim); display: block; margin-left: 30px;">Display real-time activity feed in chat</small>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="enable_autonomous_learning" checked> Enable Autonomous Learning
+            </label>
+            <small style="color: var(--text-dim); display: block; margin-left: 30px;">Run continuous curiosity-driven learning in background</small>
+        </div>
+        <div class="form-group">
+            <label>Learning Steps Per Cycle</label>
+            <input type="number" id="autonomous_learning_steps_per_cycle" value="100" min="10" max="1000" step="10" style="max-width: 150px;">
+            <small style="color: var(--text-dim); display: block; margin-top: 4px;">Number of learning steps per cycle (10-1000)</small>
+        </div>
+        <div class="form-group">
+            <label>Checkpoint Interval</label>
+            <input type="number" id="autonomous_learning_checkpoint_interval" value="1000" min="100" max="10000" step="100" style="max-width: 150px;">
+            <small style="color: var(--text-dim); display: block; margin-top: 4px;">Save brain checkpoint every N steps (100-10000)</small>
+        </div>
+    </div>
+    
     <div style="margin-top: 40px;">
         <button class="btn primary" onclick="saveSettings()">Save Changes</button>
-        <button class="btn" onclick="window.location.reload()" style="margin-left: 10px;">Reset to Defaults</button>
+        <button class="btn" onclick="loadSettings()" style="margin-left: 10px;">Reset to Current</button>
     </div>
 
     <script>
+        async function loadSettings() {{
+            try {{
+                const res = await fetch('/api/settings');
+                const data = await response.json();
+                
+                if (data.success && data.settings) {{
+                    const s = data.settings;
+                    
+                    // Agent Manager settings
+                    if (s.agent_manager) {{
+                        document.getElementById('enable_thinking_indicator').checked = s.agent_manager.enable_thinking_indicator ?? true;
+                        document.getElementById('enable_intervention_prompts').checked = s.agent_manager.enable_intervention_prompts ?? true;
+                        document.getElementById('intervention_confidence_threshold').value = s.agent_manager.intervention_confidence_threshold ?? 0.5;
+                        document.getElementById('enable_status_updates').checked = s.agent_manager.enable_status_updates ?? true;
+                        document.getElementById('enable_autonomous_learning').checked = s.agent_manager.enable_autonomous_learning ?? true;
+                        document.getElementById('autonomous_learning_steps_per_cycle').value = s.agent_manager.autonomous_learning_steps_per_cycle ?? 100;
+                        document.getElementById('autonomous_learning_checkpoint_interval').value = s.agent_manager.autonomous_learning_checkpoint_interval ?? 1000;
+                    }}
+                }}
+            }} catch(e) {{
+                console.error('Error loading settings:', e);
+            }}
+        }}
+        
         async function saveSettings() {{
             const settings = {{
                 theme: document.getElementById('theme').value,
                 model_endpoint: document.getElementById('model_endpoint').value,
                 local_learning: document.getElementById('local_learning').checked,
                 auto_load: document.getElementById('auto_load').checked,
-                default_mode: document.getElementById('default_mode').value
+                default_mode: document.getElementById('default_mode').value,
+                agent_manager: {{
+                    enable_thinking_indicator: document.getElementById('enable_thinking_indicator').checked,
+                    enable_intervention_prompts: document.getElementById('enable_intervention_prompts').checked,
+                    intervention_confidence_threshold: parseFloat(document.getElementById('intervention_confidence_threshold').value),
+                    enable_status_updates: document.getElementById('enable_status_updates').checked,
+                    enable_autonomous_learning: document.getElementById('enable_autonomous_learning').checked,
+                    autonomous_learning_steps_per_cycle: parseInt(document.getElementById('autonomous_learning_steps_per_cycle').value),
+                    autonomous_learning_checkpoint_interval: parseInt(document.getElementById('autonomous_learning_checkpoint_interval').value)
+                }}
             }};
             
             try {{
@@ -634,10 +814,12 @@ SETTINGS_HTML = f"""
                     body: JSON.stringify(settings)
                 }});
                 
-                if (res.ok) {{
-                    alert('Settings saved successfully!');
+                const data = await res.json();
+                
+                if (data.success) {{
+                    alert('Settings saved successfully! Restart the server for changes to take effect.');
                 }} else {{
-                    alert('Failed to save settings.');
+                    alert('Failed to save settings: ' + (data.message || 'Unknown error'));
                 }}
             }} catch(e) {{
                 alert('Error saving settings: ' + e.message);
@@ -1217,7 +1399,7 @@ def get_tasks_html() -> str:
 
 # Import HOPE monitoring pages
 try:
-    from api.routes.hope_ui_pages import UI_ROUTES_HOPE
+    from continuonbrain.api.routes.hope_ui_pages import UI_ROUTES_HOPE
     
     def get_hope_training_html() -> str:
         return UI_ROUTES_HOPE["/ui/hope/training"]

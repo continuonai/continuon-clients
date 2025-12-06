@@ -173,8 +173,8 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 msg = data.get("message", "")
                 
-                response = brain_service.ChatWithGemma(msg, [])
-                self.send_json({"response": response})
+                result = brain_service.ChatWithGemma(msg, [])
+                self.send_json(result)
             
             elif self.path == "/api/robot/drive":
                 data = json.loads(body)
@@ -352,6 +352,18 @@ def main():
     identity_service.self_report() 
     shell_type = identity_service.identity.get("shell", {}).get("type", "Unknown")
     
+    # Load settings
+    settings_store = SettingsStore(Path(args.config_dir))
+    settings = settings_store.load()
+    agent_settings = settings.get("agent_manager", {})
+    
+    print(f"📋 Agent Manager Settings:")
+    print(f"  Thinking Indicator: {agent_settings.get('enable_thinking_indicator', True)}")
+    print(f"  Intervention Prompts: {agent_settings.get('enable_intervention_prompts', True)}")
+    print(f"  Confidence Threshold: {agent_settings.get('intervention_confidence_threshold', 0.5)}")
+    print(f"  Status Updates: {agent_settings.get('enable_status_updates', True)}")
+    print(f"  Autonomous Learning: {agent_settings.get('enable_autonomous_learning', True)}")
+    
     # If Desktop Station, force mock hardware for robot components?
     # For now, we pass preferences.
     
@@ -361,25 +373,28 @@ def main():
         auto_detect=True
     )
     
+    # Store settings in brain_service for access by ChatWithGemma
+    brain_service.agent_settings = agent_settings
+    
     # Async Init (hack for sync constructor)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(brain_service.initialize())
     
-    # Initialize background learner if HOPE brain is available
+    # Initialize background learner if HOPE brain is available AND enabled in settings
     global background_learner
-    if brain_service.hope_brain:
+    if brain_service.hope_brain and agent_settings.get('enable_autonomous_learning', True):
         print("🔄 Starting autonomous learning service...")
         try:
-            from services.background_learner import BackgroundLearner
-            from api.routes import learning_routes
+            from continuonbrain.services.background_learner import BackgroundLearner
+            from continuonbrain.api.routes import learning_routes
             
             background_learner = BackgroundLearner(
                 brain=brain_service.hope_brain,
                 config={
-                    'steps_per_cycle': 100,
+                    'steps_per_cycle': agent_settings.get('autonomous_learning_steps_per_cycle', 100),
                     'cycle_interval_sec': 1.0,
-                    'checkpoint_interval': 1000,
+                    'checkpoint_interval': agent_settings.get('autonomous_learning_checkpoint_interval', 1000),
                     'exploration_bonus': 0.1,
                     'novelty_threshold': 0.5,
                 }
@@ -395,6 +410,8 @@ def main():
         except Exception as e:
             print(f"⚠ Failed to start autonomous learning: {e}")
             background_learner = None
+    elif not agent_settings.get('enable_autonomous_learning', True):
+        print("⚠ Autonomous learning disabled in settings")
     else:
         print("⚠ HOPE brain not available, skipping autonomous learning")
     

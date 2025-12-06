@@ -5,7 +5,7 @@ HTML pages for monitoring HOPE brain development with scientific rigor.
 To integrate: import these into ui_routes.py and add to UI_ROUTES dict.
 """
 
-from api.routes.ui_routes import COMMON_CSS
+from continuonbrain.api.routes.ui_routes import COMMON_CSS
 
 # HOPE Training Dashboard
 HOPE_TRAINING_HTML = f"""

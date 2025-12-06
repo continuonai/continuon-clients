@@ -24,6 +24,15 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "persona": "operator",
         "temperature": 0.35,
     },
+    "agent_manager": {
+        "enable_thinking_indicator": True,
+        "enable_intervention_prompts": True,
+        "intervention_confidence_threshold": 0.5,
+        "enable_status_updates": True,
+        "enable_autonomous_learning": True,
+        "autonomous_learning_steps_per_cycle": 100,
+        "autonomous_learning_checkpoint_interval": 1000,
+    },
 }
 
 ALLOWED_PERSONAS = {"operator", "safety_officer", "demo_host"}
@@ -112,6 +121,55 @@ class SettingsStore:
 
         if errors:
             raise SettingsValidationError("; ".join(errors))
+        
+        # Agent Manager settings
+        agent_mgr = payload.get("agent_manager", {}) if isinstance(payload, dict) else {}
+        normalized["agent_manager"] = {}
+        normalized["agent_manager"]["enable_thinking_indicator"] = bool(
+            agent_mgr.get("enable_thinking_indicator", DEFAULT_SETTINGS["agent_manager"]["enable_thinking_indicator"])
+        )
+        normalized["agent_manager"]["enable_intervention_prompts"] = bool(
+            agent_mgr.get("enable_intervention_prompts", DEFAULT_SETTINGS["agent_manager"]["enable_intervention_prompts"])
+        )
+        
+        # Validate confidence threshold
+        threshold = agent_mgr.get("intervention_confidence_threshold", DEFAULT_SETTINGS["agent_manager"]["intervention_confidence_threshold"])
+        try:
+            threshold_value = float(threshold)
+            if threshold_value < 0 or threshold_value > 1:
+                errors.append("Intervention confidence threshold must be between 0 and 1")
+            else:
+                normalized["agent_manager"]["intervention_confidence_threshold"] = round(threshold_value, 2)
+        except (TypeError, ValueError):
+            errors.append("Intervention confidence threshold must be a number")
+        
+        normalized["agent_manager"]["enable_status_updates"] = bool(
+            agent_mgr.get("enable_status_updates", DEFAULT_SETTINGS["agent_manager"]["enable_status_updates"])
+        )
+        normalized["agent_manager"]["enable_autonomous_learning"] = bool(
+            agent_mgr.get("enable_autonomous_learning", DEFAULT_SETTINGS["agent_manager"]["enable_autonomous_learning"])
+        )
+        
+        # Validate learning parameters
+        steps = agent_mgr.get("autonomous_learning_steps_per_cycle", DEFAULT_SETTINGS["agent_manager"]["autonomous_learning_steps_per_cycle"])
+        try:
+            steps_value = int(steps)
+            if steps_value < 10 or steps_value > 1000:
+                errors.append("Learning steps per cycle must be between 10 and 1000")
+            else:
+                normalized["agent_manager"]["autonomous_learning_steps_per_cycle"] = steps_value
+        except (TypeError, ValueError):
+            errors.append("Learning steps per cycle must be an integer")
+        
+        checkpoint = agent_mgr.get("autonomous_learning_checkpoint_interval", DEFAULT_SETTINGS["agent_manager"]["autonomous_learning_checkpoint_interval"])
+        try:
+            checkpoint_value = int(checkpoint)
+            if checkpoint_value < 100 or checkpoint_value > 10000:
+                errors.append("Checkpoint interval must be between 100 and 10000")
+            else:
+                normalized["agent_manager"]["autonomous_learning_checkpoint_interval"] = checkpoint_value
+        except (TypeError, ValueError):
+            errors.append("Checkpoint interval must be an integer")
 
         return normalized
 
