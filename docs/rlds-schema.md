@@ -2,6 +2,32 @@
 
 This draft defines the RLDS-style schema ContinuonXR must emit. All episodes must validate against these rules before upload.
 
+## Pi-side RLDS schema (Continuon Brain runtime)
+The Pi-side recorder (Continuon Brain runtime) MUST mirror the headset schema so OTA and cloud handoff stay lossless. Minimum f
+ields:
+
+- **Episode metadata**
+  - `metadata.xr_mode` and `metadata.control_role` copied from the headset and persisted in the edge bundle.
+  - `metadata.robot_id`, `metadata.robot_model`, and `metadata.frame_convention` (e.g., `base_link`, `camera_link`).
+  - `metadata.start_time_unix_ms` and `metadata.duration_ms` for lifecycle auditing.
+- **Egocentric sensors**
+  - `observation.egocentric_video`: RGB frame in the Pi camera frame; include `frame_id`, `timestamp_ns`, and `camera_intrinsic
+    s` when available.
+  - `observation.egocentric_depth`: optional depth frame aligned to the same `frame_id` and `timestamp_ns`.
+- **Proprioceptive state**
+  - `observation.robot_state` MUST include per-arm `joint_positions`, `joint_velocities`, and `end_effector_pose` in the Pi ca
+    mera frame (or explicitly specify `frame_id`).
+  - `observation.robot_state.*.gripper_state` is recommended for grasp reproducibility.
+- **Glove placeholders**
+  - When gloves are not paired, emit `glove.valid=false` and keep the blocks present so downstream consumers stay schema-stable
+    .
+- **Normalized actions**
+  - `action.command` MUST be normalized (e.g., EE velocity in m/s or unitless deltas 0..1 with explicit `command_type`).
+  - For mirrored/bimanual rigs, include `action.arm_commands` with the same `frame_id` convention as observations.
+- **Episode packaging**
+  - Episodes are written as the same `metadata.json` + `steps/*.jsonl` layout defined below; blobs reside in `blobs/` with fram
+    e-aligned filenames.
+
 ## Episode-level metadata
 - `metadata.xr_mode`: string enum — `trainer`, `workstation`, `observer` (also mirrored into `metadata.tags` as `continuon.xr_mode:<value>` for stratification).
 - `metadata.control_role`: string enum — `human_teleop`, `human_supervisor`, `human_dev_xr`.
@@ -70,6 +96,19 @@ step {
 - `metadata.json`: episode-level metadata.
 - `steps/000000.jsonl`: ordered steps with references to binary blobs (video/depth).
 - `blobs/`: raw media or compression artifacts (to be defined during implementation).
+
+## Edge bundle manifest (for OTA + cloud handoff)
+Each exported bundle must include `edge_manifest.json` at the root to support Pi-side OTA swaps and cloud verification.
+
+- `version`: semantic version of the bundle schema (e.g., `1.0.0`).
+- `model_name`: human-readable skill/policy name to assist operator audits.
+- `tflite_path`: relative path to the packaged TFLite (or model archive) inside the bundle.
+- `dependencies`: map of runtime dependencies with versions and URIs (e.g., `{ "pose_decoder": { "version": "0.2.1", "uri": ""
+  } }`).
+- `signature`: cryptographic signature or checksum block covering `metadata.json`, `steps/`, and the model artifact for tamper e
+  vidence.
+- `created_at_unix_ms`: creation timestamp for lifecycle plan alignment.
+- `source`: string identifying the producer (`continuon.brain_runtime` vs `continuon.xr_app`).
 
 ## Validation rules (MVP)
 - Reject episodes missing required fields above.
