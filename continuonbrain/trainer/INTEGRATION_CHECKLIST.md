@@ -1,6 +1,6 @@
 # Continuonos Integration Checklist (Pi 5, Gemma + LoRA + Safety)
 
-Use this to drop the trainer scaffold into the real continuonos runtime.
+Use this to drop the trainer scaffold into the runtime now co-located in this repo, noting where adapters still need production hookups.
 
 ## Model plumbing
 - [ ] Implement a real Gemma loader (Torch or supported format) and point `base_model_path` in `pi5-donkey.json`.

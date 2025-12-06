@@ -1,6 +1,6 @@
 # Raspberry Pi 5 Donkey Car Bring-Up (depth cam + PCA9685)
 
-Goal: a repeatable Pi 5 setup that can record RLDS, train LoRA adapters locally, and drive a PCA9685-controlled RC car while previewing a USB3 depth camera. Production runtime still lives in `continuonos`; this doc keeps the `continuonbrain/` scaffold Pi-ready.
+Goal: a repeatable Pi 5 setup that can record RLDS, train LoRA adapters locally, and drive a PCA9685-controlled RC car while previewing a USB3 depth camera. The production runtime now ships from this repo; keep scaffolding callouts explicit so downstream consumers know what is ready to promote.
 
 ## Hardware + OS prep
 - Use 64-bit Raspberry Pi OS Lite or Ubuntu 24.04, enable I2C (`raspi-config` → Interfacing → I2C) and reboot.

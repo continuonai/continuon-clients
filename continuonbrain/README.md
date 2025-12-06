@@ -1,11 +1,12 @@
-# ContinuonBrain (scaffolding only)
+# ContinuonBrain
 
-ContinuonBrain/OS runtime lives in the separate `continuonos` repo (platform-agnostic core, HAL adapters, backends, configs). This folder only carries **scaffolding and contracts** used by ContinuonXR:
+The Continuon Brain runtime and scaffolding now live together in this monorepo. Use this folder to ship production runtime assets alongside the existing **scaffolding and contracts** used by ContinuonXR:
 - `proto/continuonbrain_link.proto` (shared contract; mirror downstream).
 - `trainer/` offline Pi/Jetson adapter-training scaffold (bounded, RLDS-only, safety-gated) to align with ContinuonBrain/OS goals. Synthetic RLDS samples for dry-runs sit under `continuonbrain/rlds/episodes/`. Sample manifest in `continuonbrain/model/manifest.pi5.example.json` shows how Pi 5 + `flutter_gemma` can load base + LoRA without extra quantization.
 - Raspberry Pi 5 bring-up checklist (depth cam + PCA9685) lives in `continuonbrain/PI5_CAR_READINESS.md`.
+- Pi 5 edge brain v0 execution steps (health checks, RLDS recording, trainer runbook) live in `continuonbrain/PI5_EDGE_BRAIN_INSTRUCTIONS.md`.
 
-No production runtime should live here; wire real implementations inside `continuonos` while keeping the interface consistent.
+Production runtime code belongs here; keep docs explicit about what is production-ready versus placeholder scaffolding so downstream consumers can promote features confidently.
 
 For training-time autonomy (when humans are away), keep the robot focused on safe, creator-aligned work items listed in `SELF_IMPROVEMENT_BACKLOG.md`. Tasks emphasize offline-first checks, system health validation, and strict adherence to the safety protocol.
 

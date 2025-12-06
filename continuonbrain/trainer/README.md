@@ -60,7 +60,7 @@ action = forward_to_vla_head(language_planner_head, sample)
 ```
 
 ## Notes
-- Keep real runtime code in `continuonos`; this scaffold is for planning/testing and aligns with the ContinuonBrain goals (bounded offline jobs, RLDS I/O, safety gate before swapping adapters).
+- The runtime now lives in this repo; use this scaffold for planning/testing and clearly label what is placeholder versus production-ready (bounded offline jobs, RLDS I/O, safety gate before swapping adapters).
 - TensorFlow is optional; provide `tfrecord_iter`/`example_parser` if you prefer TFRecord episodes without importing TF globally.
 - Use the production Robot API server (`python -m continuonbrain.robot_api_server`) for end-to-end XR contract tests on hardware; do not run trainer inside the server process. Use Pi/Jetson hardware for adapter updates.
 - `base_model_path` in configs (e.g., `/opt/continuonos/brain/model/base_policy.pt`) points to the frozen policy checkpoint used before attaching LoRA adapters.

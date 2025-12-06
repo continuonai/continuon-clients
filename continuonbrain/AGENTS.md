@@ -1,8 +1,8 @@
-# Agent Instructions (ContinuonBrain Scaffolding)
+# Agent Instructions (ContinuonBrain)
 
 Scope: `continuonbrain/`.
 
-- This folder remains a scaffold for offline adapter training, manifests, and samples; production runtime code belongs in the `continuonos` repo. Keep changes documented so they can be mirrored downstream.
+- The Continuon Brain runtime and scaffolding are now co-located in this monorepo. Keep docs clear about what is production-ready versus staged scaffolding so downstream consumers can promote pieces confidently.
 - Prefer small, dependency-light utilities. Avoid adding heavy ML packages beyond what the trainer stubs already expect; keep optional imports guarded so Pi/Jetson environments can still import modules.
 - Maintain alignment with RLDS inputs/outputs: update comments/examples when changing schema expectations, and keep sample manifests/configs consistent with the trainer defaults.
 - Use type hints and clear docstrings for trainer hooks/safety adapters. Keep safety gating logic explicit and easy to override from continuonos.

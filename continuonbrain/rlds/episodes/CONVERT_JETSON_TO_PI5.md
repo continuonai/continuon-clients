@@ -1,6 +1,6 @@
 # Converting a Jetson Donkeycar setup to Raspberry Pi 5 (8 GB)
 
-This repo has scaffolding; the real runtime stays in `continuonos`. Use these steps as a quick checklist.
+This repo now carries both scaffolding and the runtime; use these steps as a quick checklist to keep Pi and Jetson episode layouts in sync.
 
 ## Steps
 1) **Reuse RLDS data**: copy your Jetson-generated RLDS episodes to the Pi:
