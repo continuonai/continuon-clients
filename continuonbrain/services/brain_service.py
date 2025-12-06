@@ -217,6 +217,9 @@ class BrainService:
         self.selected_task_id: Optional[str] = None
         self.detected_config: dict = {}
         
+        # HOPE brain (optional)
+        self.hope_brain = None
+        
         # Initialize Gemma chat
         self.gemma_chat = create_gemma_chat(use_mock=False)
 
@@ -397,6 +400,38 @@ class BrainService:
             }
         )
         print("✅ Mode manager ready")
+        
+        # Initialize HOPE brain
+        print("🧠 Initializing HOPE brain...")
+        try:
+            from hope_impl.config import HOPEConfig
+            from hope_impl.brain import HOPEBrain
+            
+            config = HOPEConfig.pi5_optimized()
+            self.hope_brain = HOPEBrain(
+                config=config,
+                obs_dim=10,  # Default dimensions
+                action_dim=4,
+                output_dim=4,
+            )
+            
+            # Register with monitoring API
+            try:
+                from api.routes import hope_routes
+                hope_routes.set_hope_brain(self.hope_brain)
+                print("  ✓ Registered with web monitoring")
+            except ImportError:
+                print("  ⚠ Web monitoring not available")
+            
+            param_count = sum(p.numel() for p in self.hope_brain.parameters())
+            print(f"  ✓ HOPE brain ready ({param_count:,} parameters)")
+            
+        except ImportError:
+            print("  ⚠ HOPE implementation not available")
+            self.hope_brain = None
+        except Exception as e:
+            print(f"  ⚠ HOPE initialization failed: {e}")
+            self.hope_brain = None
         
         print("=" * 60)
         print(f"✅ Brain Service Ready")

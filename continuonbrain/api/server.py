@@ -36,6 +36,7 @@ logger = logging.getLogger("BrainServer")
 # Global Service Instance
 brain_service: BrainService = None
 identity_service: AgentIdentity = None
+background_learner = None  # Autonomous learning service
 
 class BrainRequestHandler(BaseHTTPRequestHandler):
     """Handles HTTP requests for the Brain API."""
@@ -148,6 +149,14 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     hope_routes.handle_hope_request(self)
                 except ImportError:
                     self.send_json({"error": "HOPE implementation not available"}, status=503)
+            
+            # Learning API Endpoints
+            elif self.path.startswith("/api/learning/"):
+                try:
+                    from continuonbrain.api.routes import learning_routes
+                    learning_routes.handle_learning_request(self)
+                except ImportError:
+                    self.send_json({"error": "Learning service not available"}, status=503)
 
             else:
                 self.send_error(404)
@@ -357,12 +366,51 @@ def main():
     asyncio.set_event_loop(loop)
     loop.run_until_complete(brain_service.initialize())
     
+    # Initialize background learner if HOPE brain is available
+    global background_learner
+    if brain_service.hope_brain:
+        print("🔄 Starting autonomous learning service...")
+        try:
+            from services.background_learner import BackgroundLearner
+            from api.routes import learning_routes
+            
+            background_learner = BackgroundLearner(
+                brain=brain_service.hope_brain,
+                config={
+                    'steps_per_cycle': 100,
+                    'cycle_interval_sec': 1.0,
+                    'checkpoint_interval': 1000,
+                    'exploration_bonus': 0.1,
+                    'novelty_threshold': 0.5,
+                }
+            )
+            
+            # Register with API
+            learning_routes.set_background_learner(background_learner)
+            
+            # Start learning
+            background_learner.start()
+            print("✅ Autonomous learning started")
+            
+        except Exception as e:
+            print(f"⚠ Failed to start autonomous learning: {e}")
+            background_learner = None
+    else:
+        print("⚠ HOPE brain not available, skipping autonomous learning")
+    
     server = ThreadedHTTPServer(("0.0.0.0", args.port), BrainRequestHandler)
     print(f"🚀 Server listening on http://0.0.0.0:{args.port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    
+    # Graceful shutdown
+    print("\\n🛑 Shutting down...")
+    
+    if background_learner:
+        print("🔄 Stopping autonomous learning...")
+        background_learner.stop()
     
     brain_service.shutdown()
     server.server_close()

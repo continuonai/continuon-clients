@@ -1,0 +1,8 @@
+{
+  "checkpoint_count": 5737,
+  "best_metric": -134.65802001953125,
+  "last_checkpoint": "checkpoints/autonomous/hope_auto_00006349_1765004298.pt",
+  "last_step": 6349,
+  "last_metric": -105000632.0,
+  "timestamp": 1765004301.640148
+}
