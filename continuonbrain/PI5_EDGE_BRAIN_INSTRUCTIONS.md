@@ -1,6 +1,6 @@
 # Pi 5 Edge Brain v0 Execution Guide
 
-This guide stitches together the core components needed for a “version zero” Pi 5 edge brain: depth camera capture, PCA9685 drivetrain control, RLDS recording, health/startup orchestration, and integration tests. It assumes you are running the scaffolding in this repo and will swap in the production runtime from `continuonos` when ready.
+This guide stitches together the core components needed for a “version zero” Pi 5 edge brain: depth camera capture, PCA9685 drivetrain control, RLDS recording, health/startup orchestration, and integration tests. It assumes you are running the combined runtime + scaffolding that now lives in this repo, with clear markers for any remaining placeholders.
 
 ## 1) Prep the Pi 5 environment
 - OS: 64-bit Raspberry Pi OS Lite or Ubuntu 24.04 with I2C enabled (`raspi-config` → Interfacing → I2C).
