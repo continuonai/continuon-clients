@@ -72,6 +72,10 @@ ContinuonXR must log all experiences into a standardized RLDS-style schema.
 | **`steps[*].observation`** | Must include `xr_headset_pose` and `xr_hand_right_pose` (pose/quat data). Must synchronize egocentric video/depth with robot state. | |
 | **`steps[*].action`** | Must record human command in a normalized space, tagged with `source = "human_teleop_xr"`. | |
 
+See [`docs/rlds-schema.md`](docs/rlds-schema.md) for the detailed, Pi-side RLDS schema that the Continuon Brain runtime must emit in lockstep with the headset feed (egocentric camera frame, proprioceptive state including joint positions and EE pose, normalized actions, and glove placeholders with `glove.valid=false` when absent) and the episode metadata requirements.
+
+**Edge bundle manifest (OTA + cloud handoff):** every exported bundle must ship an `edge_manifest.json` that records the bundle schema `version`, `model_name`, packaged `tflite_path`, dependency map, and a signature/checksum to allow OTA swaps on the Pi and continuity when the Cloud picks up the bundle.
+
 ### 3.3 Sensorized Glove Integration (Continuon Glove v0)
 ContinuonXR must integrate the sensorized glove as a dedicated input stream for highly dexterous training.
 
