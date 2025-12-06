@@ -163,6 +163,30 @@ HOME_HTML = f"""
             <a href="/ui/status" target="main_frame" onclick="selectNav(this)">
                 <span class="icon">🔍</span> Brain Status
             </a>
+            
+            <!-- HOPE Monitoring Section -->
+            <div style="margin: 20px 0; padding: 10px 24px; font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">
+                HOPE Brain Development
+            </div>
+            <a href="/ui/hope/training" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">🧠</span> Training Dashboard
+            </a>
+            <a href="/ui/hope/memory" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">💾</span> CMS Memory
+            </a>
+            <a href="/ui/hope/stability" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">⚖️</span> Stability Monitor
+            </a>
+            <a href="/ui/hope/dynamics" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">🌊</span> Wave-Particle
+            </a>
+            <a href="/ui/hope/performance" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">⚡</span> Performance
+            </a>
+            
+            <div style="margin: 20px 0; padding: 10px 24px; font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">
+                System
+            </div>
             <a href="/ui/settings" target="main_frame" onclick="selectNav(this)">
                 <span class="icon">⚙️</span> Settings
             </a>
@@ -1138,3 +1162,39 @@ def get_manual_html() -> str:
 
 def get_tasks_html() -> str:
     return TASKS_HTML
+
+# Import HOPE monitoring pages
+try:
+    from api.routes.hope_ui_pages import UI_ROUTES_HOPE
+    
+    def get_hope_training_html() -> str:
+        return UI_ROUTES_HOPE["/ui/hope/training"]
+    
+    def get_hope_memory_html() -> str:
+        return UI_ROUTES_HOPE["/ui/hope/memory"]
+    
+    def get_hope_stability_html() -> str:
+        return UI_ROUTES_HOPE["/ui/hope/stability"]
+    
+    def get_hope_dynamics_html() -> str:
+        return UI_ROUTES_HOPE["/ui/hope/dynamics"]
+    
+    def get_hope_performance_html() -> str:
+        return UI_ROUTES_HOPE["/ui/hope/performance"]
+except ImportError:
+    # HOPE pages not available
+    def get_hope_training_html() -> str:
+        return "<html><body><h1>HOPE Training Dashboard</h1><p>HOPE implementation not found.</p></body></html>"
+    
+    def get_hope_memory_html() -> str:
+        return "<html><body><h1>CMS Memory Inspector</h1><p>HOPE implementation not found.</p></body></html>"
+    
+    def get_hope_stability_html() -> str:
+        return "<html><body><h1>Stability Monitor</h1><p>HOPE implementation not found.</p></body></html>"
+    
+    def get_hope_dynamics_html() -> str:
+        return "<html><body><h1>Wave-Particle Dynamics</h1><p>HOPE implementation not found.</p></body></html>"
+    
+    def get_hope_performance_html() -> str:
+        return "<html><body><h1>Performance Benchmarks</h1><p>HOPE implementation not found.</p></body></html>"
+

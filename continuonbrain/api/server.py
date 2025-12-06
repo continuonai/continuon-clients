@@ -83,6 +83,37 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_tasks_html().encode("utf-8"))
+            
+            # HOPE Monitoring Pages
+            elif self.path == "/ui/hope/training":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_hope_training_html().encode("utf-8"))
+            
+            elif self.path == "/ui/hope/memory":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_hope_memory_html().encode("utf-8"))
+            
+            elif self.path == "/ui/hope/stability":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_hope_stability_html().encode("utf-8"))
+            
+            elif self.path == "/ui/hope/dynamics":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_hope_dynamics_html().encode("utf-8"))
+            
+            elif self.path == "/ui/hope/performance":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_hope_performance_html().encode("utf-8"))
 
             elif self.path == "/api/tasks/library":
                 # Return task library with eligibility checks
@@ -109,6 +140,14 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/settings":
                 store = SettingsStore(Path(brain_service.config_dir))
                 self.send_json({"success": True, "settings": store.load()})
+            
+            # HOPE API Endpoints
+            elif self.path.startswith("/api/hope/"):
+                try:
+                    from continuonbrain.api.routes import hope_routes
+                    hope_routes.handle_hope_request(self)
+                except ImportError:
+                    self.send_json({"error": "HOPE implementation not available"}, status=503)
 
             else:
                 self.send_error(404)
