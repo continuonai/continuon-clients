@@ -1,3 +1,21 @@
+# ContinuonBrain Startup Service
+#
+# Installation:
+#   1. Copy this file to user systemd directory:
+#      cp continuonbrain-startup.service ~/.config/systemd/user/
+#
+#   2. Enable auto-start on boot (without requiring user login):
+#      sudo loginctl enable-linger $USER
+#
+#   3. Enable and start the service:
+#      systemctl --user enable continuonbrain-startup.service
+#      systemctl --user start continuonbrain-startup.service
+#
+#   4. Check status:
+#      systemctl --user status continuonbrain-startup.service
+#
+# Note: Adjust paths in Environment variables below for your deployment.
+
 [Unit]
 Description=ContinuonBrain Robot startup (health checks + Robot API server)
 After=network-online.target

@@ -24,15 +24,15 @@ COMMON_CSS = """
     body { font-family: var(--font-main); background: var(--bg-color); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
     
     /* Layout - IDE style with left nav, main content, right chat */
-    #sidebar { width: var(--sidebar-width); background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding-top: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 10; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    #sidebar.collapsed { transform: translateX(calc(-1 * var(--sidebar-width))); }
+    #sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding-top: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 10; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
+    #sidebar.collapsed { width: 0; min-width: 0; border-right: none; }
     #sidebar .logo { padding: 0 24px 24px; font-weight: 800; font-size: 1.4em; letter-spacing: -0.5px; color: #fff; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
     #sidebar .logo span { color: var(--accent-color); }
     
     #main-area { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
     #content { flex: 1; position: relative; display: flex; flex-direction: column; overflow: hidden; }
-    #chat-sidebar { width: var(--chat-width); background: var(--sidebar-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    #chat-sidebar.collapsed { transform: translateX(var(--chat-width)); }
+    #chat-sidebar { width: var(--chat-width); min-width: var(--chat-width); background: var(--sidebar-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
+    #chat-sidebar.collapsed { width: 0; min-width: 0; border-left: none; }
     
     iframe { flex: 1; border: none; width: 100%; height: 100%; }
     
