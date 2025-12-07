@@ -11,6 +11,7 @@ import sys
 import argparse
 import time
 import torch
+from torch.nn.utils import clip_grad_norm_
 from pathlib import Path
 from typing import Optional
 
@@ -66,12 +67,17 @@ class HOPETrainer:
             action_dim=self.env.action_dim,
             output_dim=self.env.action_dim,
         )
-        
+
         param_count = sum(p.numel() for p in self.brain.parameters())
         print(f"  Parameters: {param_count:,}")
-        
+
         memory = self.brain.get_memory_usage()
         print(f"  Memory: {memory['total']:.2f} MB")
+
+        # Optimizer for supervised auxiliary loss
+        self.optimizer = torch.optim.Adam(
+            self.brain.parameters(), lr=self.config.learning_rate
+        )
         
         # Register with web monitoring
         try:
@@ -86,6 +92,16 @@ class HOPETrainer:
         self.total_episodes = 0
         self.episode_rewards = []
         self.start_time = time.time()
+
+    def _compute_loss(self, y_t: torch.Tensor, x_obs: torch.Tensor, reward: float) -> torch.Tensor:
+        """Compute a simple auxiliary loss for gradient-based monitoring."""
+        target_action = torch.tanh(x_obs[: self.env.action_dim].to(y_t.device))
+        reward_term = torch.tensor(reward, device=y_t.device, dtype=y_t.dtype)
+
+        mse_loss = torch.mean((y_t - target_action) ** 2)
+        stability_penalty = self.config.lyapunov_weight * torch.mean(y_t ** 2)
+
+        return mse_loss + stability_penalty - 0.01 * reward_term
     
     def train(
         self,
@@ -114,15 +130,37 @@ class HOPETrainer:
         for step in range(num_steps):
             # Convert observation to tensor
             x_obs = torch.from_numpy(obs).float()
-            
+
             # Execute brain step
-            state_next, y_t, info = self.brain.step(x_obs, action, episode_reward)
-            
+            state_next, y_t, info = self.brain.step(
+                x_obs, action, episode_reward, perform_param_update=True, log_stability=False
+            )
+
             # Use output as next action
             action = y_t
-            
+
             # Step environment
             obs, reward, done = self.env.step(action.detach().numpy())
+
+            # Compute auxiliary loss to drive gradients for monitoring
+            loss = self._compute_loss(y_t, x_obs, reward)
+            self.optimizer.zero_grad()
+            loss.backward()
+
+            gradients = {
+                name: param.grad.detach().clone()
+                for name, param in self.brain.named_parameters()
+                if param.grad is not None
+            }
+
+            if self.config.gradient_clip:
+                clip_grad_norm_(self.brain.parameters(), self.config.gradient_clip)
+
+            self.optimizer.step()
+
+            # Update stability metrics with gradients
+            self.brain.stability_monitor.update(state_next, gradients=gradients)
+            metrics = self.brain.stability_monitor.get_metrics()
             episode_reward += reward
             episode_steps += 1
             self.total_steps += 1
@@ -149,14 +187,16 @@ class HOPETrainer:
             if (step + 1) % self.log_interval == 0:
                 elapsed = time.time() - self.start_time
                 steps_per_sec = self.total_steps / elapsed
-                
-                metrics = self.brain.stability_monitor.get_metrics()
-                
+
+                gradient_norm = metrics.get("gradient_norm", 0.0)
+
                 print(f"Step {self.total_steps:6d} | "
                       f"Episodes: {self.total_episodes:4d} | "
                       f"V: {info['lyapunov']:8.2f} | "
                       f"||s||: {metrics['state_norm']:6.2f} | "
+                      f"||∇||: {gradient_norm:6.2f} | "
                       f"η: {state_next.params.eta:.4f} | "
+                      f"Loss: {loss.item():6.4f} | "
                       f"Speed: {steps_per_sec:5.1f} steps/s")
             
             # Checkpointing

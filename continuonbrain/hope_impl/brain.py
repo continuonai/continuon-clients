@@ -170,6 +170,8 @@ class HOPEBrain(nn.Module):
         r_t: float,
         perform_cms_write: bool = True,
         perform_param_update: bool = False,
+        gradients: Optional[Dict[str, torch.Tensor]] = None,
+        log_stability: bool = True,
     ) -> Tuple[FullState, torch.Tensor, Dict[str, Any]]:
         """
         One full HOPE step.
@@ -180,7 +182,9 @@ class HOPEBrain(nn.Module):
             r_t: Reward (scalar)
             perform_cms_write: Whether to write to CMS
             perform_param_update: Whether to update parameters
-        
+            gradients: Optional gradient tensors to log with stability metrics
+            log_stability: Whether to record stability metrics for this step
+
         Returns:
             (next_state, output, info)
         """
@@ -244,16 +248,18 @@ class HOPEBrain(nn.Module):
         
         # Update internal state
         self._state = state_next
-        
+
         # Update stability monitor
-        self.stability_monitor.update(state_next)
-        
+        if log_stability:
+            self.stability_monitor.update(state_next, gradients=gradients)
+
         # Gather info
+        stability_metrics = self.stability_monitor.get_metrics()
         info = {
             'query': q_t,
             'context': c_t,
             'attention_weights': attention_weights,
-            'stability_metrics': self.stability_monitor.get_metrics(),
+            'stability_metrics': stability_metrics,
             'lyapunov': lyapunov_total(state_next).item(),
         }
         
@@ -308,6 +314,7 @@ class HOPEBrain(nn.Module):
             'stability_monitor': {
                 'lyapunov_history': self.stability_monitor.lyapunov_history,
                 'state_norms': self.stability_monitor.state_norms,
+                'gradient_norms': self.stability_monitor.gradient_norms,
                 'step_count': self.stability_monitor.step_count,
             },
         }
@@ -349,6 +356,7 @@ class HOPEBrain(nn.Module):
         if 'stability_monitor' in checkpoint:
             brain.stability_monitor.lyapunov_history = checkpoint['stability_monitor']['lyapunov_history']
             brain.stability_monitor.state_norms = checkpoint['stability_monitor']['state_norms']
+            brain.stability_monitor.gradient_norms = checkpoint['stability_monitor'].get('gradient_norms', [])
             brain.stability_monitor.step_count = checkpoint['stability_monitor']['step_count']
         
         print(f"Checkpoint loaded from {path}")
