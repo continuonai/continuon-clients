@@ -198,18 +198,19 @@ class StabilityMonitor:
         # Compute state norm
         state_norm = torch.norm(state.fast_state.s).item()
         self.state_norms.append(state_norm)
-        
+
         # Compute gradient norm if provided
+        grad_norm = 0.0
         if gradients is not None:
             grad_norm = sum(torch.norm(g).item() ** 2 for g in gradients.values()) ** 0.5
-            self.gradient_norms.append(grad_norm)
-        
+        # Append placeholder when gradients are absent to align history
+        self.gradient_norms.append(grad_norm)
+
         # Keep only recent history
         if len(self.lyapunov_history) > self.window_size:
             self.lyapunov_history = self.lyapunov_history[-self.window_size:]
             self.state_norms = self.state_norms[-self.window_size:]
-            if gradients is not None:
-                self.gradient_norms = self.gradient_norms[-self.window_size:]
+            self.gradient_norms = self.gradient_norms[-self.window_size:]
         
         self.step_count += 1
     
@@ -220,15 +221,16 @@ class StabilityMonitor:
         Returns:
             Dict with metrics
         """
+        current_gradient_norm = self.gradient_norms[-1] if self.gradient_norms else None
+
         metrics = {
             'lyapunov_current': self.lyapunov_history[-1] if self.lyapunov_history else 0.0,
             'lyapunov_mean': sum(self.lyapunov_history) / len(self.lyapunov_history) if self.lyapunov_history else 0.0,
             'state_norm': self.state_norms[-1] if self.state_norms else 0.0,
             'steps': self.step_count,
         }
-        
-        if self.gradient_norms:
-            metrics['gradient_norm'] = self.gradient_norms[-1]
+
+        metrics['gradient_norm'] = current_gradient_norm
         
         # Compute dissipation rate (negative = energy decreasing = stable)
         if len(self.lyapunov_history) >= 2:

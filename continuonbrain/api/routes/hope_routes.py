@@ -62,8 +62,9 @@ def get_current_metrics() -> Dict[str, Any]:
         
         # Get stability metrics
         stability_metrics = _hope_brain.stability_monitor.get_metrics()
-        gradient_norm = stability_metrics.get("gradient_norm", 0.0)
+        gradient_norm = stability_metrics.get("gradient_norm")
         gradient_clip = getattr(_hope_brain.config, "gradient_clip", None)
+        current_gradient_norm = gradient_norm if gradient_norm is not None else 0.0
 
         metrics = {
             "lyapunov": {
@@ -80,8 +81,12 @@ def get_current_metrics() -> Dict[str, Any]:
             "cms_utilization": cms_util,
             "learning_rate": state.params.eta,
             "steps": stability_metrics.get("steps", 0),
-            "gradient_norm": gradient_norm,
-            "gradient_spike": bool(gradient_clip and gradient_norm > gradient_clip),
+            "gradient_norm": current_gradient_norm,
+            "gradient_spike": bool(
+                gradient_clip is not None
+                and gradient_norm is not None
+                and gradient_norm > gradient_clip
+            ),
             "timestamp": time.time(),
         }
         
@@ -263,7 +268,8 @@ def get_stability_analysis() -> Dict[str, Any]:
 
         # Stability flags
         is_stable = _hope_brain.stability_monitor.is_stable()
-        gradient_clip = getattr(config, "gradient_clip", None)
+        gradient_clip = getattr(_hope_brain.config, "gradient_clip", None)
+        gradient_norm = metrics.get("gradient_norm")
         gradient_spike = gradient_clip is not None and metrics.get("gradient_norm", 0.0) > gradient_clip
         lyapunov_threshold = getattr(config, "lyapunov_threshold", None)
         dissipation_floor = getattr(config, "dissipation_floor", 0.0)

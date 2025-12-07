@@ -243,6 +243,24 @@ class TestStability:
         assert 'state_norm' in metrics
         assert monitor.is_stable()
 
+    def test_stability_monitor_missing_gradients(self):
+        """Ensure gradient norms align with step count even when absent."""
+        monitor = StabilityMonitor(window_size=5)
+
+        state = FullState.zeros(
+            d_s=8, d_w=8, d_p=4,
+            cms_sizes=[4],
+            cms_dims=[8],
+            d_k=2,
+            cms_decays=[0.1],
+        )
+
+        monitor.update(state, gradients={"dummy": torch.ones(1)})
+        monitor.update(state)  # No gradients provided
+
+        metrics = monitor.get_metrics()
+
+        assert metrics.get('gradient_norm') == 0.0
         energetic_state = FullState.zeros(
             d_s=64, d_w=64, d_p=32,
             cms_sizes=[32, 64],
