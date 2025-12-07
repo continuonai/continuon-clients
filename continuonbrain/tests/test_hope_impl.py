@@ -261,6 +261,28 @@ class TestStability:
         metrics = monitor.get_metrics()
 
         assert metrics.get('gradient_norm') == 0.0
+        energetic_state = FullState.zeros(
+            d_s=64, d_w=64, d_p=32,
+            cms_sizes=[32, 64],
+            cms_dims=[64, 128],
+            d_k=16,
+            cms_decays=[0.1, 0.05],
+        )
+        energetic_state.fast_state.s = torch.ones_like(energetic_state.fast_state.s) * 2.0
+        monitor.update(energetic_state, gradients={"g": torch.tensor([0.1])})
+
+        assert not monitor.is_stable(), "Energy increase with negative dissipation should flag instability"
+
+        gradient_monitor = StabilityMonitor(
+            window_size=5,
+            lyapunov_threshold=100.0,
+            dissipation_floor=-1.0,
+            gradient_clip=0.5,
+        )
+        gradient_monitor.update(state, gradients={"g": torch.tensor([0.1])})
+        gradient_monitor.update(state, gradients={"g": torch.tensor([1.0])})
+
+        assert not gradient_monitor.is_stable(), "Gradient spike beyond clip should flag instability"
 
 
 class TestHOPEBrain:
