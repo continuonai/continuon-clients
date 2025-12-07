@@ -302,28 +302,43 @@ class BrainService:
                     parts = tool_cmd.split()
                     action = parts[0].upper()
                     
-                    result = "Tool error"
-                    if action == "SCREENSHOT":
-                        path = self.desktop.take_screenshot()
-                        result = f"Screenshot saved to {path}"
-                        status_updates.append(f"Tool: Screenshot captured")
-                    elif action == "MOVE" and len(parts) >= 3:
-                        self.desktop.move_mouse(int(parts[1]), int(parts[2]))
-                        result = "Mouse moved"
-                        status_updates.append(f"Tool: Mouse moved to ({parts[1]}, {parts[2]})")
-                    elif action == "CLICK":
-                        self.desktop.click()
-                        result = "Clicked"
-                        status_updates.append(f"Tool: Mouse clicked")
-                    elif action == "TYPE" and len(parts) >= 2:
-                        text = " ".join(parts[1:])
-                        self.desktop.type_text(text)
-                        result = f"Typed: {text}"
-                        status_updates.append(f"Tool: Typed text")
-                        
-                    entry["tool_action"] = tool_cmd
-                    entry["tool_result"] = result
-                    print(f"🔧 Tool Executed: {tool_cmd} -> {result}")
+                    # SAFETY CHECK: Validate tool action against safety protocol
+                    action_description = f"Execute tool command: {tool_cmd}"
+                    is_safe, safety_reason = self._check_safety_protocol(
+                        action_description,
+                        {"tool_action": action, "user_message": message}
+                    )
+                    
+                    if not is_safe:
+                        result = f"❌ Safety protocol violation: {safety_reason}"
+                        status_updates.append(f"Tool blocked by safety protocol: {action}")
+                        entry["tool_action"] = tool_cmd
+                        entry["tool_result"] = result
+                        entry["safety_blocked"] = True
+                        print(f"🛡️  Tool Blocked: {tool_cmd} - {safety_reason}")
+                    else:
+                        result = "Tool error"
+                        if action == "SCREENSHOT":
+                            path = self.desktop.take_screenshot()
+                            result = f"Screenshot saved to {path}"
+                            status_updates.append(f"Tool: Screenshot captured")
+                        elif action == "MOVE" and len(parts) >= 3:
+                            self.desktop.move_mouse(int(parts[1]), int(parts[2]))
+                            result = "Mouse moved"
+                            status_updates.append(f"Tool: Mouse moved to ({parts[1]}, {parts[2]})")
+                        elif action == "CLICK":
+                            self.desktop.click()
+                            result = "Clicked"
+                            status_updates.append(f"Tool: Mouse clicked")
+                        elif action == "TYPE" and len(parts) >= 2:
+                            text = " ".join(parts[1:])
+                            self.desktop.type_text(text)
+                            result = f"Typed: {text}"
+                            status_updates.append(f"Tool: Typed text")
+                            
+                        entry["tool_action"] = tool_cmd
+                        entry["tool_result"] = result
+                        print(f"🔧 Tool Executed: {tool_cmd} -> {result}")
             except Exception as e:
                 print(f"Tool parse error: {e}")
         
@@ -403,6 +418,76 @@ class BrainService:
             ]
         
         return options[:3]  # Limit to 3 options
+
+    def _check_safety_protocol(self, action: str, context: dict = None) -> tuple[bool, str]:
+        """Check if an action complies with safety protocol.
+        
+        Args:
+            action: Description of the action to be taken
+            context: Additional context for the decision
+            
+        Returns:
+            (is_safe, reason) tuple
+        """
+        if not self.system_instructions:
+            return False, "Safety protocol not loaded"
+        
+        if context is None:
+            context = {}
+        
+        # Add current system state to context
+        if self.mode_manager:
+            context['current_mode'] = self.mode_manager.current_mode.value
+            context['gates'] = self.mode_manager.get_gate_snapshot()
+        
+        context['capabilities'] = self.capabilities
+        
+        # Validate action against safety protocol
+        is_safe, reason, violated_rules = self.system_instructions.safety_protocol.validate_action(
+            action, context
+        )
+        
+        # Log the safety decision
+        self._log_safety_decision(action, is_safe, reason, violated_rules, context)
+        
+        return is_safe, reason
+    
+    def _log_safety_decision(self, action: str, is_safe: bool, reason: str, 
+                            violated_rules: list, context: dict) -> None:
+        """Log safety-related decisions for audit trail.
+        
+        Args:
+            action: The action that was checked
+            is_safe: Whether the action was deemed safe
+            reason: Explanation for the decision
+            violated_rules: List of rules that were violated (if any)
+            context: Context in which the decision was made
+        """
+        log_dir = Path(self.config_dir) / "logs" / "safety"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        log_file = log_dir / f"safety_decisions_{today}.jsonl"
+        
+        entry = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "action": action,
+            "is_safe": is_safe,
+            "reason": reason,
+            "violated_rules": violated_rules,
+            "context": {
+                "mode": context.get('current_mode'),
+                "motion_allowed": context.get('gates', {}).get('allow_motion'),
+                "capabilities": context.get('capabilities')
+            }
+        }
+        
+        try:
+            with open(log_file, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            # Don't fail on logging errors, but print warning
+            print(f"⚠️  Failed to log safety decision: {e}")
 
     def _ensure_system_instructions(self) -> None:
         """Guarantee that merged system instructions are available."""
@@ -500,11 +585,11 @@ class BrainService:
         )
         print("✅ Mode manager ready")
         
-        # Initialize HOPE brain
+        # Initialize HOPE brain (MANDATORY)
         print("🧠 Initializing HOPE brain...")
         try:
-            from hope_impl.config import HOPEConfig
-            from hope_impl.brain import HOPEBrain
+            from continuonbrain.hope_impl.config import HOPEConfig
+            from continuonbrain.hope_impl.brain import HOPEBrain
             
             config = HOPEConfig.pi5_optimized()
             self.hope_brain = HOPEBrain(
@@ -525,12 +610,28 @@ class BrainService:
             param_count = sum(p.numel() for p in self.hope_brain.parameters())
             print(f"  ✓ HOPE brain ready ({param_count:,} parameters)")
             
-        except ImportError:
-            print("  ⚠ HOPE implementation not available")
-            self.hope_brain = None
+        except ImportError as e:
+            error_msg = (
+                "CRITICAL: HOPE brain implementation not available!\n"
+                "  This system requires HOPE brain to operate.\n"
+                "  Please ensure hope_impl module is installed:\n"
+                "    pip install -e .\n"
+                f"  Error: {e}"
+            )
+            print(f"  ❌ {error_msg}")
+            raise RuntimeError(error_msg) from e
         except Exception as e:
-            print(f"  ⚠ HOPE initialization failed: {e}")
-            self.hope_brain = None
+            error_msg = (
+                f"CRITICAL: HOPE brain initialization failed: {e}\n"
+                "  The system cannot operate without HOPE brain.\n"
+                "  Please check:\n"
+                "    - PyTorch is installed correctly\n"
+                "    - hope_impl dependencies are satisfied\n"
+                "    - System has sufficient memory"
+            )
+            print(f"  ❌ {error_msg}")
+            raise RuntimeError(error_msg) from e
+        
         
         print("=" * 60)
         print(f"✅ Brain Service Ready")
@@ -641,7 +742,24 @@ class BrainService:
     
     async def Drive(self, steering: float, throttle: float) -> dict:
         """Apply drivetrain command with safety checks."""
-        # Simplified for brevity in this step, expanding later
+        # SAFETY CHECK: Validate drive command against safety protocol
+        action_description = f"Drive command: steering={steering:.2f}, throttle={throttle:.2f}"
+        is_safe, safety_reason = self._check_safety_protocol(
+            action_description,
+            {
+                "steering": steering,
+                "throttle": throttle,
+                "requires_motion": True
+            }
+        )
+        
+        if not is_safe:
+            return {
+                "success": False, 
+                "message": f"Safety protocol violation: {safety_reason}"
+            }
+        
+        # Mode check
         if not self.mode_manager:
             self._ensure_mode_manager()
         

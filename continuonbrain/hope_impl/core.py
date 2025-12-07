@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Optional
 
-from hope_impl.state import FastState
+from .state import FastState
 
 
 class WaveSubsystem(nn.Module):

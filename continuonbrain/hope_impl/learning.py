@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 from typing import Dict, Optional
 
-from hope_impl.state import FastState, CMSMemory, Parameters
+from .state import FastState, CMSMemory, Parameters
 
 
 class NestedLearning(nn.Module):

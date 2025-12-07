@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from typing import Tuple, List, Optional
 import math
 
-from hope_impl.state import CMSMemory, MemoryLevel
+from .state import CMSMemory, MemoryLevel
 
 
 class CMSRead(nn.Module):
@@ -64,7 +64,7 @@ class CMSRead(nn.Module):
         self.temperature = temperature
         
         # Query network: q_t = Q_ψ(s_{t-1}, e_t)
-        from hope_impl.encoders import QueryNetwork
+        from .encoders import QueryNetwork
         self.query_net = QueryNetwork(d_s, d_e, d_k)
         
         # Per-level projection matrices: U^(ℓ) ∈ ℝ^{d_c × d_ℓ}

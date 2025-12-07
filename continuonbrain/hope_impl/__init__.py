@@ -10,9 +10,9 @@ Main exports:
 - State objects: FastState, CMSMemory, Parameters, FullState
 """
 
-from hope_impl.config import HOPEConfig
-from hope_impl.state import FastState, MemoryLevel, CMSMemory, Parameters, FullState
-from hope_impl.brain import HOPEBrain
+from .config import HOPEConfig
+from .state import FastState, MemoryLevel, CMSMemory, Parameters, FullState
+from .brain import HOPEBrain
 
 __version__ = "0.1.0"
 

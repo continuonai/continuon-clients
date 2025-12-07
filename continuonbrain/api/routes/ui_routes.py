@@ -145,11 +145,11 @@ HOME_HTML = f"""
             showAgentStatus('thinking', 'Thinking...');
             
             try {{
-                const response = await fetch('/api/chat', {
+                const response = await fetch('/api/chat', {{
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, history: chatHistory })
-                });
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ message, history: chatHistory }})
+                }});
                 const data = await response.json();
                 
                 // Hide agent status

@@ -13,8 +13,8 @@ import torch.nn as nn
 from typing import Dict, Optional
 import time
 
-from hope_impl.brain import HOPEBrain
-from hope_impl.config import HOPEConfig
+from .brain import HOPEBrain
+from .config import HOPEConfig
 
 
 def quantize_brain(brain: HOPEBrain, dtype: str = "int8") -> HOPEBrain:

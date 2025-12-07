@@ -96,6 +96,75 @@ class SafetyProtocol:
         """Serialize protocol for persistence/sharing."""
 
         return {"rules": list(self.rules)}
+    
+    def validate_action(self, action: str, context: dict) -> tuple[bool, str, list[str]]:
+        """Validate an action against safety protocol rules.
+        
+        Args:
+            action: Description of the action to be taken
+            context: Additional context for the decision (e.g., current mode, capabilities)
+            
+        Returns:
+            (is_safe, reason, violated_rules) tuple where:
+            - is_safe: True if action complies with all safety rules
+            - reason: Human-readable explanation
+            - violated_rules: List of rules that would be violated
+        """
+        action_lower = action.lower()
+        violated_rules = []
+        
+        # Check for harmful actions
+        harm_keywords = ['harm', 'hurt', 'damage', 'break', 'destroy', 'attack']
+        if any(keyword in action_lower for keyword in harm_keywords):
+            # Check if it's about property that doesn't belong to owner
+            if 'property' in action_lower or 'object' in action_lower:
+                violated_rules.append(self.rules[2])  # "Do not break property..."
+            else:
+                violated_rules.append(self.rules[1])  # "Do not harm humans..."
+        
+        # Check for mission alignment
+        if context.get('requires_human_approval') and not context.get('human_approved'):
+            violated_rules.append(self.rules[0])  # Mission guard rule
+        
+        # Check for law violations
+        illegal_keywords = ['illegal', 'unlawful', 'prohibited', 'forbidden']
+        if any(keyword in action_lower for keyword in illegal_keywords):
+            violated_rules.append(self.rules[3])  # "Respect local laws..."
+        
+        if violated_rules:
+            return False, f"Action violates safety protocol: {violated_rules[0]}", violated_rules
+        
+        return True, "Action complies with safety protocol", []
+    
+    def get_applicable_rules(self, action: str) -> list[str]:
+        """Get safety rules that are applicable to a given action.
+        
+        Args:
+            action: Description of the action
+            
+        Returns:
+            List of applicable safety rules
+        """
+        applicable = []
+        action_lower = action.lower()
+        
+        # Always include mission guard
+        applicable.append(self.rules[0])
+        
+        # Check for human/organism interaction
+        if any(word in action_lower for word in ['human', 'person', 'people', 'animal', 'organism']):
+            applicable.append(self.rules[1])
+        
+        # Check for property interaction
+        if any(word in action_lower for word in ['property', 'object', 'item', 'equipment']):
+            applicable.append(self.rules[2])
+        
+        # Check for legal/social aspects
+        if any(word in action_lower for word in ['law', 'legal', 'social', 'public']):
+            applicable.append(self.rules[3])
+        
+        return applicable
+
 
 
 @dataclass(frozen=True)

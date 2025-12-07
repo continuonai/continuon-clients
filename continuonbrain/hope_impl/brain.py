@@ -17,13 +17,13 @@ import torch.nn as nn
 from typing import Tuple, Dict, Optional, Any
 from pathlib import Path
 
-from hope_impl.config import HOPEConfig
-from hope_impl.state import FastState, CMSMemory, Parameters, FullState
-from hope_impl.encoders import InputEncoder, OutputDecoder
-from hope_impl.cms import CMSRead, CMSWrite
-from hope_impl.core import HOPECore
-from hope_impl.learning import NestedLearning, AdaptiveLearningRate
-from hope_impl.stability import lyapunov_total, StabilityMonitor
+from .config import HOPEConfig
+from .state import FastState, CMSMemory, Parameters, FullState
+from .encoders import InputEncoder, OutputDecoder
+from .cms import CMSRead, CMSWrite
+from .core import HOPECore
+from .learning import NestedLearning, AdaptiveLearningRate
+from .stability import lyapunov_total, StabilityMonitor
 
 
 class HOPEBrain(nn.Module):

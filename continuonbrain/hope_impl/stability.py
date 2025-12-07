@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 from typing import Dict, Tuple
 
-from hope_impl.state import FastState, CMSMemory, Parameters, FullState
+from .state import FastState, CMSMemory, Parameters, FullState
 
 
 def lyapunov_fast_state(fast: FastState, P_s: float = 1.0, Q: float = 1.0, P_p: float = 1.0) -> torch.Tensor:
