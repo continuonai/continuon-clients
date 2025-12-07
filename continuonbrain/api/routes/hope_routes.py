@@ -154,14 +154,15 @@ def get_cms_level_stats(level_id: int) -> Dict[str, Any]:
         # Downsample matrices for visualization (if too large)
         M_shape = level.M.shape
         K_shape = level.K.shape
-        
+
         # Only send full matrices if small enough
         M_data = None
         K_data = None
         if M_shape[0] * M_shape[1] < 10000:  # < 10k elements
-            M_data = level.M.cpu().numpy().tolist()
+            # Detach to avoid disrupting gradient tracking while monitoring
+            M_data = level.M.detach().cpu().numpy().tolist()
         if K_shape[0] * K_shape[1] < 10000:
-            K_data = level.K.cpu().numpy().tolist()
+            K_data = level.K.detach().cpu().numpy().tolist()
         
         return {
             "level_id": level_id,
