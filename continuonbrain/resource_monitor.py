@@ -278,15 +278,47 @@ class ResourceMonitor:
         
         return status
     
-    def get_available_memory(self) -> int:
+    def get_directory_size(self, path: Path) -> int:
+        """Calculate total size of a directory in bytes."""
+        total = 0
+        try:
+            if not path.exists():
+                return 0
+            for entry in path.rglob('*'):
+                if entry.is_file():
+                    total += entry.stat().st_size
+        except Exception:
+            pass
+        return total
+
+    def get_status_summary(self) -> Dict:
         """
-        Get available memory in MB.
+        Get a summary of current resource status, including disk usage.
         
         Returns:
-            Available memory in MB
+            Dict with status summary
         """
         status = self.check_resources()
-        return status.available_memory_mb
+        
+        # Calculate checkpoint size
+        checkpoint_size_mb = 0
+        if self.config_dir:
+            ckpt_path = self.config_dir / "checkpoints" / "autonomous"
+            checkpoint_size_mb = self.get_directory_size(ckpt_path) / (1024 * 1024)
+
+        return {
+            "level": status.level.value,
+            "memory_percent": round(status.memory_percent, 1),
+            "available_mb": status.available_memory_mb,
+            "swap_percent": round(status.swap_percent, 1),
+            "checkpoints_mb": round(checkpoint_size_mb, 1),
+            "can_allocate": status.can_allocate,
+            "message": status.message,
+            "limits": {
+                "system_reserve_mb": self.limits.system_reserve_mb,
+                "max_brain_mb": self.limits.max_brain_mb,
+            }
+        }
     
     def is_safe_to_allocate(self, size_mb: int) -> bool:
         """
@@ -375,22 +407,5 @@ class ResourceMonitor:
         
         logger.info("Emergency cleanup complete")
     
-    def get_status_summary(self) -> Dict:
-        """
-        Get a summary of current resource status.
-        
-        Returns:
-            Dict with status summary
-        """
-        status = self.check_resources()
-        return {
-            "level": status.level.value,
-            "memory_percent": round(status.memory_percent, 1),
-            "available_mb": status.available_memory_mb,
-            "can_allocate": status.can_allocate,
-            "message": status.message,
-            "limits": {
-                "system_reserve_mb": self.limits.system_reserve_mb,
-                "max_brain_mb": self.limits.max_brain_mb,
-            }
-        }
+        # Replaced by get_status_summary implementation above that includes disk usage
+        pass

@@ -663,6 +663,40 @@ DASHBOARD_HTML = f"""
             <div class="value" id="memory-count">-</div>
             <div class="meta">Local Episodes</div>
         </div>
+        <div class="card">
+            <h3>System Memory</h3>
+            <div class="value" id="sys-mem-percent">--%</div>
+            <div class="meta" id="sys-mem-meta">Loading...</div>
+            <div style="height: 4px; background: #333; margin-top: 10px; border-radius: 2px; overflow: hidden;">
+                <div id="sys-mem-bar" style="height: 100%; width: 0%; background: var(--accent-color); transition: width 0.5s;"></div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Disk Usage</h3>
+            <div class="value" id="disk-usage">-- MB</div>
+            <div class="meta">Autonomous Checkpoints</div>
+            <div class="meta">Autonomous Checkpoints</div>
+        </div>
+        
+        <!-- Hybrid Mode Card -->
+        <div class="card" id="hybrid-card">
+            <h3>Hybrid Architecture</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;">
+                <div>
+                    <div class="value" id="hybrid-status" style="font-size: 1.8em;">Standard</div>
+                    <div class="meta" id="hybrid-meta">1 Column</div>
+                </div>
+                <label class="switch" style="position: relative; display: inline-block; width: 60px; height: 34px;">
+                    <input type="checkbox" id="hybrid-toggle" onclick="toggleHybridMode()">
+                    <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px;"></span>
+                    <span class="slider-knob" style="position: absolute; content: ''; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                </label>
+            </div>
+            <style>
+                input:checked + .slider { background-color: var(--accent-color); }
+                input:checked + .slider .slider-knob { transform: translateX(26px); }
+            </style>
+        </div>
     </div>
     
     <div style="margin-top: 40px;">
@@ -677,9 +711,9 @@ DASHBOARD_HTML = f"""
     </div>
 
     <script>
-        // Check memory stats
         async function updateStats() {{
             try {{
+                // Fetch Introspection Data (Identity)
                 const res = await fetch('/api/status/introspection');
                 const data = await res.json();
                 
@@ -691,14 +725,76 @@ DASHBOARD_HTML = f"""
                     const memEl = document.getElementById('memory-count');
                     if (memEl) memEl.innerText = data.memory.local_episodes;
                 }}
-            }} catch(e) {{ console.log(e); }}
-        }}
-        setInterval(updateStats, 5000);
-        updateStats();
-    </script>
-</body>
-</html>
-"""
+
+                // Fetch Resource Data
+                const resResources = await fetch('/api/resources');
+                if (resResources.ok) {{
+                    const rData = await resResources.json();
+                    
+                    // Update System Memory
+                    const memPercentEl = document.getElementById('sys-mem-percent');
+                    const memMetaEl = document.getElementById('sys-mem-meta');
+                    const memBarEl = document.getElementById('sys-mem-bar');
+                    if (memPercentEl) {{
+                        memPercentEl.innerText = rData.memory_percent + '%';
+                        memMetaEl.innerText = rData.available_mb + ' MB available';
+                        memBarEl.style.width = rData.memory_percent + '%';
+                        
+                        // Color coding
+                        if (rData.memory_percent > 90) memBarEl.style.background = '#ff4444';
+                        else if (rData.memory_percent > 75) memBarEl.style.background = '#ffbb33';
+                        else memBarEl.style.background = 'var(--accent-color)';
+                    }}
+                    
+                    
+                    // Update Disk Usage
+                    const diskEl = document.getElementById('disk-usage');
+                    if (rData.checkpoints_mb !== undefined) {{
+                         document.getElementById('disk-usage').textContent = rData.checkpoints_mb.toFixed(0) + ' MB';
+                    }}
+                
+                    // Update Hybrid Status
+                    checkHybridStatus();
+
+                }} catch(e) {{ console.error("Stats update failed", e); }}
+            }}
+            
+            async function checkHybridStatus() {{
+                // Placeholder
+            }}
+
+            async function toggleHybridMode() {{
+                const toggle = document.getElementById('hybrid-toggle');
+                const statusLabel = document.getElementById('hybrid-status');
+                const metaLabel = document.getElementById('hybrid-meta');
+                
+                // Optimistic UI update
+                const isEnabled = toggle.checked;
+                statusLabel.textContent = isEnabled ? "Hybrid" : "Standard";
+                metaLabel.textContent = isEnabled ? "4 Columns (Voting)" : "1 Column";
+                
+                try {{
+                    const res = await fetch('/api/brain/toggle_hybrid', {{ method: 'POST' }});
+                    const data = await res.json();
+                    if (data.status !== 'success') {{
+                        alert("Failed to toggle mode: " + data.message);
+                        toggle.checked = !isEnabled; // Revert
+                    }} else {{
+                        console.log(data.message);
+                    }}
+                }} catch(e) {{
+                    console.error("Toggle failed", e);
+                    alert("Network error toggling mode.");
+                    toggle.checked = !isEnabled; // Revert
+                }}
+            }}
+            
+            setInterval(updateStats, 2000);
+            updateStats();
+        </script>
+    </body>
+    </html>
+    """
 
 CHAT_HTML = f"""
 <!DOCTYPE html>

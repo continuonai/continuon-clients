@@ -67,18 +67,30 @@ class WaveSubsystem(nn.Module):
         Compute context-dependent A matrix.
         
         Args:
-            c_t: Context [d_c]
+            c_t: Context [B, d_c]
         
         Returns:
-            A: State transition matrix [d_w, d_w]
+            A: State transition matrix [B, d_w, d_w]
         """
+        batch_size = c_t.size(0)
+        
         # Base A: diagonal + low-rank
         A_diag_stable = torch.tanh(self.A_diag) * 0.9  # Keep eigenvalues < 1
-        A_base = torch.diag(A_diag_stable) + torch.matmul(self.A_U, self.A_V.t())
+        A_base = torch.diag(A_diag_stable) + torch.matmul(self.A_U, self.A_V.t()) # [d_w, d_w]
         
         # Context modulation (element-wise)
-        modulation = self.A_modulation(c_t)  # [d_w]
-        A = A_base * modulation.unsqueeze(0)  # Broadcasting
+        modulation = self.A_modulation(c_t)  # [B, d_w]
+        
+        # A = A_base * modulation (broadcast across rows/cols?)
+        # Let's say modulation scales the diagonal behavior or global strength?
+        # A_base is [d_w, d_w]. modulation is [B, d_w].
+        # We want [B, d_w, d_w].
+        
+        # Broadcasting: A_base.unsqueeze(0) -> [1, d_w, d_w]
+        # modulation.unsqueeze(2) -> [B, d_w, 1] (modulate rows?)
+        # A = A_base.unsqueeze(0) * modulation.unsqueeze(2)
+        
+        A = A_base.unsqueeze(0) * modulation.unsqueeze(2)
         
         return A
     
@@ -92,22 +104,23 @@ class WaveSubsystem(nn.Module):
         Wave subsystem update.
         
         Args:
-            w_prev: Previous wave state [d_w]
-            z_t: Driving signal [d_z]
-            c_t: Context [d_c]
+            w_prev: Previous wave state [B, d_w]
+            z_t: Driving signal [B, d_z]
+            c_t: Context [B, d_c]
         
         Returns:
-            w_t: Updated wave state [d_w]
+            w_t: Updated wave state [B, d_w]
         """
         # Compute A matrix
-        A = self.get_A_matrix(c_t)  # [d_w, d_w]
+        A = self.get_A_matrix(c_t)  # [B, d_w, d_w]
         
         # Linear transition: A w_{t-1}
-        w_linear = torch.matmul(A, w_prev)  # [d_w]
+        # w_prev: [B, d_w] -> [B, d_w, 1] for matmul
+        w_linear = torch.matmul(A, w_prev.unsqueeze(-1)).squeeze(-1)  # [B, d_w]
         
         # Input term: B z_t
         B_input = torch.cat([c_t, z_t], dim=-1)
-        w_input = self.B_net(B_input)  # [d_w]
+        w_input = self.B_net(B_input)  # [B, d_w]
         
         # Combined update
         w_t = w_linear + w_input
@@ -254,45 +267,47 @@ class HOPECore(nn.Module):
     
     def forward(
         self,
-        fast_prev: FastState,
+        s_prev: torch.Tensor,
+        w_prev: torch.Tensor,
+        p_prev: torch.Tensor,
         e_t: torch.Tensor,
         c_t: torch.Tensor,
-    ) -> FastState:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        HOPE core recurrence step.
+        HOPE Core update.
         
         Args:
-            fast_prev: Previous fast state (s_{t-1}, w_{t-1}, p_{t-1})
-            e_t: Encoded input [d_e]
-            c_t: Context from CMS [d_c]
+            s_prev: Previous fast state [B, d_s]
+            w_prev: Previous wave state [B, d_w]
+            p_prev: Previous particle state [B, d_p]
+            e_t: Encoded input [B, d_e]
+            c_t: Context [B, d_c]
         
         Returns:
-            fast_next: Updated fast state (s_t, w_t, p_t)
+            s_t, w_t, p_t
         """
-        s_prev, w_prev, p_prev = fast_prev.s, fast_prev.w, fast_prev.p
         
         # 1. Fusion: z_t = P_Θ([s_{t-1} || e_t || c_t])
         fusion_input = torch.cat([s_prev, e_t, c_t], dim=-1)
         z_t = self.fusion_net(fusion_input)  # [d_z]
         
         # 2. Wave update: w_t = A(c_t) w_{t-1} + B(c_t) z_t
-        w_t = self.wave(w_prev, z_t, c_t)  # [d_w]
+        w_t = self.wave(w_prev, z_t, c_t)
         
         # 3. Particle update: p_t = p_{t-1} + φ_Θ(p_{t-1}, z_t, c_t)
-        p_t = self.particle(p_prev, z_t, c_t)  # [d_p]
+        p_t = self.particle(p_prev, z_t, c_t)
         
         # 4. Gating: g_t = σ(W_g [s_{t-1} || e_t || c_t])
-        g_t = self.gate_net(fusion_input)  # [d_s]
+        gate_input = torch.cat([s_prev, e_t, c_t], dim=-1)
+        g_t = self.gate_net(gate_input)  # [d_s]
         
-        # 5. Mixed state update
-        # Project wave and particle to state space
-        w_proj = self.U_w(w_t)  # [d_s]
-        p_proj = self.U_p(p_t)  # [d_s]
+        # 5. Fast state update: s_t = s_{t-1} + g_t ⊙ U_p p_t + (1-g_t) ⊙ U_w w_t
+        delta_p = self.U_p(p_t)  # [d_s]
+        delta_w = self.U_w(w_t)  # [d_s]
         
-        # Gated mixing: s_t = s_{t-1} + g_t ⊙ p_proj + (1-g_t) ⊙ w_proj
-        s_t = s_prev + g_t * p_proj + (1 - g_t) * w_proj
+        s_t = s_prev + g_t * delta_p + (1 - g_t) * delta_w
         
-        # Optional normalization
-        s_t = self.output_norm(s_t)
+        # Apply tanh to keep s_t bounded? Or rely on U_p/U_w being bounded?
+        # Usually s_t is raw state, output decoder applies nonlinearity.
         
-        return FastState(s=s_t, w=w_t, p=p_t)
+        return s_t, w_t, p_t

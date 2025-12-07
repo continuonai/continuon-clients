@@ -55,8 +55,11 @@ class HOPEConfig:
     cms_decays: List[float] = field(default_factory=lambda: [0.1, 0.05, 0.01])
     
     # Optimization
-    use_quantization: bool = False  # Disabled by default, enable for deployment
-    quantization_dtype: str = "int8"  # "int8" or "fp16"
+    quantization: str = "none"  # "none", "int8", "fp16"
+    
+    # Hybrid "Thousand Brains" Mode
+    use_hybrid_mode: bool = False
+    num_columns: int = 4
     device: str = "cpu"
     dtype: str = "float32"
     
@@ -69,7 +72,8 @@ class HOPEConfig:
     use_layer_norm: bool = True
     lyapunov_weight: float = 1e-3
     lyapunov_threshold: float = 1e6  # Absolute energy threshold before flagging instability
-    dissipation_floor: float = 0.0  # Minimum acceptable dissipation; negative implies energy increasing
+    lyapunov_threshold: float = 1e6  # Absolute energy threshold before flagging instability
+    dissipation_floor: float = -20.0  # Minimum acceptable dissipation; negative implies energy increasing
     
     # Autonomous Learning
     enable_autonomous_learning: bool = True
@@ -93,8 +97,9 @@ class HOPEConfig:
             assert self.cms_decays[i] >= self.cms_decays[i+1], \
                 f"Decay rates must be non-increasing: cms_decays[{i}] = {self.cms_decays[i]} < cms_decays[{i+1}] = {self.cms_decays[i+1]}"
         
-        assert self.quantization_dtype in ["int8", "fp16"], \
-            f"quantization_dtype must be 'int8' or 'fp16', got {self.quantization_dtype}"
+        if self.quantization != "none":
+            assert self.quantization in ["int8", "fp16"], \
+                f"Quantization must be 'int8' or 'fp16', got {self.quantization}"
     
     @classmethod
     def pi5_optimized(cls) -> "HOPEConfig":

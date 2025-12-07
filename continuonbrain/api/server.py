@@ -142,6 +142,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 store = SettingsStore(Path(brain_service.config_dir))
                 self.send_json({"success": True, "settings": store.load()})
             
+            elif self.path == "/api/resources":
+                if brain_service.resource_monitor:
+                    self.send_json(brain_service.resource_monitor.get_status_summary())
+                else:
+                    self.send_json({"error": "Resource monitor not available"}, status=503)
+            
             elif self.path == "/api/agent/info":
                 # Aggregate info from chat agent and learning agent
                 chat_info = brain_service.get_chat_agent_info()
@@ -410,40 +416,8 @@ def main():
     asyncio.set_event_loop(loop)
     loop.run_until_complete(brain_service.initialize())
     
-    # Initialize background learner if HOPE brain is available AND enabled in settings
-    global background_learner
-    if brain_service.hope_brain and False:  # TEMPORARY DISABLE for verification
-        print("🔄 Starting autonomous learning service...")
-        try:
-            from continuonbrain.services.background_learner import BackgroundLearner
-            from continuonbrain.api.routes import learning_routes
-            
-            background_learner = BackgroundLearner(
-                brain=brain_service.hope_brain,
-                resource_monitor=brain_service.resource_monitor,
-                config={
-                    'steps_per_cycle': agent_settings.get('autonomous_learning_steps_per_cycle', 100),
-                    'cycle_interval_sec': 1.0,
-                    'checkpoint_interval': agent_settings.get('autonomous_learning_checkpoint_interval', 1000),
-                    'exploration_bonus': 0.1,
-                    'novelty_threshold': 0.5,
-                }
-            )
-            
-            # Register with API
-            learning_routes.set_background_learner(background_learner)
-            
-            # Start learning
-            background_learner.start()
-            print("✅ Autonomous learning started")
-            
-        except Exception as e:
-            print(f"⚠ Failed to start autonomous learning: {e}")
-            background_learner = None
-    elif not agent_settings.get('enable_autonomous_learning', True):
-        print("⚠ Autonomous learning disabled in settings")
-    else:
-        print("⚠ HOPE brain not available, skipping autonomous learning")
+    # Legacy BackgroundLearner initialization removed. 
+    # It is now handled by BrainService in verify_learning_startup logic / production code.
     
     server = ThreadedHTTPServer(("0.0.0.0", args.port), BrainRequestHandler)
     print(f"🚀 Server listening on http://0.0.0.0:{args.port}")

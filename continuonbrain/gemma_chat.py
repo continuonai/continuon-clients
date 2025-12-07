@@ -20,8 +20,8 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-3-270m-it"
-    # DEFAULT_MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # Backup
+    DEFAULT_MODEL_ID = "google/gemma-3-4b-it"
+    # DEFAULT_MODEL_ID = "google/gemma-3-4b-it" # Previous default
 
     def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
         """
@@ -90,16 +90,27 @@ class GemmaChat:
             )
             
             # Load model with quantization for efficiency
+            # If on CPU with limited RAM, we want device_map="auto" to enable disk offload if needed
+            # This requires 'accelerate' package
+            
+            use_device_map = "auto"
+            if self.device == "cpu":
+                # Check provided device logic or simply default to auto if we suspect low memory
+                pass
+                
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 token=self.hf_token,
                 torch_dtype=torch.float16 if self.device != "cpu" else torch.float32,
-                device_map="auto" if self.device != "cpu" else None,
+                device_map="auto", # Always use auto to allow offload
+                offload_folder="/tmp/model_offload", # Explicit offload folder
                 trust_remote_code=True
             )
             
-            if self.device == "cpu":
-                self.model = self.model.to(self.device)
+            # The .to(device) call is redundant/harmful with device_map="auto" and offloading
+            # We trust accelerate to manage device placement
+            # if self.device == "cpu" and not getattr(self.model, "hf_device_map", None):
+            #     self.model = self.model.to(self.device)
             
             logger.info("Gemma model loaded successfully")
             return True

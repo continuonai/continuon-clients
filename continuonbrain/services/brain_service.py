@@ -25,6 +25,7 @@ from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
+from continuonbrain.services.background_learner import BackgroundLearner
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +228,7 @@ class BrainService:
         
         # HOPE brain (optional)
         self.hope_brain = None
+        self.background_learner = None
         
         # Initialize Gemma chat
         self.gemma_chat = create_gemma_chat(use_mock=False)
@@ -277,7 +279,15 @@ class BrainService:
         system_context = "\n".join(status_lines)
         
         # Tool Instructions
-        system_context += "\\nTOOLS: You can use tools by outputting: [TOOL: ACTION args]. Valid: [TOOL: SCREENSHOT], [TOOL: MOVE x y], [TOOL: TYPE text], [TOOL: CLICK]."
+        system_context += "\\nTOOLS: You can use tools by outputting: [TOOL: ACTION args].\\n"
+        system_context += "Valid Tools:\\n"
+        system_context += "- [TOOL: TERMINAL <command>]: Execute shell commands (e.g., 'gemini', 'antigravity', 'mcp', 'ls')\\n"
+        system_context += "- [TOOL: ASK_GEMINI \"prompt\" (optional_image_path)]: Ask Gemini Pro for help. Can see images.\\n"
+        system_context += "- [TOOL: BROWSER <url>]: Open a URL in Chromium\\n"
+        system_context += "- [TOOL: SCREENSHOT]: Capture screen\\n"
+        system_context += "- [TOOL: MOVE x y]: Move mouse\\n"
+        system_context += "- [TOOL: CLICK]: Click mouse\\n"
+        system_context += "- [TOOL: TYPE text]: Type text\\n"
         
         # Status updates list
         status_updates = []
@@ -365,6 +375,54 @@ class BrainService:
                             self.desktop.type_text(text)
                             result = f"Typed: {text}"
                             status_updates.append(f"Tool: Typed text")
+                        elif action == "TERMINAL" and len(parts) >= 2:
+                            cmd = " ".join(parts[1:])
+                            # Use subprocess to execute (danger!)
+                            import subprocess
+                            try:
+                                # We run with a timeout to prevent hanging
+                                proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+                                output = proc.stdout[:500] + ("..." if len(proc.stdout) > 500 else "")
+                                if proc.returncode != 0:
+                                    output += f"\\nError: {proc.stderr[:200]}"
+                                result = f"Terminal Output:\\n{output}"
+                                status_updates.append(f"Tool: Executed '{cmd[:20]}...'")
+                            except Exception as e:
+                                result = f"Terminal Error: {e}"
+                                status_updates.append("Tool: Terminal execution failed")
+                        elif action == "BROWSER" and len(parts) >= 2:
+                            url = parts[1]
+                            if not url.startswith("http"):
+                                url = "https://" + url
+                            import webbrowser
+                            try:
+                                webbrowser.open(url)
+                                result = f"Opened browser to {url}"
+                                status_updates.append(f"Tool: Opened {url}")
+                            except Exception as e:
+                                result = f"Browser Error: {e}"
+                        elif action == "ASK_GEMINI" and len(parts) >= 2:
+                            # Parse prompt and optional image
+                            # Format: [TOOL: ASK_GEMINI "prompt" image_path]
+                            import shlex
+                            try:
+                                args = shlex.split(tool_cmd[13:].strip())
+                                prompt = args[0]
+                                image_arg = ""
+                                if len(args) > 1:
+                                    image_arg = f"--image \"{args[1]}\""
+                                
+                                cmd = f"{sys.executable} continuonbrain/utils/gemini_cli.py \"{prompt}\" {image_arg}"
+                                import subprocess
+                                proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+                                if proc.returncode == 0:
+                                    result = f"Gemini Says:\\n{proc.stdout.strip()}"
+                                    status_updates.append("Tool: Consulted Gemini Pro")
+                                else:
+                                    result = f"Gemini Error:\\n{proc.stderr.strip()}"
+                                    status_updates.append("Tool: Gemini consultation failed")
+                            except Exception as e:
+                                result = f"Tool parse error: {e}"
                             
                         entry["tool_action"] = tool_cmd
                         entry["tool_result"] = result
@@ -750,6 +808,19 @@ class BrainService:
             memory_usage = self.hope_brain.get_memory_usage()
             param_count = sum(p.numel() for p in self.hope_brain.parameters())
             print(f"  ✓ HOPE brain ready ({param_count:,} parameters, {memory_usage['total']:.1f}MB)")
+            
+            # Start autonomous learning if enabled in config
+            if config.enable_autonomous_learning:
+                print("🎓 Starting autonomous learning loop...")
+                self.background_learner = BackgroundLearner(
+                    brain=self.hope_brain,
+                    config={
+                        "checkpoint_dir": f"{self.config_dir}/checkpoints/autonomous",
+                    },
+                    resource_monitor=self.resource_monitor
+                )
+                self.background_learner.start()
+                print("  ✓ Background learner started")
             
         except ImportError as e:
             error_msg = (

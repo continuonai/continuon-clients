@@ -124,6 +124,13 @@ class InputEncoder(nn.Module):
         # Encode each component
         obs_feat = self.obs_encoder(x_obs)  # [d_e]
         action_feat = self.action_encoder(a_prev)  # [d_e // 2]
+        if r_t.dim() == 1 and x_obs.dim() == 2:
+            r_t = r_t.unsqueeze(-1)
+        elif r_t.dim() == 0 and x_obs.dim() == 2:
+             r_t = r_t.unsqueeze(0).unsqueeze(-1)
+             
+        reward_feat = r_t # Direct usage if simple, or linear projection?
+        # Let's see what was there before
         reward_feat = self.reward_encoder(r_t)  # [d_e // 4]
         
         # Concatenate and fuse

@@ -8,14 +8,14 @@ import pytest
 import torch
 import torch.nn as nn
 
-from hope_impl.config import HOPEConfig
-from hope_impl.state import FastState, MemoryLevel, CMSMemory, Parameters, FullState
-from hope_impl.encoders import InputEncoder, QueryNetwork, OutputDecoder
-from hope_impl.cms import CMSRead, CMSWrite
-from hope_impl.core import WaveSubsystem, ParticleSubsystem, HOPECore
-from hope_impl.learning import NestedLearning
-from hope_impl.stability import lyapunov_fast_state, lyapunov_memory, lyapunov_total, StabilityMonitor
-from hope_impl.brain import HOPEBrain
+from continuonbrain.hope_impl.config import HOPEConfig
+from continuonbrain.hope_impl.state import FastState, MemoryLevel, CMSMemory, Parameters, FullState
+from continuonbrain.hope_impl.encoders import InputEncoder, QueryNetwork, OutputDecoder
+from continuonbrain.hope_impl.cms import CMSRead, CMSWrite
+from continuonbrain.hope_impl.core import WaveSubsystem, ParticleSubsystem, HOPECore
+from continuonbrain.hope_impl.learning import NestedLearning
+from continuonbrain.hope_impl.stability import lyapunov_fast_state, lyapunov_memory, lyapunov_total, StabilityMonitor
+from continuonbrain.hope_impl.brain import HOPEBrain
 
 
 class TestStateObjects:

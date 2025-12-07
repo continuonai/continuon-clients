@@ -13,8 +13,10 @@ Integrates all components:
 """
 
 import torch
+import math
+import numpy as np
 import torch.nn as nn
-from typing import Tuple, Dict, Optional, Any
+from typing import Tuple, List, Optional, Dict, Union
 from pathlib import Path
 
 from .config import HOPEConfig
@@ -26,258 +28,203 @@ from .learning import NestedLearning, AdaptiveLearningRate
 from .stability import lyapunov_total, StabilityMonitor
 
 
+class HOPEColumn(nn.Module):
+    """
+    Single Cortical Column for HOPE architecture.
+    """
+    def __init__(self, config: HOPEConfig, obs_dim: int, action_dim: int, output_dim: int, obs_type: str, output_type: str, device, dtype):
+        super().__init__()
+        self.config = config
+        self.device = device
+        self.dtype = dtype
+        
+        # 1. Input encoder
+        self.encoder = InputEncoder(obs_dim, action_dim, config.d_e, obs_type)
+        
+        # 2. CMS read
+        self.cms_read = CMSRead(config.d_s, config.d_e, config.d_k, config.d_c, config.num_levels, config.cms_dims)
+        
+        # 3. HOPE core
+        self.hope_core = HOPECore(config.d_s, config.d_w, config.d_p, config.d_e, config.d_c, use_layer_norm=config.use_layer_norm)
+        
+        # 4. Output decoder
+        self.output_decoder = OutputDecoder(config.d_s, config.d_c, output_dim, output_type)
+        
+        # 5. CMS write
+        self.cms_write = CMSWrite(config.d_s, config.d_e, config.d_c, config.d_k, config.num_levels, config.cms_dims)
+        
+        # 6. Nested learning
+        d_mem = sum(config.cms_dims)
+        self.nested_learning = NestedLearning(config.d_s, d_mem, eta_init=config.eta_init)
+        
+        # 8. Stability monitor (Each column monitors its own stability)
+        self.stability_monitor = StabilityMonitor(config.lyapunov_threshold, config.dissipation_floor, config.gradient_clip)
+        
+        # State
+        self._state: Optional[FullState] = None
+        
+        # History
+        self.history_buffer = []
+        self.history_window_size = 64
+        self.to(device)
+
+    def reset(self) -> FullState:
+        self._state = FullState.zeros(
+            self.config.d_s, self.config.d_w, self.config.d_p,
+            self.config.cms_sizes, self.config.cms_dims, self.config.d_k,
+            self.config.cms_decays, self.config.eta_init, self.device, self.dtype
+        )
+        self.stability_monitor.reset()
+        self.history_buffer = []
+        return self._state
+
+    def step(self, x_obs, a_prev, r_t, perform_cms_write=True, perform_param_update=False, gradients=None, log_stability=True):
+        if self._state is None: self.reset()
+        state_prev = self._state
+        
+        # Ensure tensors
+        if not isinstance(x_obs, torch.Tensor): x_obs = torch.tensor(x_obs, device=self.device, dtype=self.dtype)
+        if not isinstance(a_prev, torch.Tensor): a_prev = torch.tensor(a_prev, device=self.device, dtype=self.dtype)
+        if not isinstance(r_t, torch.Tensor): r_t = torch.tensor(r_t, device=self.device, dtype=self.dtype)
+        
+        x_obs, a_prev, r_t = x_obs.to(self.device), a_prev.to(self.device), r_t.to(self.device)
+
+        # Helper to ensure state has batch dimension if needed
+        s_vals = state_prev.fast_state.s
+        w_vals = state_prev.fast_state.w
+        p_vals = state_prev.fast_state.p
+        
+        if x_obs.dim() == 2:
+            batch_size = x_obs.size(0)
+            if s_vals.dim() == 1:
+                s_vals = s_vals.unsqueeze(0).expand(batch_size, -1)
+                w_vals = w_vals.unsqueeze(0).expand(batch_size, -1)
+                p_vals = p_vals.unsqueeze(0).expand(batch_size, -1)
+        
+        # 1. Encode
+        e_t = self.encoder(x_obs, a_prev, r_t)
+        
+        # 2. CMS Read
+        q_t, c_t, attn = self.cms_read(state_prev.cms, s_vals, e_t)
+        
+        # 3. Core Dynamics
+        s_next_vals, w_next_vals, p_next_vals = self.hope_core(s_vals, w_vals, p_vals, e_t, c_t)
+        fast_next = FastState(s_next_vals, w_next_vals, p_next_vals)
+        
+        # 4. Decode
+        y_t = self.output_decoder(s_next_vals, c_t)
+        
+        # 5. Write
+        cms_next = state_prev.cms
+        if perform_cms_write:
+            self.history_buffer.append((state_prev.fast_state.s.detach(), e_t.detach()))
+            if len(self.history_buffer) > self.history_window_size: self.history_buffer.pop(0)
+            cms_next = self.cms_write(state_prev.cms, fast_next.s, e_t, level_contexts=None, history_buffer=self.history_buffer)
+            
+        # 6. Learn
+        params_next = state_prev.params
+        if perform_param_update:
+            params_next = self.nested_learning(state_prev.params, fast_next, cms_next, r_t, brain_module=self)
+            
+        state_next = FullState(fast_next, cms_next, params_next)
+        self._state = state_next
+        
+        if log_stability:
+            self.stability_monitor.update(state_next, gradients=gradients)
+            
+        metrics = self.stability_monitor.get_metrics()
+        lyapunov = lyapunov_total(state_next).item()
+        
+        info = {
+            'query': q_t, 'context': c_t, 'attention_weights': attn,
+            'stability_metrics': metrics, 'lyapunov': lyapunov
+        }
+        return state_next, y_t, info
+
+
 class HOPEBrain(nn.Module):
     """
-    HOPE Brain: Main interface for the HOPE architecture.
-    
-    One full HOPE step:
-        1. Encode inputs: e_t = E_φ(x_obs, a_{t-1}, r_t)
-        2. CMS read: q_t, c_t = Read(M_{t-1}, s_{t-1}, e_t)
-        3. HOPE core: fast_t = HOPE_core(fast_{t-1}, e_t, c_t, Θ_{t-1})
-        4. Output: y_t = H_ω(fast_t, c_t)
-        5. CMS write: M_t = Write(M_{t-1}, fast_t, e_t, r_t)
-        6. Nested learning: Θ_t = Update(Θ_{t-1}, fast_t, M_t, r_t)
-    
-    Returns:
-        (next_state, output, info)
+    HOPE Brain: Main interface. Supports Hybrid (Thousand Brains) mode.
     """
-    
-    def __init__(
-        self,
-        config: HOPEConfig,
-        obs_dim: int,
-        action_dim: int,
-        output_dim: int,
-        obs_type: str = "vector",
-        output_type: str = "continuous",
-    ):
-        """
-        Args:
-            config: HOPE configuration
-            obs_dim: Observation dimension
-            action_dim: Action dimension
-            output_dim: Output dimension
-            obs_type: "vector" or "image"
-            output_type: "continuous" or "discrete"
-        """
+    def __init__(self, config: HOPEConfig, obs_dim: int, action_dim: int, output_dim: int, obs_type: str = "vector", output_type: str = "continuous"):
         super().__init__()
-        
         self.config = config
+        self.device = torch.device(config.device)
+        self.dtype = getattr(torch, config.dtype)
+        
         self.obs_dim = obs_dim
         self.action_dim = action_dim
         self.output_dim = output_dim
         self.obs_type = obs_type
         self.output_type = output_type
-        
-        # Get device and dtype
-        self.device = torch.device(config.device)
-        self.dtype = getattr(torch, config.dtype)
-        
-        # 1. Input encoder
-        self.encoder = InputEncoder(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            d_e=config.d_e,
-            obs_type=obs_type,
-        )
-        
-        # 2. CMS read
-        self.cms_read = CMSRead(
-            d_s=config.d_s,
-            d_e=config.d_e,
-            d_k=config.d_k,
-            d_c=config.d_c,
-            num_levels=config.num_levels,
-            cms_dims=config.cms_dims,
-        )
-        
-        # 3. HOPE core
-        self.hope_core = HOPECore(
-            d_s=config.d_s,
-            d_w=config.d_w,
-            d_p=config.d_p,
-            d_e=config.d_e,
-            d_c=config.d_c,
-            use_layer_norm=config.use_layer_norm,
-        )
-        
-        # 4. Output decoder
-        self.output_decoder = OutputDecoder(
-            d_s=config.d_s,
-            d_c=config.d_c,
-            output_dim=output_dim,
-            output_type=output_type,
-        )
-        
-        # 5. CMS write
-        self.cms_write = CMSWrite(
-            d_s=config.d_s,
-            d_e=config.d_e,
-            d_c=config.d_c,
-            d_k=config.d_k,
-            num_levels=config.num_levels,
-            cms_dims=config.cms_dims,
-        )
-        
-        # 6. Nested learning
-        d_mem = sum(config.cms_dims)  # Aggregate memory dimension
-        self.nested_learning = NestedLearning(
-            d_s=config.d_s,
-            d_mem=d_mem,
-            eta_init=config.eta_init,
-        )
-        
-        # 7. Adaptive learning rate (optional)
-        self.adaptive_lr = AdaptiveLearningRate()
-        
-        # 8. Stability monitor
-        self.stability_monitor = StabilityMonitor(
-            lyapunov_threshold=config.lyapunov_threshold,
-            dissipation_floor=config.dissipation_floor,
-            gradient_clip=config.gradient_clip,
-        )
-        
-        # Internal state
-        self._state: Optional[FullState] = None
-        
-        # Move to device
-        self.to(self.device)
-    
-    def reset(self) -> FullState:
-        """
-        Initialize/reset brain state.
-        
-        Returns:
-            Initial state
-        """
-        self._state = FullState.zeros(
-            d_s=self.config.d_s,
-            d_w=self.config.d_w,
-            d_p=self.config.d_p,
-            cms_sizes=self.config.cms_sizes,
-            cms_dims=self.config.cms_dims,
-            d_k=self.config.d_k,
-            cms_decays=self.config.cms_decays,
-            eta=self.config.eta_init,
-            device=self.device,
-            dtype=self.dtype,
-        )
-        
-        self.stability_monitor.reset()
-        
-        return self._state
-    
-    def step(
-        self,
-        x_obs: torch.Tensor,
-        a_prev: torch.Tensor,
-        r_t: float,
-        perform_cms_write: bool = True,
-        perform_param_update: bool = False,
-        gradients: Optional[Dict[str, torch.Tensor]] = None,
-        log_stability: bool = True,
-    ) -> Tuple[FullState, torch.Tensor, Dict[str, Any]]:
-        """
-        One full HOPE step.
-        
-        Args:
-            x_obs: Observation
-            a_prev: Previous action
-            r_t: Reward (scalar)
-            perform_cms_write: Whether to write to CMS
-            perform_param_update: Whether to update parameters
-            gradients: Optional gradient tensors to log with stability metrics
-            log_stability: Whether to record stability metrics for this step
 
-        Returns:
-            (next_state, output, info)
-        """
-        # Initialize state if needed
-        if self._state is None:
-            self.reset()
+        # Hybrid Mode: Create N columns
+        self.columns = nn.ModuleList()
+        num_cols = config.num_columns if config.use_hybrid_mode else 1
         
-        state_prev = self._state
-        
-        # Convert inputs to tensors
-        if not isinstance(x_obs, torch.Tensor):
-            x_obs = torch.tensor(x_obs, device=self.device, dtype=self.dtype)
-        if not isinstance(a_prev, torch.Tensor):
-            a_prev = torch.tensor(a_prev, device=self.device, dtype=self.dtype)
-        if not isinstance(r_t, torch.Tensor):
-            r_t = torch.tensor(r_t, device=self.device, dtype=self.dtype)
-        
-        # Ensure correct device
-        x_obs = x_obs.to(self.device)
-        a_prev = a_prev.to(self.device)
-        r_t = r_t.to(self.device)
-        
-        # 1. Encode inputs: e_t = E_φ(x_obs, a_{t-1}, r_t)
-        e_t = self.encoder(x_obs, a_prev, r_t)
-        
-        # 2. CMS read: q_t, c_t = Read(M_{t-1}, s_{t-1}, e_t)
-        q_t, c_t, attention_weights = self.cms_read(
-            state_prev.cms,
-            state_prev.fast_state.s,
-            e_t,
-        )
-        
-        # 3. HOPE core: fast_t = HOPE_core(fast_{t-1}, e_t, c_t, Θ_{t-1})
-        fast_next = self.hope_core(state_prev.fast_state, e_t, c_t)
-        
-        # 4. Output: y_t = H_ω(fast_t, c_t)
-        y_t = self.output_decoder(fast_next.s, c_t)
-        
-        # 5. CMS write: M_t = Write(M_{t-1}, fast_t, e_t, r_t)
-        cms_next = state_prev.cms
-        if perform_cms_write:
-            # Get level contexts for hierarchical write
-            # (simplified: use None, write module will handle it)
-            cms_next = self.cms_write(state_prev.cms, fast_next.s, e_t, level_contexts=None)
-        
-        # 6. Nested learning: Θ_t = Update(Θ_{t-1}, fast_t, M_t, r_t)
-        params_next = state_prev.params
-        if perform_param_update:
-            # Pass brain module reference to enable actual parameter updates
-            params_next = self.nested_learning(
-                state_prev.params, fast_next, cms_next, r_t, brain_module=self
-            )
+        for _ in range(num_cols):
+            col = HOPEColumn(config, obs_dim, action_dim, output_dim, obs_type, output_type, self.device, self.dtype)
+            self.columns.append(col)
             
-            # Optionally update learning rate
-            # eta_new = self.adaptive_lr(r_t, fast_next, cms_next)
-            # params_next.eta = eta_new
-        
-        # Create next state
-        state_next = FullState(
-            fast_state=fast_next,
-            cms=cms_next,
-            params=params_next,
-        )
-        
-        # Update internal state
-        self._state = state_next
+        self.to(self.device)
+        self.active_column_idx = 0 # Trace which column won the vote
 
-        # Update stability monitor
-        if log_stability:
-            self.stability_monitor.update(state_next, gradients=gradients)
+    def reset(self) -> FullState:
+        # Reset all columns
+        states = [col.reset() for col in self.columns]
+        # Return state of "active" column (usually 0 at start)
+        self.active_column_idx = 0
+        return states[0]
 
-        # Gather info
-        stability_metrics = self.stability_monitor.get_metrics()
-        info = {
-            'query': q_t,
-            'context': c_t,
-            'attention_weights': attention_weights,
-            'stability_metrics': stability_metrics,
-            'lyapunov': lyapunov_total(state_next).item(),
-        }
+    def step(self, x_obs, a_prev, r_t, perform_cms_write=True, perform_param_update=False, gradients=None, log_stability=True):
+        """
+        Execute step. If Hybrid, run all columns and Vote.
+        """
+        results = []
         
+        # Parallel Execution (Sequential loop for now, conceptually parallel)
+        for i, col in enumerate(self.columns):
+            # Future improvement: Slice input x_obs for different columns here
+            s_next, y, info = col.step(x_obs, a_prev, r_t, perform_cms_write, perform_param_update, gradients, log_stability)
+            results.append((s_next, y, info))
+            
+        # Voting Mechanism
+        if len(self.columns) > 1:
+            # Strategies:
+            # 1. Lowest Lyapunov Energy (Most Stable) - PREFERRED based on theory (stability = prediction match)
+            # 2. Highest Reward Prediction (if we had a critic)
+            
+            best_idx = 0
+            min_energy = float('inf')
+            
+            votes = []
+            for i, (s, y, info) in enumerate(results):
+                energy = info['lyapunov']
+                votes.append(f"Col{i}:{energy:.2f}")
+                
+                # Check for NaN exploders
+                if math.isnan(energy) or math.isinf(energy):
+                    energy = float('inf')
+                    
+                if energy < min_energy:
+                    min_energy = energy
+                    best_idx = i
+            
+            # Update winner
+            self.active_column_idx = best_idx
+            state_next, y_t, info = results[best_idx]
+            
+            # Inject voting info
+            info['hybrid_votes'] = votes
+            info['winner_column'] = best_idx
+            
+        else:
+            state_next, y_t, info = results[0]
+            self.active_column_idx = 0
+            
         return state_next, y_t, info
-    
-    def forward(
-        self,
-        x_obs: torch.Tensor,
-        a_prev: torch.Tensor,
-        r_t: torch.Tensor,
-    ) -> torch.Tensor:
+
+    def forward(self, x_obs, a_prev, r_t):
         """
         Forward pass for training (simplified interface).
         
@@ -289,19 +236,24 @@ class HOPEBrain(nn.Module):
         Returns:
             y_t: Output
         """
-        _, y_t, _ = self.step(x_obs, a_prev, r_t.item() if r_t.dim() == 0 else r_t[0].item())
+        # Ensure r_t is a scalar for the step method if it's a tensor
+        r_t_val = r_t.item() if r_t.dim() == 0 else r_t[0].item()
+        _, y_t, _ = self.step(x_obs, a_prev, r_t_val)
         return y_t
-    
+        
     def get_state(self) -> FullState:
-        """Get current internal state."""
-        if self._state is None:
-            self.reset()
-        return self._state
-    
+        """Get current internal state of the active column."""
+        return self.columns[self.active_column_idx]._state
+
     def set_state(self, state: FullState):
-        """Set internal state."""
-        self._state = state.to(self.device)
-    
+        """Set internal state for the active column."""
+        self.columns[self.active_column_idx]._state = state.to(self.device)
+        
+    # Proxy methods for backward compatibility
+    @property
+    def stability_monitor(self):
+        return self.columns[self.active_column_idx].stability_monitor
+        
     def save_checkpoint(self, path: str):
         """
         Save brain checkpoint.
@@ -309,6 +261,7 @@ class HOPEBrain(nn.Module):
         Args:
             path: Path to save checkpoint
         """
+        # Save all columns
         checkpoint = {
             'config': self.config,
             'obs_dim': self.obs_dim,
@@ -316,19 +269,13 @@ class HOPEBrain(nn.Module):
             'output_dim': self.output_dim,
             'obs_type': self.obs_type,
             'output_type': self.output_type,
-            'model_state_dict': self.state_dict(),
-            'internal_state': self._state,
-            'stability_monitor': {
-                'lyapunov_history': self.stability_monitor.lyapunov_history,
-                'state_norms': self.stability_monitor.state_norms,
-                'gradient_norms': self.stability_monitor.gradient_norms,
-                'step_count': self.stability_monitor.step_count,
-            },
+            'columns_state_dicts': [c.state_dict() for c in self.columns],
+            'columns_internal_states': [c._state for c in self.columns],
+            'is_hybrid': self.config.use_hybrid_mode
         }
-        
         torch.save(checkpoint, path)
-        print(f"Checkpoint saved to {path}")
-    
+        print(f"Hybrid Checkpoint saved to {path} ({len(self.columns)} cols)")
+
     @classmethod
     def load_checkpoint(cls, path: str) -> "HOPEBrain":
         """
@@ -340,35 +287,40 @@ class HOPEBrain(nn.Module):
         Returns:
             Loaded HOPEBrain
         """
+        # Load logic needs to handle single vs hybrid
         checkpoint = torch.load(path, weights_only=False)
-        
-        # Create brain
         brain = cls(
-            config=checkpoint['config'],
-            obs_dim=checkpoint['obs_dim'],
-            action_dim=checkpoint['action_dim'],
-            output_dim=checkpoint['output_dim'],
-            obs_type=checkpoint['obs_type'],
-            output_type=checkpoint['output_type'],
+            checkpoint['config'], checkpoint['obs_dim'], checkpoint['action_dim'],
+            checkpoint['output_dim'], checkpoint['obs_type'], checkpoint['output_type']
         )
         
-        # Load model weights
-        brain.load_state_dict(checkpoint['model_state_dict'])
-        
-        # Restore internal state
-        if checkpoint['internal_state'] is not None:
-            brain.set_state(checkpoint['internal_state'])
-        
-        # Restore stability monitor
-        if 'stability_monitor' in checkpoint:
-            brain.stability_monitor.lyapunov_history = checkpoint['stability_monitor']['lyapunov_history']
-            brain.stability_monitor.state_norms = checkpoint['stability_monitor']['state_norms']
-            brain.stability_monitor.gradient_norms = checkpoint['stability_monitor'].get('gradient_norms', [])
-            brain.stability_monitor.step_count = checkpoint['stability_monitor']['step_count']
-        
+        if 'columns_state_dicts' in checkpoint:
+            # New format
+            for i, col in enumerate(brain.columns):
+                if i < len(checkpoint['columns_state_dicts']):
+                    col.load_state_dict(checkpoint['columns_state_dicts'][i])
+                    if checkpoint['columns_internal_states'][i] is not None:
+                        col._state = checkpoint['columns_internal_states'][i]
+        else:
+            # Old format - load into first column
+            # Ensure there's at least one column for the old format
+            if not brain.columns:
+                brain.columns.append(HOPEColumn(brain.config, brain.obs_dim, brain.action_dim, brain.output_dim, brain.obs_type, brain.output_type, brain.device, brain.dtype))
+            
+            brain.columns[0].load_state_dict(checkpoint['model_state_dict'])
+            if checkpoint['internal_state'] is not None:
+                brain.columns[0]._state = checkpoint['internal_state']
+                
+            # Restore stability monitor for the first column if it exists in old checkpoint
+            if 'stability_monitor' in checkpoint:
+                brain.columns[0].stability_monitor.lyapunov_history = checkpoint['stability_monitor']['lyapunov_history']
+                brain.columns[0].stability_monitor.state_norms = checkpoint['stability_monitor']['state_norms']
+                brain.columns[0].stability_monitor.gradient_norms = checkpoint['stability_monitor'].get('gradient_norms', [])
+                brain.columns[0].stability_monitor.step_count = checkpoint['stability_monitor']['step_count']
+                
         print(f"Checkpoint loaded from {path}")
         return brain
-    
+        
     def to_quantized(self, dtype: str = "int8") -> "HOPEBrain":
         """
         Convert to quantized version for deployment.
@@ -379,20 +331,35 @@ class HOPEBrain(nn.Module):
         Returns:
             Quantized brain (new instance)
         """
-        if dtype == "int8":
-            # Dynamic quantization for linear layers
-            quantized = torch.quantization.quantize_dynamic(
-                self,
-                {nn.Linear},
-                dtype=torch.qint8,
-            )
-        elif dtype == "fp16":
-            # Half precision
-            quantized = self.half()
-        else:
-            raise ValueError(f"Unknown dtype: {dtype}")
+        # Create a new brain instance to hold quantized columns
+        quantized_brain = HOPEBrain(
+            config=self.config,
+            obs_dim=self.obs_dim,
+            action_dim=self.action_dim,
+            output_dim=self.output_dim,
+            obs_type=self.obs_type,
+            output_type=self.output_type,
+        )
         
-        return quantized
+        # Quantize each column
+        quantized_columns = nn.ModuleList()
+        for col in self.columns:
+            if dtype == "int8":
+                quantized_col = torch.quantization.quantize_dynamic(
+                    col,
+                    {nn.Linear},
+                    dtype=torch.qint8,
+                )
+            elif dtype == "fp16":
+                quantized_col = col.half()
+            else:
+                raise ValueError(f"Unknown dtype: {dtype}")
+            quantized_columns.append(quantized_col)
+            
+        quantized_brain.columns = quantized_columns
+        quantized_brain.active_column_idx = self.active_column_idx
+        
+        return quantized_brain
     
     def get_memory_usage(self) -> Dict[str, float]:
         """
@@ -401,33 +368,39 @@ class HOPEBrain(nn.Module):
         Returns:
             Dict with memory usage in MB
         """
-        def tensor_size_mb(tensor):
-            return tensor.element_size() * tensor.nelement() / (1024 ** 2)
+        total_usage = {}
+        for i, col in enumerate(self.columns):
+            # Calculate per column
+             def tensor_size_mb(tensor): return tensor.element_size() * tensor.nelement() / (1024 ** 2)
+             
+             col_usage = {
+                'model_parameters': sum(tensor_size_mb(p) for p in col.parameters()),
+             }
+             
+             if col._state is not None:
+                col_usage['fast_state'] = (
+                    tensor_size_mb(col._state.fast_state.s) +
+                    tensor_size_mb(col._state.fast_state.w) +
+                    tensor_size_mb(col._state.fast_state.p)
+                )
+                
+                cms_size = 0
+                for level in col._state.cms.levels:
+                    cms_size += tensor_size_mb(level.M) + tensor_size_mb(level.K)
+                col_usage['cms_memory'] = cms_size
+                
+                params_size = sum(tensor_size_mb(v) for v in col._state.params.theta.values())
+                col_usage['adaptive_params'] = params_size
+                
+                col_usage['total_state'] = col_usage['fast_state'] + col_usage['cms_memory'] + col_usage['adaptive_params']
+             
+             col_usage['total'] = col_usage['model_parameters'] + col_usage.get('total_state', 0)
+             total_usage[f'column_{i}'] = col_usage
         
-        usage = {
-            'model_parameters': sum(tensor_size_mb(p) for p in self.parameters()),
-        }
+        # Aggregate totals
+        if self.columns:
+            total_usage['overall_model_parameters'] = sum(total_usage[f'column_{i}']['model_parameters'] for i in range(len(self.columns)))
+            total_usage['overall_total_state'] = sum(total_usage[f'column_{i}'].get('total_state', 0) for i in range(len(self.columns)))
+            total_usage['overall_total'] = sum(total_usage[f'column_{i}']['total'] for i in range(len(self.columns)))
         
-        if self._state is not None:
-            # Fast state
-            usage['fast_state'] = (
-                tensor_size_mb(self._state.fast_state.s) +
-                tensor_size_mb(self._state.fast_state.w) +
-                tensor_size_mb(self._state.fast_state.p)
-            )
-            
-            # CMS memory
-            cms_size = 0
-            for level in self._state.cms.levels:
-                cms_size += tensor_size_mb(level.M) + tensor_size_mb(level.K)
-            usage['cms_memory'] = cms_size
-            
-            # Parameters
-            params_size = sum(tensor_size_mb(v) for v in self._state.params.theta.values())
-            usage['adaptive_params'] = params_size
-            
-            usage['total_state'] = usage['fast_state'] + usage['cms_memory'] + usage['adaptive_params']
-        
-        usage['total'] = usage['model_parameters'] + usage.get('total_state', 0)
-        
-        return usage
+        return total_usage
