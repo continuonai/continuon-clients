@@ -1,0 +1,13 @@
+{
+    "memory": {
+        "system_reserve_mb": 2000,
+        "max_brain_mb": 2000,
+        "warning_threshold_percent": 75.0,
+        "critical_threshold_percent": 85.0,
+        "emergency_threshold_percent": 90.0
+    },
+    "monitoring": {
+        "check_interval_sec": 5.0,
+        "log_usage": true
+    }
+}

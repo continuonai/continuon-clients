@@ -12,6 +12,7 @@ from pathlib import Path
 
 # Global reference to HOPE brain (will be set by server)
 _hope_brain = None
+_background_learner = None  # Reference to background learner for progress tracking
 _metrics_history = []
 _max_history = 1000  # Keep last 1000 steps
 
@@ -20,6 +21,12 @@ def set_hope_brain(brain):
     """Set the global HOPE brain instance."""
     global _hope_brain
     _hope_brain = brain
+
+
+def set_background_learner(learner):
+    """Set the global background learner instance."""
+    global _background_learner
+    _background_learner = learner
 
 
 def get_current_metrics() -> Dict[str, Any]:
@@ -77,6 +84,24 @@ def get_current_metrics() -> Dict[str, Any]:
             "gradient_spike": bool(gradient_clip and gradient_norm > gradient_clip),
             "timestamp": time.time(),
         }
+        
+        # Add learning progress if background learner is available
+        if _background_learner is not None:
+            try:
+                learner_status = _background_learner.get_status()
+                metrics["learning_progress"] = {
+                    "total_steps": learner_status.get("total_steps", 0),
+                    "total_episodes": learner_status.get("total_episodes", 0),
+                    "learning_updates": learner_status.get("learning_updates", 0),
+                    "avg_parameter_change": learner_status.get("avg_parameter_change", 0.0),
+                    "recent_parameter_change": learner_status.get("recent_parameter_change", 0.0),
+                    "avg_episode_reward": learner_status.get("avg_episode_reward", 0.0),
+                    "recent_episode_reward": learner_status.get("recent_episode_reward", 0.0),
+                    "is_learning": learner_status.get("running", False) and not learner_status.get("paused", True),
+                }
+            except Exception:
+                # Don't fail if learner status unavailable
+                pass
         
         # Add to history
         _metrics_history.append(metrics)

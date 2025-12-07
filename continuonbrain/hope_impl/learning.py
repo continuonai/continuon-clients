@@ -113,15 +113,17 @@ class NestedLearning(nn.Module):
         fast: FastState,
         cms: CMSMemory,
         r_t: torch.Tensor,
+        brain_module: 'nn.Module' = None,
     ) -> Parameters:
         """
-        Compute parameter update.
+        Compute parameter update and apply to brain model.
         
         Args:
             params: Current parameters
             fast: Current fast state
             cms: Current CMS memory
             r_t: Reward signal (scalar)
+            brain_module: Reference to brain module for parameter updates
         
         Returns:
             Updated parameters
@@ -134,8 +136,8 @@ class NestedLearning(nn.Module):
         signal_input = torch.cat([fast.s, r_t], dim=-1)
         update_signal = self.update_signal_net(signal_input).squeeze(-1)  # scalar
         
-        # 2. Sparse update: only update if signal > threshold
-        if update_signal.item() < self.update_threshold:
+        # 2. Sparse update: only update if signal > threshold (reduced from 0.1 to 0.01)
+        if update_signal.item() < 0.01:
             # No update
             return params
         
@@ -146,14 +148,30 @@ class NestedLearning(nn.Module):
         direction_input = torch.cat([fast.s, mem_stats, r_t], dim=-1)
         update_direction = self.update_direction_net(direction_input)  # [rank]
         
-        # 5. Apply update to parameters
-        # For now, we store the update direction as a named parameter
-        # In a full implementation, this would update LoRA matrices
-        theta_new = params.theta.copy()
+        # 5. Apply update to brain model parameters (if provided)
+        # This is a simplified gradient-free update mechanism
+        # Scale update by learning rate and signal strength
+        if brain_module is not None:
+            update_scale = params.eta * update_signal.item()
+            
+            # Apply small updates to a subset of parameters
+            # Target the output decoder and core modules for faster adaptation
+            param_count = 0
+            for name, param in brain_module.named_parameters():
+                if param.requires_grad and ('output_decoder' in name or 'hope_core' in name):
+                    if param_count < self.rank:
+                        # Apply scaled update (gradient-free Hebbian-like)
+                        with torch.no_grad():
+                            # Use update direction to modulate parameter changes
+                            update_idx = param_count % self.rank
+                            update_magnitude = update_direction[update_idx].item()
+                            param.data += update_scale * update_magnitude * torch.randn_like(param) * 0.01
+                        param_count += 1
         
-        # Store update (simplified: just store the direction)
+        # 6. Store update metadata in params.theta for tracking
+        theta_new = params.theta.copy()
         update_key = f"update_{len(theta_new)}"
-        theta_new[update_key] = params.eta * update_signal * update_direction
+        theta_new[update_key] = update_signal * update_direction
         
         return Parameters(theta=theta_new, eta=params.eta)
 

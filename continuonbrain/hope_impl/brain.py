@@ -233,7 +233,10 @@ class HOPEBrain(nn.Module):
         # 6. Nested learning: Θ_t = Update(Θ_{t-1}, fast_t, M_t, r_t)
         params_next = state_prev.params
         if perform_param_update:
-            params_next = self.nested_learning(state_prev.params, fast_next, cms_next, r_t)
+            # Pass brain module reference to enable actual parameter updates
+            params_next = self.nested_learning(
+                state_prev.params, fast_next, cms_next, r_t, brain_module=self
+            )
             
             # Optionally update learning rate
             # eta_new = self.adaptive_lr(r_t, fast_next, cms_next)

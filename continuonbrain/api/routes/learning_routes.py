@@ -24,11 +24,38 @@ def handle_learning_request(handler):
     
     try:
         if path == "/api/learning/status":
-            # Get learning status
+            # Get learning status with comprehensive metrics
             if _background_learner:
                 data = _background_learner.get_status()
             else:
                 data = {"enabled": False, "running": False, "error": "Learner not initialized"}
+            handler.send_json(data)
+            
+        elif path == "/api/learning/progress":
+            # Get detailed learning progress metrics
+            if _background_learner:
+                status = _background_learner.get_status()
+                data = {
+                    'total_steps': status['total_steps'],
+                    'total_episodes': status['total_episodes'],
+                    'learning_updates': status['learning_updates'],
+                    'avg_parameter_change': status['avg_parameter_change'],
+                    'recent_parameter_change': status['recent_parameter_change'],
+                    'avg_episode_reward': status['avg_episode_reward'],
+                    'recent_episode_reward': status['recent_episode_reward'],
+                    'learning_rate': status['learning_rate'],
+                    'is_stable': status['is_stable'],
+                }
+            else:
+                data = {"error": "Learner not initialized"}
+            handler.send_json(data)
+            
+        elif path == "/api/learning/metrics":
+            # Get all metrics including curiosity and stability
+            if _background_learner:
+                data = _background_learner.get_status()
+            else:
+                data = {"error": "Learner not initialized"}
             handler.send_json(data)
             
         elif path == "/api/learning/pause":

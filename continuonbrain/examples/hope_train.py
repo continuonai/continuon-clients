@@ -101,6 +101,7 @@ class HOPETrainer:
         mse_loss = torch.mean((y_t - target_action) ** 2)
         stability_penalty = self.config.lyapunov_weight * torch.mean(y_t ** 2)
 
+        # Reward term should encourage positive rewards
         return mse_loss + stability_penalty - 0.01 * reward_term
     
     def train(
@@ -131,9 +132,11 @@ class HOPETrainer:
             # Convert observation to tensor
             x_obs = torch.from_numpy(obs).float()
 
-            # Execute brain step
+            # Execute brain step with STEP reward (not cumulative) and stability logging enabled
             state_next, y_t, info = self.brain.step(
-                x_obs, action, episode_reward, perform_param_update=True, log_stability=False
+                x_obs, action, reward if step > 0 else 0.0, 
+                perform_param_update=True, 
+                log_stability=True
             )
 
             # Use output as next action

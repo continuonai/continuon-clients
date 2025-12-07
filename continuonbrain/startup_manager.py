@@ -142,6 +142,21 @@ class StartupManager:
             print("  Run with --force-health-check to check anyway")
             print()
         
+        # Check resource availability
+        print("📊 Checking system resources...")
+        from continuonbrain.resource_monitor import ResourceMonitor
+        resource_monitor = ResourceMonitor(config_dir=self.config_dir)
+        resource_status = resource_monitor.check_resources()
+        
+        print(f"  Memory: {resource_status.available_memory_mb}MB available ({resource_status.memory_percent:.1f}% used)")
+        print(f"  Level: {resource_status.level.value.upper()}")
+        
+        if resource_status.level.value in ['critical', 'emergency']:
+            print("⚠️  WARNING: Low memory detected")
+            print(f"  {resource_status.message}")
+            print("  Services will run in resource-constrained mode")
+        print()
+        
         # Record successful startup
         self._record_startup(startup_mode)
         

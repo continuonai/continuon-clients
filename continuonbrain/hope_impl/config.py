@@ -61,13 +61,17 @@ class HOPEConfig:
     dtype: str = "float32"
     
     # Training
-    learning_rate: float = 1e-4
+    learning_rate: float = 1e-3  # Increased from 1e-4 for faster learning
     eta_init: float = 0.01
-    gradient_clip: float = 1.0
+    gradient_clip: float = 5.0  # Relaxed from 1.0 to allow larger updates
     
     # Stability
     use_layer_norm: bool = True
     lyapunov_weight: float = 1e-3
+    
+    # Autonomous Learning
+    enable_autonomous_learning: bool = True
+    learning_update_interval: int = 10  # Steps between parameter updates
     
     def __post_init__(self):
         """Validate configuration."""
@@ -113,13 +117,19 @@ class HOPEConfig:
             num_levels=3,
             cms_sizes=[32, 64, 128],
             cms_dims=[64, 128, 256],
-            cms_decays=[0.1, 0.05, 0.01],
+            cms_decays=[0.05, 0.03, 0.01],  # Slower decay for better retention
             
             # Enable quantization for deployment
             use_quantization=True,
             quantization_dtype="int8",
             device="cpu",
             dtype="float32",
+            
+            # Improved training parameters
+            learning_rate=1e-3,
+            gradient_clip=5.0,
+            enable_autonomous_learning=True,
+            learning_update_interval=10,
         )
     
     @classmethod

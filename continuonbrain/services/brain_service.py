@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, AsyncIterator
 import asyncio
 import json
+import logging
 from dataclasses import dataclass, field
 
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController
@@ -23,6 +24,9 @@ from continuonbrain.gemma_chat import create_gemma_chat
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
+from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
+
+logger = logging.getLogger(__name__)
 
 # --- Task Dataclasses ---
 
@@ -216,6 +220,10 @@ class BrainService:
         self.task_library = TaskLibrary()
         self.selected_task_id: Optional[str] = None
         self.detected_config: dict = {}
+        
+        # Resource monitoring
+        self.resource_monitor = ResourceMonitor(config_dir=Path(config_dir))
+        logger.info(f"📊 Resource Monitor initialized: {self.resource_monitor.get_status_summary()}")
         
         # HOPE brain (optional)
         self.hope_brain = None
@@ -585,19 +593,59 @@ class BrainService:
         )
         print("✅ Mode manager ready")
         
-        # Initialize HOPE brain (MANDATORY)
+        # Initialize HOPE brain (MANDATORY with resource awareness)
         print("🧠 Initializing HOPE brain...")
         try:
             from continuonbrain.hope_impl.config import HOPEConfig
             from continuonbrain.hope_impl.brain import HOPEBrain
+            from continuonbrain.hope_impl.pi5_optimizations import Pi5MemoryManager
             
-            config = HOPEConfig.pi5_optimized()
+            # Check available memory
+            resource_status = self.resource_monitor.check_resources()
+            available_mb = resource_status.available_memory_mb
+            
+            print(f"  Available memory: {available_mb}MB")
+            
+            # Select config based on available memory
+            if available_mb < 3000:
+                # Low memory - use Pi5 optimized config
+                config = HOPEConfig.pi5_optimized()
+                print("  Using Pi5-optimized config (low memory mode)")
+            elif available_mb < 5000:
+                # Medium memory - use development config
+                config = HOPEConfig.development()
+                print("  Using development config (medium memory mode)")
+            else:
+                # High memory - use default config
+                config = HOPEConfig()
+                print("  Using default config (high memory mode)")
+            
+            # Check if safe to allocate
+            estimated_brain_mb = 2000  # Conservative estimate
+            if not self.resource_monitor.is_safe_to_allocate(estimated_brain_mb):
+                logger.warning(f"Memory constrained: {available_mb}MB available, need {estimated_brain_mb}MB + reserve")
+                # Force Pi5 optimized config
+                config = HOPEConfig.pi5_optimized()
+                print("  ⚠️  Forcing Pi5-optimized config due to memory constraints")
+            
             self.hope_brain = HOPEBrain(
                 config=config,
                 obs_dim=10,  # Default dimensions
                 action_dim=4,
                 output_dim=4,
             )
+            
+            # Initialize memory manager for HOPE brain
+            self.brain_memory_manager = Pi5MemoryManager(max_memory_mb=self.resource_monitor.limits.max_brain_mb)
+            
+            # Register cleanup callback
+            def cleanup_brain_memory():
+                logger.info("Resource cleanup triggered for HOPE brain")
+                if self.hope_brain:
+                    self.hope_brain.reset()
+                    self.brain_memory_manager.cleanup_if_needed(self.hope_brain)
+            
+            self.resource_monitor.register_cleanup_callback(ResourceLevel.CRITICAL, cleanup_brain_memory)
             
             # Register with monitoring API
             try:
@@ -607,8 +655,10 @@ class BrainService:
             except ImportError:
                 print("  ⚠ Web monitoring not available")
             
+            # Report memory usage
+            memory_usage = self.hope_brain.get_memory_usage()
             param_count = sum(p.numel() for p in self.hope_brain.parameters())
-            print(f"  ✓ HOPE brain ready ({param_count:,} parameters)")
+            print(f"  ✓ HOPE brain ready ({param_count:,} parameters, {memory_usage['total']:.1f}MB)")
             
         except ImportError as e:
             error_msg = (
@@ -627,7 +677,7 @@ class BrainService:
                 "  Please check:\n"
                 "    - PyTorch is installed correctly\n"
                 "    - hope_impl dependencies are satisfied\n"
-                "    - System has sufficient memory"
+                "    - System has sufficient memory ({resource_status.available_memory_mb}MB available)"
             )
             print(f"  ❌ {error_msg}")
             raise RuntimeError(error_msg) from e
