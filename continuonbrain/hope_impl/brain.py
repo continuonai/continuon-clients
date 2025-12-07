@@ -131,7 +131,11 @@ class HOPEBrain(nn.Module):
         self.adaptive_lr = AdaptiveLearningRate()
         
         # 8. Stability monitor
-        self.stability_monitor = StabilityMonitor()
+        self.stability_monitor = StabilityMonitor(
+            lyapunov_threshold=config.lyapunov_threshold,
+            dissipation_floor=config.dissipation_floor,
+            gradient_clip=config.gradient_clip,
+        )
         
         # Internal state
         self._state: Optional[FullState] = None

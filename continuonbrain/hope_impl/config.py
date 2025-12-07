@@ -68,6 +68,8 @@ class HOPEConfig:
     # Stability
     use_layer_norm: bool = True
     lyapunov_weight: float = 1e-3
+    lyapunov_threshold: float = 1e6  # Absolute energy threshold before flagging instability
+    dissipation_floor: float = 0.0  # Minimum acceptable dissipation; negative implies energy increasing
     
     # Autonomous Learning
     enable_autonomous_learning: bool = True

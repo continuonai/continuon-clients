@@ -14,7 +14,7 @@ Used for:
 
 import torch
 import torch.nn as nn
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from .state import FastState, CMSMemory, Parameters, FullState
 
@@ -152,12 +152,24 @@ class StabilityMonitor:
         - State norms
     """
     
-    def __init__(self, window_size: int = 100):
+    def __init__(
+        self,
+        window_size: int = 100,
+        lyapunov_threshold: float = 1e6,
+        dissipation_floor: float = 0.0,
+        gradient_clip: Optional[float] = None,
+    ):
         """
         Args:
             window_size: Number of steps to track
+            lyapunov_threshold: Maximum allowed Lyapunov energy before flagging instability
+            dissipation_floor: Minimum acceptable dissipation rate (negative means energy increasing)
+            gradient_clip: Gradient norm ceiling used to flag spikes
         """
         self.window_size = window_size
+        self.lyapunov_threshold = lyapunov_threshold
+        self.dissipation_floor = dissipation_floor
+        self.gradient_clip = gradient_clip
         self.reset()
     
     def reset(self):
@@ -225,27 +237,39 @@ class StabilityMonitor:
         
         return metrics
     
-    def is_stable(self, threshold: float = 1e6) -> bool:
+    def is_stable(self, threshold: Optional[float] = None) -> bool:
         """
         Check if system appears stable.
-        
+
         Args:
-            threshold: Maximum allowed Lyapunov energy
-        
+            threshold: Optional override for Lyapunov energy threshold
+
         Returns:
             True if stable
         """
         if not self.lyapunov_history:
             return True
-        
+
+        lyapunov_threshold = threshold if threshold is not None else self.lyapunov_threshold
         current_V = self.lyapunov_history[-1]
-        
+
         # Check for explosion
-        if current_V > threshold:
+        if current_V > lyapunov_threshold:
             return False
-        
+
         # Check for NaN/Inf
         if not torch.isfinite(torch.tensor(current_V)):
             return False
-        
+
+        # Check dissipation (negative dissipation => energy increasing)
+        if len(self.lyapunov_history) >= 2:
+            dissipation_rate = -(self.lyapunov_history[-1] - self.lyapunov_history[-2])
+            if dissipation_rate < self.dissipation_floor:
+                return False
+
+        # Check gradient spikes
+        if self.gradient_clip is not None and self.gradient_norms:
+            if self.gradient_norms[-1] > self.gradient_clip:
+                return False
+
         return True

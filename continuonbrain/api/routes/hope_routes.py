@@ -221,7 +221,8 @@ def get_stability_analysis() -> Dict[str, Any]:
     try:
         metrics = _hope_brain.stability_monitor.get_metrics()
         state = _hope_brain.get_state()
-        
+        config = _hope_brain.config
+
         from continuonbrain.hope_impl.stability import lyapunov_total
         import torch
         
@@ -237,8 +238,12 @@ def get_stability_analysis() -> Dict[str, Any]:
         
         # Stability flags
         is_stable = _hope_brain.stability_monitor.is_stable()
-        gradient_clip = getattr(_hope_brain.config, "gradient_clip", None)
+        gradient_clip = getattr(config, "gradient_clip", None)
         gradient_spike = gradient_clip is not None and metrics.get("gradient_norm", 0.0) > gradient_clip
+        lyapunov_threshold = getattr(config, "lyapunov_threshold", None)
+        dissipation_floor = getattr(config, "dissipation_floor", 0.0)
+        dissipation_rate = metrics.get("dissipation_rate", 0.0)
+        dissipation_breach = dissipation_rate < dissipation_floor if dissipation_rate is not None else False
 
         return {
             "is_stable": is_stable,
@@ -246,7 +251,10 @@ def get_stability_analysis() -> Dict[str, Any]:
             "has_inf": has_inf,
             "lyapunov_current": metrics.get("lyapunov_current", 0.0),
             "lyapunov_mean": metrics.get("lyapunov_mean", 0.0),
-            "dissipation_rate": metrics.get("dissipation_rate", 0.0),
+            "lyapunov_threshold": lyapunov_threshold,
+            "dissipation_rate": dissipation_rate,
+            "dissipation_floor": dissipation_floor,
+            "dissipation_breach": dissipation_breach,
             "state_norm": metrics.get("state_norm", 0.0),
             "gradient_norm": metrics.get("gradient_norm", 0.0),
             "gradient_spike": gradient_spike,
@@ -279,6 +287,11 @@ def get_hope_config() -> Dict[str, Any]:
             "use_quantization": config.use_quantization,
             "learning_rate": config.learning_rate,
             "eta_init": config.eta_init,
+            "gradient_clip": config.gradient_clip,
+            "lyapunov_threshold": config.lyapunov_threshold,
+            "dissipation_floor": config.dissipation_floor,
+            "use_layer_norm": config.use_layer_norm,
+            "lyapunov_weight": config.lyapunov_weight,
         }
         
     except Exception as e:
