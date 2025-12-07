@@ -225,16 +225,41 @@ def get_stability_analysis() -> Dict[str, Any]:
         from continuonbrain.hope_impl.stability import lyapunov_total
         import torch
         
-        # Check for numerical issues
+        # Check for numerical issues across fast state, CMS levels, and parameter tensors
         has_nan = False
         has_inf = False
-        
-        for tensor in [state.fast_state.s, state.fast_state.w, state.fast_state.p]:
-            if torch.isnan(tensor).any():
-                has_nan = True
-            if torch.isinf(tensor).any():
-                has_inf = True
-        
+        component_checks = []
+
+        def record_component(name: str, tensor) -> None:
+            nonlocal has_nan, has_inf
+            component_has_nan = torch.isnan(tensor).any().item()
+            component_has_inf = torch.isinf(tensor).any().item()
+
+            has_nan = has_nan or component_has_nan
+            has_inf = has_inf or component_has_inf
+
+            component_checks.append(
+                {
+                    "component": name,
+                    "has_nan": bool(component_has_nan),
+                    "has_inf": bool(component_has_inf),
+                }
+            )
+
+        # Fast-state components
+        record_component("fast_state.s", state.fast_state.s)
+        record_component("fast_state.w", state.fast_state.w)
+        record_component("fast_state.p", state.fast_state.p)
+
+        # CMS memory levels (both memory and key matrices)
+        for level_idx, level in enumerate(state.cms.levels):
+            record_component(f"cms.levels[{level_idx}].M", level.M)
+            record_component(f"cms.levels[{level_idx}].K", level.K)
+
+        # Adaptable parameter tensors
+        for name, tensor in state.params.theta.items():
+            record_component(f"params.theta[{name}]", tensor)
+
         # Stability flags
         is_stable = _hope_brain.stability_monitor.is_stable()
         gradient_clip = getattr(_hope_brain.config, "gradient_clip", None)
@@ -251,6 +276,7 @@ def get_stability_analysis() -> Dict[str, Any]:
             "gradient_norm": metrics.get("gradient_norm", 0.0),
             "gradient_spike": gradient_spike,
             "steps": metrics.get("steps", 0),
+            "component_checks": component_checks,
         }
         
     except Exception as e:
