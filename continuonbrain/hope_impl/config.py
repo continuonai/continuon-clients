@@ -127,8 +127,7 @@ class HOPEConfig:
             cms_decays=[0.05, 0.03, 0.01],  # Slower decay for better retention
             
             # Enable quantization for deployment
-            use_quantization=True,
-            quantization_dtype="int8",
+            quantization="int8",
             device="cpu",
             dtype="float32",
             
@@ -159,6 +158,6 @@ class HOPEConfig:
             cms_dims=[32, 64],
             cms_decays=[0.1, 0.05],
             
-            use_quantization=False,
+            quantization="none",
             device="cpu",
         )

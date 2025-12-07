@@ -693,8 +693,8 @@ DASHBOARD_HTML = f"""
                 </label>
             </div>
             <style>
-                input:checked + .slider { background-color: var(--accent-color); }
-                input:checked + .slider .slider-knob { transform: translateX(26px); }
+                input:checked + .slider {{ background-color: var(--accent-color); }}
+                input:checked + .slider .slider-knob {{ transform: translateX(26px); }}
             </style>
         </div>
     </div>
