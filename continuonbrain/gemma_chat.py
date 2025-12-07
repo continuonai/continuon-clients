@@ -23,20 +23,25 @@ class GemmaChat:
     DEFAULT_MODEL_ID = "google/gemma-3-270m-it"
     # DEFAULT_MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # Backup
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
         """
         Initialize Gemma chat interface.
         
         Args:
             model_name: HuggingFace model identifier
             device: 'cpu', 'cuda', or 'mps' for Apple Silicon
-            api_base: Base URL for OpenAI-compatible API (e.g., vLLM)
+        api_base: Base URL for OpenAI-compatible API (e.g., vLLM)
             api_key: API key for OpenAI-compatible API
+            accelerator_device: Optional detected AI accelerator (e.g., 'hailo8l', 'tpu')
         """
         self.model_name = model_name
         self.device = device
         self.api_base = api_base
         self.api_key = api_key or "EMPTY"  # Default for local vLLM/llama.cpp
+        
+        self.accelerator_device = accelerator_device
+        if self.accelerator_device:
+            logger.info(f"🚀 Initializing GemmaChat with accelerator: {self.accelerator_device}")
         
         self.model = None
         self.tokenizer = None
@@ -227,6 +232,7 @@ class GemmaChat:
         return {
             "model_name": self.model_name,
             "device": self.device,
+            "accelerator": self.accelerator_device,
             "loaded": self.model is not None,
             "history_length": len(self.chat_history) // 2,  # Number of turns
             "has_token": self.hf_token is not None
@@ -237,9 +243,13 @@ class GemmaChat:
 class MockGemmaChat:
     """Mock Gemma chat for testing without model."""
     
-    def __init__(self, model_name: str = "mock", device: str = "cpu"):
+    
+    def __init__(self, model_name: str = "mock", device: str = "cpu", accelerator_device: str = None):
         self.model_name = model_name
         self.device = device
+        self.min_history = []
+        if accelerator_device:
+             logger.info(f"🚀 MockGemmaChat using mock accelerator: {accelerator_device}")
         self.chat_history = []
         logger.info("Using mock Gemma chat (transformers not available)")
     

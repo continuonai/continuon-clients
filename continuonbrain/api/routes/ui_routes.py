@@ -71,6 +71,27 @@ COMMON_CSS = """
     /* System Status Footer in Sidebar */
     .sidebar-footer { margin-top: auto; padding: 20px; font-size: 0.8em; color: var(--text-dim); border-top: 1px solid var(--border-color); }
     .status-dot { width: 8px; height: 8px; background: var(--accent-color); border-radius: 50%; display: inline-block; margin-right: 6px; box-shadow: 0 0 8px var(--accent-color); }
+
+    /* Dropdown Menu */
+    .dropdown { position: relative; display: inline-block; }
+    .dropdown-content { display: none; position: absolute; right: 0; top: 100%; background-color: var(--card-bg); min-width: 200px; box-shadow: 0 8px 16px rgba(0,0,0,0.4); z-index: 100; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; margin-top: 8px; }
+    .dropdown-content a { color: var(--text-color); padding: 12px 16px; text-decoration: none; display: block; font-size: 0.9em; cursor: pointer; transition: background 0.2s; border-left: 3px solid transparent; }
+    .dropdown-content a:hover { background-color: #333; border-left-color: var(--accent-color); }
+    .shown { display: block; }
+    
+    /* Modal */
+    .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); backdrop-filter: blur(2px); }
+    .modal-content { background-color: var(--card-bg); margin: 10% auto; padding: 0; border: 1px solid var(--border-color); width: 80%; max-width: 600px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .modal-header { padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h2 { margin: 0; font-size: 1.2em; color: var(--accent-color); }
+    .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
+    .close:hover, .close:focus { color: #fff; text-decoration: none; cursor: pointer; }
+    .modal-body { padding: 20px; }
+    .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-dim); font-weight: 500; }
+    .info-value { color: #fff; font-family: var(--font-mono); font-size: 0.9em; }
+    .modal-footer { padding: 15px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; }
 """
 
 HOME_HTML = f"""
@@ -278,7 +299,186 @@ HOME_HTML = f"""
             
             // Restore panel states
             restorePanelStates();
+            
+            // Fetch Agent Info
+            fetchAgentInfo();
+            
+            // Close menu when clicking outside
+            window.onclick = function(event) {{
+                if (!event.target.matches('.panel-toggle') && !event.target.matches('#menu-btn')) {{
+                    var dropdowns = document.getElementsByClassName("dropdown-content");
+                    for (var i = 0; i < dropdowns.length; i++) {{
+                        var openDropdown = dropdowns[i];
+                        if (openDropdown.classList.contains('shown')) {{
+                            openDropdown.classList.remove('shown');
+                        }}
+                    }}
+                }}
+                
+                // Close modal
+                if (event.target == document.getElementById('details-modal')) {{
+                    closeModal();
+                }}
+            }}
         }});
+        
+        async function fetchAgentInfo() {{
+            try {{
+                const res = await fetch('/api/agent/info');
+                const data = await res.json();
+                
+                // Update Header Title
+                if (data.chat_agent && data.chat_agent.model_name) {{
+                    const shortName = data.chat_agent.model_name.split('/').pop();
+                    document.getElementById('agent-title').innerHTML = `Agent Manager <span style="font-weight: 400; font-size: 0.8em; opacity: 0.7;">(${{shortName}})</span>`;
+                }}
+                
+                // Store data for modal
+                window.agentInfo = data;
+                
+                // Update Learning Toggle Text
+                const learningToggle = document.getElementById('learning-toggle');
+                if (data.learning_agent && data.learning_agent.enabled) {{
+                    const isRunning = data.learning_agent.running;
+                    learningToggle.innerText = isRunning ? "⏸ Pause Learning" : "▶ Resume Learning";
+                    learningToggle.onclick = isRunning ? pauseLearning : resumeLearning;
+                }} else {{
+                    learningToggle.innerText = "🚫 Learning Unavailable";
+                    learningToggle.style.opacity = "0.5";
+                    learningToggle.onclick = null;
+                }}
+                
+            }} catch(e) {{ console.error("Failed to fetch agent info", e); }}
+        }}
+        
+        function toggleMenu() {{
+            document.getElementById("dropdown-menu").classList.toggle("shown");
+        }}
+        
+        function showAgentDetails() {{
+            const modal = document.getElementById('details-modal');
+            modal.style.display = "block";
+            toggleMenu(); // Close menu
+            
+            const data = window.agentInfo;
+            if (!data) return;
+            
+            // Populate Chat Info
+            const chatDiv = document.getElementById('chat-agent-info');
+            chatDiv.innerHTML = `
+                <div class="info-row"><span class="info-label">Model Name</span><span class="info-value">${{data.chat_agent.model_name || 'Unknown'}}</span></div>
+                <div class="info-row"><span class="info-label">Device</span><span class="info-value">${{data.chat_agent.device || 'Unknown'}}</span></div>
+                <div class="info-row"><span class="info-label">Context Length</span><span class="info-value">${{(data.chat_agent.history_length || 0) * 2}} turns</span></div>
+                <div class="info-row"><span class="info-label">HF Token</span><span class="info-value">${{data.chat_agent.has_token ? '✅ Present' : '❌ Missing'}}</span></div>
+            `;
+            
+            // Populate Learning Info
+            const learnDiv = document.getElementById('learning-agent-info');
+            if (data.learning_agent.enabled) {{
+                 const l = data.learning_agent;
+                 let stats = '';
+                 if (l.total_steps) stats += `<div class="info-row"><span class="info-label">Total Steps</span><span class="info-value">${{l.total_steps}}</span></div>`;
+                 if (l.total_episodes) stats += `<div class="info-row"><span class="info-label">Episodes</span><span class="info-value">${{l.total_episodes}}</span></div>`;
+                 if (l.curiosity) stats += `<div class="info-row"><span class="info-label">Curiosity</span><span class="info-value">${{(l.curiosity * 100).toFixed(1)}}%</span></div>`;
+                 
+                 learnDiv.innerHTML = `
+                    <div class="info-row"><span class="info-label">Status</span><span class="info-value" style="color: ${{l.running ? '#00ff88' : '#ffaa00'}}">${{l.running ? 'Running' : 'Paused'}}</span></div>
+                    ${{stats}}
+                 `;
+            }} else {{
+                learnDiv.innerHTML = '<div style="color: var(--text-dim); padding: 10px;">Autonomous learning is disabled or module not found.</div>';
+            }}
+        }}
+        
+        function closeModal() {{
+            document.getElementById('details-modal').style.display = "none";
+        }}
+        
+        async function clearHistory() {{
+            if(!confirm("Are you sure you want to clear the chat history?")) return;
+            try {{
+                await fetch('/api/chat/history/clear', {{ method: 'POST' }});
+                document.getElementById('chatMessages').innerHTML = `
+                    <div class="chat-message agent">
+                        <div class="sender">Agent Manager</div>
+                        <div class="bubble">Memory cleared. Ready for new task.</div>
+                    </div>
+                `;
+                chatHistory = [];
+                fetchAgentInfo(); // Refresh context length
+            }} catch(e) {{ alert("Failed to clear history"); }}
+            toggleMenu();
+        }}
+        
+        async function pauseLearning() {{
+            await fetch('/api/learning/pause', {{ method: 'POST' }});
+            fetchAgentInfo(); // Refresh status
+            toggleMenu();
+        }}
+        
+        async function resumeLearning() {{
+            await fetch('/api/learning/resume', {{ method: 'POST' }});
+            fetchAgentInfo(); // Refresh status
+            toggleMenu();
+        }}
+
+        async function saveMemory() {{
+            if(!confirm("Save current session as RLDS episode?")) return;
+            try {{
+                const res = await fetch('/api/memory/save', {{ method: 'POST' }});
+                const data = await res.json();
+                alert(data.message || "Memory saved!");
+            }} catch(e) {{ alert("Failed to save memory: " + e); }}
+            toggleMenu();
+        }}
+
+    </script>
+    <script>
+        // --- Web Audio API for Natural UX ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(freq, type, duration) {{
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }}
+
+        function playStartListening() {{
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playTone(880, 'sine', 0.1); // High beep
+             setTimeout(() => playTone(1760, 'sine', 0.1), 150);
+        }}
+
+        function playStopListening() {{
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playTone(1760, 'sine', 0.1); 
+            setTimeout(() => playTone(880, 'sine', 0.1), 150);
+        }}
+
+        let isListening = false;
+        function toggleVoice() {{
+            const btn = document.getElementById('micBtn');
+            const placeholder = document.getElementById('chatInput');
+            
+            isListening = !isListening;
+            
+            if (isListening) {{
+                btn.classList.add('listening');
+                playStartListening();
+                placeholder.placeholder = "Listening...";
+                // TODO: Wire up actual STT logic here
+            }} else {{
+                btn.classList.remove('listening');
+                playStopListening();
+                placeholder.placeholder = "Ask about tasks, control the robot, or chat with sub-agents...";
+            }}
+        }}
     </script>
 </head>
 <body>
@@ -345,7 +545,19 @@ HOME_HTML = f"""
         
         <div id="chat-sidebar">
             <div class="chat-header">
-                <span>🤖</span> Agent Manager
+                <span>🤖</span> <span id="agent-title">Agent Manager</span>
+                <div style="flex: 1;"></div>
+                <!-- Menu Button -->
+                <div class="dropdown">
+                    <button id="menu-btn" class="panel-toggle" style="position: static; width: 32px; height: 32px; font-size: 1em;" onclick="toggleMenu()">⋮</button>
+                    <div id="dropdown-menu" class="dropdown-content">
+                        <a onclick="showAgentDetails()">📊 Agent Details</a>
+                        <a onclick="toggleLearning()" id="learning-toggle">⏸ Pause Learning</a>
+                        <a onclick="saveMemory()">💾 Save Memory (RLDS)</a>
+                        <a onclick="clearHistory()" style="color: #ff5555;">🗑 Clear History</a>
+                    </div>
+                </div>
+                
                 <!-- Agent Status Bar -->
                 <div id="agent-status-bar" style="margin-top: 8px; padding: 6px 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 0.8em; display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -370,8 +582,26 @@ HOME_HTML = f"""
                 <div id="intervention-options" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
             </div>
             <div class="chat-input-area">
+                <button id="micBtn" onclick="toggleVoice()" title="Voice Control">🎙️</button>
                 <textarea id="chatInput" placeholder="Ask about tasks, control the robot, or chat with sub-agents..."></textarea>
                 <button id="sendBtn" onclick="sendMessage()">Send</button>
+            </div>
+            
+            <!-- Agent Details Modal -->
+            <div id="details-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Agent System Status</h2>
+                        <span class="close" onclick="closeModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <h3 style="margin-top: 0; font-size: 0.9em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px;">Chat Agent (Active)</h3>
+                        <div id="chat-agent-info">Loading...</div>
+                        
+                        <h3 style="margin-top: 20px; font-size: 0.9em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px;">Learning Sub-Agent (HOPE)</h3>
+                        <div id="learning-agent-info">Loading...</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -506,6 +736,27 @@ CHAT_HTML = f"""
         .status-pill {{ position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: #222; padding: 6px 16px; border-radius: 20px; font-size: 0.8em; color: #888; border: 1px solid #333; opacity: 0; transition: opacity 0.3s; }}
         .status-pill.visible {{ opacity: 1; }}
 
+        /* Chat Input Area - Natural UX */
+        .chat-input-area {{ display: flex; padding: 15px; background-color: var(--card-bg); border-top: 1px solid var(--border-color); align-items: center; gap: 10px; }}
+        textarea {{ flex: 1; height: 50px; background-color: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff; padding: 12px; border-radius: 20px; resize: none; font-family: inherit; font-size: 1em; outline: none; transition: background 0.2s; }}
+        textarea:focus {{ background-color: rgba(255,255,255,0.1); border-color: var(--accent-color); }}
+        
+        /* Mic Button */
+        #micBtn {{ width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-dim); font-size: 1.5em; cursor: pointer; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; margin-right: 0; }}
+        #micBtn:hover {{ background: rgba(255,255,255,0.1); color: #fff; transform: scale(1.05); }}
+        
+        /* Listening State Animation */
+        .listening {{ background-color: rgba(255, 69, 58, 0.2) !important; color: #ff453a !important; border-color: #ff453a !important; animation: pulse 1.5s infinite; }}
+        
+        @keyframes pulse {{
+            0% {{ box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); transform: scale(1); }}
+            70% {{ box-shadow: 0 0 0 15px rgba(255, 69, 58, 0); transform: scale(1.1); }}
+            100% {{ box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); transform: scale(1); }}
+        }}
+        
+        /* Hide Send Button (Secondary) */
+        #sendBtn {{ display: none; }}
+        
         /* Tool Usage Styling */
         .tool-call {{ font-family: var(--font-mono); font-size: 0.85em; margin-top: 8px; background: #000; padding: 10px; border-radius: 6px; border-left: 3px solid #ff0055; }}
 
@@ -536,17 +787,16 @@ CHAT_HTML = f"""
         </div>
     </div>
     
-    <div id="input-area">
-        <!-- Status pill removed in favor of inline bubbles -->
-        <div class="input-container">
-            <textarea id="msg-input" placeholder="Message the Brain... (Cmd+Enter to send)"></textarea>
-            <button id="send">➤</button>
-        </div>
+    <div class="chat-input-area">
+        <button id="micBtn" onclick="toggleVoice()" title="Voice Control">🎙️</button>
+        <textarea id="msg-input" placeholder="Message the Brain... (Cmd+Enter to send)"></textarea>
+        <!-- Implicit send button for JS reference, hidden via CSS -->
+        <button id="sendBtn">Send</button>
     </div>
 
     <script>
         const input = document.getElementById('msg-input');
-        const sendBtn = document.getElementById('send');
+        const sendBtn = document.getElementById('sendBtn');
         const history = document.getElementById('chat-history');
         
         function appendMessage(role, text) {{
@@ -633,6 +883,51 @@ CHAT_HTML = f"""
                 sendMessage();
             }}
         }};
+        
+        // --- Natural UX Audio/Voice Logic ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(freq, type, duration) {{
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }}
+
+        function playStartListening() {{
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playTone(880, 'sine', 0.1); 
+             setTimeout(() => playTone(1760, 'sine', 0.1), 150);
+        }}
+
+        function playStopListening() {{
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playTone(1760, 'sine', 0.1); 
+            setTimeout(() => playTone(880, 'sine', 0.1), 150);
+        }}
+
+        let isListening = false;
+        function toggleVoice() {{
+            const btn = document.getElementById('micBtn');
+            const placeholder = document.getElementById('msg-input');
+            
+            isListening = !isListening;
+            
+            if (isListening) {{
+                btn.classList.add('listening');
+                playStartListening();
+                placeholder.placeholder = "Listening...";
+            }} else {{
+                btn.classList.remove('listening');
+                playStopListening();
+                placeholder.placeholder = "Message the Brain...";
+            }}
+        }}
     </script>
 </body>
 </html>
@@ -657,10 +952,26 @@ SETTINGS_HTML = f"""
         input[type="text"], select {{ width: 100%; max-width: 400px; padding: 12px; background: #111; border: 1px solid var(--border-color); color: #fff; border-radius: 6px; font-family: var(--font-main); }}
         input[type="checkbox"] {{ transform: scale(1.2); margin-right: 10px; }}
         
-        .btn {{ padding: 10px 20px; background: var(--card-bg); border: 1px solid var(--border-color); color: #fff; border-radius: 6px; cursor: pointer; transition: all 0.2s; }}
-        .btn:hover {{ background: #333; }}
-        .btn.primary {{ background: var(--accent-color); color: #000; border: none; font-weight: bold; }}
-        .btn.primary:hover {{ opacity: 0.9; }}
+        /* Chat Input Area - Natural UX */
+    .chat-input-area {{ display: flex; padding: 15px; background-color: var(--card-bg); border-top: 1px solid var(--border-color); align-items: center; gap: 10px; }}
+    textarea {{ flex: 1; height: 50px; background-color: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: #fff; padding: 12px; border-radius: 20px; resize: none; font-family: inherit; font-size: 1em; outline: none; transition: background 0.2s; }}
+    textarea:focus {{ background-color: rgba(255,255,255,0.1); border-color: var(--accent-color); }}
+    
+    /* Mic Button */
+    #micBtn {{ width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-dim); font-size: 1.5em; cursor: pointer; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; margin-right: 0; }}
+    #micBtn:hover {{ background: rgba(255,255,255,0.1); color: #fff; transform: scale(1.05); }}
+    
+    /* Listening State Animation */
+    .listening {{ background-color: rgba(255, 69, 58, 0.2) !important; color: #ff453a !important; border-color: #ff453a !important; animation: pulse 1.5s infinite; }}
+    
+    @keyframes pulse {{
+        0% {{ box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); transform: scale(1); }}
+        70% {{ box-shadow: 0 0 0 15px rgba(255, 69, 58, 0); transform: scale(1.1); }}
+        100% {{ box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); transform: scale(1); }}
+    }}
+    
+    /* Hide Send Button (Secondary) */
+    #sendBtn {{ display: none; }}
     </style>
 </head>
 <body>

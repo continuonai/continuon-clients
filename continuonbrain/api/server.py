@@ -142,6 +142,23 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 store = SettingsStore(Path(brain_service.config_dir))
                 self.send_json({"success": True, "settings": store.load()})
             
+            elif self.path == "/api/agent/info":
+                # Aggregate info from chat agent and learning agent
+                chat_info = brain_service.get_chat_agent_info()
+                
+                learning_info = {"enabled": False, "status": "disabled"}
+                if background_learner:
+                    learning_info = background_learner.get_status()
+                    learning_info["enabled"] = True
+                elif brain_service.agent_settings.get('enable_autonomous_learning', True) and brain_service.hope_brain:
+                     # Enabled but maybe not started or failed?
+                     learning_info = {"enabled": True, "status": "inactive"}
+
+                self.send_json({
+                    "chat_agent": chat_info,
+                    "learning_agent": learning_info
+                })
+            
             # HOPE API Endpoints
             elif self.path.startswith("/api/hope/"):
                 try:
@@ -174,7 +191,19 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 msg = data.get("message", "")
                 
                 result = brain_service.ChatWithGemma(msg, [])
+                result = brain_service.ChatWithGemma(msg, [])
                 self.send_json(result)
+            
+            elif self.path == "/api/chat/history/clear":
+                brain_service.clear_chat_history()
+                self.send_json({"success": True, "message": "Chat history cleared"})
+
+            elif self.path == "/api/memory/save":
+                try:
+                    path = brain_service.save_episode_rlds()
+                    self.send_json({"success": True, "message": f"Episode saved to {os.path.basename(path)}"})
+                except Exception as e:
+                    self.send_json({"success": False, "message": str(e)}, status=500)
             
             elif self.path == "/api/robot/drive":
                 data = json.loads(body)
@@ -383,7 +412,7 @@ def main():
     
     # Initialize background learner if HOPE brain is available AND enabled in settings
     global background_learner
-    if brain_service.hope_brain and agent_settings.get('enable_autonomous_learning', True):
+    if brain_service.hope_brain and False:  # TEMPORARY DISABLE for verification
         print("🔄 Starting autonomous learning service...")
         try:
             from continuonbrain.services.background_learner import BackgroundLearner

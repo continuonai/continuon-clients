@@ -7,7 +7,7 @@ import sys
 import time
 import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, AsyncIterator
+from typing import Dict, List, Optional, AsyncIterator, Any
 import asyncio
 import json
 import logging
@@ -387,6 +387,66 @@ class BrainService:
             "status_updates": status_updates
         }
     
+    def get_chat_agent_info(self) -> Dict[str, Any]:
+        """Get information about the active chat agent."""
+        return self.gemma_chat.get_model_info()
+
+    def clear_chat_history(self) -> None:
+        """Clear the chat history."""
+        self.gemma_chat.reset_history()
+
+    def save_episode_rlds(self) -> str:
+        """
+        Save the current chat session as an RLDS-compatible episode.
+        
+        Saves to recordings/episodes/episode_{timestamp}.json
+        """
+        episodes_dir = Path(self.config_dir) / "recordings" / "episodes"
+        episodes_dir.mkdir(parents=True, exist_ok=True)
+        
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = episodes_dir / f"episode_{timestamp}.json"
+        
+        # Serialize history in a format compatible with RLDS builders
+        episode_data = {
+            "episode_id": f"ep_{timestamp}",
+            "agent_id": self.gemma_chat.model_name,
+            "timestamp": timestamp,
+            "steps": []
+        }
+        
+        # Convert chat history to steps (Observation -> Action pairs)
+        # This is a simplified mapping
+        history = self.gemma_chat.chat_history
+        # Skip system prompt
+        for i in range(1, len(history), 2):
+            if i + 1 < len(history):
+                user_msg = history[i] # Observation/Instruction
+                agent_msg = history[i+1] # Action/Response
+                
+                step = {
+                    "observation": {
+                        "instruction": user_msg["content"],
+                        "image": None # TODO: Add image if multimodal
+                    },
+                    "action": {
+                        "text": agent_msg["content"],
+                        "tool_calls": [] # tool calls could be parsed here
+                    },
+                    "reward": 0.0, # Placeholder
+                    "is_terminal": False
+                }
+                episode_data["steps"].append(step)
+                
+        if episode_data["steps"]:
+            episode_data["steps"][-1]["is_terminal"] = True
+            
+        with open(filename, "w") as f:
+            json.dump(episode_data, f, indent=2)
+            
+        logger.info(f"Saved RLDS episode to {filename}")
+        return str(filename)
+    
     def _calculate_confidence(self, response: str) -> float:
         """Calculate decision confidence based on response characteristics."""
         # Simple heuristic: longer, more detailed responses = higher confidence
@@ -550,6 +610,15 @@ class BrainService:
             if devices:
                 self.detected_config = detector.generate_config()
                 detector.print_summary()
+                
+                # Check for accelerator adoption
+                accelerator = self.detected_config.get("primary", {}).get("ai_accelerator")
+                if accelerator:
+                    print(f"🚀 Re-initializing Chat Agent with Accelerator: {accelerator}")
+                    self.gemma_chat = create_gemma_chat(
+                        use_mock=False,
+                        accelerator_device=accelerator
+                    )
             else:
                 print("⚠️  No hardware detected!")
 

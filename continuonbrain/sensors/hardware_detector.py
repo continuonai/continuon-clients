@@ -48,6 +48,7 @@ class HardwareDetector:
         self.detect_i2c_devices()
         self.detect_cameras()
         self.detect_hats()
+        self.detect_accelerators()
         self.detect_gpio_devices()
         self.detect_desktop_peripherals()
         
@@ -285,8 +286,8 @@ class HardwareDetector:
         except Exception as e:
             print(f"Warning: V4L2 camera detection failed: {e}")
     
-    def detect_hats(self):
-        """Detect Raspberry Pi HATs via device tree and PCIe."""
+    def detect_accelerators(self):
+        """Detect AI accelerators (Hailo, Coral, NPU)."""
         # Check for Hailo AI HAT+ (PCIe device)
         try:
             result = subprocess.run(['lspci'], capture_output=True, text=True)
@@ -298,17 +299,36 @@ class HardwareDetector:
                             name="Hailo AI HAT+",
                             vendor="Hailo",
                             interface="pcie",
-                            capabilities=["ai", "inference", "neural_network"],
+                            capabilities=["ai", "inference", "neural_network", "hailo8l"],
                             config={
                                 "model": "Hailo-8L",
                                 "tops": 13,
-                                "driver": "hailo",
+                                "driver": "hailo_platform",
                             }
                         ))
                         print(f"✅ Found: Hailo AI HAT+ (PCIe)")
         except Exception as e:
-            print(f"Warning: PCIe HAT detection failed: {e}")
-        
+            print(f"Warning: PCIe accelerator detection failed: {e}")
+            
+        # Check for Google Coral (USB)
+        # Already checked in scan_usb but let's be specific here if needed
+        # Often appears as "Global Unichip Corp."
+        try:
+             result = subprocess.run(['lsusb'], capture_output=True, text=True)
+             if "Google" in result.stdout or "Global Unichip" in result.stdout:
+                 self.detected_devices.append(HardwareDevice(
+                    device_type="ai_accelerator",
+                    name="Coral USB Accelerator",
+                    vendor="Google",
+                    interface="usb",
+                    capabilities=["ai", "inference", "tpu"],
+                    config={"driver": "pycoral"}
+                 ))
+                 print("✅ Found: Google Coral USB Accelerator")
+        except: pass
+
+    def detect_hats(self):
+        """Detect Raspberry Pi HATs via device tree."""
         # Check device tree for HAT EEPROM
         try:
             hat_vendor = Path("/proc/device-tree/hat/vendor")
