@@ -391,6 +391,7 @@ def main():
             
             background_learner = BackgroundLearner(
                 brain=brain_service.hope_brain,
+                resource_monitor=brain_service.resource_monitor,
                 config={
                     'steps_per_cycle': agent_settings.get('autonomous_learning_steps_per_cycle', 100),
                     'cycle_interval_sec': 1.0,

@@ -52,8 +52,8 @@ COMMON_CSS = """
     .icon { width: 20px; text-align: center; }
     
     /* Chat Sidebar */
-    .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 1.1em; display: flex; align-items: center; gap: 10px; }
-    .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 1.1em; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
     .chat-message { display: flex; flex-direction: column; gap: 8px; }
     .chat-message.user { align-items: flex-end; }
     .chat-message.agent { align-items: flex-start; }
@@ -61,7 +61,7 @@ COMMON_CSS = """
     .chat-message .bubble { max-width: 85%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; }
     .chat-message.user .bubble { background: var(--accent-color); color: #000; font-weight: 500; }
     .chat-message.agent .bubble { background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); }
-    .chat-input-area { padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; }
+    .chat-input-area { padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; flex-shrink: 0; z-index: 10; background: var(--sidebar-bg); }
     .chat-input-area textarea { flex: 1; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 12px; border-radius: 8px; font-family: var(--font-main); font-size: 0.95em; resize: none; min-height: 60px; }
     .chat-input-area textarea:focus { outline: none; border-color: var(--accent-color); }
     .chat-input-area button { padding: 12px 24px; background: var(--accent-color); color: #000; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
@@ -364,7 +364,7 @@ HOME_HTML = f"""
                 </div>
             </div>
             <!-- Intervention Prompt (hidden by default) -->
-            <div id="intervention-prompt" style="display: none; padding: 16px; background: rgba(255,165,0,0.1); border-top: 2px solid #ffa500; border-bottom: 1px solid var(--border-color);">
+            <div id="intervention-prompt" style="display: none; padding: 16px; background: rgba(255,165,0,0.1); border-top: 2px solid #ffa500; border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
                 <div style="font-weight: 600; margin-bottom: 8px; color: #ffa500;">🤷 I need your help deciding</div>
                 <div id="intervention-question" style="margin-bottom: 12px; font-size: 0.9em;"></div>
                 <div id="intervention-options" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>

@@ -238,6 +238,14 @@ class BrainService:
         status_lines = []
         status_lines.append(f"Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
+        # Inject System Instructions & Safety Rules (CRITICAL Fix)
+        if self.system_instructions:
+            status_lines.append("\n--- SYSTEM INSTRUCTIONS ---")
+            status_lines.extend(self.system_instructions.instructions)
+            status_lines.append("\n--- SAFETY PROTOCOL ---")
+            status_lines.extend(self.system_instructions.safety_protocol.rules)
+            status_lines.append("---------------------------\n")
+
         # Desktop Status
         ds = self.desktop.get_status()
         if ds["enabled"]:
@@ -246,13 +254,27 @@ class BrainService:
         if self.mode_manager:
             mode = self.mode_manager.current_mode.value
             status_lines.append(f"Mode: {mode}")
+            status_lines.append(f"Mode: {mode}")
             gates = self.mode_manager.get_gate_snapshot()
             status_lines.append(f"Motion Allowed: {gates.get('allow_motion', False)}")
+        
+        # Resource Monitor Check
+        if self.resource_monitor:
+            res_status = self.resource_monitor.check_resources()
+            status_lines.append(f"Resources: {res_status.level.value.upper()} ({res_status.available_memory_mb}MB free)")
+            
+            # Inject Sleep Mode Advice if constrained
+            if res_status.level in [ResourceLevel.WARNING, ResourceLevel.CRITICAL, ResourceLevel.EMERGENCY]:
+                status_lines.append("\n!!! CRITICAL RESOURCE NOTICE !!!")
+                status_lines.append("System resources are constrained. Learning capacity is limited.")
+                status_lines.append("ADVICE TO AGENT: Tell the user: 'My brain is tired. Please switch me to Sleep Mode so I can process my memories and learn properly.'")
+                status_lines.append("Do not attempt complex new tasks until rested.")
+                status_lines.append("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
         
         caps = self.capabilities
         status_lines.append(f"Vision: {'OK' if caps['has_vision'] else 'None'}")
         
-        system_context = " | ".join(status_lines)
+        system_context = "\n".join(status_lines)
         
         # Tool Instructions
         system_context += "\\nTOOLS: You can use tools by outputting: [TOOL: ACTION args]. Valid: [TOOL: SCREENSHOT], [TOOL: MOVE x y], [TOOL: TYPE text], [TOOL: CLICK]."

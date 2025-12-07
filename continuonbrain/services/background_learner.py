@@ -30,6 +30,7 @@ class BackgroundLearner:
         self,
         brain,
         config: Optional[dict] = None,
+        resource_monitor: Optional['ResourceMonitor'] = None,
     ):
         """
         Initialize background learner.
@@ -37,9 +38,11 @@ class BackgroundLearner:
         Args:
             brain: HOPE brain instance
             config: Configuration dict
+            resource_monitor: Monitor for system resources
         """
         self.brain = brain
         self.config = config or self._default_config()
+        self.resource_monitor = resource_monitor
         
         # Create curiosity environment
         self.env = CuriosityEnvironment(
@@ -149,6 +152,17 @@ class BackgroundLearner:
             if self.paused:
                 time.sleep(0.1)
                 continue
+            
+            # Check Resource Constraints
+            if self.resource_monitor:
+                res = self.resource_monitor.check_resources()
+                # Fix: Check .value for string comparison, or import ResourceLevel
+                if res.level.value in ["critical", "emergency"]:
+                    if self.total_steps % 100 == 0:  # Don't spam logs
+                        logger.warning(f"Resource constraint ({res.level.value}): Pausing autonomous learning.")
+                    time.sleep(5.0)  # Wait for resources to free up
+                    continue
+
             
             try:
                 # Learning cycle

@@ -61,9 +61,9 @@ class HOPEConfig:
     dtype: str = "float32"
     
     # Training
-    learning_rate: float = 1e-3  # Increased from 1e-4 for faster learning
-    eta_init: float = 0.01
-    gradient_clip: float = 5.0  # Relaxed from 1.0 to allow larger updates
+    learning_rate: float = 2e-3  # Increased for aggressive self-learning
+    eta_init: float = 0.05       # Stronger initial plasticity
+    gradient_clip: float = 10.0  # Allow larger updates for rapid adaptation
     
     # Stability
     use_layer_norm: bool = True
