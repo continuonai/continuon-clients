@@ -199,10 +199,17 @@ class BackgroundLearner:
                     action = y_t
                     
                     # Get prediction for next state (for surprise calculation)
-                    prediction = y_t.detach().numpy()[:self.env.obs_dim]
+                    prediction_np = y_t.detach().cpu().numpy()
+                    if prediction_np.ndim > 1:
+                        prediction_np = prediction_np.squeeze()
+                    prediction = prediction_np[:self.env.obs_dim]
                     
-                    # Environment step
-                    obs, reward, done = self.env.step(action.detach().numpy(), prediction)
+                    # Squeeze action if batched
+                    action_np = action.detach().cpu().numpy()
+                    if action_np.ndim > 1:
+                        action_np = action_np.squeeze()
+                        
+                    obs, reward, done = self.env.step(action_np, prediction)
                     
                     # Track episode rewards
                     self.current_episode_reward += reward

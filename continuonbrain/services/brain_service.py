@@ -807,7 +807,7 @@ class BrainService:
             # Report memory usage
             memory_usage = self.hope_brain.get_memory_usage()
             param_count = sum(p.numel() for p in self.hope_brain.parameters())
-            print(f"  ✓ HOPE brain ready ({param_count:,} parameters, {memory_usage['total']:.1f}MB)")
+            print(f"  ✓ HOPE brain ready ({param_count:,} parameters, {memory_usage['overall_total']:.1f}MB)")
             
             # Start autonomous learning if enabled in config
             if config.enable_autonomous_learning:

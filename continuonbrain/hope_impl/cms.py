@@ -9,6 +9,7 @@ Math:
 """
 
 import torch
+print("DEBUG: CMS MODULE LOADED FROM", __file__)
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, List, Optional
@@ -62,6 +63,9 @@ class CMSRead(nn.Module):
         self.num_levels = num_levels
         self.cms_dims = cms_dims
         self.temperature = temperature
+
+        import sys
+        print(f"DEBUG_CMS_INIT: d_s={d_s}, d_e={d_e}, d_k={d_k}, d_c={d_c}, num_levels={num_levels}, cms_dims={cms_dims}", file=sys.stderr)
         
         # Query network: q_t = Q_ψ(s_{t-1}, e_t)
         from .encoders import QueryNetwork
@@ -129,7 +133,7 @@ class CMSRead(nn.Module):
             c_level_proj = self.level_projections[ell](c_level)  # [d_c]
             level_contexts.append(c_level_proj)
         
-        # 3. Hierarchical mixing
+        
         # 3. Hierarchical mixing
         # Concatenate all level contexts
         # level_contexts: List of [B, d_c] tensors

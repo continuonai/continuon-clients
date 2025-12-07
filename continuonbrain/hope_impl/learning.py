@@ -144,9 +144,18 @@ class NestedLearning(nn.Module):
         # 3. Compute memory statistics
         mem_stats = self.compute_memory_stats(cms)  # [d_mem]
         
+        # Ensure mem_stats has batch dimension matching fast.s
+        if mem_stats.dim() == 1:
+            batch_size = fast.s.size(0)
+            mem_stats = mem_stats.unsqueeze(0).expand(batch_size, -1) # [B, d_mem]
+        
         # 4. Compute update direction
         direction_input = torch.cat([fast.s, mem_stats, r_t], dim=-1)
-        update_direction = self.update_direction_net(direction_input)  # [rank]
+        update_direction = self.update_direction_net(direction_input)  # [B, rank]
+        
+        # Average over batch if needed
+        if update_direction.dim() > 1:
+            update_direction = update_direction.mean(dim=0) # [rank]
         
         # 5. Apply update to brain model parameters (if provided)
         # This is a simplified gradient-free update mechanism

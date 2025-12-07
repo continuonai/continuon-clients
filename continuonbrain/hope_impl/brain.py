@@ -94,13 +94,22 @@ class HOPEColumn(nn.Module):
         w_vals = state_prev.fast_state.w
         p_vals = state_prev.fast_state.p
         
-        if x_obs.dim() == 2:
-            batch_size = x_obs.size(0)
-            if s_vals.dim() == 1:
-                s_vals = s_vals.unsqueeze(0).expand(batch_size, -1)
-                w_vals = w_vals.unsqueeze(0).expand(batch_size, -1)
-                p_vals = p_vals.unsqueeze(0).expand(batch_size, -1)
-        
+        if x_obs.dim() == 1: # Unbatched vector
+             x_obs = x_obs.unsqueeze(0)
+        elif x_obs.dim() == 3: # Unbatched image [C,H,W]
+             x_obs = x_obs.unsqueeze(0)
+            
+        if s_vals.dim() == 1:
+            s_vals = s_vals.unsqueeze(0)
+            w_vals = w_vals.unsqueeze(0)
+            p_vals = p_vals.unsqueeze(0)
+            
+        if a_prev.dim() == 1:
+            a_prev = a_prev.unsqueeze(0)
+            
+        if r_t.dim() < 2:
+            r_t = r_t.reshape(-1, 1)
+
         # 1. Encode
         e_t = self.encoder(x_obs, a_prev, r_t)
         
@@ -121,10 +130,13 @@ class HOPEColumn(nn.Module):
             if len(self.history_buffer) > self.history_window_size: self.history_buffer.pop(0)
             cms_next = self.cms_write(state_prev.cms, fast_next.s, e_t, level_contexts=None, history_buffer=self.history_buffer)
             
-        # 6. Learn
-        params_next = state_prev.params
+        # 6. Parameter Update (Nested Learning)
         if perform_param_update:
+            # DEBUG SHAPES
+            # print(f"DEBUG_LEARN: fast.s={fast_next.s.shape}, r_t={r_t.shape}", file=sys.stderr)
             params_next = self.nested_learning(state_prev.params, fast_next, cms_next, r_t, brain_module=self)
+        else:
+            params_next = state_prev.params
             
         state_next = FullState(fast_next, cms_next, params_next)
         self._state = state_next
