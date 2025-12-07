@@ -11,7 +11,7 @@ from hope_impl.brain import HOPEBrain
 
 # Import API routes for integration
 try:
-    from api.routes import hope_routes
+    from continuonbrain.api.routes import hope_routes
 except ImportError:
     print("Warning: API routes not available. Run from continuonbrain directory.")
     hope_routes = None

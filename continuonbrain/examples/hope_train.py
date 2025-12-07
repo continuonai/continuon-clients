@@ -75,7 +75,7 @@ class HOPETrainer:
         
         # Register with web monitoring
         try:
-            from api.routes import hope_routes
+            from continuonbrain.api.routes import hope_routes
             hope_routes.set_hope_brain(self.brain)
             print(f"  ✓ Registered with web monitoring")
         except ImportError:

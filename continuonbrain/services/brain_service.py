@@ -601,7 +601,7 @@ class BrainService:
             
             # Register with monitoring API
             try:
-                from api.routes import hope_routes
+                from continuonbrain.api.routes import hope_routes
                 hope_routes.set_hope_brain(self.hope_brain)
                 print("  ✓ Registered with web monitoring")
             except ImportError:

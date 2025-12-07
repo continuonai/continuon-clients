@@ -31,7 +31,7 @@ def get_current_metrics() -> Dict[str, Any]:
         state = _hope_brain.get_state()
         
         # Import stability functions
-        from hope_impl.stability import lyapunov_total, lyapunov_fast_state, lyapunov_memory, lyapunov_params
+        from continuonbrain.hope_impl.stability import lyapunov_total, lyapunov_fast_state, lyapunov_memory, lyapunov_params
         import torch
         
         # Compute Lyapunov energies
@@ -192,7 +192,7 @@ def get_stability_analysis() -> Dict[str, Any]:
         metrics = _hope_brain.stability_monitor.get_metrics()
         state = _hope_brain.get_state()
         
-        from hope_impl.stability import lyapunov_total
+        from continuonbrain.hope_impl.stability import lyapunov_total
         import torch
         
         # Check for numerical issues

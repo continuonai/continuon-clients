@@ -1,3 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+ENV/
+env/
+
+# ContinuonBrain Generated Files
+checkpoints/
+**/checkpoints/
+logs/
+**/logs/
+episodes/
+**/episodes/
+memories/
+**/memories/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Configuration (keep templates, ignore instances)
+*.local.json
+*_local.yaml
+.continuonbrain/
+
 # Gradle / Android builds
 /.gradle/
 **/build/
@@ -14,4 +52,29 @@
 # OS artifacts
 .DS_Store
 Thumbs.db
-**/__pycache__/
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+*.code-workspace
+.fleet/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data files (large datasets)
+*.h5
+*.hdf5
+*.npy
+*.npz
+
+# Media (if generated during testing)
+*.mp4
+*.avi
+*.mov
+*.webm
+screenshots/
+recordings/

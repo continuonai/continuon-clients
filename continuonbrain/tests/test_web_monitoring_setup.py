@@ -53,7 +53,8 @@ def test_web_monitoring_setup():
     # 2. Register with monitoring API
     print("\n[2/5] Registering brain with monitoring API...")
     try:
-        from api.routes import hope_routes
+        # Test setting brain
+        from continuonbrain.api.routes import hope_routes
         hope_routes.set_hope_brain(brain)
         print("   ✓ Brain registered with hope_routes")
     except ImportError as e:
