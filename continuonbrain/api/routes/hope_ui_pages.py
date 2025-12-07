@@ -486,13 +486,15 @@ HOPE_STABILITY_HTML = f"""
                 document.getElementById('lyapunov-current').textContent = data.lyapunov_current.toFixed(2);
                 document.getElementById('dissipation-rate').textContent = data.dissipation_rate.toFixed(4);
                 document.getElementById('gradient-norm').textContent = (data.gradient_norm || 0).toFixed(4);
-                
+
                 // Update alert
                 let alertHtml = '';
                 if (!data.is_stable) {{
                     alertHtml = '<div class="alert-box error"><h3>⚠️ Instability Detected</h3><p>System energy is not bounded. Check training parameters.</p></div>';
                 }} else if (data.has_nan || data.has_inf) {{
                     alertHtml = '<div class="alert-box error"><h3>⚠️ Numerical Issues</h3><p>NaN or Inf values detected in state. System may be unstable.</p></div>';
+                }} else if (data.gradient_spike) {{
+                    alertHtml = '<div class="alert-box warning"><h3>⚠️ Gradient Spike</h3><p>Recent gradients exceeded the configured clip threshold. Monitor learning rate and rewards.</p></div>';
                 }} else if (data.dissipation_rate < 0) {{
                     alertHtml = '<div class="alert-box warning"><h3>⚠️ Energy Increasing</h3><p>Lyapunov energy is growing. Monitor closely.</p></div>';
                 }} else {{
