@@ -12,6 +12,8 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
+from typing import Optional
+from urllib.parse import urlparse, parse_qs
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -33,6 +35,7 @@ from continuonbrain.services.brain_service import BrainService
 from continuonbrain.agent_identity import AgentIdentity
 from continuonbrain.api.routes import ui_routes
 from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
+from continuonbrain.system_events import SystemEventLogger
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
@@ -40,6 +43,7 @@ logger = logging.getLogger("BrainServer")
 # Global Service Instance
 brain_service: BrainService = None
 identity_service: AgentIdentity = None
+event_logger: Optional[SystemEventLogger] = None
 background_learner = None  # Autonomous learning service
 
 class BrainRequestHandler(BaseHTTPRequestHandler):
@@ -162,6 +166,23 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     self.send_json(brain_service.resource_monitor.get_status_summary())
                 else:
                     self.send_json({"error": "Resource monitor not available"}, status=503)
+
+            elif self.path.startswith("/api/system/events"):
+                if not event_logger:
+                    self.send_json({"events": []})
+                    return
+
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+
+                try:
+                    limit = int(params.get("limit", ["50"])[0])
+                except ValueError:
+                    limit = 50
+
+                limit = max(1, min(limit, 200))
+                events = event_logger.load_recent(limit=limit)
+                self.send_json({"events": events})
             
             elif self.path == "/api/agent/info":
                 # Aggregate info from chat agent and learning agent
@@ -548,7 +569,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
 
 def main():
-    global brain_service, identity_service
+    global brain_service, identity_service, event_logger
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--config-dir", default="/tmp/continuonbrain_demo")
@@ -560,6 +581,12 @@ def main():
     prefer_real = args.real_hardware and not args.mock_hardware
     
     print(f"🧠 Starting ContinuonBrain Server on port {args.port}...")
+    event_logger = SystemEventLogger(args.config_dir)
+    event_logger.log(
+        "server_start",
+        "Brain API server starting",
+        {"port": args.port, "config_dir": args.config_dir},
+    )
     
     # Initialize Services
     identity_service = AgentIdentity(config_dir=args.config_dir)
@@ -595,6 +622,17 @@ def main():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(brain_service.initialize())
+
+    if event_logger:
+        event_logger.log(
+            "server_ready",
+            "Brain API server ready",
+            {
+                "port": args.port,
+                "shell_type": shell_type,
+                "prefer_real_hardware": prefer_real,
+            },
+        )
     
     # Legacy BackgroundLearner initialization removed. 
     # It is now handled by BrainService in verify_learning_startup logic / production code.

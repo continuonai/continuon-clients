@@ -15,6 +15,7 @@ from continuonbrain.network_discovery import LANDiscoveryService
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.agent_identity import AgentIdentity
+from continuonbrain.system_events import SystemEventLogger
 
 
 class StartupMode(Enum):
@@ -47,6 +48,7 @@ class StartupManager:
         self.mode_manager: Optional[RobotModeManager] = None
         self.robot_api_process: Optional[subprocess.Popen] = None
         self.system_instructions: Optional[SystemInstructions] = None
+        self.event_logger = SystemEventLogger(config_dir=str(self.config_dir))
         
     def detect_startup_mode(self) -> StartupMode:
         """
@@ -87,6 +89,7 @@ class StartupManager:
             True if startup succeeded, False if critical issues
         """
         startup_mode = self.detect_startup_mode()
+        overall_status = HealthStatus.UNKNOWN
         
         print("=" * 60)
         print("🚀 ContinuonBrain Startup")
@@ -159,12 +162,36 @@ class StartupManager:
         
         # Record successful startup
         self._record_startup(startup_mode)
+
+        self._log_event(
+            "reboot",
+            f"Startup complete in {startup_mode.value} mode",
+            {
+                "startup_mode": startup_mode.value,
+                "health_status": overall_status.value,
+                "memory_percent": resource_status.memory_percent,
+                "available_memory_mb": resource_status.available_memory_mb,
+                "resource_level": resource_status.level.value,
+                "services_requested": self.start_services,
+            },
+        )
         
         # Start services if requested
         if self.start_services:
             print("🚀 Starting robot services...")
             print()
             self._start_services()
+            self._log_event(
+                "services_started",
+                "Robot services activated",
+                {
+                    "lan_discovery": bool(self.discovery_service),
+                    "robot_api_pid": getattr(self.robot_api_process, "pid", None),
+                    "mode": getattr(getattr(self, "mode_manager", None), "current_mode", None).value
+                    if getattr(getattr(self, "mode_manager", None), "current_mode", None)
+                    else None,
+                },
+            )
         
         return True
     
@@ -468,6 +495,13 @@ class StartupManager:
         with open(self.state_file, 'w') as f:
             json.dump(state, f, indent=2)
     
+    def _log_event(self, event_type: str, message: str, data: Optional[dict] = None) -> None:
+        """Persist a lifecycle event without breaking startup on errors."""
+        try:
+            self.event_logger.log(event_type, message, data or {})
+        except Exception as exc:  # Best-effort; never block startup
+            print(f"⚠️  Could not log event '{event_type}': {exc}")
+
     def _record_startup(self, mode: StartupMode):
         """Record successful startup."""
         state = {

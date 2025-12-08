@@ -874,12 +874,8 @@ DASHBOARD_HTML = f"""
     
     <div style="margin-top: 40px;">
         <h3>Activity Log</h3>
-        <div style="background: #111; border-radius: 8px; padding: 20px; font-family: var(--font-mono); font-size: 0.9em; color: #aaa; border: 1px solid var(--border-color);">
-            <div>[13:24:55] System booted successfully (Cold Boot)</div>
-            <div>[13:24:56] LAN Discovery service started</div>
-            <div>[13:24:57] Hardware detected: OAK-D Lite, PCA9685</div>
-            <div>[13:24:58] Brain Service initialized</div>
-            <div>[13:25:00] Sidecar Trainer process attached</div>
+        <div id="activity-log" style="background: #111; border-radius: 8px; padding: 20px; font-family: var(--font-mono); font-size: 0.9em; color: #aaa; border: 1px solid var(--border-color);">
+            Loading recent events...
         </div>
     </div>
 
@@ -929,41 +925,74 @@ DASHBOARD_HTML = f"""
                     // Update Hybrid Status
                     checkHybridStatus();
 
-                }}}} catch(e) {{ console.error("Stats update failed", e); }}
-            }}
-            
-            async function checkHybridStatus() {{
-                // Placeholder
-            }}
+                }
+            }} catch(e) {{ console.error("Stats update failed", e); }}
+        }}
 
-            async function toggleHybridMode() {{
-                const toggle = document.getElementById('hybrid-toggle');
-                const statusLabel = document.getElementById('hybrid-status');
-                const metaLabel = document.getElementById('hybrid-meta');
-                
-                // Optimistic UI update
-                const isEnabled = toggle.checked;
-                statusLabel.textContent = isEnabled ? "Hybrid" : "Standard";
-                metaLabel.textContent = isEnabled ? "4 Columns (Voting)" : "1 Column";
-                
-                try {{
-                    const res = await fetch('/api/brain/toggle_hybrid', {{ method: 'POST' }});
-                    const data = await res.json();
-                    if (data.status !== 'success') {{
-                        alert("Failed to toggle mode: " + data.message);
-                        toggle.checked = !isEnabled; // Revert
-                    }} else {{
-                        console.log(data.message);
-                    }}
-                }} catch(e) {{
-                    console.error("Toggle failed", e);
-                    alert("Network error toggling mode.");
-                    toggle.checked = !isEnabled; // Revert
+        async function refreshActivityLog() {{
+            const container = document.getElementById('activity-log');
+            if (!container) return;
+
+            try {{
+                const res = await fetch('/api/system/events?limit=30');
+                if (!res.ok) {{
+                    container.innerHTML = '<div>Event log unavailable</div>';
+                    return;
                 }}
+
+                const data = await res.json();
+                const events = data.events || [];
+
+                if (!events.length) {{
+                    container.innerHTML = '<div>No recent events</div>';
+                    return;
+                }}
+
+                container.innerHTML = events.map(evt => {{
+                    const ts = evt.iso_time || new Date((evt.timestamp || 0) * 1000).toLocaleTimeString();
+                    const type = (evt.event_type || 'event').toUpperCase();
+                    const message = evt.message || '';
+                    return `<div>[${{ts}}] ${{type}}: ${{message}}</div>`;
+                }}).join('');
+            }} catch (e) {{
+                container.innerHTML = '<div>Failed to load events</div>';
             }}
+        }}
             
-            setInterval(updateStats, 2000);
-            updateStats();
+        async function checkHybridStatus() {{
+            // Placeholder
+        }}
+
+        async function toggleHybridMode() {{
+            const toggle = document.getElementById('hybrid-toggle');
+            const statusLabel = document.getElementById('hybrid-status');
+            const metaLabel = document.getElementById('hybrid-meta');
+            
+            // Optimistic UI update
+            const isEnabled = toggle.checked;
+            statusLabel.textContent = isEnabled ? "Hybrid" : "Standard";
+            metaLabel.textContent = isEnabled ? "4 Columns (Voting)" : "1 Column";
+            
+            try {{
+                const res = await fetch('/api/brain/toggle_hybrid', {{ method: 'POST' }});
+                const data = await res.json();
+                if (data.status !== 'success') {{
+                    alert("Failed to toggle mode: " + data.message);
+                    toggle.checked = !isEnabled; // Revert
+                }} else {{
+                    console.log(data.message);
+                }}
+            }} catch(e) {{
+                console.error("Toggle failed", e);
+                alert("Network error toggling mode.");
+                toggle.checked = !isEnabled; // Revert
+            }}
+        }}
+            
+        setInterval(updateStats, 2000);
+        setInterval(refreshActivityLog, 5000);
+        updateStats();
+        refreshActivityLog();
         </script>
     </body>
     </html>
