@@ -211,6 +211,13 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     self.send_json({"success": False, "error": str(e)}, status=500)
             
             
+            # PERSONALITY & IDENTITY API
+            elif self.path == "/api/personality":
+                self.send_json(brain_service.personality_config.__dict__)
+            
+            elif self.path == "/api/identity":
+                self.send_json(brain_service.user_context.__dict__)
+
             # HOPE API Endpoints
             elif self.path.startswith("/api/hope/"):
                 try:
@@ -439,6 +446,26 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     logger.error(f"Task execution error: {e}")
                     self.send_json({"success": False, "message": str(e)})
+
+            elif self.path == "/api/personality/update":
+                data = json.loads(body)
+                updated = brain_service.update_personality_config(
+                    humor=data.get("humor_level"),
+                    sarcasm=data.get("sarcasm_level"),
+                    empathy=data.get("empathy_level"),
+                    identity_mode=data.get("identity_mode")
+                )
+                self.send_json({"success": True, "config": updated})
+            
+            elif self.path == "/api/identity/update":
+                data = json.loads(body)
+                user_id = data.get("user_id")
+                role = data.get("role")
+                if user_id and role:
+                   updated = brain_service.set_user_context(user_id, role)
+                   self.send_json({"success": True, "context": updated})
+                else:
+                   self.send_json({"success": False, "message": "Missing user_id or role"}, status=400)
 
             else:
                 self.send_error(404)

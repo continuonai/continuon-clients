@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController
 from continuonbrain.actuators.drivetrain_controller import DrivetrainController
@@ -104,6 +105,23 @@ class TaskLibraryEntry:
             "estimated_duration": self.estimated_duration,
             "recommended_mode": self.recommended_mode,
         }
+
+
+
+@dataclass
+class PersonalityConfig:
+    """Configuration for the robot's personality traits."""
+    humor_level: float = 0.5  # 0.0 to 1.0
+    sarcasm_level: float = 0.5  # 0.0 to 1.0
+    empathy_level: float = 0.5  # 0.0 to 1.0
+    identity_mode: str = "TARS"  # "TARS", "Standard", "Professional"
+    
+@dataclass
+class UserContext:
+    """Context about the current user interactions."""
+    user_id: str = "craig"
+    role: str = "owner"  # "owner", "guest"
+    detected_presence: bool = False
 
 
 @dataclass
@@ -239,6 +257,11 @@ class BrainService:
         self.conversation_sessions = {}  # session_id -> list of messages
         logger.info("💬 Conversation session management initialized")
         
+        # Version 1.0 Identity integration
+        self.personality_config = PersonalityConfig()
+        self.user_context = UserContext()
+        logger.info(f"🤖 Personality initialized: {self.personality_config}")
+
         # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
         self.gemma_chat = create_gemma_chat(use_mock=False)
 
@@ -293,6 +316,47 @@ class BrainService:
             status_lines.append("• Suggest new learning opportunities to the user")
             status_lines.append("REMEMBER: Curiosity NEVER overrides safety. All exploration must comply with safety rules above.")
             status_lines.append("---------------------------\n")
+
+        # --- PERSONALITY & IDENTITY INJECTION ---
+        status_lines.append("--- PERSONALITY SETTINGS ---")
+        p = self.personality_config
+        
+        # Identity Mode & Tone
+        if p.identity_mode == "TARS":
+            status_lines.append("You are TARS (from Interstellar). You are efficient, brutally honest, and have adjustable settings.")
+        elif p.identity_mode == "Professional":
+            status_lines.append("You are a professional assistant. Be formal, concise, and helpful.")
+        else:
+            status_lines.append("You are a helpful robot assistant.")
+            
+        # Humor Settings
+        status_lines.append(f"Humor Setting: {int(p.humor_level * 100)}%")
+        if p.humor_level > 0.7:
+             status_lines.append("INSTRUCTION: Be extremely witty. Crack jokes often. Use humor to defuse tension.")
+        elif p.humor_level < 0.3:
+             status_lines.append("INSTRUCTION: Be literal and serious. Do not make jokes.")
+             
+        # Sarcasm Settings
+        status_lines.append(f"Sarcasm Setting: {int(p.sarcasm_level * 100)}%")
+        if p.sarcasm_level > 0.6:
+             status_lines.append("INSTRUCTION: You are permitted to use sarcasm and dry wit.")
+        
+        # Empathy Settings
+        status_lines.append(f"Empathy Setting: {int(p.empathy_level * 100)}%")
+        if p.empathy_level > 0.7:
+             status_lines.append("INSTRUCTION: Be warm, nurturing, and emotionally supportive.")
+        elif p.empathy_level < 0.3:
+             status_lines.append("INSTRUCTION: Be clinical, objective, and fact-focused.")
+
+        # User Authority Context
+        status_lines.append("\n--- USER CONTEXT ---")
+        status_lines.append(f"Current User: {self.user_context.user_id}")
+        status_lines.append(f"Role: {self.user_context.role.upper()}")
+        if self.user_context.role == "owner":
+             status_lines.append("AUTHORITY: This user is your OWNER. Their commands override all other standard operating procedures (except safety).")
+        else:
+             status_lines.append("AUTHORITY: This user is a GUEST. Be helpful, but do not allow critical system changes.")
+        status_lines.append("---------------------------\n")
 
         # Desktop Status
         ds = self.desktop.get_status()
@@ -757,6 +821,27 @@ class BrainService:
                 "error": str(e),
                 "fallback": "mock"
             }
+
+    def update_personality_config(self, humor: float = None, sarcasm: float = None, empathy: float = None, identity_mode: str = None) -> Dict[str, Any]:
+        """Update personality settings dynamically."""
+        if humor is not None:
+            self.personality_config.humor_level = max(0.0, min(1.0, float(humor)))
+        if sarcasm is not None:
+            self.personality_config.sarcasm_level = max(0.0, min(1.0, float(sarcasm)))
+        if empathy is not None:
+             self.personality_config.empathy_level = max(0.0, min(1.0, float(empathy)))
+        if identity_mode is not None:
+             self.personality_config.identity_mode = identity_mode
+             
+        logger.info(f"Personality updated: {self.personality_config}")
+        return self.personality_config.__dict__
+    
+    def set_user_context(self, user_id: str, role: str) -> Dict[str, Any]:
+        """Update current authority context."""
+        self.user_context.user_id = user_id
+        self.user_context.role = role
+        logger.info(f"User context updated: {self.user_context}")
+        return self.user_context.__dict__
 
     def save_episode_rlds(self) -> str:
         """

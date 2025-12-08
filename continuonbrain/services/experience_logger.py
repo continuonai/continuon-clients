@@ -475,6 +475,8 @@ class ExperienceLogger:
                 return {"total_conversations": 0}
             
             total = 0
+            validated_count = 0
+            unvalidated_count = 0
             by_agent = {}
             
             with open(self.conversations_file, 'r') as f:
@@ -482,6 +484,12 @@ class ExperienceLogger:
                     try:
                         conv = json.loads(line.strip())
                         total += 1
+                        
+                        if conv.get('validated', False):
+                            validated_count += 1
+                        else:
+                            unvalidated_count += 1
+                            
                         agent = conv.get("agent", "unknown")
                         by_agent[agent] = by_agent.get(agent, 0) + 1
                     except json.JSONDecodeError:
@@ -489,6 +497,8 @@ class ExperienceLogger:
             
             return {
                 "total_conversations": total,
+                "validated_conversations": validated_count,
+                "unvalidated_conversations": unvalidated_count,
                 "by_agent": by_agent
             }
             

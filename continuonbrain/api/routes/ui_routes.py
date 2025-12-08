@@ -1609,6 +1609,42 @@ SETTINGS_HTML = f"""
     </div>
     
     <div class="section">
+        <h2>Personality & Identity</h2>
+        <div class="form-group">
+            <label>Identity Mode</label>
+            <select id="identity_mode">
+                <option value="TARS">TARS (Interstellar)</option>
+                <option value="Standard">Standard Robot</option>
+                <option value="Professional">Professional Assistant</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Humor Level (<span id="val_humor">50</span>%)</label>
+            <input type="range" id="humor_level" min="0" max="1" step="0.1" value="0.5" oninput="document.getElementById('val_humor').innerText = Math.round(this.value*100)">
+        </div>
+        <div class="form-group">
+            <label>Sarcasm Level (<span id="val_sarcasm">50</span>%)</label>
+            <input type="range" id="sarcasm_level" min="0" max="1" step="0.1" value="0.5" oninput="document.getElementById('val_sarcasm').innerText = Math.round(this.value*100)">
+        </div>
+        <div class="form-group">
+            <label>Empathy Level (<span id="val_empathy">50</span>%)</label>
+            <input type="range" id="empathy_level" min="0" max="1" step="0.1" value="0.5" oninput="document.getElementById('val_empathy').innerText = Math.round(this.value*100)">
+        </div>
+        
+        <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
+            <label style="color: var(--accent-color); font-weight: bold;">User Context Simulation</label>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="user_id" placeholder="User ID" value="craigm26">
+                <select id="user_role">
+                    <option value="owner">Owner</option>
+                    <option value="guest">Guest</option>
+                </select>
+                <button class="btn" style="background: transparent; border: 1px solid var(--accent-color); color: var(--accent-color);" onclick="updateIdentity()">Update Context</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
         <h2>Agent Manager</h2>
         <div class="form-group">
             <label>Chat Model</label>
@@ -1712,6 +1748,34 @@ SETTINGS_HTML = f"""
             }} catch(e) {{
                 console.error('Error loading settings:', e);
             }}
+
+            // Load Personality
+            try {{
+                const res = await fetch('/api/personality');
+                const p = await res.json();
+                
+                document.getElementById('humor_level').value = p.humor_level;
+                document.getElementById('val_humor').innerText = Math.round(p.humor_level * 100);
+                
+                document.getElementById('sarcasm_level').value = p.sarcasm_level;
+                document.getElementById('val_sarcasm').innerText = Math.round(p.sarcasm_level * 100);
+                
+                document.getElementById('empathy_level').value = p.empathy_level;
+                document.getElementById('val_empathy').innerText = Math.round(p.empathy_level * 100);
+                
+                document.getElementById('identity_mode').value = p.identity_mode;
+                
+            }} catch(e) {{
+                console.error('Error loading personality:', e);
+            }}
+
+             // Load Identity Context
+            try {{
+                const res = await fetch('/api/identity');
+                const i = await res.json();
+                document.getElementById('user_id').value = i.user_id;
+                document.getElementById('user_role').value = i.role;
+            }} catch(e) {{}}
         }}
         
         async function saveSettings() {{
@@ -1743,13 +1807,44 @@ SETTINGS_HTML = f"""
                 const data = await res.json();
                 
                 if (data.success) {{
-                    alert('Settings saved successfully! Restart the server for changes to take effect.');
+                    // alert('Settings saved successfully!');
                 }} else {{
-                    alert('Failed to save settings: ' + (data.message || 'Unknown error'));
+                    alert('Failed to save general settings: ' + (data.message || 'Unknown error'));
                 }}
             }} catch(e) {{
                 alert('Error saving settings: ' + e.message);
             }}
+            
+            // Save Personality
+            const personality = {{
+                humor_level: parseFloat(document.getElementById('humor_level').value),
+                sarcasm_level: parseFloat(document.getElementById('sarcasm_level').value),
+                empathy_level: parseFloat(document.getElementById('empathy_level').value),
+                identity_mode: document.getElementById('identity_mode').value
+            }};
+            
+            try {{
+                await fetch('/api/personality/update', {{
+                    method: 'POST',
+                    body: JSON.stringify(personality)
+                }});
+            }} catch(e) {{ console.error(e); }}
+            
+            alert('Settings and Personality saved!');
+        }}
+        
+        async function updateIdentity() {{
+             const ctx = {{
+                 user_id: document.getElementById('user_id').value,
+                 role: document.getElementById('user_role').value
+             }};
+             try {{
+                await fetch('/api/identity/update', {{
+                    method: 'POST',
+                    body: JSON.stringify(ctx)
+                }});
+                alert('User context updated!');
+            }} catch(e) {{ alert(e); }}
         }}
 
         // Initialize on page load
@@ -2399,6 +2494,7 @@ def get_learning_dashboard_html() -> str:
         <div class="stat-card"><div class="stat-label">HOPE Response Rate</div><div class="stat-value" id="hope-rate">-%</div></div>
         <div class="stat-card"><div class="stat-label">LLM Context Rate</div><div class="stat-value" id="context-rate">-%</div></div>
         <div class="stat-card"><div class="stat-label">LLM Only Rate</div><div class="stat-value" id="llm-rate">-%</div></div>
+        <div class="stat-card"><div class="stat-label">Validation Rate</div><div class="stat-value" id="val-rate">-%</div></div>
     </div>
     <div class="chart-container">
         <div class="chart-title">Agent Distribution</div>
@@ -2418,6 +2514,10 @@ def get_learning_dashboard_html() -> str:
                     document.getElementById('hope-rate').textContent = (s.hope_response_rate * 100).toFixed(1) + '%';
                     document.getElementById('context-rate').textContent = (s.llm_context_rate * 100).toFixed(1) + '%';
                     document.getElementById('llm-rate').textContent = (s.llm_only_rate * 100).toFixed(1) + '%';
+                    
+                    const valRate = s.total_conversations > 0 ? (s.validated_conversations / s.total_conversations * 100).toFixed(1) : 0;
+                    document.getElementById('val-rate').textContent = valRate + '% (' + s.validated_conversations + '/' + s.total_conversations + ')';
+
                     const div = document.getElementById('distribution');
                     div.innerHTML = '';
                     [{label:'HOPE Brain',key:'hope_brain',c:'#10b981'},{label:'LLM+Context',key:'llm_with_hope_context',c:'#667eea'},{label:'LLM Only',key:'llm_only',c:'#ec4899'}].forEach(a => {
