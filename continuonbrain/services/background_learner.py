@@ -228,9 +228,9 @@ class BackgroundLearner:
                     
                     # Check for instability
                     if not self.brain.stability_monitor.is_stable():
-                        logger.warning(f"Instability detected at step {self.total_steps}")
-                        # Save checkpoint and continue (don't stop)
-                        self._save_checkpoint()
+                        if self.total_steps % 100 == 0: # Log and save less frequently
+                            logger.warning(f"Instability detected at step {self.total_steps}")
+                            self._save_checkpoint()
                     
                     # Periodic checkpointing
                     if self.total_steps - self.last_checkpoint_step >= self.checkpoint_interval:

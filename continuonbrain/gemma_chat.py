@@ -173,8 +173,20 @@ class GemmaChat:
         
         # --- PATH 2: Local Transformers ---
         if self.model is None:
+            # Pass return_error=True (we need to update load_model signature slightly or just capture it)
+            # Actually load_model currently returns bool.
+            # Let's verify load_model logic first.
             if not self.load_model():
-                return "Error: Gemma model not available. Please install transformers library."
+                # We can't easily get the error string from load_model unless we change it.
+                # But we can try the import HERE to see if it fails and why.
+                try:
+                    import transformers
+                    import torch
+                    return f"Error: Gemma model failed to load. Check server logs for details."
+                except ImportError as e:
+                    return f"Error: Gemma model not available. Missing dependency: {e}"
+                except Exception as e:
+                    return f"Error: Gemma model not available. Unexpected error: {e}"
         
         try:
             import torch

@@ -134,7 +134,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
 
             elif self.path == "/api/status/introspection":
                 # Introspection endpoint for Brain Status page
-                identity_service.self_report() # Updates internal state
+                # identity_service.self_report() # Removed to prevent log spam/heavy IO on polling
                 data = identity_service.identity
                 self.send_json(data)
 
@@ -229,6 +229,19 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     self.send_json(result)
                 except Exception as e:
                     self.send_json({"error": str(e)}, status=500)
+            
+            elif self.path == "/api/brain/toggle_hybrid":
+                # Toggle hybrid mode (1 vs 4 columns)
+                try:
+                    current_cols = len(brain_service.hope_brain.columns) if brain_service.hope_brain else 1
+                    target_cols = 4 if current_cols == 1 else 1
+                    
+                    brain_service.hope_brain.initialize(num_columns=target_cols)
+                    msg = "Switched to Hybrid 4-Column Mode" if target_cols > 1 else "Switched to Standard Mode"
+                    self.send_json({"success": True, "message": msg, "mode": "hybrid" if target_cols > 1 else "standard"})
+                except Exception as e:
+                    logger.error(f"Toggle hybrid failed: {e}")
+                    self.send_json({"success": False, "message": str(e)}, status=500)
             
             elif self.path == "/api/robot/drive":
                 data = json.loads(body)

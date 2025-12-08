@@ -305,10 +305,24 @@ class StartupManager:
             if browser_cmd:
                 print(f"   Using browser: {browser_cmd} (with --password-store=basic)")
                 try:
+                    # Use a temp user data dir to avoid locking main profile and further suppress prompts
+                    # user_data_dir = f"/tmp/continuon_browser_{int(time.time())}"
+                    # os.makedirs(user_data_dir, exist_ok=True)
+                    
+                    cmd = [
+                        browser_cmd, 
+                        "--password-store=basic", 
+                        "--no-default-browser-check",
+                        "--no-first-run",
+                        # "--user-data-dir=" + user_data_dir, # Optional: isolate session
+                        url
+                    ]
+                    
                     subprocess.Popen(
-                        [browser_cmd, "--password-store=basic", "--no-default-browser-check", url],
+                        cmd,
                         stdout=subprocess.DEVNULL, 
-                        stderr=subprocess.DEVNULL
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True # Detach from parent
                     )
                     return
                 except Exception as e:

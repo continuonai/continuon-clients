@@ -282,7 +282,7 @@ class BrainService:
         system_context += "\\nTOOLS: You can use tools by outputting: [TOOL: ACTION args].\\n"
         system_context += "Valid Tools:\\n"
         system_context += "- [TOOL: TERMINAL <command>]: Execute shell commands (e.g., 'gemini', 'antigravity', 'mcp', 'ls')\\n"
-        system_context += "- [TOOL: ASK_GEMINI \"prompt\" (optional_image_path)]: Ask Gemini Pro for help. Can see images.\\n"
+        system_context += "- [TOOL: ASK_GEMINI \\\"prompt\\\" (optional_image_path)]: ⚠️ PAID API - Only use if you (local Gemma 3N) are uncertain. Ask user first.\\n"
         system_context += "- [TOOL: BROWSER <url>]: Open a URL in Chromium\\n"
         system_context += "- [TOOL: CAPTURE_IMAGE]: Capture an image from the camera to see the world\\n"
         system_context += "- [TOOL: TRAIN_VISION]: Start a training session for the AINA Vision System\\n"

@@ -847,7 +847,7 @@ DASHBOARD_HTML = f"""
                     // Update Hybrid Status
                     checkHybridStatus();
 
-                }} catch(e) {{ console.error("Stats update failed", e); }}
+                }}}} catch(e) {{ console.error("Stats update failed", e); }}
             }}
             
             async function checkHybridStatus() {{
@@ -1915,15 +1915,8 @@ MANUAL_HTML = f"""
             document.getElementById('group-' + tabName).style.display = "block";
             
             // Add active class to button
-            // If called from button click, event.currentTarget is set
-            // If called manually, we need to find the button
-            if (event && event.currentTarget) {{
-                 event.currentTarget.classList.add("active");
-            }} else {{
-                 // Try to find by ID if we add IDs to buttons
-                 const btn = document.getElementById('tab-btn-' + tabName);
-                 if(btn) btn.classList.add("active");
-            }}
+            const btn = document.getElementById('tab-btn-' + tabName);
+            if(btn) btn.classList.add("active");
         }}
         
         // Init default tab
