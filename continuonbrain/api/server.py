@@ -210,33 +210,6 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     logger.error(f"Failed to get learning stats: {e}")
                     self.send_json({"success": False, "error": str(e)}, status=500)
             
-            elif self.path == "/api/agent/validate":
-                # Validate a conversation response
-                body = self.rfile.read(int(self.headers.get('Content-Length', 0))).decode('utf-8')
-                data = json.loads(body) if body else {}
-                
-                timestamp = data.get('timestamp')
-                validated = data.get('validated', True)
-                correction = data.get('correction')
-                
-                if not timestamp:
-                    self.send_json({"success": False, "error": "timestamp required"}, status=400)
-                    return
-                
-                try:
-                    updated = brain_service.experience_logger.validate_conversation(
-                        timestamp=timestamp,
-                        validated=validated,
-                        correction=correction
-                    )
-                    
-                    if updated:
-                        self.send_json({"success": True, "message": "Conversation validated"})
-                    else:
-                        self.send_json({"success": False, "error": "Conversation not found"}, status=404)
-                except Exception as e:
-                    logger.error(f"Failed to validate conversation: {e}")
-                    self.send_json({"success": False, "error": str(e)}, status=500)
             
             # HOPE API Endpoints
             elif self.path.startswith("/api/hope/"):
@@ -391,8 +364,58 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     self.send_json(response)
                 except ImportError:
                     self.send_json({"success": False, "message": "Hardware Detector not available"})
+            
+            elif self.path == "/api/agent/validate":
+                data = json.loads(body) if body else {}
+                timestamp = data.get('timestamp')
+                validated = data.get('validated', True)
+                correction = data.get('correction')
+                
+                if not timestamp:
+                    self.send_json({"success": False, "error": "timestamp required"}, status=400)
+                else:
+                    try:
+                        updated = brain_service.experience_logger.validate_conversation(
+                            timestamp=timestamp,
+                            validated=validated,
+                            correction=correction
+                        )
+                        if updated:
+                            self.send_json({"success": True, "message": "Conversation validated"})
+                        else:
+                            self.send_json({"success": False, "error": "Conversation not found"}, status=404)
+                    except Exception as e:
+                        logger.error(f"Failed to validate conversation: {e}")
+                        self.send_json({"success": False, "error": str(e)}, status=500)
+
+            elif self.path == "/api/agent/search":
+                try:
+                    data = json.loads(body) if body else {}
+                    query = data.get('query', '')
+                    if not query:
+                        self.send_json({"error": "Missing query"}, status=400)
+                    else:
+                        results = brain_service.experience_logger.search_conversations(query)
+                        self.send_json({"success": True, "results": results})
                 except Exception as e:
-                    self.send_json({"success": False, "message": str(e)})
+                    logger.error(f"Search failed: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+
+            elif self.path == "/api/agent/consolidate":
+                try:
+                    stats = brain_service.experience_logger.consolidate_memories()
+                    self.send_json({"success": True, "stats": stats})
+                except Exception as e:
+                    logger.error(f"Failed to consolidate memories: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+            
+            elif self.path == "/api/agent/decay":
+                try:
+                    stats = brain_service.experience_logger.apply_confidence_decay()
+                    self.send_json({"success": True, "stats": stats})
+                except Exception as e:
+                    logger.error(f"Failed to apply decay: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
             
             elif self.path.startswith("/api/tasks/") and self.path.endswith("/execute"):
                 # Execute task: /api/tasks/{task_id}/execute

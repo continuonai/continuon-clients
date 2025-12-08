@@ -244,6 +244,13 @@ HOME_HTML = f"""
             const message = input.value.trim();
             if (!message) return;
             
+            // Get or create session ID for multi-turn context
+            let sessionId = localStorage.getItem('chatSessionId');
+            if (!sessionId) {{
+                sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('chatSessionId', sessionId);
+            }}
+            
             // Add user message
             addMessage('user', 'You', message);
             input.value = '';
@@ -257,7 +264,7 @@ HOME_HTML = f"""
                 const response = await fetch('/api/chat', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ message, history: chatHistory }})
+                    body: JSON.stringify({{ message, history: chatHistory, session_id: sessionId }})
                 }});
                 const data = await response.json();
                 
@@ -419,6 +426,21 @@ HOME_HTML = f"""
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML.replace(/\\n/g, '<br>');
+        }}
+        
+        function startNewSession() {{
+            // Clear session ID to start fresh
+            localStorage.removeItem('chatSessionId');
+            
+            // Clear chat history
+            chatHistory = [];
+            
+            // Clear chat messages display
+            const messagesDiv = document.getElementById('chatMessages');
+            messagesDiv.innerHTML = '';
+            
+            // Add system message
+            addMessage('system', 'System', '🔄 New conversation session started');
         }}
         
         // Handle Enter key and restore panel states on load
@@ -685,7 +707,18 @@ HOME_HTML = f"""
         
         <div id="chat-sidebar">
             <div class="chat-header">
-                <span>🤖</span> <span id="agent-title">Agent Manager</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span>🤖</span> <span id="agent-title">Agent Manager</span>
+                    </div>
+                    <button onclick="startNewSession()" 
+                            style="background: rgba(0,255,136,0.1); border: 1px solid var(--accent-color); 
+                                   color: var(--accent-color); padding: 4px 12px; border-radius: 4px; 
+                                   cursor: pointer; font-size: 0.85em;"
+                            title="Start a new conversation session">
+                        New Session
+                    </button>
+                </div>
                 <div style="flex: 1;"></div>
                 <!-- Menu Button -->
                 <div class="dropdown">

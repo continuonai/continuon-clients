@@ -237,6 +237,237 @@ class ExperienceLogger:
             logger.error(f"Failed to validate conversation: {e}")
             return False
     
+    def consolidate_memories(self, similarity_threshold: float = 0.90, min_confidence: float = 0.3) -> dict:
+        """
+        Consolidate similar conversations and remove low-quality entries.
+        
+        Args:
+            similarity_threshold: Merge conversations above this similarity
+            min_confidence: Remove conversations below this confidence
+            
+        Returns:
+            Stats about consolidation
+        """
+        try:
+            conversations = self.get_similar_conversations("", max_results=1000) # Changed from get_relevant_conversations
+            
+            if len(conversations) < 2:
+                return {"merged": 0, "removed": 0, "total": len(conversations)}
+            
+            merged_count = 0
+            to_remove = set()
+            
+            # Find and merge similar conversations
+            for i, conv1 in enumerate(conversations):
+                if i in to_remove:
+                    continue
+                    
+                for j, conv2 in enumerate(conversations[i+1:], start=i+1):
+                    if j in to_remove:
+                        continue
+                    
+                    # Check similarity
+                    # Assuming _calculate_similarity is a helper that uses embeddings or keyword
+                    # For now, using get_similar_conversations's relevance logic
+                    # This part needs an actual _calculate_similarity or direct embedding comparison
+                    # For simplicity, let's assume we can get relevance between two questions
+                    # This would ideally involve re-encoding or having embeddings stored.
+                    # For this exercise, I'll use a placeholder or adapt existing logic.
+                    
+                    # Re-using the logic from get_similar_conversations for similarity check
+                    encoder = get_encoder()
+                    if encoder:
+                        q1_emb = encoder.encode(conv1['question'], convert_to_numpy=True)
+                        q2_emb = encoder.encode(conv2['question'], convert_to_numpy=True)
+                        sim = self._cosine_similarity(q1_emb, q2_emb)
+                    else:
+                        sim = self._keyword_similarity(conv1['question'].lower(), conv2['question'].lower())
+                    
+                    if sim >= similarity_threshold:
+                        # Merge: keep higher confidence, mark other for removal
+                        if conv1.get('confidence', 0.5) >= conv2.get('confidence', 0.5):
+                            to_remove.add(j)
+                        else:
+                            to_remove.add(i)
+                            break
+                        merged_count += 1
+            
+            # Remove low confidence and duplicates
+            filtered = []
+            removed_count = 0
+            
+            for i, conv in enumerate(conversations):
+                if i in to_remove:
+                    removed_count += 1
+                    continue
+                
+                # Remove low confidence entries
+                if conv.get('confidence', 0.5) < min_confidence and not conv.get('validated', False):
+                    removed_count += 1
+                    continue
+                
+                filtered.append(conv)
+            
+            # Write back consolidated conversations
+            # Changed from self.storage_path to self.conversations_file
+            with open(self.conversations_file, 'w') as f:
+                for c in filtered:
+                    f.write(json.dumps(c) + '\n')
+            
+            logger.info(f"Consolidated memories: {merged_count} merged, {removed_count} removed, {len(filtered)} remaining")
+            
+            return {
+                "merged": merged_count,
+                "removed": removed_count,
+                "total_before": len(conversations),
+                "total_after": len(filtered)
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to consolidate memories: {e}")
+            return {"error": str(e), "merged": 0, "removed": 0}
+    
+    def apply_confidence_decay(self, decay_factor: float = 0.95, max_age_days: int = 30):
+        """
+        Apply time-based confidence decay to old conversations.
+        
+        Args:
+            decay_factor: Confidence multiplier per day
+            max_age_days: Only decay entries older than this
+        """
+        try:
+            conversations = []
+            if self.conversations_file.exists():
+                with open(self.conversations_file, 'r') as f:
+                    for line in f:
+                        try:
+                            conversations.append(json.loads(line.strip()))
+                        except json.JSONDecodeError:
+                            continue
+
+            updated_count = 0
+            
+            now = datetime.now()
+            
+            for conv in conversations:
+                # Skip validated conversations
+                if conv.get('validated', False):
+                    continue
+                
+                timestamp_str = conv.get('timestamp', '')
+                if not timestamp_str:
+                    continue
+                
+                try:
+                    timestamp = datetime.fromisoformat(timestamp_str)
+                    age_days = (now - timestamp).days
+                    
+                    if age_days > max_age_days:
+                        # Apply decay
+                        original_confidence = conv.get('confidence', 0.7)
+                        days_to_decay = age_days - max_age_days
+                        new_confidence = original_confidence * (decay_factor ** days_to_decay)
+                        
+                        conv['confidence'] = max(0.1, new_confidence)  # Floor at 0.1
+                        updated_count += 1
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to parse timestamp: {e}")
+                    continue
+            
+            # Write back
+            if updated_count > 0:
+                with open(self.conversations_file, 'w') as f:
+                    for c in conversations:
+                        f.write(json.dumps(c) + '\n')
+                logger.info(f"Applied confidence decay to {updated_count} conversations")
+            
+            return {"updated": updated_count, "total": len(conversations)}
+            
+        except Exception as e:
+            logger.error(f"Failed to apply confidence decay: {e}")
+            return {"error": str(e), "updated": 0}
+
+    
+    def search_conversations(self, query: str, max_results: int = 20) -> List[Dict[str, Any]]:
+        """
+        Search through conversations with full-text and semantic search.
+        
+        Args:
+            query: Search query
+            max_results: Maximum results to return
+            
+        Returns:
+            List of matching conversations with relevance scores
+        """
+        try:
+            conversations = []
+            if self.conversations_file.exists():
+                with open(self.conversations_file, 'r') as f:
+                    for line in f:
+                        try:
+                            conversations.append(json.loads(line.strip()))
+                        except json.JSONDecodeError:
+                            continue
+            
+            if not conversations:
+                return []
+            
+            query_lower = query.lower()
+            results = []
+            
+            # Try semantic search first
+            encoder = get_encoder()
+            if encoder:
+                query_embedding = encoder.encode(query, convert_to_numpy=True)
+                
+                for conv in conversations:
+                    # Search in question and answer
+                    q_embedding = encoder.encode(conv['question'], convert_to_numpy=True)
+                    a_embedding = encoder.encode(conv['answer'], convert_to_numpy=True)
+                    
+                    q_sim = self._cosine_similarity(query_embedding, q_embedding)
+                    a_sim = self._cosine_similarity(query_embedding, a_embedding)
+                    
+                    relevance = max(q_sim, a_sim)
+                    
+                    if relevance > 0.3:  # Minimum relevance threshold
+                        results.append({
+                            **conv,
+                            'relevance': float(relevance),
+                            'match_type': 'semantic'
+                        })
+            else:
+                # Fallback to keyword search
+                for conv in conversations:
+                    # Check if query appears in question or answer
+                    if (query_lower in conv['question'].lower() or 
+                        query_lower in conv['answer'].lower()):
+                        # Calculate simple relevance
+                        q_words = set(conv['question'].lower().split())
+                        a_words = set(conv['answer'].lower().split())
+                        query_words = set(query_lower.split())
+                        
+                        q_overlap = len(q_words & query_words) / max(len(query_words), 1)
+                        a_overlap = len(a_words & query_words) / max(len(query_words), 1)
+                        
+                        relevance = max(q_overlap, a_overlap)
+                        
+                        results.append({
+                            **conv,
+                            'relevance': float(relevance),
+                            'match_type': 'keyword'
+                        })
+            
+            # Sort by relevance
+            results.sort(key=lambda x: x['relevance'], reverse=True)
+            
+            return results[:max_results]
+            
+        except Exception as e:
+            logger.error(f"Failed to search conversations: {e}")
+            return []
+    
     def get_statistics(self) -> Dict[str, Any]:
         """Get learning statistics."""
         try:
