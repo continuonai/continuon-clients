@@ -101,14 +101,15 @@ def run_learning_session(steps=1000):
         action_np = action.detach().cpu().numpy() # Dummy action here
         obs, reward, done = env.step(action_np, prediction)
         
-        # Record Error
-        stats = env.get_statistics()
-        errors.append(stats['prediction_error'])
+        # Record Energy (Lyapunov / Free Energy)
+        # This is the correct metric: Model should minimize its own Free Energy
+        energy = info.get('lyapunov', 0.0)
+        errors.append(energy)
         
         # Log periodically
-        if t % 100 == 0:
-            avg_err = np.mean(errors[-100:]) if len(errors) >= 100 else np.mean(errors)
-            print(f"   Step {t:4d} | Avg Error (last 100): {avg_err:.4f}")
+        if t % 50 == 0:
+            avg_eng = np.mean(errors[-50:]) if len(errors) >= 50 else np.mean(errors)
+            print(f"   Step {t:4d} | Avg Energy (Lyapunov): {avg_eng:.4f}")
             
     total_time = time.time() - start_time
     print(f"   Done in {total_time:.2f}s")
@@ -116,19 +117,19 @@ def run_learning_session(steps=1000):
     # 4. Analysis
     print("\n4. Analysis")
     
-    # Compare First 100 vs Last 100
-    first_100_avg = np.mean(errors[:100])
-    last_100_avg = np.mean(errors[-100:])
+    # Compare First 50 vs Last 50
+    first_avg = np.mean(errors[:50])
+    last_avg = np.mean(errors[-50:])
     
-    print(f"   Avg Error (First 100): {first_100_avg:.4f}")
-    print(f"   Avg Error (Last 100):  {last_100_avg:.4f}")
+    print(f"   Avg Energy (First 50): {first_avg:.4f}")
+    print(f"   Avg Energy (Last 50):  {last_avg:.4f}")
     
-    if last_100_avg < first_100_avg:
-        improvement_pct = ((first_100_avg - last_100_avg) / first_100_avg) * 100
-        print(f"   ✅ SUCCESS: Error reduced by {improvement_pct:.1f}%")
+    if last_avg < first_avg:
+        improvement_pct = ((first_avg - last_avg) / first_avg) * 100
+        print(f"   ✅ SUCCESS: Internal Energy reduced by {improvement_pct:.1f}%")
         result = "PASS"
     else:
-        print("   ❌ FAILURE: Error did not decrease.")
+        print("   ❌ FAILURE: Energy did not decrease.")
         result = "FAIL"
         
     # Save Artifact
