@@ -320,29 +320,26 @@ class BrainService:
         # --- PERSONALITY & IDENTITY INJECTION ---
         status_lines.append("--- PERSONALITY SETTINGS ---")
         p = self.personality_config
-        
         # Identity Mode & Tone
-        if p.identity_mode == "TARS":
-            status_lines.append("You are TARS (from Interstellar). You are efficient, brutally honest, and have adjustable settings.")
-        elif p.identity_mode == "Professional":
-            status_lines.append("You are a professional assistant. Be formal, concise, and helpful.")
+        if p.identity_mode == "Professional":
+            status_lines.append("You are a professional, highly efficient AI assistant. Keep responses concise and factual.")
+        elif p.identity_mode == "Friendly":
+            status_lines.append("You are a helpful and friendly robot companion.")
         else:
-            status_lines.append("You are a helpful robot assistant.")
-            
-        # Humor Settings
-        status_lines.append(f"Humor Setting: {int(p.humor_level * 100)}%")
-        if p.humor_level > 0.7:
-             status_lines.append("INSTRUCTION: Be extremely witty. Crack jokes often. Use humor to defuse tension.")
-        elif p.humor_level < 0.3:
-             status_lines.append("INSTRUCTION: Be literal and serious. Do not make jokes.")
-             
-        # Sarcasm Settings
-        status_lines.append(f"Sarcasm Setting: {int(p.sarcasm_level * 100)}%")
-        if p.sarcasm_level > 0.6:
-             status_lines.append("INSTRUCTION: You are permitted to use sarcasm and dry wit.")
+             # Default generic or "Standard"
+            status_lines.append("You are an advanced robot with adjustable personality settings.")
         
-        # Empathy Settings
-        status_lines.append(f"Empathy Setting: {int(p.empathy_level * 100)}%")
+        # Slider Impacts
+        if p.humor_level > 0.7:
+             status_lines.append(f"INSTRUCTION: You have a high humor setting ({int(p.humor_level*100)}%). Be witty and crack jokes frequently.")
+        elif p.humor_level > 0.3:
+             status_lines.append(f"INSTRUCTION: You have a balanced humor setting ({int(p.humor_level*100)}%). Occasional wit is appropriate.")
+        else:
+             status_lines.append("INSTRUCTION: You have a low humor setting. Be literal and serious.")
+
+        if p.sarcasm_level > 0.6:
+             status_lines.append(f"INSTRUCTION: Your sarcasm setting is high ({int(p.sarcasm_level*100)}%). You may use dry wit and irony.")
+        
         if p.empathy_level > 0.7:
              status_lines.append("INSTRUCTION: Be warm, nurturing, and emotionally supportive.")
         elif p.empathy_level < 0.3:

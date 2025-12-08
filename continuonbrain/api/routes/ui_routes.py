@@ -1611,11 +1611,11 @@ SETTINGS_HTML = f"""
     <div class="section">
         <h2>Personality & Identity</h2>
         <div class="form-group">
-            <label>Identity Mode</label>
+            <label>Personality Preset</label>
             <select id="identity_mode">
-                <option value="TARS">TARS (Interstellar)</option>
-                <option value="Standard">Standard Robot</option>
+                <option value="Adaptive">Adaptive (Default)</option>
                 <option value="Professional">Professional Assistant</option>
+                <option value="Friendly">Friendly Companion</option>
             </select>
         </div>
         <div class="form-group">
@@ -1647,11 +1647,13 @@ SETTINGS_HTML = f"""
     <div class="section">
         <h2>Agent Manager</h2>
         <div class="form-group">
-            <label>Chat Model</label>
+            <label>Primary Agent Core</label>
             <select id="agent_model" style="max-width: 400px; padding: 8px;">
                 <option value="mock">Loading models...</option>
             </select>
-            <small style="color: var(--text-dim); display: block; margin-top: 4px;">Select which model to use for chat responses</small>
+            <small style="color: var(--text-dim); display: block; margin-top: 4px;">
+                Select the underlying logic model. The <b>HOPE Architecture</b> manages all high-level decisions, memory, and agency.
+            </small>
         </div>
         <div class="form-group">
             <label>
