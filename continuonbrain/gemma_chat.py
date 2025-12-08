@@ -45,6 +45,8 @@ class GemmaChat:
         
         self.model = None
         self.tokenizer = None
+        self.processor = None
+        self.is_vlm = False
         self.client = None
         
         self.chat_history: List[Dict[str, str]] = []
@@ -77,11 +79,59 @@ class GemmaChat:
 
         try:
             # Try importing transformers
-            from transformers import AutoTokenizer, AutoModelForCausalLM
+            # Try importing transformers
+            from transformers import AutoTokenizer, AutoModelForCausalLM, AutoProcessor
             import torch
+            try:
+                from transformers import AutoModelForImageTextToText
+            except ImportError:
+                try:
+                    from transformers import AutoModelForVision2Seq as AutoModelForImageTextToText
+                except ImportError:
+                    AutoModelForImageTextToText = None
             
             logger.info(f"Loading Gemma model: {self.model_name}")
             
+            # --- VLM Loading Logic (Gemma 3N / PaliGemma) ---
+            if "gemma-3n" in self.model_name or "paligemma" in self.model_name:
+                try:
+                    logger.info(f"Attempting to load VLM: {self.model_name}")
+                    
+                    if AutoModelForImageTextToText is None:
+                        raise ImportError("AutoModelForImageTextToText not available in installed transformers version")
+                        
+                    self.processor = AutoProcessor.from_pretrained(
+                        self.model_name,
+                        token=self.hf_token,
+                        trust_remote_code=True
+                    )
+                    
+                    # Determine dtype and device map
+                    # For Pi 5 (CPU), we found that device_map="cpu" + bfloat16 works best
+                    # device_map="auto" failed with offloading errors
+                    dtype = torch.bfloat16
+                    device_map = "cpu"
+                    
+                    self.model = AutoModelForImageTextToText.from_pretrained(
+                        self.model_name,
+                        token=self.hf_token,
+                        trust_remote_code=True,
+                        device_map=device_map,
+                        torch_dtype=dtype,
+                        low_cpu_mem_usage=True
+                    )
+                    
+                    self.is_vlm = True
+                    logger.info("✅ Gemma 3N VLM loaded successfully!")
+                    return True
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to load as VLM ({e}). Falling back to CausalLM (text-only)...")
+                    # Clear partial loads
+                    self.model = None
+                    self.processor = None
+
+            # --- CausalLM Loading Logic (Text Only / Fallback) ---
             # Load tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_name,
@@ -121,12 +171,8 @@ class GemmaChat:
                 else:
                     raise e
             
-            # The .to(device) call is redundant/harmful with device_map="auto" and offloading
-            # We trust accelerate to manage device placement
-            # if self.device == "cpu" and not getattr(self.model, "hf_device_map", None):
-            #     self.model = self.model.to(self.device)
-            
-            logger.info("Gemma model loaded successfully")
+            self.is_vlm = False
+            logger.info("Gemma model loaded (CausalLM mode)")
             return True
             
         except ImportError as e:
@@ -136,13 +182,14 @@ class GemmaChat:
             logger.error(f"Failed to load Gemma model: {e}")
             return False
     
-    def chat(self, message: str, system_context: Optional[str] = None) -> str:
+    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None) -> str:
         """
         Generate chat response from Gemma model (local or remote).
         
         Args:
             message: User message text
             system_context: Optional system context (robot status, hardware info, etc.)
+            image: Optional image input (PIL Image or numpy array) for VLM
         
         Returns:
             Model response text
@@ -150,6 +197,7 @@ class GemmaChat:
         
         # --- PATH 1: Remote API (OpenAI/vLLM) ---
         if self.client:
+            # TODO: Handle image for API if supported (e.g. GPT-4o)
             try:
                 messages = []
                 if system_context:
@@ -204,6 +252,61 @@ class GemmaChat:
         
         try:
             import torch
+            
+            # --- VLM Generation ---
+            if self.is_vlm and self.processor:
+                # Prepare inputs with Processor
+                
+                # Combine system context and message
+                full_prompt = message
+                if system_context:
+                    # Gemma 3N chat templates usually handle system instructions differently
+                    # For now, prepend simple context
+                    full_prompt = f"{system_context}\n\n{message}"
+                
+                # Add history
+                # Note: Multiturn VLM is complex. For now, we just pass the current turn.
+                # Or append history text.
+                # TODO: Use apply_chat_template if supported by processor
+                
+                # Handle inputs
+                if image:
+                    inputs = self.processor(text=full_prompt, images=image, return_tensors="pt")
+                else:
+                    inputs = self.processor(text=full_prompt, images=None, return_tensors="pt")
+                
+                # Move pixel_values to correct device/dtype if needed
+                # inputs = inputs.to(self.device) # device_map="cpu" handles this usually, but let's be safe if manual
+                # actually device_map="cpu" means model is on CPU, inputs should be CPU.
+                
+                # Generate
+                with torch.no_grad():
+                    outputs = self.model.generate(
+                        **inputs, 
+                        max_new_tokens=256,
+                        do_sample=True,
+                        temperature=0.7
+                    )
+                
+                response = self.processor.batch_decode(outputs, skip_special_tokens=True)[0]
+                
+                # Post-process response (remove prompt echo if present)
+                # Gemma 3N output usually contains the prompt? check verification script output
+                # Usually batch_decode(outputs) includes prompt.
+                # We can use skip_prompt=True if processor supports it, or manual slicing.
+                if response.startswith(full_prompt):
+                    response = response[len(full_prompt):].strip()
+                elif "Assistant:" in response:
+                     response = response.split("Assistant:")[-1].strip()
+                elif "model" in response.lower() and ":" in response: # e.g. "model: answer"
+                     pass
+                
+                # Update history
+                self.chat_history.append({"role": "User", "content": message})
+                self.chat_history.append({"role": "Assistant", "content": response})
+                return response
+
+            # --- CausalLM Generation (Legacy) ---
             
             # Add system context if provided
             if system_context:

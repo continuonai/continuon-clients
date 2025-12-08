@@ -3,7 +3,7 @@ DEBUG: CMS MODULE LOADED FROM /home/craigm26/ContinuonXR/continuonbrain/hope_imp
 🧠 Starting ContinuonBrain Server on port 8080...
 🔍 Scanning for hardware devices...
 
-✅ Found: OAK Camera (USB 3.0)
+✅ Found: OAK-D Lite (USB 3.0)
 ✅ Found: PCA9685 16-Channel PWM at I2C address 0x40
 ✅ Found: Desktop Monitor
 
@@ -21,7 +21,7 @@ DEBUG: CMS MODULE LOADED FROM /home/craigm26/ContinuonXR/continuonbrain/hope_imp
    I am operating on basic logic; no trained models found.
 
 🦾 BODY & HARDWARE:
-   I see the world through: OAK Camera.
+   I see the world through: OAK-D Lite.
    I act upon the world using: PCA9685 16-Channel PWM.
    My PCA9685 wiring for movement is configured:
      - Steering: Channel 0
@@ -104,14 +104,15 @@ Status: Awaiting owner instructions in AUTONOMY mode.
   Autonomous Learning: True
 INFO:continuonbrain.resource_monitor:No resource limits config found at /tmp/continuonbrain_demo/config/resource_limits.json, using defaults
 INFO:continuonbrain.resource_monitor:Resource Monitor initialized: System reserve 2000MB, Brain max 2000MB
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> emergency: EMERGENCY: Memory at 97.4% - only 210MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for emergency
-INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'emergency', 'memory_percent': 97.4, 'available_mb': 210, 'swap_percent': 100.0, 'checkpoints_mb': 148.4, 'can_allocate': False, 'message': 'EMERGENCY: Memory at 97.4% - only 210MB available', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'normal', 'memory_percent': 42.2, 'available_mb': 4663, 'swap_percent': 0.0, 'checkpoints_mb': 0.0, 'can_allocate': True, 'message': 'Normal: 4663MB available (42.2% used)', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+INFO:continuonbrain.services.brain_service:📚 Experience logger initialized for active learning
+INFO:continuonbrain.services.brain_service:💬 Conversation session management initialized
+INFO:continuonbrain.services.brain_service:🤖 Personality initialized: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, identity_mode='TARS')
 Initializing Brain Service (REAL HARDWARE MODE)...
 🔍 Auto-detecting hardware...
 🔍 Scanning for hardware devices...
 
-✅ Found: OAK Camera (USB 3.0)
+✅ Found: OAK-D Lite (USB 3.0)
 ✅ Found: PCA9685 16-Channel PWM at I2C address 0x40
 ✅ Found: Desktop Monitor
 
@@ -121,7 +122,7 @@ Hardware Detection Summary
 Total devices found: 4
 
 Depth Camera:
-  • OAK Camera (usb3: bus_002_dev_002)
+  • OAK-D Lite (usb3: bus_001_dev_003)
     Capabilities: rgb, depth, stereo, ai
 
 Display:
@@ -138,18 +139,27 @@ Servo Controller:
 
 ============================================================
 
+🤖 Loading Gemma Chat Model...
+INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
+INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
+INFO:accelerate.utils.modeling:Based on the current allocation process, no modules could be assigned to the following devices due to insufficient memory:
+  - cpu: 8053070852 bytes required
+These minimum requirements are specific to this allocation attempt and may vary. Consider increasing the available memory for these devices to at least the specified minimum, or adjusting the model config.
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 45100.04it/s]
+ERROR:continuonbrain.gemma_chat:Failed to load Gemma model: You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead.
 📼 Initializing episode recorder...
 🦾 Initializing hardware via ContinuonBrain...
 🔍 Auto-detecting hardware...
 🔍 Scanning for hardware devices...
 
-✅ Found: OAK Camera (USB 3.0)
+✅ Found: OAK-D Lite (USB 3.0)
 ✅ Found: PCA9685 16-Channel PWM at I2C address 0x40
 ✅ Found: Desktop Monitor
 
-Using detected OAK Camera
-ERROR: No OAK devices found
-⚠️  Camera initialization failed (continuing without camera)
+Using detected OAK-D Lite
+✅ Device connected: OAK-D-LITE
+OAK-D started: baseline=7.50cm
+✅ OAK-D camera initialized
 Using detected PCA9685 16-Channel PWM at 0x40
 Arm moved to default safe positions
 ✅ PCA9685 initialized at 0x40
@@ -162,32 +172,56 @@ Arm moved to default safe positions
 ✅ Drivetrain ready (REAL MODE)
 🎮 Initializing mode manager...
 🤖 Activating AUTONOMOUS mode (motion + inference + training enabled)
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/craigm26/ContinuonXR/continuonbrain/api/server.py", line 460, in <module>
-    main()
-    ~~~~^^
-  File "/home/craigm26/ContinuonXR/continuonbrain/api/server.py", line 436, in main
-    loop.run_until_complete(brain_service.initialize())
-    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
-    return future.result()
-           ~~~~~~~~~~~~~^^
-  File "/home/craigm26/ContinuonXR/continuonbrain/services/brain_service.py", line 880, in initialize
-    self.mode_manager.set_mode(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        RobotMode.AUTONOMOUS,
-        ^^^^^^^^^^^^^^^^^^^^^
-    ...<4 lines>...
-        }
-        ^
-    )
-    ^
-  File "/home/craigm26/ContinuonXR/continuonbrain/robot_modes.py", line 202, in set_mode
-    self._save_state(config)
-    ~~~~~~~~~~~~~~~~^^^^^^^^
-  File "/home/craigm26/ContinuonXR/continuonbrain/robot_modes.py", line 259, in _save_state
-    with open(self.state_file, 'w') as f:
-         ~~~~^^^^^^^^^^^^^^^^^^^^^^
-PermissionError: [Errno 13] Permission denied: '/tmp/continuonbrain_demo/.robot_mode'
+============================================================
+🤖 Mode Change: idle → autonomous
+============================================================
+Time: 2025-12-08 10:46:21
+Motion: Enabled
+Recording: ON
+Inference: ON
+Self-Training: OFF
+
+Mode Configuration:
+  control_source: vla_policy
+  startup_time: 2025-12-08 10:46:21
+  auto_activated: True
+  self_training_enabled: True
+============================================================
+
+✅ Mode manager ready
+🧠 Initializing HOPE brain...
+  Available memory: 4170MB
+  Using development config (medium memory mode)
+DEBUG_CMS_INIT: d_s=64, d_e=64, d_k=16, d_c=64, num_levels=2, cms_dims=[32, 64]
+INFO:continuonbrain.resource_monitor:Registered cleanup callback for critical threshold
+  ✓ Registered with web monitoring
+  ✓ HOPE brain ready (587,105 parameters, 2.2MB)
+============================================================
+✅ Brain Service Ready
+============================================================
+🚀 Server listening on http://0.0.0.0:8080
+INFO:continuonbrain.services.brain_service:HOPE confidence for 'what do you see?...': 0.10
+INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
+INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
+INFO:accelerate.utils.modeling:Based on the current allocation process, no modules could be assigned to the following devices due to insufficient memory:
+  - cpu: 8053070852 bytes required
+These minimum requirements are specific to this allocation attempt and may vary. Consider increasing the available memory for these devices to at least the specified minimum, or adjusting the model config.
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 28212.81it/s]
+ERROR:continuonbrain.gemma_chat:Failed to load Gemma model: You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead.
+INFO:continuonbrain.services.experience_logger:Logged conversation: 'what do you see?...' -> llm_with_hope_context
+INFO:continuonbrain.services.brain_service:HOPE confidence for 'what do you see?...': 0.10
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+INFO:continuonbrain.services.experience_logger:Loaded sentence-transformers model for semantic search
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  4.32it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  4.28it/s]
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 10.85it/s]
+INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
+INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
+INFO:accelerate.utils.modeling:Based on the current allocation process, no modules could be assigned to the following devices due to insufficient memory:
+  - cpu: 8053070852 bytes required
+These minimum requirements are specific to this allocation attempt and may vary. Consider increasing the available memory for these devices to at least the specified minimum, or adjusting the model config.
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 45923.04it/s]
+ERROR:continuonbrain.gemma_chat:Failed to load Gemma model: You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead.
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  6.38it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  6.31it/s]
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 12.78it/s]
+INFO:continuonbrain.services.experience_logger:Skipping duplicate conversation: 'what do you see?...'
