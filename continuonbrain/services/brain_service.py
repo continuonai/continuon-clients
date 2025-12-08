@@ -284,6 +284,8 @@ class BrainService:
         system_context += "- [TOOL: TERMINAL <command>]: Execute shell commands (e.g., 'gemini', 'antigravity', 'mcp', 'ls')\\n"
         system_context += "- [TOOL: ASK_GEMINI \"prompt\" (optional_image_path)]: Ask Gemini Pro for help. Can see images.\\n"
         system_context += "- [TOOL: BROWSER <url>]: Open a URL in Chromium\\n"
+        system_context += "- [TOOL: CAPTURE_IMAGE]: Capture an image from the camera to see the world\\n"
+        system_context += "- [TOOL: TRAIN_VISION]: Start a training session for the AINA Vision System\\n"
         system_context += "- [TOOL: SCREENSHOT]: Capture screen\\n"
         system_context += "- [TOOL: MOVE x y]: Move mouse\\n"
         system_context += "- [TOOL: CLICK]: Click mouse\\n"
@@ -401,12 +403,36 @@ class BrainService:
                                 status_updates.append(f"Tool: Opened {url}")
                             except Exception as e:
                                 result = f"Browser Error: {e}"
+                        elif action == "CAPTURE_IMAGE":
+                            if self.camera:
+                                try:
+                                    frame = self.camera.capture_frame()
+                                    if frame and frame.get("rgb") is not None:
+                                        import cv2
+                                        path = "/tmp/vision_capture.jpg"
+                                        # Ensure directory exists (it's tmp, but good practice)
+                                        # Save image
+                                        cv2.imwrite(path, frame["rgb"])
+                                        result = f"Image captured to {path}"
+                                        status_updates.append("Tool: Captured visible world")
+                                    else:
+                                        result = "Camera active but returned no frame data"
+                                except Exception as e:
+                                    result = f"Camera capture error: {e}"
+                            else:
+                                result = "Camera hardware not available"
                         elif action == "ASK_GEMINI" and len(parts) >= 2:
                             # Parse prompt and optional image
                             # Format: [TOOL: ASK_GEMINI "prompt" image_path]
                             import shlex
                             try:
-                                args = shlex.split(tool_cmd[13:].strip())
+                                # "ASK_GEMINI" is 10 chars. simpler to just split by maxsplit
+                                # But we want to preserve quotes in args.
+                                # tool_cmd starts with "ASK_GEMINI". 
+                                cmd_len = len("ASK_GEMINI") 
+                                to_parse = tool_cmd[cmd_len:].strip()
+                                # print(f"Parsing ASK_GEMINI args: '{to_parse}'", flush=True)
+                                args = shlex.split(to_parse)
                                 prompt = args[0]
                                 image_arg = ""
                                 if len(args) > 1:
@@ -422,7 +448,26 @@ class BrainService:
                                     result = f"Gemini Error:\\n{proc.stderr.strip()}"
                                     status_updates.append("Tool: Gemini consultation failed")
                             except Exception as e:
-                                result = f"Tool parse error: {e}"
+                                result = f"Tool Parse Error (ASK_GEMINI): {e}"
+                        elif action == "TRAIN_VISION":
+                            # Launch training in background
+                            import threading
+                            from continuonbrain.aina_impl.train import run_training_session
+                            
+                            def training_worker():
+                                try:
+                                    def callback(msg):
+                                        status_updates.append(f"Training: {msg}")
+                                        logger.info(f"Background Training: {msg}")
+
+                                    run_training_session(config={"epochs": 5}, status_callback=callback)
+                                except Exception as e:
+                                    logger.error(f"Training Failed: {e}")
+
+                            thread = threading.Thread(target=training_worker, daemon=True)
+                            thread.start()
+                            result = "Vision System Training started in background. Check logs or verify status later."
+                            status_updates.append("Tool: Started AINA Training")
                             
                         entry["tool_action"] = tool_cmd
                         entry["tool_result"] = result
@@ -445,6 +490,84 @@ class BrainService:
             "status_updates": status_updates
         }
     
+    def get_brain_structure(self) -> Dict[str, Any]:
+        """
+        Get the topological structure and current state of the HOPE brain for 3D visualization.
+        """
+        if not self.hope_brain:
+            return {"error": "HOPE Brain not initialized", "topology": {}, "state": {}}
+            
+        # Topology (Static-ish)
+        topology = {
+            "type": "HOPE_CORTEX",
+            "columns": []
+        }
+        
+        # State (Dynamic)
+        current_state = {
+            "lyapunov_energy": 0.0,
+            "global_status": "unknown",
+            "columns": []
+        }
+        
+        # Iterate columns
+        # In the current implementation, HOPEBrain might just have a list of columns
+        # Let's inspect what we know about HOPEBrain structure
+        # user has viewed continuonbrain/hope_impl/brain.py
+        
+        for i, col in enumerate(self.hope_brain.columns):
+            col_id = f"col_{i}"
+            
+            # Extract config metrics if available
+            # col.cms might have levels
+            num_levels = 1
+            if hasattr(col, 'cms') and hasattr(col.cms, 'num_levels'):
+                num_levels = col.cms.num_levels
+                
+            topology["columns"].append({
+                "id": col_id,
+                "levels": num_levels,
+                "input_dim": col.obs_dim if hasattr(col, 'obs_dim') else 10,
+                "latent_dim": 128 # Default for now, hard to extract deeply without introspection
+            })
+            
+            # Extract dynamic state
+            # col._state is the FullState object
+            # We want energy, active neurons, etc.
+            
+            # Get latest energy if tracked
+            col_energy = 0.0
+            if hasattr(self.background_learner, 'lyapunov_energy'):
+                 # This is a global metric, maybe we just use that for now
+                 pass
+            
+            # If the column has a stability monitor or recent state
+            # For visualization, we can also look at the magnitude of the state vector s_t
+            magnitude = 0.0
+            if hasattr(col, '_state') and col._state and hasattr(col._state, 'fast_state'):
+                 # s_t is a tensor
+                 try:
+                     magnitude = float(col._state.fast_state.s.norm().item())
+                 except:
+                     pass
+
+            current_state["columns"].append({
+                "id": col_id,
+                "activity_level": magnitude,
+                "energy": col_energy 
+            })
+            
+        # Get global energy from background learner if available
+        if self.background_learner:
+             status = self.background_learner.get_status()
+             current_state["lyapunov_energy"] = status.get("lyapunov_energy", 0.0)
+             current_state["global_status"] = "learning" if status.get("running") else "idle"
+             
+        return {
+            "topology": topology,
+            "state": current_state
+        }
+
     def get_chat_agent_info(self) -> Dict[str, Any]:
         """Get information about the active chat agent."""
         return self.gemma_chat.get_model_info()
@@ -515,10 +638,32 @@ class BrainService:
         
         score = 0.7  # Base confidence
         
-        # Adjust for uncertainty
-        for word in uncertainty_words:
-            if word in response.lower():
-                score -= 0.15
+        if confidence_words:
+             pass
+
+        # Adjust for length details
+        if len(response.split()) > 50:
+            score += 0.1
+            
+        return min(max(score, 0.0), 1.0)
+    
+    def compact_memory(self) -> Dict[str, Any]:
+        """
+        Trigger memory compaction (Sleep/Consolidation mode).
+        
+        Returns:
+            Status of compaction for each column.
+        """
+        if not self.hope_brain:
+            raise RuntimeError("HOPE Brain not initialized")
+            
+        logger.info("Starting Memory Compaction Cycle (Sleep Mode)...")
+        results = self.hope_brain.compact_memory()
+        
+        # Log results
+        logger.info(f"Compaction Complete: {results}")
+        
+        return {"status": "success", "details": results}
         
         # Adjust for confidence
         for word in confidence_words:

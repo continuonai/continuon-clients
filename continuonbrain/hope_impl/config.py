@@ -72,8 +72,17 @@ class HOPEConfig:
     use_layer_norm: bool = True
     lyapunov_weight: float = 1e-3
     lyapunov_threshold: float = 1e6  # Absolute energy threshold before flagging instability
-    lyapunov_threshold: float = 1e6  # Absolute energy threshold before flagging instability
     dissipation_floor: float = -20.0  # Minimum acceptable dissipation; negative implies energy increasing
+    
+    # Stability Constraints
+    param_clamp_min: float = -0.5
+    param_clamp_max: float = 0.5
+    weight_decay: float = 0.99
+    state_saturation_limit: float = 10.0
+    
+    # Compaction / Sleep Mode
+    compaction_learning_rate: float = 0.1  # Aggressive learning during sleep
+    compaction_decay: float = 0.5        # Aggressive forgetting during sleep
     
     # Autonomous Learning
     enable_autonomous_learning: bool = True

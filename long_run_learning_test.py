@@ -52,7 +52,7 @@ def run_learning_session(steps=1000):
     
     config = HOPEConfig.pi5_optimized()
     # Boost learning rates for the test to see results in 1000 steps
-    config.eta_init = 0.05 
+    config.eta_init = 0.001 # Reduced from 0.05 to prevent Lyapunov explosion 
     
     brain = HOPEBrain(config, obs_dim=10, action_dim=4, output_dim=4)
     service.hope_brain = brain

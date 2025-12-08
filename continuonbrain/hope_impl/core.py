@@ -217,6 +217,7 @@ class HOPECore(nn.Module):
         d_c: int,
         d_z: int = 128,
         use_layer_norm: bool = True,
+        saturation_limit: float = 10.0,
     ):
         """
         Args:
@@ -227,6 +228,7 @@ class HOPECore(nn.Module):
             d_c: Context dimension
             d_z: Fusion/driving signal dimension
             use_layer_norm: Apply layer normalization for stability
+            saturation_limit: Range for Tanh soft saturation
         """
         super().__init__()
         
@@ -237,6 +239,7 @@ class HOPECore(nn.Module):
         self.d_c = d_c
         self.d_z = d_z
         self.use_layer_norm = use_layer_norm
+        self.saturation_limit = saturation_limit
         
         # 1. Fusion network: z_t = P_Θ([s_{t-1} || e_t || c_t])
         self.fusion_net = nn.Sequential(
@@ -297,6 +300,7 @@ class HOPECore(nn.Module):
         # 3. Particle update: p_t = p_{t-1} + φ_Θ(p_{t-1}, z_t, c_t)
         p_t = self.particle(p_prev, z_t, c_t)
         
+        
         # 4. Gating: g_t = σ(W_g [s_{t-1} || e_t || c_t])
         gate_input = torch.cat([s_prev, e_t, c_t], dim=-1)
         g_t = self.gate_net(gate_input)  # [d_s]
@@ -305,9 +309,16 @@ class HOPECore(nn.Module):
         delta_p = self.U_p(p_t)  # [d_s]
         delta_w = self.U_w(w_t)  # [d_s]
         
-        s_t = s_prev + g_t * delta_p + (1 - g_t) * delta_w
+        # Stability Fix: 
+        # 1. Use residual connection but saturate the delta
+        residual = g_t * delta_p + (1 - g_t) * delta_w
+        s_t = s_prev + torch.tanh(residual)
         
-        # Apply tanh to keep s_t bounded? Or rely on U_p/U_w being bounded?
-        # Usually s_t is raw state, output decoder applies nonlinearity.
+        # 2. Apply LayerNorm (optional)
+        if self.use_layer_norm:
+             s_t = self.output_norm(s_t)
+             
+        # 3. Soft saturation to prevent drift if LayerNorm is off, or just as a safety
+        s_t = torch.tanh(s_t) * self.saturation_limit # Configurable range (default 10.0)
         
         return s_t, w_t, p_t

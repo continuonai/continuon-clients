@@ -13,7 +13,7 @@ where:
 
 import torch
 import torch.nn as nn
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from .state import FastState, CMSMemory, Parameters
 
@@ -39,6 +39,8 @@ class NestedLearning(nn.Module):
         rank: int = 8,  # Low-rank dimension for LoRA
         eta_init: float = 0.01,
         update_threshold: float = 0.1,  # Only update if signal > threshold
+        param_clamp_range: Tuple[float, float] = (-0.5, 0.5), # (min, max)
+        weight_decay: float = 0.99,
     ):
         """
         Args:
@@ -47,6 +49,8 @@ class NestedLearning(nn.Module):
             rank: Low-rank dimension for parameter updates
             eta_init: Initial learning rate
             update_threshold: Threshold for sparse updates
+            param_clamp_range: Hard limits for parameter values
+            weight_decay: Multiplicative decay factor per step (e.g. 0.99)
         """
         super().__init__()
         
@@ -55,6 +59,9 @@ class NestedLearning(nn.Module):
         self.rank = rank
         self.eta_init = eta_init
         self.update_threshold = update_threshold
+        self.param_clamp_min = param_clamp_range[0]
+        self.param_clamp_max = param_clamp_range[1]
+        self.weight_decay = weight_decay
         
         # Update signal network: computes whether to update
         self.update_signal_net = nn.Sequential(
@@ -114,6 +121,7 @@ class NestedLearning(nn.Module):
         cms: CMSMemory,
         r_t: torch.Tensor,
         brain_module: 'nn.Module' = None,
+        force_update: bool = False,
     ) -> Parameters:
         """
         Compute parameter update and apply to brain model.
@@ -124,6 +132,7 @@ class NestedLearning(nn.Module):
             cms: Current CMS memory
             r_t: Reward signal (scalar)
             brain_module: Reference to brain module for parameter updates
+            force_update: If True, bypass signal threshold check
         
         Returns:
             Updated parameters
@@ -137,7 +146,8 @@ class NestedLearning(nn.Module):
         update_signal = self.update_signal_net(signal_input).squeeze(-1)  # scalar
         
         # 2. Sparse update: only update if signal > threshold (reduced from 0.1 to 0.01)
-        if update_signal.item() < 0.01:
+        # UNLESS force_update is True (Compaction Mode)
+        if not force_update and update_signal.item() < 0.01:
             # No update
             return params
         
@@ -171,10 +181,23 @@ class NestedLearning(nn.Module):
                     if param_count < self.rank:
                         # Apply scaled update (gradient-free Hebbian-like)
                         with torch.no_grad():
-                            # Use update direction to modulate parameter changes
+                            # Stabilized Update:
+                            # 1. Clamp update scale and magnitude
+                            update_scale = max(min(update_scale, 0.01), -0.01)
                             update_idx = param_count % self.rank
-                            update_magnitude = update_direction[update_idx].item()
-                            param.data += update_scale * update_magnitude * torch.randn_like(param) * 0.01
+                            update_magnitude = max(min(update_direction[update_idx].item(), 1.0), -1.0)
+                            
+                            # 2. Apply update with Decay (Strong Dissipation)
+                            noise = torch.randn_like(param) * 0.01
+                            delta = update_scale * update_magnitude * noise
+                            
+                            # Strong Decay to force energy dissipation (Lyapunov stability)
+                            param.data.mul_(self.weight_decay) 
+                            param.data.add_(delta)
+                            
+                            # 3. Strict Clamp to very small range to guarantee stability
+                            # e.g. [-0.5, 0.5] or configuration based
+                            param.data.clamp_(self.param_clamp_min, self.param_clamp_max) 
                         param_count += 1
         
         # 6. Store update metadata in params.theta for tracking

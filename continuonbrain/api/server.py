@@ -116,6 +116,17 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(ui_routes.get_hope_performance_html().encode("utf-8"))
 
+            elif self.path == "/ui/hope/map":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_brain_map_html().encode("utf-8"))
+
+            elif self.path == "/api/hope/structure":
+                data = brain_service.get_brain_structure()
+                self.send_json(data)
+
+
             elif self.path == "/api/tasks/library":
                 # Return task library with eligibility checks
                 tasks = brain_service.get_task_library()
@@ -209,7 +220,15 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     path = brain_service.save_episode_rlds()
                     self.send_json({"success": True, "message": f"Episode saved to {os.path.basename(path)}"})
                 except Exception as e:
+
                     self.send_json({"success": False, "message": str(e)}, status=500)
+            
+            elif self.path == "/api/hope/compact":
+                try:
+                    result = brain_service.compact_memory()
+                    self.send_json(result)
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
             
             elif self.path == "/api/robot/drive":
                 data = json.loads(body)

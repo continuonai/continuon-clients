@@ -20,7 +20,7 @@ from typing import Tuple, List, Optional, Dict, Union
 from pathlib import Path
 
 from .config import HOPEConfig
-from .state import FastState, CMSMemory, Parameters, FullState
+from .state import FastState, CMSMemory, Parameters, FullState, MemoryLevel
 from .encoders import InputEncoder, OutputDecoder
 from .cms import CMSRead, CMSWrite
 from .core import HOPECore
@@ -45,7 +45,11 @@ class HOPEColumn(nn.Module):
         self.cms_read = CMSRead(config.d_s, config.d_e, config.d_k, config.d_c, config.num_levels, config.cms_dims)
         
         # 3. HOPE core
-        self.hope_core = HOPECore(config.d_s, config.d_w, config.d_p, config.d_e, config.d_c, use_layer_norm=config.use_layer_norm)
+        self.hope_core = HOPECore(
+            config.d_s, config.d_w, config.d_p, config.d_e, config.d_c,
+            use_layer_norm=config.use_layer_norm,
+            saturation_limit=config.state_saturation_limit
+        )
         
         # 4. Output decoder
         self.output_decoder = OutputDecoder(config.d_s, config.d_c, output_dim, output_type)
@@ -55,7 +59,13 @@ class HOPEColumn(nn.Module):
         
         # 6. Nested learning
         d_mem = sum(config.cms_dims)
-        self.nested_learning = NestedLearning(config.d_s, d_mem, eta_init=config.eta_init)
+        self.nested_learning = NestedLearning(
+            d_s=config.d_s, 
+            d_mem=d_mem, 
+            eta_init=config.eta_init,
+            param_clamp_range=(config.param_clamp_min, config.param_clamp_max),
+            weight_decay=config.weight_decay
+        )
         
         # 8. Stability monitor (Each column monitors its own stability)
         self.stability_monitor = StabilityMonitor(config.lyapunov_threshold, config.dissipation_floor, config.gradient_clip)
@@ -152,7 +162,61 @@ class HOPEColumn(nn.Module):
             'stability_metrics': metrics, 'lyapunov': lyapunov
         }
         return state_next, y_t, info
+        return state_next, y_t, info
 
+    def compact_memory(self):
+        """
+        Execute Memory Compaction (Consolidation Cycle).
+        
+        Triggers:
+        1. Force Nested Learning update (Transfer M -> Theta)
+        2. Flush CMS Memory (High Decay)
+        """
+        # 1. Use Compaction Hyperparameters
+        original_lr = self._state.params.eta
+        original_decay = self._state.cms.levels[0].decay # Assuming homogeneous decay for now
+        
+        # Set aggressive values
+        self._state.params.eta = self.config.compaction_learning_rate
+        flush_decay = self.config.compaction_decay
+        
+        # 2. Force Learning Update (Consolidation)
+        # We use the current state as the "summary" to be learned
+        # In a more advanced version, we would replay a sequence.
+        # Here, we do a "One-Shot Consolidation" of the current memory stats.
+        
+        # Note: effectively we are saying "The current aggregate statistical state of memory
+        # should be baked into the weights"
+        
+        # Pass force_update=True to bypass threshold
+        # Ensure r_t has correct shape [1, 1] to match fast.s [1, d_s]
+        r_consolidation = torch.tensor([[1.0]], device=self.device)
+        
+        self._state.params = self.nested_learning(
+            self._state.params, 
+            self._state.fast_state, 
+            self._state.cms, 
+            r_consolidation, # Positive reinforcement for consolidation
+            brain_module=self.hope_core,
+            force_update=True
+        )
+        
+        # 3. Flush Memory (High Decay)
+        # We manually decay the CMS levels
+        new_levels = []
+        for level in self._state.cms.levels:
+            # Apply strong decay factor
+            # M_new = (1 - flush) * M_old
+            M_flushed = (1 - flush_decay) * level.M
+            K_flushed = (1 - flush_decay) * level.K
+            new_levels.append(MemoryLevel(M_flushed, K_flushed, level.decay))
+            
+        self._state.cms = CMSMemory(new_levels)
+        
+        # 4. Restore Hyperparameters
+        self._state.params.eta = original_lr
+        
+        return {"status": "compacted", "energy_transfer": "cms->theta"}
 
 class HOPEBrain(nn.Module):
     """
@@ -238,20 +302,22 @@ class HOPEBrain(nn.Module):
 
     def forward(self, x_obs, a_prev, r_t):
         """
-        Forward pass for training (simplified interface).
-        
-        Args:
-            x_obs: Observation
-            a_prev: Previous action
-            r_t: Reward
-        
-        Returns:
-            y_t: Output
+        Forward pass (inference only, no state update).
         """
-        # Ensure r_t is a scalar for the step method if it's a tensor
-        r_t_val = r_t.item() if r_t.dim() == 0 else r_t[0].item()
-        _, y_t, _ = self.step(x_obs, a_prev, r_t_val)
-        return y_t
+        # Only use active column for simple forward
+        return self.columns[self.active_column_idx].forward(x_obs, a_prev, r_t)
+
+    def compact_memory(self):
+        """
+        Trigger memory compaction on all columns.
+        """
+        results = []
+        for i, col in enumerate(self.columns):
+            res = col.compact_memory()
+            results.append(f"Col{i}:{res['status']}")
+        return results
+
+
         
     def get_state(self) -> FullState:
         """Get current internal state of the active column."""
