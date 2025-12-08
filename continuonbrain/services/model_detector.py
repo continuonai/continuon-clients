@@ -56,15 +56,8 @@ class ModelDetector:
         return models
     
     def _detect_gemma_models(self) -> List[Dict[str, Any]]:
-        """Detect Gemma models in HuggingFace cache."""
+        """Detect all models in HuggingFace cache."""
         models = []
-        
-        # Common Gemma model IDs to look for
-        known_gemma = {
-            "google/gemma-2b-it": "Gemma 2B Instruct",
-            "google/gemma-3-4b-it": "Gemma 3N 4B Instruct",
-            "google/gemma-7b-it": "Gemma 7B Instruct",
-        }
         
         try:
             # List all model directories in cache
@@ -74,8 +67,8 @@ class ModelDetector:
                 
                 # HF cache names are like: models--google--gemma-2b-it
                 dir_name = model_dir.name
-                if "gemma" in dir_name.lower():
-                    # Try to parse model ID from directory name
+                if dir_name.startswith("models--"):
+                    # Parse model ID from directory name
                     # Format: models--org--model-name
                     parts = dir_name.split("--")
                     if len(parts) >= 3:
@@ -83,21 +76,21 @@ class ModelDetector:
                         model_name = "--".join(parts[2:])
                         model_id = f"{org}/{model_name}"
                         
-                        # Check if we know this model
-                        if model_id in known_gemma:
-                            # Estimate size from snapshots directory
-                            size_mb = self._estimate_model_size(model_dir)
-                            
-                            models.append({
-                                "id": model_id,
-                                "name": known_gemma[model_id],
-                                "type": "gemma",
-                                "size_mb": size_mb,
-                                "source": "huggingface",
-                                "description": f"Downloaded from HuggingFace (~{size_mb}MB)"
-                            })
+                        # Estimate size from snapshots directory
+                        size_mb = self._estimate_model_size(model_dir)
+                        
+                        models.append({
+                            "id": model_id,
+                            "name": model_id, # Use full ID as name
+                            "type": "gemma" if "gemma" in model_id.lower() else "transformer",
+                            "size_mb": size_mb,
+                            "source": "huggingface",
+                            "description": f"Local Model (~{size_mb}MB)"
+                        })
         except Exception as e:
-            logger.warning(f"Error detecting Gemma models: {e}")
+            logger.warning(f"Error detecting models: {e}")
+            
+        return models
         
         return models
     

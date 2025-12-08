@@ -104,7 +104,7 @@ Status: Awaiting owner instructions in AUTONOMY mode.
   Autonomous Learning: True
 INFO:continuonbrain.resource_monitor:No resource limits config found at /tmp/continuonbrain_demo/config/resource_limits.json, using defaults
 INFO:continuonbrain.resource_monitor:Resource Monitor initialized: System reserve 2000MB, Brain max 2000MB
-INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'normal', 'memory_percent': 42.2, 'available_mb': 4663, 'swap_percent': 0.0, 'checkpoints_mb': 0.0, 'can_allocate': True, 'message': 'Normal: 4663MB available (42.2% used)', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'normal', 'memory_percent': 50.9, 'available_mb': 3959, 'swap_percent': 23.9, 'checkpoints_mb': 0.0, 'can_allocate': True, 'message': 'Normal: 3959MB available (50.9% used)', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
 INFO:continuonbrain.services.brain_service:📚 Experience logger initialized for active learning
 INFO:continuonbrain.services.brain_service:💬 Conversation session management initialized
 INFO:continuonbrain.services.brain_service:🤖 Personality initialized: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, identity_mode='TARS')
@@ -122,7 +122,7 @@ Hardware Detection Summary
 Total devices found: 4
 
 Depth Camera:
-  • OAK-D Lite (usb3: bus_001_dev_003)
+  • OAK-D Lite (usb3: bus_001_dev_005)
     Capabilities: rgb, depth, stereo, ai
 
 Display:
@@ -141,12 +141,10 @@ Servo Controller:
 
 🤖 Loading Gemma Chat Model...
 INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
-INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
-INFO:accelerate.utils.modeling:Based on the current allocation process, no modules could be assigned to the following devices due to insufficient memory:
-  - cpu: 8053070852 bytes required
-These minimum requirements are specific to this allocation attempt and may vary. Consider increasing the available memory for these devices to at least the specified minimum, or adjusting the model config.
-Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 45100.04it/s]
-ERROR:continuonbrain.gemma_chat:Failed to load Gemma model: You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead.
+INFO:continuonbrain.gemma_chat:Attempting to load VLM: google/gemma-3n-E2B-it
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards:  33%|███▎      | 1/3 [00:00<00:01,  1.89it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00,  3.73it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00,  3.39it/s]
+INFO:continuonbrain.gemma_chat:✅ Gemma 3N VLM loaded successfully!
 📼 Initializing episode recorder...
 🦾 Initializing hardware via ContinuonBrain...
 🔍 Auto-detecting hardware...
@@ -175,7 +173,7 @@ Arm moved to default safe positions
 ============================================================
 🤖 Mode Change: idle → autonomous
 ============================================================
-Time: 2025-12-08 10:46:21
+Time: 2025-12-08 11:28:47
 Motion: Enabled
 Recording: ON
 Inference: ON
@@ -183,45 +181,119 @@ Self-Training: OFF
 
 Mode Configuration:
   control_source: vla_policy
-  startup_time: 2025-12-08 10:46:21
+  startup_time: 2025-12-08 11:28:47
   auto_activated: True
   self_training_enabled: True
 ============================================================
 
 ✅ Mode manager ready
 🧠 Initializing HOPE brain...
-  Available memory: 4170MB
+  Available memory: 3466MB
   Using development config (medium memory mode)
-DEBUG_CMS_INIT: d_s=64, d_e=64, d_k=16, d_c=64, num_levels=2, cms_dims=[32, 64]
+WARNING:continuonbrain.services.brain_service:Memory constrained: 3466MB available, need 2000MB + reserve
+  ⚠️  Forcing Pi5-optimized config due to memory constraints
+DEBUG_CMS_INIT: d_s=128, d_e=128, d_k=32, d_c=128, num_levels=3, cms_dims=[64, 128, 256]
 INFO:continuonbrain.resource_monitor:Registered cleanup callback for critical threshold
   ✓ Registered with web monitoring
-  ✓ HOPE brain ready (587,105 parameters, 2.2MB)
+  ✓ HOPE brain ready (1,386,003 parameters, 5.3MB)
 ============================================================
 ✅ Brain Service Ready
 ============================================================
 🚀 Server listening on http://0.0.0.0:8080
-INFO:continuonbrain.services.brain_service:HOPE confidence for 'what do you see?...': 0.10
-INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
-INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
-INFO:accelerate.utils.modeling:Based on the current allocation process, no modules could be assigned to the following devices due to insufficient memory:
-  - cpu: 8053070852 bytes required
-These minimum requirements are specific to this allocation attempt and may vary. Consider increasing the available memory for these devices to at least the specified minimum, or adjusting the model config.
-Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 28212.81it/s]
-ERROR:continuonbrain.gemma_chat:Failed to load Gemma model: You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead.
-INFO:continuonbrain.services.experience_logger:Logged conversation: 'what do you see?...' -> llm_with_hope_context
-INFO:continuonbrain.services.brain_service:HOPE confidence for 'what do you see?...': 0.10
+INFO:BrainServer:Model change detected: mock -> google/gemma-2b-it
+INFO:continuonbrain.services.brain_service:Switching chat model to: google/gemma-2b-it
+INFO:continuonbrain.services.brain_service:Unloading previous model: google/gemma-3n-E2B-it
+INFO:continuonbrain.services.brain_service:Successfully switched to model: google/gemma-2b-it
+INFO:continuonbrain.services.brain_service:Personality updated: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, identity_mode='TARS')
+INFO:continuonbrain.services.brain_service:HOPE confidence for 'what do you see from the camera?...': 0.10
 INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
 INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
 INFO:continuonbrain.services.experience_logger:Loaded sentence-transformers model for semantic search
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  4.32it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  4.28it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 10.85it/s]
-INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  3.53it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  3.52it/s]
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 12.26it/s]
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 11.15it/s]
+INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-2b-it
 INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
-INFO:accelerate.utils.modeling:Based on the current allocation process, no modules could be assigned to the following devices due to insufficient memory:
-  - cpu: 8053070852 bytes required
-These minimum requirements are specific to this allocation attempt and may vary. Consider increasing the available memory for these devices to at least the specified minimum, or adjusting the model config.
-Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00, 45923.04it/s]
-ERROR:continuonbrain.gemma_chat:Failed to load Gemma model: You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead.
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  6.38it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  6.31it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 12.78it/s]
-INFO:continuonbrain.services.experience_logger:Skipping duplicate conversation: 'what do you see?...'
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 75.1% - 2011MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.5% - 1895MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.0% - 1692MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.7% - 1719MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.1% - 1926MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1870MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.4% - 1905MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.3% - 1989MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.4% - 1981MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.3% - 1988MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.6% - 1968MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.7% - 1959MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1909MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1914MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.9% - 1946MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.3% - 1991MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2022MB available (74.9% used)
+Loading checkpoint shards:  50%|█████     | 1/2 [00:57<00:57, 57.53s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:57<00:00, 28.77s/it]
+WARNING:accelerate.big_modeling:Some parameters are on the meta device because they were offloaded to the disk and cpu.
+INFO:continuonbrain.gemma_chat:Gemma model loaded (CausalLM mode)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 75.0% - 2015MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.9% - 1943MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.9% - 1943MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.4% - 1906MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.9% - 1863MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2024MB available (74.9% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 76.7% - 1880MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2100MB available (74.0% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 77.2% - 1841MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2054MB available (74.5% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 76.3% - 1911MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1910MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2196MB available (72.8% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.0% - 1773MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1908MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.0% - 1692MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.5% - 1737MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.4% - 1742MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.1% - 1768MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1871MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1871MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.6% - 1807MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2104MB available (73.9% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 76.8% - 1870MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1870MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2043MB available (74.7% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.2% - 1760MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.6% - 1725MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.2% - 2000MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.6% - 1807MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.6% - 1804MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2060MB available (74.5% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.1% - 1762MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.2% - 1835MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.8% - 1791MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.3% - 1831MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.4% - 1822MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2125MB available (73.6% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 77.3% - 1828MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.5% - 1736MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.7% - 1960MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.1% - 1763MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.9% - 1783MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2049MB available (74.6% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.2% - 1760MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.0% - 1773MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.1% - 1683MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.0% - 1693MB available
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.1% - 1767MB available
+WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2334MB available (71.1% used)
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 75.3% - 1991MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
