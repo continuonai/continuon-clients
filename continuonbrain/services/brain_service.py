@@ -822,13 +822,38 @@ class BrainService:
                 try:
                     import torch
                     if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
+                            torch.cuda.empty_cache()
                 except ImportError:
                     pass
             
             # Create new model instance
             if model_id == "mock":
                 self.gemma_chat = create_gemma_chat(use_mock=True)
+            
+            elif model_id == "hope-v1":
+                # Instantiate HOPE Agent Wrapper
+                # Ensure HOPE brain is ready (mock it if missing for now, or ensure initialization)
+                if not self.hope_brain:
+                    # Try to init HOPE brain if not ready
+                    # For now, we assume HOPE brain should be there or we create a dummy one?
+                    # Actually, let's use the BackgroundLearner's brain if available
+                    if self.background_learner:
+                        self.hope_brain = self.background_learner.brain
+                
+                # Create underlying LLM for fallback (default to 2B)
+                # Use existing if compatible, else create new
+                if getattr(self.gemma_chat, 'model_name', '') == create_gemma_chat.DEFAULT_MODEL_ID:
+                     llm = self.gemma_chat
+                else:
+                     llm = create_gemma_chat(use_mock=False) # standard default
+                
+                # Lazily init hope agent if needed
+                from continuonbrain.services.agent_hope import HOPEAgent
+                from continuonbrain.services.hope_agent_wrapper import HOPEAgentWrapper
+                
+                hope_agent = HOPEAgent(self.hope_brain)
+                self.gemma_chat = HOPEAgentWrapper(hope_agent, llm)
+                
             else:
                 # Real model - could be Gemma or VLA
                 self.gemma_chat = create_gemma_chat(use_mock=False, model_name=model_id)

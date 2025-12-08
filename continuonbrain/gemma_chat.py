@@ -445,6 +445,7 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
     Returns:
         GemmaChat or MockGemmaChat instance
     """
+    create_gemma_chat.DEFAULT_MODEL_ID = GemmaChat.DEFAULT_MODEL_ID
     if use_mock:
         return MockGemmaChat(**kwargs)
     

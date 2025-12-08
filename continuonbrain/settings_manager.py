@@ -25,7 +25,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "temperature": 0.35,
     },
     "agent_manager": {
-        "agent_model": "mock",  # Chat model: mock, vla-custom, or HF model ID
+        "agent_model": "hope-v1",  # Default to HOPE Agent
         "enable_thinking_indicator": True,
         "enable_intervention_prompts": True,
         "intervention_confidence_threshold": 0.5,
