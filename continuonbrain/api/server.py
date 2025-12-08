@@ -336,11 +336,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     # Save settings first
                     settings = store.save(data)
                     
-                    # If model changed, switch it dynamically
-                    switch_result = None
                     if old_model != new_model:
                         logger.info(f"Model change detected: {old_model} -> {new_model}")
                         switch_result = brain_service.switch_model(new_model)
+                    
+                    # Reload settings in active service
+                    brain_service.load_settings()
                     
                     response = {
                         "success": True,
@@ -457,6 +458,8 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     humor=data.get("humor_level"),
                     sarcasm=data.get("sarcasm_level"),
                     empathy=data.get("empathy_level"),
+                    verbosity=data.get("verbosity_level"),
+                    system_name=data.get("system_name"),
                     identity_mode=data.get("identity_mode")
                 )
                 self.send_json({"success": True, "config": updated})

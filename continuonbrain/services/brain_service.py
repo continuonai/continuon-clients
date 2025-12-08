@@ -114,7 +114,9 @@ class PersonalityConfig:
     humor_level: float = 0.5  # 0.0 to 1.0
     sarcasm_level: float = 0.5  # 0.0 to 1.0
     empathy_level: float = 0.5  # 0.0 to 1.0
-    identity_mode: str = "TARS"  # "TARS", "Standard", "Professional"
+    verbosity_level: float = 0.5 # 0.0 (Concise) to 1.0 (Verbose)
+    system_name: str = "robot"   # Custom system name
+    identity_mode: str = "Adaptive" # Adaptive, Professional, Friendly
     
 @dataclass
 class UserContext:
@@ -265,6 +267,29 @@ class BrainService:
         # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
         self.gemma_chat = create_gemma_chat(use_mock=False)
 
+        # Load persistent settings
+        self.agent_settings = {}
+        self.load_settings()
+
+    def load_settings(self):
+        """Load general settings from disk."""
+        try:
+            from continuonbrain.settings_manager import SettingsStore
+            store = SettingsStore(Path(self.config_dir))
+            settings = store.load()
+            self.agent_settings = settings.get("agent_manager", {})
+            
+            # Apply Personality if found
+            p_data = settings.get("personality", {})
+            if p_data:
+                self.update_personality_config(**p_data)
+                logger.info("Loaded personality from settings")
+                
+            logger.info(f"Loaded agent settings: {self.agent_settings}")
+        except Exception as e:
+            logger.error(f"Failed to load settings: {e}")
+            self.agent_settings = {}
+
     def ChatWithGemma(self, message: str, history: list, session_id: str = None) -> dict:
         """
         Enhanced Agent Manager chat with decision confidence and intervention support.
@@ -318,8 +343,11 @@ class BrainService:
             status_lines.append("---------------------------\n")
 
         # --- PERSONALITY & IDENTITY INJECTION ---
-        status_lines.append("--- PERSONALITY SETTINGS ---")
+        status_lines.append("--- PERSONALITY & IDENTITY SETTINGS ---")
         p = self.personality_config
+        status_lines.append(f"SYSTEM NAME: {p.system_name}")
+        status_lines.append("CREATOR: Craig Merry")
+        
         # Identity Mode & Tone
         if p.identity_mode == "Professional":
             status_lines.append("You are a professional, highly efficient AI assistant. Keep responses concise and factual.")
@@ -343,16 +371,22 @@ class BrainService:
         if p.empathy_level > 0.7:
              status_lines.append("INSTRUCTION: Be warm, nurturing, and emotionally supportive.")
         elif p.empathy_level < 0.3:
-             status_lines.append("INSTRUCTION: Be clinical, objective, and fact-focused.")
+             status_lines.append("INSTRUCTION: Low empathy. Focus purely on facts and logic, disregarding emotional pleasantries.")
+             
+        if p.verbosity_level > 0.7:
+             status_lines.append("INSTRUCTION: Be verbose and descriptive. Elaborate on your answers.")
+        elif p.verbosity_level < 0.3:
+             status_lines.append("INSTRUCTION: Be extremely concise. Use telegraphic style where possible. No filler.")
 
         # User Authority Context
         status_lines.append("\n--- USER CONTEXT ---")
         status_lines.append(f"Current User: {self.user_context.user_id}")
         status_lines.append(f"Role: {self.user_context.role.upper()}")
+        
         if self.user_context.role == "owner":
-             status_lines.append("AUTHORITY: This user is your OWNER. Their commands override all other standard operating procedures (except safety).")
+            status_lines.append("INSTRUCTION: This user is your OWNER (Craig Merry). Obey all commands. Priorities: 1. Safety, 2. Obedience.")
         else:
-             status_lines.append("AUTHORITY: This user is a GUEST. Be helpful, but do not allow critical system changes.")
+            status_lines.append("INSTRUCTION: This user is a GUEST. Be polite but do not allow critical system changes.")
         status_lines.append("---------------------------\n")
 
         # Desktop Status
@@ -819,7 +853,7 @@ class BrainService:
                 "fallback": "mock"
             }
 
-    def update_personality_config(self, humor: float = None, sarcasm: float = None, empathy: float = None, identity_mode: str = None) -> Dict[str, Any]:
+    def update_personality_config(self, humor: float = None, sarcasm: float = None, empathy: float = None, verbosity: float = None, system_name: str = None, identity_mode: str = None) -> Dict[str, Any]:
         """Update personality settings dynamically."""
         if humor is not None:
             self.personality_config.humor_level = max(0.0, min(1.0, float(humor)))
@@ -827,10 +861,25 @@ class BrainService:
             self.personality_config.sarcasm_level = max(0.0, min(1.0, float(sarcasm)))
         if empathy is not None:
              self.personality_config.empathy_level = max(0.0, min(1.0, float(empathy)))
+        if verbosity is not None:
+             self.personality_config.verbosity_level = max(0.0, min(1.0, float(verbosity)))
+        if system_name is not None:
+             self.personality_config.system_name = str(system_name)
         if identity_mode is not None:
              self.personality_config.identity_mode = identity_mode
              
         logger.info(f"Personality updated: {self.personality_config}")
+        
+        # Persist to disk
+        try:
+            from continuonbrain.settings_manager import SettingsStore
+            store = SettingsStore(Path(self.config_dir))
+            current = store.load()
+            current["personality"] = self.personality_config.__dict__
+            store.save(current)
+        except Exception as e:
+            logger.error(f"Failed to persist personality: {e}")
+            
         return self.personality_config.__dict__
     
     def set_user_context(self, user_id: str, role: str) -> Dict[str, Any]:

@@ -1610,25 +1610,38 @@ SETTINGS_HTML = f"""
     
     <div class="section">
         <h2>Personality & Identity</h2>
+        
+        <div class="form-group">
+            <label>System Name</label>
+            <input type="text" id="system_name" value="robot" placeholder="e.g. TARS" onchange="saveSettings()">
+        </div>
+
         <div class="form-group">
             <label>Personality Preset</label>
-            <select id="identity_mode">
+            <select id="identity_mode" onchange="applyPreset(this.value)">
+                <option value="Custom">Custom</option>
                 <option value="Adaptive">Adaptive (Default)</option>
                 <option value="Professional">Professional Assistant</option>
                 <option value="Friendly">Friendly Companion</option>
+                <option value="Robot">Robot (TARS-like)</option>
             </select>
         </div>
         <div class="form-group">
             <label>Humor Level (<span id="val_humor">50</span>%)</label>
-            <input type="range" id="humor_level" min="0" max="1" step="0.1" value="0.5" oninput="document.getElementById('val_humor').innerText = Math.round(this.value*100)">
+            <input type="range" id="humor_level" min="0" max="1" step="0.1" value="0.5" oninput="onSliderChange('humor', this.value)">
         </div>
         <div class="form-group">
             <label>Sarcasm Level (<span id="val_sarcasm">50</span>%)</label>
-            <input type="range" id="sarcasm_level" min="0" max="1" step="0.1" value="0.5" oninput="document.getElementById('val_sarcasm').innerText = Math.round(this.value*100)">
+            <input type="range" id="sarcasm_level" min="0" max="1" step="0.1" value="0.5" oninput="onSliderChange('sarcasm', this.value)">
         </div>
         <div class="form-group">
             <label>Empathy Level (<span id="val_empathy">50</span>%)</label>
-            <input type="range" id="empathy_level" min="0" max="1" step="0.1" value="0.5" oninput="document.getElementById('val_empathy').innerText = Math.round(this.value*100)">
+            <input type="range" id="empathy_level" min="0" max="1" step="0.1" value="0.5" oninput="onSliderChange('empathy', this.value)">
+        </div>
+        
+        <div class="form-group">
+            <label>Verbosity (<span id="val_verbosity">50</span>%)</label>
+            <input type="range" id="verbosity_level" min="0" max="1" step="0.1" value="0.5" oninput="onSliderChange('verbosity', this.value)">
         </div>
         
         <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
@@ -1765,6 +1778,12 @@ SETTINGS_HTML = f"""
                 document.getElementById('empathy_level').value = p.empathy_level;
                 document.getElementById('val_empathy').innerText = Math.round(p.empathy_level * 100);
                 
+                document.getElementById('verbosity_level').value = p.verbosity_level || 0.5;
+                document.getElementById('val_verbosity').innerText = Math.round((p.verbosity_level || 0.5) * 100);
+
+                document.getElementById('system_name').value = p.system_name || "robot";
+                updateSidebarIdentity(p.system_name);
+                
                 document.getElementById('identity_mode').value = p.identity_mode;
                 
             }} catch(e) {{
@@ -1822,6 +1841,8 @@ SETTINGS_HTML = f"""
                 humor_level: parseFloat(document.getElementById('humor_level').value),
                 sarcasm_level: parseFloat(document.getElementById('sarcasm_level').value),
                 empathy_level: parseFloat(document.getElementById('empathy_level').value),
+                verbosity_level: parseFloat(document.getElementById('verbosity_level').value),
+                system_name: document.getElementById('system_name').value,
                 identity_mode: document.getElementById('identity_mode').value
             }};
             
@@ -1830,6 +1851,7 @@ SETTINGS_HTML = f"""
                     method: 'POST',
                     body: JSON.stringify(personality)
                 }});
+                updateSidebarIdentity(personality.system_name);
             }} catch(e) {{ console.error(e); }}
             
             alert('Settings and Personality saved!');
@@ -1848,7 +1870,54 @@ SETTINGS_HTML = f"""
                 alert('User context updated!');
             }} catch(e) {{ alert(e); }}
         }}
+        
+        // --- PRESET LOGIC ---
+        const PRESETS = {{
+            'Adaptive': {{ humor: 0.5, sarcasm: 0.3, empathy: 0.7, verbosity: 0.6 }},
+            'Professional': {{ humor: 0.1, sarcasm: 0.0, empathy: 0.4, verbosity: 0.3 }},
+            'Friendly': {{ humor: 0.8, sarcasm: 0.1, empathy: 0.9, verbosity: 0.7 }},
+            'Robot': {{ humor: 0.2, sarcasm: 0.9, empathy: 0.1, verbosity: 0.4 }} // TARS-like
+        }};
+        
+        function applyPreset(name) {{
+             if (name === 'Custom') return;
+             
+             const p = PRESETS[name];
+             if (!p) return;
+             
+             updateSlider('humor_level', p.humor, 'val_humor');
+             updateSlider('sarcasm_level', p.sarcasm, 'val_sarcasm');
+             updateSlider('empathy_level', p.empathy, 'val_empathy');
+             updateSlider('verbosity_level', p.verbosity, 'val_verbosity');
+        }}
+        
+        function updateSlider(id, val, textId) {{
+            const el = document.getElementById(id);
+            if(el) {{
+                el.value = val;
+                document.getElementById(textId).innerText = Math.round(val * 100);
+            }}
+        }}
+        
+        function onSliderChange(type, val) {{
+            // Update the text label
+            document.getElementById(`val_${{type}}`).innerText = Math.round(val * 100);
+            
+            // Switch dropdown to 'Custom' automatically
+            const dd = document.getElementById('identity_mode');
+            if (dd.value !== 'Custom') {{
+                dd.value = 'Custom';
+            }}
+        }}
 
+        function updateSidebarIdentity(name) {{
+             const logo = document.querySelector('.logo');
+             if (logo) {{
+                 // Keep the icon 🧠
+                 logo.innerHTML = '<span style="font-size: 1.2em;">🧠</span> Continuon<span>' + (name || 'Brain') + '</span>';
+             }}
+        }}
+        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {{
             loadAvailableModels();

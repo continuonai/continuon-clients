@@ -48,6 +48,16 @@ class ModelDetector:
                 "description": "Custom Vision-Language-Action model"
             })
         
+        # Add HOPE Logic Model (User Developed)
+        models.append({
+            "id": "hope-v1",
+            "name": "HOPE Logic Model",
+            "type": "agent",
+            "size_mb": 0,
+            "source": "built-in",
+            "description": "Proprietary Cognitive Architecture (Continuon)"
+        })
+        
         # Detect downloaded HuggingFace models
         if self.hf_cache.exists():
             gemma_models = self._detect_gemma_models()
@@ -76,7 +86,7 @@ class ModelDetector:
                         model_name = "--".join(parts[2:])
                         model_id = f"{org}/{model_name}"
                         
-                        # Estimate size from snapshots directory
+                        # Estimate size from snapshots directory (only largest snapshot)
                         size_mb = self._estimate_model_size(model_dir)
                         
                         models.append({
@@ -91,24 +101,28 @@ class ModelDetector:
             logger.warning(f"Error detecting models: {e}")
             
         return models
-        
-        return models
     
     def _estimate_model_size(self, model_dir: Path) -> int:
-        """Estimate model size in MB by checking snapshot files."""
+        """Estimate model size in MB by checking ONLY the largest snapshot."""
         try:
             snapshots_dir = model_dir / "snapshots"
             if not snapshots_dir.exists():
                 return 0
             
-            total_size = 0
+            # Find the largest snapshot (likely the main one)
+            max_size = 0
+            
             for snapshot in snapshots_dir.iterdir():
                 if snapshot.is_dir():
+                    current_snap_size = 0
                     for file in snapshot.rglob("*"):
                         if file.is_file():
-                            total_size += file.stat().st_size
+                            current_snap_size += file.stat().st_size
+                    
+                    if current_snap_size > max_size:
+                        max_size = current_snap_size
             
-            return int(total_size / (1024 * 1024))  # Convert to MB
+            return int(max_size / (1024 * 1024))  # Convert to MB
         except Exception:
             return 0
     
