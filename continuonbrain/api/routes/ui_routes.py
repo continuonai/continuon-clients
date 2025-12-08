@@ -276,7 +276,9 @@ HOME_HTML = f"""
                     }}
                 }}
                 
-                addMessage('agent', 'Agent Manager', data.response || 'No response');
+                // Store timestamp for validation
+                const timestamp = new Date().toISOString();
+                addMessage('agent', 'Agent Manager', data.response || 'No response', timestamp);
             }} catch(e) {{
                 hideAgentStatus();
                 addMessage('agent', 'Agent Manager', 'Error: ' + e.message);
@@ -285,6 +287,27 @@ HOME_HTML = f"""
             input.disabled = false;
             document.getElementById('sendBtn').disabled = false;
             input.focus();
+        }}
+        
+        async function validateResponse(timestamp, validated) {{
+            try {{
+                const response = await fetch('/api/agent/validate', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ timestamp, validated }})
+                }});
+                
+                const data = await response.json();
+                if (data.success) {{
+                    // Visual feedback
+                    const emoji = validated ? '✅' : '❌';
+                    addMessage('system', 'System', `${{emoji}} Response marked as ${{validated ? 'correct' : 'incorrect'}}`);
+                }} else {{
+                    console.error('Validation failed:', data.error);
+                }}
+            }} catch(e) {{
+                console.error('Validation error:', e);
+            }}
         }}
         
         function showAgentStatus(state, text) {{
@@ -355,13 +378,36 @@ HOME_HTML = f"""
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }}
         
-        function addMessage(type, sender, text) {{
+        function addMessage(type, sender, text, timestamp) {{
             const messagesDiv = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${{type}}`;
+            
+            // Add validation buttons for agent messages
+            let validationHTML = '';
+            if (type === 'agent' && timestamp) {{
+                validationHTML = `
+                    \u003cdiv class="validation-buttons" style="margin-top: 8px; opacity: 0.6; transition: opacity 0.2s;">
+                        \u003cbutton onclick="validateResponse('${{timestamp}}', true)" 
+                                style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 4px 8px; transition: transform 0.1s;"
+                                title="Mark as correct"
+                                onmouseover="this.style.transform='scale(1.2)'"
+                                onmouseout="this.style.transform='scale(1)'"
+                                \u003e👍\u003c/button\u003e
+                        \u003cbutton onclick="validateResponse('${{timestamp}}', false)" 
+                                style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 4px 8px; transition: transform 0.1s;"
+                                title="Mark as incorrect"
+                                onmouseover="this.style.transform='scale(1.2)'"
+                                onmouseout="this.style.transform='1)'"
+                                \u003e👎\u003c/button\u003e
+                    \u003c/div\u003e
+                `;
+            }}
+            
             messageDiv.innerHTML = `
-                <div class="sender">${{sender}}</div>
-                <div class="bubble">${{escapeHtml(text)}}</div>
+                \u003cdiv class="sender"\u003e${{sender}}\u003c/div\u003e
+                \u003cdiv class="bubble"\u003e${{escapeHtml(text)}}\u003c/div\u003e
+                ${{validationHTML}}
             `;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -615,6 +661,9 @@ HOME_HTML = f"""
             <div style="margin: 20px 0; padding: 10px 24px; font-size: 0.75em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">
                 System
             </div>
+            <a href="/ui/learning" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">📊</span> Learning Dashboard
+            </a>
             <a href="/ui/settings" target="main_frame" onclick="selectNav(this)">
                 <span class="icon">⚙️</span> Settings
             </a>
@@ -1529,6 +1578,13 @@ SETTINGS_HTML = f"""
     <div class="section">
         <h2>Agent Manager</h2>
         <div class="form-group">
+            <label>Chat Model</label>
+            <select id="agent_model" style="max-width: 400px; padding: 8px;">
+                <option value="mock">Loading models...</option>
+            </select>
+            <small style="color: var(--text-dim); display: block; margin-top: 4px;">Select which model to use for chat responses</small>
+        </div>
+        <div class="form-group">
             <label>
                 <input type="checkbox" id="enable_thinking_indicator" checked> Show Thinking Indicator
             </label>
@@ -1575,16 +1631,42 @@ SETTINGS_HTML = f"""
     </div>
 
     <script>
+        // Load available models on page load
+        async function loadAvailableModels() {{
+            try {{
+                const res = await fetch('/api/agent/models');
+                const data = await res.json();
+                
+                if (data.success && data.models) {{
+                    const select = document.getElementById('agent_model');
+                    select.innerHTML = ''; // Clear loading option
+                    
+                    data.models.forEach(model => {{
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.name + (model.size_mb > 0 ? ` (~${{model.size_mb}}MB)` : '');
+                        option.title = model.description;
+                        select.appendChild(option);
+                    }});
+                }}
+            }} catch(e) {{
+                console.error('Error loading models:', e);
+            }}
+        }}
+        
         async function loadSettings() {{
             try {{
                 const res = await fetch('/api/settings');
-                const data = await response.json();
+                const data = await res.json();
                 
                 if (data.success && data.settings) {{
                     const s = data.settings;
                     
                     // Agent Manager settings
                     if (s.agent_manager) {{
+                        if (s.agent_manager.agent_model) {{
+                            document.getElementById('agent_model').value = s.agent_manager.agent_model;
+                        }}
                         document.getElementById('enable_thinking_indicator').checked = s.agent_manager.enable_thinking_indicator ?? true;
                         document.getElementById('enable_intervention_prompts').checked = s.agent_manager.enable_intervention_prompts ?? true;
                         document.getElementById('intervention_confidence_threshold').value = s.agent_manager.intervention_confidence_threshold ?? 0.5;
@@ -1607,6 +1689,7 @@ SETTINGS_HTML = f"""
                 auto_load: document.getElementById('auto_load').checked,
                 default_mode: document.getElementById('default_mode').value,
                 agent_manager: {{
+                    agent_model: document.getElementById('agent_model').value,
                     enable_thinking_indicator: document.getElementById('enable_thinking_indicator').checked,
                     enable_intervention_prompts: document.getElementById('enable_intervention_prompts').checked,
                     intervention_confidence_threshold: parseFloat(document.getElementById('intervention_confidence_threshold').value),
@@ -1635,6 +1718,12 @@ SETTINGS_HTML = f"""
                 alert('Error saving settings: ' + e.message);
             }}
         }}
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {{
+            loadAvailableModels();
+            loadSettings();
+        }});
 
         async function scanHardware() {{
             const btn = event.target;
@@ -2243,6 +2332,75 @@ def get_manual_html() -> str:
 
 def get_tasks_html() -> str:
     return TASKS_HTML
+
+def get_learning_dashboard_html() -> str:
+    """Return learning dashboard page."""
+    # For now, use inline HTML - can be moved to constant later
+    return '''<!DOCTYPE html>
+<html>
+<head>
+    <title>Learning Dashboard</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        h1 { color: white; text-align: center; margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; max-width: 1200px; margin: 0 auto 30px; }
+        .stat-card { background: rgba(255,255,255,0.95); border-radius: 12px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+        .stat-label { font-size: 0.85em; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .stat-value { font-size: 2.5em; font-weight: bold; color: #333; }
+        .chart-container { background: rgba(255,255,255,0.95); border-radius: 12px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 1200px; margin: 0 auto 20px; }
+        .chart-title { font-size: 1.2em; font-weight: bold; margin-bottom: 16px; color: #333; }
+        .bar-chart { display: flex; flex-direction: column; gap: 12px; }
+        .bar-item { display: flex; align-items: center; gap: 12px; }
+        .bar-label { min-width: 180px; font-size: 0.9em; color: #555; }
+        .bar-bg { flex: 1; height: 24px; background: #f0f0f0; border-radius: 12px; overflow: hidden; }
+        .bar-fill { height: 100%; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }
+        .bar-value { color: white; font-size: 0.85em; font-weight: bold; }
+        .refresh-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1em; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <h1>📊 Learning Dashboard</h1>
+    <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total Conversations</div><div class="stat-value" id="total">-</div></div>
+        <div class="stat-card"><div class="stat-label">HOPE Response Rate</div><div class="stat-value" id="hope-rate">-%</div></div>
+        <div class="stat-card"><div class="stat-label">LLM Context Rate</div><div class="stat-value" id="context-rate">-%</div></div>
+        <div class="stat-card"><div class="stat-label">LLM Only Rate</div><div class="stat-value" id="llm-rate">-%</div></div>
+    </div>
+    <div class="chart-container">
+        <div class="chart-title">Agent Distribution</div>
+        <div class="bar-chart" id="distribution"></div>
+    </div>
+    <div style="text-align: center; max-width: 1200px; margin: 0 auto;">
+        <button class="refresh-btn" onclick="loadStats()">🔄 Refresh Stats</button>
+    </div>
+    <script>
+        async function loadStats() {
+            try {
+                const r = await fetch('/api/agent/learning_stats');
+                const data = await r.json();
+                if (data.success) {
+                    const s = data.stats;
+                    document.getElementById('total').textContent = s.total_conversations;
+                    document.getElementById('hope-rate').textContent = (s.hope_response_rate * 100).toFixed(1) + '%';
+                    document.getElementById('context-rate').textContent = (s.llm_context_rate * 100).toFixed(1) + '%';
+                    document.getElementById('llm-rate').textContent = (s.llm_only_rate * 100).toFixed(1) + '%';
+                    const div = document.getElementById('distribution');
+                    div.innerHTML = '';
+                    [{label:'HOPE Brain',key:'hope_brain',c:'#10b981'},{label:'LLM+Context',key:'llm_with_hope_context',c:'#667eea'},{label:'LLM Only',key:'llm_only',c:'#ec4899'}].forEach(a => {
+                        const cnt = s.by_agent[a.key] || 0;
+                        const pct = s.total_conversations > 0 ? (cnt / s.total_conversations * 100).toFixed(1) : 0;
+                        div.innerHTML += `<div class="bar-item"><div class="bar-label">${a.label}</div><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${a.c};"><span class="bar-value">${cnt} (${pct}%)</span></div></div></div>`;
+                    });
+                }
+            } catch(e) { console.error(e); }
+        }
+        loadStats();
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>'''
+
 
 # Import HOPE monitoring pages
 try:

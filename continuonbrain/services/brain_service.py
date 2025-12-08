@@ -230,11 +230,49 @@ class BrainService:
         self.hope_brain = None
         self.background_learner = None
         
-        # Initialize Gemma chat
-        self.gemma_chat = create_gemma_chat(use_mock=False)
+        # Experience logger for active learning
+        from continuonbrain.services.experience_logger import ExperienceLogger
+        self.experience_logger = ExperienceLogger(Path(config_dir) / "experiences")
+        logger.info("📚 Experience logger initialized for active learning")
+        
+        # Conversation session management for multi-turn context
+        self.conversation_sessions = {}  # session_id -> list of messages
+        logger.info("💬 Conversation session management initialized")
+        
+        # Initialize Gemma chat (using mock until AI accelerator available)
+        # Real Gemma 2B/4B will be enabled when Raspberry Pi AI HAT+ is installed
+        self.gemma_chat = create_gemma_chat(use_mock=True)
 
-    def ChatWithGemma(self, message: str, history: list) -> dict:
-        """Enhanced Agent Manager chat with decision confidence and intervention support."""
+    def ChatWithGemma(self, message: str, history: list, session_id: str = None) -> dict:
+        """
+        Enhanced Agent Manager chat with decision confidence and intervention support.
+        
+        Args:
+            message: User's message
+            history: Conversation history (deprecated - use session_id instead)
+            session_id: Optional session ID for multi-turn conversation context
+            
+        Returns:
+            Response dictionary with agent info and confidence scores
+        """
+        
+        # Session management for multi-turn context
+        if session_id:
+            if session_id not in self.conversation_sessions:
+                self.conversation_sessions[session_id] = []
+            
+            # Append user message to session
+            self.conversation_sessions[session_id].append({
+                "role": "user",
+                "content": message,
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+            # Use session history instead of provided history
+            history = [
+                {"role": msg["role"], "content": msg["content"]} 
+                for msg in self.conversation_sessions[session_id]
+            ]
         
         # Build System Context
         status_lines = []
@@ -246,6 +284,15 @@ class BrainService:
             status_lines.extend(self.system_instructions.instructions)
             status_lines.append("\n--- SAFETY PROTOCOL ---")
             status_lines.extend(self.system_instructions.safety_protocol.rules)
+            status_lines.append("\n--- CURIOSITY MANDATE ---")
+            status_lines.append("You are a learning robot driven by curiosity and exploration.")
+            status_lines.append("ALWAYS within safety protocols, you should:")
+            status_lines.append("• Explore novel situations and learn from experiences")
+            status_lines.append("• Actively seek to expand your knowledge and capabilities")
+            status_lines.append("• Ask clarifying questions when uncertain")
+            status_lines.append("• Experiment with tools and sensors to understand your world")
+            status_lines.append("• Suggest new learning opportunities to the user")
+            status_lines.append("REMEMBER: Curiosity NEVER overrides safety. All exploration must comply with safety rules above.")
             status_lines.append("---------------------------\n")
 
         # Desktop Status
@@ -271,7 +318,7 @@ class BrainService:
                 status_lines.append("System resources are constrained. Learning capacity is limited.")
                 status_lines.append("ADVICE TO AGENT: Tell the user: 'My brain is tired. Please switch me to Sleep Mode so I can process my memories and learn properly.'")
                 status_lines.append("Do not attempt complex new tasks until rested.")
-                status_lines.append("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
+                status_lines.append("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
         
         caps = self.capabilities
         status_lines.append(f"Vision: {'OK' if caps['has_vision'] else 'None'}")
@@ -291,14 +338,81 @@ class BrainService:
         system_context += "- [TOOL: CLICK]: Click mouse\\n"
         system_context += "- [TOOL: TYPE text]: Type text\\n"
         
+        
         # Status updates list
         status_updates = []
         
-        # Execute Chat
-        response = self.gemma_chat.chat(message, system_context=system_context)
+        # ==== HIERARCHICAL AGENT RESPONSE ====
+        # Try HOPE brain first, fallback to LLM with HOPE's memories as context
+        
+        response_agent = "llm_fallback"  # Track which agent responded
+        response = None
+        hope_confidence = 0.0
+        
+        # Phase 1: Try HOPE brain if available
+        if self.hope_brain:
+            try:
+                from continuonbrain.services.agent_hope import HOPEAgent
+                hope_agent = HOPEAgent(self.hope_brain, confidence_threshold=0.6)
+                
+                can_answer, hope_confidence = hope_agent.can_answer(message)
+                logger.info(f"HOPE confidence for '{message[:50]}...': {hope_confidence:.2f}")
+                
+                if can_answer:
+                    hope_response = hope_agent.generate_response(message)
+                    if hope_response:
+                        response = hope_response
+                        response_agent = "hope_brain"
+                        status_updates.append(f"Answered from learned knowledge (confidence: {hope_confidence:.0%})")
+                        logger.info(f"HOPE brain answered query directly")
+                        
+            except Exception as e:
+                logger.warning(f"HOPE agent failed: {e}")
+        
+        # Phase 2: Fallback to LLM (with HOPE memories if available)
+        if response is None:
+            # Add HOPE memories as context if brain is available
+            hope_context = ""
+            if self.hope_brain:
+                try:
+                    from continuonbrain.services.agent_hope import HOPEAgent
+                    hope_agent = HOPEAgent(self.hope_brain)
+                    memories = hope_agent.get_relevant_memories(message, max_memories=3, experience_logger=self.experience_logger)
+                    
+                    if memories:
+                        hope_context = "\n\n--- MY LEARNED KNOWLEDGE ---\n"
+                        for i, mem in enumerate(memories, 1):
+                            hope_context += f"{i}. {mem['description']}\n"
+                        hope_context += "----------------------------\n"
+                        status_updates.append(f"Consulting {len(memories)} memories")
+                except Exception as e:
+                    logger.warning(f"Failed to retrieve HOPE memories: {e}")
+            
+            # Execute LLM chat with enhanced context
+            full_context = system_context + hope_context
+            response = self.gemma_chat.chat(message, system_context=full_context)
+            
+            if hope_context:
+                response_agent = "llm_with_hope_context"
+            else:
+                response_agent = "llm_only"
+        
         
         # Calculate decision confidence (simple heuristic based on response characteristics)
         confidence = self._calculate_confidence(response)
+        
+        # Log LLM responses for active learning (after confidence is calculated)
+        if response_agent in ["llm_with_hope_context", "llm_only"]:
+            try:
+                self.experience_logger.log_conversation(
+                    question=message,
+                    answer=response,
+                    agent=response_agent,
+                    confidence=confidence,
+                    metadata={"hope_context": bool(hope_context) if 'hope_context' in locals() else False}
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log conversation: {e}")
         
         # Get settings (with defaults if not set)
         settings = getattr(self, 'agent_settings', {})
@@ -480,6 +594,16 @@ class BrainService:
                 f.write(json.dumps(entry) + "\\n")
         except Exception:
             pass
+        
+        # Store assistant response in session for multi-turn context
+        if session_id and session_id in self.conversation_sessions:
+            self.conversation_sessions[session_id].append({
+                "role": "assistant",
+                "content": response,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "agent": response_agent,
+                "confidence": confidence
+            })
             
         return {
             "response": response,
@@ -487,7 +611,9 @@ class BrainService:
             "intervention_needed": intervention_needed,
             "intervention_question": intervention_question,
             "intervention_options": intervention_options,
-            "status_updates": status_updates
+            "status_updates": status_updates,
+            "agent": response_agent,  # Track which agent provided response
+            "hope_confidence": hope_confidence  # Track HOPE's confidence score
         }
     
     def get_brain_structure(self) -> Dict[str, Any]:
@@ -575,6 +701,63 @@ class BrainService:
     def clear_chat_history(self) -> None:
         """Clear the chat history."""
         self.gemma_chat.reset_history()
+    
+    def switch_model(self, model_id: str) -> Dict[str, Any]:
+        """
+        Switch the active chat model dynamically.
+        
+        Args:
+            model_id: Model identifier (e.g., "mock", "google/gemma-2b-it")
+            
+        Returns:
+            Dict with success status and model info
+        """
+        try:
+            logger.info(f"Switching chat model to: {model_id}")
+            
+            # Clean up old model if it's not mock
+            old_model_name = getattr(self.gemma_chat, 'model_name', 'unknown')
+            if hasattr(self.gemma_chat, 'model') and self.gemma_chat.model is not None:
+                logger.info(f"Unloading previous model: {old_model_name}")
+                del self.gemma_chat.model
+                del self.gemma_chat.tokenizer
+                import gc
+                gc.collect()
+                
+                # Try to free CUDA memory if available
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except ImportError:
+                    pass
+            
+            # Create new model instance
+            if model_id == "mock":
+                self.gemma_chat = create_gemma_chat(use_mock=True)
+            else:
+                # Real model - could be Gemma or VLA
+                self.gemma_chat = create_gemma_chat(use_mock=False, model_name=model_id)
+            
+            new_info = self.gemma_chat.get_model_info()
+            logger.info(f"Successfully switched to model: {model_id}")
+            
+            return {
+                "success": True,
+                "model_id": model_id,
+                "previous_model": old_model_name,
+                "model_info": new_info
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to switch model to {model_id}: {e}")
+            # Try to fall back to mock
+            self.gemma_chat = create_gemma_chat(use_mock=True)
+            return {
+                "success": False,
+                "error": str(e),
+                "fallback": "mock"
+            }
 
     def save_episode_rlds(self) -> str:
         """

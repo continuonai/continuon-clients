@@ -20,8 +20,8 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-3-4b-it"
-    # DEFAULT_MODEL_ID = "google/gemma-3-4b-it" # Previous default
+    DEFAULT_MODEL_ID = "google/gemma-2b-it"  # Smaller model for Pi 5 (2GB vs 4GB)
+    # DEFAULT_MODEL_ID = "google/gemma-3-4b-it" # Previous default (too large for Pi 5)
 
     def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
         """

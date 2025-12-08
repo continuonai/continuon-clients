@@ -176,6 +176,68 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     "learning_agent": learning_info
                 })
             
+            elif self.path == "/api/agent/models":
+                # List available chat models
+                try:
+                    from continuonbrain.services.model_detector import ModelDetector
+                    detector = ModelDetector()
+                    models = detector.get_available_models()
+                    self.send_json({"success": True, "models": models})
+                except Exception as e:
+                    logger.error(f"Model detection failed: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+            
+            elif self.path == "/api/agent/learning_stats":
+                # Get learning and agent performance statistics
+                try:
+                    stats = brain_service.experience_logger.get_statistics()
+                    
+                    # Add agent response distribution
+                    by_agent = stats.get("by_agent", {})
+                    total = stats.get("total_conversations", 0)
+                    
+                    if total > 0:
+                        stats["hope_response_rate"] = by_agent.get("hope_brain", 0) / total
+                        stats["llm_context_rate"] = by_agent.get("llm_with_hope_context", 0) / total
+                        stats["llm_only_rate"] = by_agent.get("llm_only", 0) / total
+                    else:
+                        stats["hope_response_rate"] = 0.0
+                        stats["llm_context_rate"] = 0.0
+                        stats["llm_only_rate"] = 0.0
+                    
+                    self.send_json({"success": True, "stats": stats})
+                except Exception as e:
+                    logger.error(f"Failed to get learning stats: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+            
+            elif self.path == "/api/agent/validate":
+                # Validate a conversation response
+                body = self.rfile.read(int(self.headers.get('Content-Length', 0))).decode('utf-8')
+                data = json.loads(body) if body else {}
+                
+                timestamp = data.get('timestamp')
+                validated = data.get('validated', True)
+                correction = data.get('correction')
+                
+                if not timestamp:
+                    self.send_json({"success": False, "error": "timestamp required"}, status=400)
+                    return
+                
+                try:
+                    updated = brain_service.experience_logger.validate_conversation(
+                        timestamp=timestamp,
+                        validated=validated,
+                        correction=correction
+                    )
+                    
+                    if updated:
+                        self.send_json({"success": True, "message": "Conversation validated"})
+                    else:
+                        self.send_json({"success": False, "error": "Conversation not found"}, status=404)
+                except Exception as e:
+                    logger.error(f"Failed to validate conversation: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+            
             # HOPE API Endpoints
             elif self.path.startswith("/api/hope/"):
                 try:
@@ -277,10 +339,34 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 data = json.loads(body) if body else {}
                 store = SettingsStore(Path(brain_service.config_dir))
                 try:
+                    # Check if model is changing
+                    old_settings = store.load()
+                    old_model = old_settings.get("agent_manager", {}).get("agent_model", "mock")
+                    new_model = data.get("agent_manager", {}).get("agent_model", "mock")
+                    
+                    # Save settings first
                     settings = store.save(data)
-                    self.send_json(
-                        {"success": True, "settings": settings, "message": "Settings saved"}
-                    )
+                    
+                    # If model changed, switch it dynamically
+                    switch_result = None
+                    if old_model != new_model:
+                        logger.info(f"Model change detected: {old_model} -> {new_model}")
+                        switch_result = brain_service.switch_model(new_model)
+                    
+                    response = {
+                        "success": True,
+                        "settings": settings,
+                        "message": "Settings saved"
+                    }
+                    
+                    if switch_result:
+                        response["model_switch"] = switch_result
+                        if switch_result.get("success"):
+                            response["message"] += f" and switched to {new_model}"
+                        else:
+                            response["message"] += f" but model switch failed: {switch_result.get('error')}"
+                    
+                    self.send_json(response)
                 except SettingsValidationError as e:
                     self.send_json({"success": False, "message": str(e)}, status=400)
 

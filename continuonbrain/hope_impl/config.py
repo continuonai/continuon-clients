@@ -85,7 +85,7 @@ class HOPEConfig:
     compaction_decay: float = 0.5        # Aggressive forgetting during sleep
     
     # Autonomous Learning
-    enable_autonomous_learning: bool = True
+    enable_autonomous_learning: bool = False  # Disabled by default to free RAM for Gemma
     learning_update_interval: int = 10  # Steps between parameter updates
     
     def __post_init__(self):
@@ -143,7 +143,7 @@ class HOPEConfig:
             # Improved training parameters
             learning_rate=1e-3,
             gradient_clip=5.0,
-            enable_autonomous_learning=True,
+            enable_autonomous_learning=False,  # Disabled to free RAM for Gemma
             learning_update_interval=10,
         )
     

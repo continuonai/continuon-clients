@@ -25,6 +25,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "temperature": 0.35,
     },
     "agent_manager": {
+        "agent_model": "mock",  # Chat model: mock, vla-custom, or HF model ID
         "enable_thinking_indicator": True,
         "enable_intervention_prompts": True,
         "intervention_confidence_threshold": 0.5,
@@ -170,6 +171,10 @@ class SettingsStore:
                 normalized["agent_manager"]["autonomous_learning_checkpoint_interval"] = checkpoint_value
         except (TypeError, ValueError):
             errors.append("Checkpoint interval must be an integer")
+        
+        # Agent model selection
+        agent_model = agent_mgr.get("agent_model", DEFAULT_SETTINGS["agent_manager"]["agent_model"])
+        normalized["agent_manager"]["agent_model"] = str(agent_model).strip() or "mock"
 
         return normalized
 
