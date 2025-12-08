@@ -92,6 +92,73 @@ COMMON_CSS = """
     .info-label { color: var(--text-dim); font-weight: 500; }
     .info-value { color: #fff; font-family: var(--font-mono); font-size: 0.9em; }
     .modal-footer { padding: 15px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; }
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        :root {
+            --sidebar-width: 0px;
+            --chat-width: 0px;
+        }
+        
+        #sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 80% !important;
+            max-width: 300px;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        
+        #sidebar.mobile-open {
+            transform: translateX(0);
+            width: 80% !important;
+        }
+
+        #chat-sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 90% !important;
+            max-width: 360px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 100;
+        }
+
+        #chat-sidebar.mobile-open {
+            transform: translateX(0);
+        }
+
+        .panel-toggle {
+            top: auto;
+            bottom: 20px;
+            width: 48px;
+            height: 48px;
+            font-size: 1.5em;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            background: rgba(30,30,30,0.9);
+            backdrop-filter: blur(4px);
+        }
+        
+        #toggle-left { left: 20px; }
+        #toggle-right { right: 20px; }
+        
+        /* Adjust Manual Control on Mobile */
+        .manual-layout { flex-direction: column; }
+        #video-layer { position: fixed; top: 0; height: 50vh; }
+        #controls-layer { 
+            position: fixed; 
+            top: 50vh; 
+            left: 0; 
+            right: 0; 
+            width: 100%; 
+            height: 50vh; 
+            border-left: none; 
+            border-top: 1px solid var(--border-color); 
+        }
+    }
 """
 
 HOME_HTML = f"""
@@ -115,23 +182,44 @@ HOME_HTML = f"""
         function toggleLeftPanel() {{
             const sidebar = document.getElementById('sidebar');
             const btn = document.getElementById('toggle-left');
-            sidebar.classList.toggle('collapsed');
-            const isCollapsed = sidebar.classList.contains('collapsed');
-            btn.innerHTML = isCollapsed ? '☰' : '◀';
-            localStorage.setItem('leftPanelCollapsed', isCollapsed);
+            
+            if (window.innerWidth <= 768) {{
+                sidebar.classList.toggle('mobile-open');
+                // Close right if open
+                document.getElementById('chat-sidebar').classList.remove('mobile-open');
+            }} else {{
+                sidebar.classList.toggle('collapsed');
+                const isCollapsed = sidebar.classList.contains('collapsed');
+                btn.innerHTML = isCollapsed ? '☰' : '◀';
+                localStorage.setItem('leftPanelCollapsed', isCollapsed);
+            }}
         }}
         
         function toggleRightPanel() {{
             const chatSidebar = document.getElementById('chat-sidebar');
             const btn = document.getElementById('toggle-right');
-            chatSidebar.classList.toggle('collapsed');
-            const isCollapsed = chatSidebar.classList.contains('collapsed');
-            btn.innerHTML = isCollapsed ? '💬' : '▶';
-            localStorage.setItem('rightPanelCollapsed', isCollapsed);
+            
+            if (window.innerWidth <= 768) {{
+                chatSidebar.classList.toggle('mobile-open');
+                // Close left if open
+                document.getElementById('sidebar').classList.remove('mobile-open');
+            }} else {{
+                chatSidebar.classList.toggle('collapsed');
+                const isCollapsed = chatSidebar.classList.contains('collapsed');
+                btn.innerHTML = isCollapsed ? '💬' : '▶';
+                localStorage.setItem('rightPanelCollapsed', isCollapsed);
+            }}
         }}
         
         // Restore panel states from localStorage
         function restorePanelStates() {{
+            if (window.innerWidth <= 768) {{
+                // Mobile defaults
+                document.getElementById('sidebar').classList.add('collapsed');
+                document.getElementById('chat-sidebar').classList.add('collapsed');
+                return;
+            }}
+
             const leftCollapsed = localStorage.getItem('leftPanelCollapsed') === 'true';
             const rightCollapsed = localStorage.getItem('rightPanelCollapsed') === 'true';
             
@@ -1678,6 +1766,12 @@ MANUAL_HTML = f"""
         
         .emergency-stop {{ margin-top: auto; width: 100%; padding: 15px; background: #ff3b30; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: background 0.2s; }}
         .emergency-stop:hover {{ background: #ff5b50; box-shadow: 0 0 15px rgba(255, 59, 48, 0.4); }}
+
+        /* Tabs */
+        .tabs {{ display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }}
+        .tab-link {{ flex: 1; padding: 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.95em; }}
+        .tab-link:hover {{ color: #fff; background: rgba(255,255,255,0.05); border-radius: 6px 6px 0 0; }}
+        .tab-link.active {{ color: var(--accent-color); border-bottom-color: var(--accent-color); }}
     </style>
 </head>
 <body>
@@ -1691,9 +1785,36 @@ MANUAL_HTML = f"""
     <div id="controls-layer">
         <h2>Manual Control</h2>
         
-        <div class="control-group">
-            <h4>🤖 Arm Manipulator</h4>
+        <div class="tabs">
+            <button class="tab-link" id="tab-btn-driving" onclick="openTab('driving')">🏎️ Driving</button>
+            <button class="tab-link" id="tab-btn-arm" onclick="openTab('arm')">🤖 Arm</button>
+        </div>
+
+        <!-- DRIVING GROUP -->
+        <div id="group-driving" class="control-group">
+            <div class="dpad">
+                <div></div>
+                <button onmousedown="drive('forward')" onmouseup="drive('stop')" ontouchstart="drive('forward')" ontouchend="drive('stop')">⬆️</button>
+                <div></div>
+                
+                <button onmousedown="drive('left')" onmouseup="drive('stop')" ontouchstart="drive('left')" ontouchend="drive('stop')">⬅️</button>
+                <button style="background: #222; cursor: default;">🎯</button>
+                <button onmousedown="drive('right')" onmouseup="drive('stop')" ontouchstart="drive('right')" ontouchend="drive('stop')">➡️</button>
+                
+                <div></div>
+                <button onmousedown="drive('backward')" onmouseup="drive('stop')" ontouchstart="drive('backward')" ontouchend="drive('stop')">⬇️</button>
+                <div></div>
+            </div>
             
+            <div class="speed-selector">
+                <button onclick="setSpeed(0.3)" class="active">Slow</button>
+                <button onclick="setSpeed(0.6)">Med</button>
+                <button onclick="setSpeed(1.0)">Fast</button>
+            </div>
+        </div>
+
+        <!-- ARM GROUP -->
+        <div id="group-arm" class="control-group" style="display: none;">
             <div class="slider-row">
                 <label>Base <span id="val-j0">0.0</span></label>
                 <input type="range" min="-100" max="100" value="0" oninput="moveJoint(0, this.value)">
@@ -1718,29 +1839,6 @@ MANUAL_HTML = f"""
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button onclick="moveJoint(5, -100)" style="flex: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #444; border-radius: 6px; cursor: pointer;">Open ✋</button>
                 <button onclick="moveJoint(5, 100)" style="flex: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #444; border-radius: 6px; cursor: pointer;">Close ✊</button>
-            </div>
-        </div>
-        
-        <div class="control-group">
-            <h4>🏎️ Drivetrain</h4>
-            <div class="dpad">
-                <div></div>
-                <button onmousedown="drive('forward')" onmouseup="drive('stop')">⬆️</button>
-                <div></div>
-                
-                <button onmousedown="drive('left')" onmouseup="drive('stop')">⬅️</button>
-                <button style="background: #222; cursor: default;">🎯</button>
-                <button onmousedown="drive('right')" onmouseup="drive('stop')">➡️</button>
-                
-                <div></div>
-                <button onmousedown="drive('backward')" onmouseup="drive('stop')">⬇️</button>
-                <div></div>
-            </div>
-            
-            <div class="speed-selector">
-                <button onclick="setSpeed(0.3)" class="active">Slow</button>
-                <button onclick="setSpeed(0.6)">Med</button>
-                <button onclick="setSpeed(1.0)">Fast</button>
             </div>
         </div>
         
@@ -1798,6 +1896,40 @@ MANUAL_HTML = f"""
             document.querySelectorAll('.speed-selector button').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
         }}
+        
+        function openTab(tabName) {{
+            // Hide all tab content
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("control-group");
+            for (i = 0; i < tabcontent.length; i++) {{
+                tabcontent[i].style.display = "none";
+            }}
+
+            // Remove active class from all tab links
+            tablinks = document.getElementsByClassName("tab-link");
+            for (i = 0; i < tablinks.length; i++) {{
+                tablinks[i].classList.remove("active");
+            }}
+
+            // Show the specific tab content
+            document.getElementById('group-' + tabName).style.display = "block";
+            
+            // Add active class to button
+            // If called from button click, event.currentTarget is set
+            // If called manually, we need to find the button
+            if (event && event.currentTarget) {{
+                 event.currentTarget.classList.add("active");
+            }} else {{
+                 // Try to find by ID if we add IDs to buttons
+                 const btn = document.getElementById('tab-btn-' + tabName);
+                 if(btn) btn.classList.add("active");
+            }}
+        }}
+        
+        // Init default tab
+        document.addEventListener('DOMContentLoaded', () => {{
+            openTab('driving');
+        }});
         
         async function emergencyStop() {{
             await fetch('/api/robot/drive', {{
