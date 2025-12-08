@@ -5,6 +5,7 @@ Handles system initialization, health checks, recovery, and service startup.
 import time
 import json
 import subprocess
+import socket
 from pathlib import Path
 from typing import Optional
 from enum import Enum
@@ -42,6 +43,7 @@ class StartupManager:
         self.last_wake_time: Optional[int] = None
         self.start_services = start_services
         self.robot_name = robot_name
+        self.service_port = 8080
         
         # Services
         self.discovery_service: Optional[LANDiscoveryService] = None
@@ -173,6 +175,7 @@ class StartupManager:
                 "available_memory_mb": resource_status.available_memory_mb,
                 "resource_level": resource_status.level.value,
                 "services_requested": self.start_services,
+                "service_port": self.service_port,
             },
         )
         
@@ -190,6 +193,7 @@ class StartupManager:
                     "mode": getattr(getattr(self, "mode_manager", None), "current_mode", None).value
                     if getattr(getattr(self, "mode_manager", None), "current_mode", None)
                     else None,
+                    "service_port": self.service_port,
                 },
             )
         
@@ -200,11 +204,19 @@ class StartupManager:
         import sys
         from pathlib import Path
         
+        # Choose service port (fallback if 8080 is busy)
+        port = self._find_available_port(preferred=self.service_port)
+        if port is None:
+            print("❌ No available service port in range 8080-8085")
+            self._log_event("port_unavailable", "No free port for robot services", {"preferred": self.service_port})
+            return
+        self.service_port = port
+
         # Start LAN discovery for iPhone/web browser
-        print("📡 Starting LAN discovery...")
+        print(f"📡 Starting LAN discovery on port {self.service_port}...")
         self.discovery_service = LANDiscoveryService(
             robot_name=self.robot_name,
-            service_port=8080
+            service_port=self.service_port
         )
         self.discovery_service.start()
         
@@ -227,7 +239,7 @@ class StartupManager:
         )
         
         # Start Robot API server (production entry point)
-        print("🌐 Starting Robot API server...")
+        print(f"🌐 Starting Robot API server on port {self.service_port}...")
         try:
             repo_root = Path(__file__).parent.parent
             server_module = "continuonbrain.api.server"
@@ -253,7 +265,7 @@ class StartupManager:
                         "-m",
                         server_module,
                         "--port",
-                        "8080",
+                        str(self.service_port),
                         "--config-dir",
                         self.config_dir,
                         "--real-hardware",  # production path uses real controllers; fail fast if missing
@@ -264,7 +276,7 @@ class StartupManager:
                     # stderr=subprocess.PIPE
                 )
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
-                print(f"   Endpoint: http://localhost:8080")
+                print(f"   Endpoint: http://localhost:{self.service_port}")
                 
                 # Start Nested Learning Sidecar
                 print("🧠 Starting Nested Learning Sidecar...")
@@ -289,7 +301,7 @@ class StartupManager:
         print("=" * 60)
         print("📱 Robot Ready for Control")
         print("=" * 60)
-        print(f"🌐 Open in browser: http://{self.discovery_service.get_robot_info()['ip_address']}:8080/ui")
+        print(f"🌐 Open in browser: http://{self.discovery_service.get_robot_info()['ip_address']}:{self.service_port}/ui")
         print("📱 Or find '{0}' on iPhone app".format(self.robot_name))
         print()
         print("Available modes:")
@@ -325,7 +337,7 @@ class StartupManager:
                 print(f"⚠️  Could not read UI config: {e}")
         
         if auto_launch:
-            url = f"http://{self.discovery_service.get_robot_info()['ip_address']}:8080/ui"
+            url = f"http://{self.discovery_service.get_robot_info()['ip_address']}:{self.service_port}/ui"
             print(f"🌐 Launching UI: {url}")
             
             # Try to launch known browsers with flags to avoid keyring prompts
@@ -501,6 +513,17 @@ class StartupManager:
             self.event_logger.log(event_type, message, data or {})
         except Exception as exc:  # Best-effort; never block startup
             print(f"⚠️  Could not log event '{event_type}': {exc}")
+
+    def _find_available_port(self, preferred: int = 8080, max_tries: int = 6) -> Optional[int]:
+        """Pick the first open TCP port starting at preferred."""
+        for offset in range(max_tries):
+            candidate = preferred + offset
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                result = sock.connect_ex(("0.0.0.0", candidate))
+                if result != 0:  # Non-zero means no listener
+                    return candidate
+        return None
 
     def _record_startup(self, mode: StartupMode):
         """Record successful startup."""

@@ -4,10 +4,16 @@ Detects cameras, HATs, servos, and accessories automatically.
 """
 import subprocess
 import json
+import platform
+import importlib.util
+import sys
+import shlex
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import re
+
+from continuonbrain.system_installer import SystemInstaller
 
 
 @dataclass
@@ -36,10 +42,20 @@ class HardwareDetector:
     
     def __init__(self):
         self.detected_devices: List[HardwareDevice] = []
+        self.platform_info: Dict[str, Any] = {}
+        self.missing_dependencies: List[str] = []
     
-    def detect_all(self) -> List[HardwareDevice]:
-        """Run all detection methods and return found devices."""
+    def detect_all(self, auto_install: bool = False, allow_system_install: bool = False) -> List[HardwareDevice]:
+        """Run all detection methods and return found devices.
+
+        Args:
+            auto_install: If True, attempt to install missing Python drivers/libraries
+                          based on the current OS before detecting hardware.
+            allow_system_install: If True, allow SystemInstaller to run OS-level package manager
+                                  (gated by CONTINUON_ALLOW_SYSTEM_INSTALL=1).
+        """
         self.detected_devices = []
+        self._detect_environment()
         
         print("🔍 Scanning for hardware devices...\n")
         
@@ -51,8 +67,99 @@ class HardwareDetector:
         self.detect_accelerators()
         self.detect_gpio_devices()
         self.detect_desktop_peripherals()
+
+        if auto_install and self.missing_dependencies:
+            self._auto_install_missing(allow_system_install=allow_system_install)
+            # Re-check so we only nag for remaining missing deps
+            self.missing_dependencies = [
+                dep for dep in self.missing_dependencies if not self._has_module(dep.split()[0])
+            ]
+
+        if self.missing_dependencies:
+            print("⚠️  Missing optional drivers/libs:")
+            for dep in self.missing_dependencies:
+                print(f"   - {dep}")
+            print("   Install these for full hardware support on this OS.")
+            print()
+
+        return self.detected_devices
+
+    def _detect_environment(self) -> None:
+        """Record platform info and gather dependency hints per OS."""
+        system = platform.system()
+        machine = platform.machine()
+        self.platform_info = {"os": system, "arch": machine}
+
+        # OS-specific driver hints
+        driver_hints = {
+            "Linux": [
+                ("depthai", "pip install depthai --extra-index-url https://artifacts.luxonis.com/artifactory/luxonis-python-local/"),
+                ("numpy", "pip install numpy"),
+                ("smbus2", "pip install smbus2"),
+            ],
+            "Windows": [
+                ("depthai", "pip install depthai"),
+                ("numpy", "pip install numpy"),
+            ],
+            "Darwin": [
+                ("depthai", "pip install depthai"),
+                ("numpy", "pip install numpy"),
+            ],
+        }
+
+        for name, install_hint in driver_hints.get(system, []):
+            if not self._has_module(name):
+                self.missing_dependencies.append(f"{name} (hint: {install_hint})")
+
+        # Raspberry Pi specific note
+        if system == "Linux":
+            try:
+                with open("/etc/os-release", "r", encoding="utf-8") as f:
+                    os_release = f.read().lower()
+                if "raspbian" in os_release or "debian" in os_release:
+                    self.platform_info["distro"] = "Raspberry Pi OS"
+            except Exception:
+                pass
         
         return self.detected_devices
+
+    def _has_module(self, name: str) -> bool:
+        """Return True if the python module is importable."""
+        return importlib.util.find_spec(name) is not None
+
+    def _auto_install_missing(self, allow_system_install: bool = False) -> None:
+        """Attempt best-effort installation of missing Python dependencies."""
+        print("🔧 Attempting to install missing Python drivers...")
+        unresolved: List[str] = []
+        for dep in list(self.missing_dependencies):
+            # Expect dep string like "depthai (hint: pip install depthai ...)"
+            parts = dep.split("(hint:")
+            if len(parts) < 2:
+                unresolved.append(dep)
+                continue
+            hint = parts[1].strip().rstrip(")")
+            if not hint.startswith("pip "):
+                unresolved.append(dep)
+                continue  # Only auto-run pip hints to avoid system package risk
+
+            try:
+                cmd_tokens = shlex.split(hint)
+                if cmd_tokens[0] == "pip":
+                    cmd_tokens = [sys.executable, "-m", "pip"] + cmd_tokens[1:]
+                print(f"   → {' '.join(cmd_tokens)}")
+                subprocess.run(cmd_tokens, check=False)
+            except Exception as exc:
+                print(f"   ⚠️  Install attempt failed for {dep}: {exc}")
+                unresolved.append(dep)
+
+        # Optional system-level install for any unresolved deps
+        if allow_system_install and unresolved:
+            installer = SystemInstaller()
+            pkg_names = [u.split()[0] for u in unresolved]
+            plans = installer.install_packages(pkg_names, allow_run=True)
+            for plan in plans:
+                msg = f"System install via {plan.manager}: {' '.join(plan.command)} -> {plan.message}"
+                print(msg)
     
     def detect_usb_devices(self):
         """Detect USB cameras and devices."""

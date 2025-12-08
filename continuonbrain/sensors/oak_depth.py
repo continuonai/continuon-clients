@@ -72,7 +72,7 @@ class OAKDepthCapture:
             # V3 API: Create device first
             devices = dai.Device.getAllAvailableDevices()
             if not devices:
-                print("ERROR: No OAK devices found")
+                print("⚠️  No OAK devices found (DepthAI reported zero devices)")
                 return False
                 
             self.device = dai.Device()

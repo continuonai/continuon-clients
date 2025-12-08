@@ -55,6 +55,9 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
+import threading
+import webbrowser
+import platform
                 self.wfile.write(ui_routes.get_home_html().encode("utf-8"))
             
             elif self.path == "/ui/status":
@@ -128,6 +131,29 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
+
+    def launch_ui_if_desktop():
+        if os.environ.get("CONTINUON_NO_UI_LAUNCH"):
+            return
+        system = platform.system()
+        has_display = True
+        if system == "Linux" and not os.environ.get("DISPLAY"):
+            has_display = False
+        if not has_display:
+            return
+        try:
+            webbrowser.open(f"http://localhost:{args.port}/ui")
+            if event_logger:
+                event_logger.log(
+                    "ui_launch",
+                    "Opened ContinuonBrain UI in default browser",
+                    {"port": args.port},
+                )
+        except Exception as exc:
+            logger.warning(f"Failed to launch UI browser: {exc}")
+
+    # Fire and forget UI launch on desktop systems
+    threading.Timer(1.0, launch_ui_if_desktop).start()
                 self.wfile.write(ui_routes.get_brain_map_html().encode("utf-8"))
 
             elif self.path == "/api/hope/structure":
@@ -386,18 +412,23 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 try:
                     from continuonbrain.sensors.hardware_detector import HardwareDetector
                     detector = HardwareDetector()
-                    detector.detect_all()
-                    devices = detector.generate_config()
+                    payload = json.loads(body) if body else {}
+                    auto_install = bool(payload.get("auto_install", False))
+                    allow_system_install = bool(payload.get("allow_system_install", False))
+                    detector.detect_all(auto_install=auto_install, allow_system_install=allow_system_install)
+                    devices_cfg = detector.generate_config()
                     
                     response = {
                         "success": True,
-                        "device_count": len(devices.get("devices", {})),
+                        "device_count": len(devices_cfg.get("devices", {})),
                         "devices": {
-                            "camera": "depth_camera" in devices.get("primary", {}),
-                            "arm": "servo_controller" in devices.get("primary", {}) or "servo_controller" in devices.get("devices", {}),
-                            "drivetrain": "servo_controller" in devices.get("primary", {}) or "servo_controller" in devices.get("devices", {})
+                            "camera": "depth_camera" in devices_cfg.get("primary", {}),
+                            "arm": "servo_controller" in devices_cfg.get("primary", {}) or "servo_controller" in devices_cfg.get("devices", {}),
+                            "drivetrain": "servo_controller" in devices_cfg.get("primary", {}) or "servo_controller" in devices_cfg.get("devices", {})
                         },
-                        "message": "Scan complete"
+                        "message": "Scan complete",
+                        "missing_dependencies": detector.missing_dependencies,
+                        "platform": detector.platform_info,
                     }
                     self.send_json(response)
                 except ImportError:

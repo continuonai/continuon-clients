@@ -1147,7 +1147,7 @@ class BrainService:
         if self.auto_detect:
             print("🔍 Auto-detecting hardware...")
             detector = HardwareDetector()
-            devices = detector.detect_all()
+            devices = detector.detect_all(auto_install=True, allow_system_install=True)
             if devices:
                 self.detected_config = detector.generate_config()
                 detector.print_summary()

@@ -139,16 +139,26 @@ class GemmaChat:
                 trust_remote_code=True
             )
             
-            # Load model with quantization for efficiency
-            use_device_map = "auto"
-            
-            # Explicitly check for accelerate to debug service environment issues
+            # Load model with conservative defaults to avoid disk_offload errors on CPU
+            use_device_map = None
+            torch_dtype = None
+            low_cpu_mem = True
+
+            if self.device != "cpu":
+                use_device_map = "auto"
+                torch_dtype = None  # let transformers pick best for accel
+                low_cpu_mem = False
+            else:
+                torch_dtype = None  # stay with default fp32 on CPU
+
+            # Explicitly check for accelerate; disable auto map if missing
             try:
                 import accelerate
                 logger.info(f"Accelerate available: {accelerate.__version__}")
             except ImportError:
-                logger.warning("Accelerate not found. Disabling device_map='auto'")
-                use_device_map = None
+                if use_device_map == "auto":
+                    logger.warning("Accelerate not found. Disabling device_map='auto'")
+                    use_device_map = None
 
             try:
                 self.model = AutoModelForCausalLM.from_pretrained(
@@ -156,17 +166,18 @@ class GemmaChat:
                     token=self.hf_token,
                     trust_remote_code=True,
                     device_map=use_device_map,
-                    offload_folder="/tmp/model_offload" if use_device_map == "auto" else None,
-                    # torch_dtype=torch.float16 if self.device != "cpu" else torch.float32, 
+                    low_cpu_mem_usage=low_cpu_mem,
+                    torch_dtype=torch_dtype,
                 )
             except Exception as e:
-                if "accelerate" in str(e) and use_device_map == "auto":
-                    logger.warning(f"Failed with device_map='auto': {e}. Retrying without device_map...")
+                if use_device_map == "auto":
+                    logger.warning(f"Failed with device_map='auto': {e}. Retrying on CPU without offload...")
                     self.model = AutoModelForCausalLM.from_pretrained(
                         self.model_name,
                         token=self.hf_token,
                         trust_remote_code=True,
                         device_map=None,
+                        low_cpu_mem_usage=True,
                     )
                 else:
                     raise e
