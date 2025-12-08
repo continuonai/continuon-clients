@@ -1,0 +1,18 @@
+● continuonbrain-startup.service - ContinuonBrain Robot startup (health checks + Robot API server)
+     Loaded: loaded (/home/craigm26/.config/systemd/user/continuonbrain-startup.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2025-12-08 00:25:51 PST; 6s ago
+ Invocation: 367d4f5122b54a249a713009f829cdbc
+   Main PID: 5521 (python3)
+      Tasks: 18 (limit: 9575)
+        CPU: 6.947s
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/continuonbrain-startup.service
+             ├─5521 python3 -m continuonbrain.startup_manager --config-dir /home/craigm26/.continuonbrain
+             ├─5529 /usr/bin/python3 -m continuonbrain.api.server --port 8080 --config-dir /home/craigm26/.continuonbrain --real-hardware
+             └─5650 i2cdetect -y 1
+
+Dec 08 00:25:51 robot systemd[1168]: Started continuonbrain-startup.service - ContinuonBrain Robot startup (health checks + Robot API server).
+Dec 08 00:25:56 robot env[5529]: INFO:continuonbrain.resource_monitor:No resource limits config found at /home/craigm26/.continuonbrain/config/resource_limits.json, using defaults
+Dec 08 00:25:56 robot env[5529]: INFO:continuonbrain.resource_monitor:Resource Monitor initialized: System reserve 2000MB, Brain max 2000MB
+Dec 08 00:25:56 robot env[5529]: INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'normal', 'memory_percent': 58.8, 'available_mb': 3322, 'swap_percent': 0.0, 'checkpoints_mb': 0.0, 'can_allocate': True, 'message': 'Normal: 3322MB available (58.8% used)', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+Dec 08 00:25:56 robot env[5529]: INFO:continuonbrain.services.brain_service:📚 Experience logger initialized for active learning
+Dec 08 00:25:56 robot env[5529]: INFO:continuonbrain.services.brain_service:💬 Conversation session management initialized

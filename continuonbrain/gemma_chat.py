@@ -20,7 +20,7 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-2b-it"  # Smaller model for Pi 5 (2GB vs 4GB)
+    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"  # Gemma 3n (Effective 2B) for Pi 5
     # DEFAULT_MODEL_ID = "google/gemma-3-4b-it" # Previous default (too large for Pi 5)
 
     def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
@@ -90,22 +90,36 @@ class GemmaChat:
             )
             
             # Load model with quantization for efficiency
-            # If on CPU with limited RAM, we want device_map="auto" to enable disk offload if needed
-            # This requires 'accelerate' package
-            
             use_device_map = "auto"
-            if self.device == "cpu":
-                # Check provided device logic or simply default to auto if we suspect low memory
-                pass
-                
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                token=self.hf_token,
-                torch_dtype=torch.float16 if self.device != "cpu" else torch.float32,
-                device_map="auto", # Always use auto to allow offload
-                offload_folder="/tmp/model_offload", # Explicit offload folder
-                trust_remote_code=True
-            )
+            
+            # Explicitly check for accelerate to debug service environment issues
+            try:
+                import accelerate
+                logger.info(f"Accelerate available: {accelerate.__version__}")
+            except ImportError:
+                logger.warning("Accelerate not found. Disabling device_map='auto'")
+                use_device_map = None
+
+            try:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    token=self.hf_token,
+                    trust_remote_code=True,
+                    device_map=use_device_map,
+                    offload_folder="/tmp/model_offload" if use_device_map == "auto" else None,
+                    # torch_dtype=torch.float16 if self.device != "cpu" else torch.float32, 
+                )
+            except Exception as e:
+                if "accelerate" in str(e) and use_device_map == "auto":
+                    logger.warning(f"Failed with device_map='auto': {e}. Retrying without device_map...")
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_name,
+                        token=self.hf_token,
+                        trust_remote_code=True,
+                        device_map=None,
+                    )
+                else:
+                    raise e
             
             # The .to(device) call is redundant/harmful with device_map="auto" and offloading
             # We trust accelerate to manage device placement
@@ -267,14 +281,15 @@ class MockGemmaChat:
     """Mock Gemma chat for testing without model."""
     
     
-    def __init__(self, model_name: str = "mock", device: str = "cpu", accelerator_device: str = None):
+    def __init__(self, model_name: str = "mock", device: str = "cpu", accelerator_device: str = None, error_msg: str = None):
         self.model_name = model_name
         self.device = device
+        self.error_msg = error_msg
         self.min_history = []
         if accelerator_device:
              logger.info(f"🚀 MockGemmaChat using mock accelerator: {accelerator_device}")
         self.chat_history = []
-        logger.info("Using mock Gemma chat (transformers not available)")
+        logger.info(f"Using mock Gemma chat. Error: {error_msg}")
     
     def load_model(self) -> bool:
         return True
@@ -295,7 +310,8 @@ class MockGemmaChat:
         elif "help" in msg_lower:
             response = "I can help you with robot status, camera info, and control instructions. What would you like to know?"
         else:
-            response = f"[Mock] You said: '{message}'. Install transformers for real Gemma inference."
+            reason = f" Missing dependency: {self.error_msg}" if self.error_msg else " Install transformers for real Gemma inference."
+            response = f"[Mock] You said: '{message}'.{reason}"
         
         self.chat_history.append({"role": "Assistant", "content": response})
         return response
@@ -347,7 +363,7 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
         import transformers
         import torch
         return GemmaChat(**kwargs)
-    except ImportError:
-        logger.warning("transformers not available, using mock chat")
-        return MockGemmaChat(**kwargs)
+    except ImportError as e:
+        logger.warning(f"transformers not available: {e}. Using mock chat.")
+        return MockGemmaChat(error_msg=str(e), **kwargs)
 

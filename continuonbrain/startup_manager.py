@@ -215,14 +215,20 @@ class StartupManager:
                 instructions_path = SystemContext.get_persist_path()
                 if instructions_path:
                     env["CONTINUON_SYSTEM_INSTRUCTIONS_PATH"] = str(instructions_path)
+                
+                # Force usage of venv python if available/detected relative to repo root
+                venv_python = repo_root / ".venv" / "bin" / "python3"
+                python_exec = str(venv_python) if venv_python.exists() else sys.executable
 
                 self.robot_api_process = subprocess.Popen(
                     [
-                        sys.executable,
+                        python_exec,
                         "-m",
                         server_module,
                         "--port",
                         "8080",
+                        "--config-dir",
+                        self.config_dir,
                         "--real-hardware",  # production path uses real controllers; fail fast if missing
                     ],
                     env=env,

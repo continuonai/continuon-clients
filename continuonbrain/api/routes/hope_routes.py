@@ -330,9 +330,93 @@ def get_hope_config() -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-def handle_hope_request(handler):
+def handle_hope_stream(handler):
+    """Handle SSE stream for real-time metrics."""
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/event-stream")
+    handler.send_header("Cache-Control", "no-cache")
+    handler.send_header("Connection", "keep-alive")
+    handler.send_header("Access-Control-Allow-Origin", "*")
+    handler.end_headers()
+
+    last_step = -1
+    
+    try:
+        while True:
+            # Get metrics
+            data = get_current_metrics()
+            
+            # Send event
+            message = f"data: {json.dumps(data)}\n\n"
+            handler.wfile.write(message.encode("utf-8"))
+            handler.wfile.flush()
+            
+            # Sleep (10Hz max, or sync with steps if possible)
+            time.sleep(0.1)
+            
+    except (ConnectionResetError, BrokenPipeError):
+        # Client disconnected
+        pass
+    except Exception as e:
+        print(f"Stream error: {e}")
+
+
+def handle_hope_post(handler, body=None):
+    """Handle HOPE API POST requests."""
+    try:
+        # If body was not passed, try to read it (though it might be consumed if server.py read it)
+        if body is None:
+            content_len = int(handler.headers.get('Content-Length', 0))
+            body = handler.rfile.read(content_len).decode('utf-8')
+            
+        data = json.loads(body) if body else {}
+        path = handler.path
+
+        if _hope_brain is None:
+            handler.send_json({"error": "HOPE brain not initialized"}, status=503)
+            return
+
+        if path == "/api/hope/reset":
+            _hope_brain.reset()
+            # Also reset stability monitor
+            if hasattr(_hope_brain, "stability_monitor"):
+                _hope_brain.stability_monitor.reset()
+            handler.send_json({"success": True, "message": "Brain reset"})
+
+        elif path == "/api/hope/compact":
+            result = _hope_brain.compact_memory()
+            handler.send_json({"success": True, "result": result})
+
+        elif path == "/api/hope/learning_rate":
+            lr = float(data.get("learning_rate", 0.001))
+            # Set global learning rate
+            _hope_brain.config.learning_rate = lr
+            # If supported, update current state params
+            state = _hope_brain.get_state()
+            if state and hasattr(state.params, "eta"):
+                state.params.eta = lr
+            handler.send_json({"success": True, "learning_rate": lr})
+
+        else:
+            handler.send_json({"error": "Unknown endpoint"}, status=404)
+
+    except Exception as e:
+        handler.send_json({"error": str(e)}, status=500)
+
+
+def handle_hope_request(handler, body=None):
     """Handle HOPE API requests."""
     path = handler.path
+    
+    # Check method via the handler object command
+    if handler.command == "POST":
+        handle_hope_post(handler, body)
+        return
+
+    # Special handling for stream (GET)
+    if path == "/api/hope/stream":
+        handle_hope_stream(handler)
+        return
     
     try:
         if path == "/api/hope/metrics":

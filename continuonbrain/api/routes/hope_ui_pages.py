@@ -20,7 +20,7 @@ HOPE_TRAINING_HTML = f"""
         h1 {{ margin-top: 0; margin-bottom: 10px; }}
         .subtitle {{ color: var(--text-dim); margin-bottom: 30px; }}
         
-        .metrics-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }}
+        .metrics-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }}
         .metric-card {{ background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; }}
         .metric-card h3 {{ margin: 0 0 10px 0; font-size: 0.85em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }}
         .metric-card .value {{ font-size: 2em; font-weight: 700; color: #fff; margin: 5px 0; }}
@@ -34,18 +34,46 @@ HOPE_TRAINING_HTML = f"""
         .status-badge {{ display: inline-flex; align-items: center; padding: 6px 12px; background: rgba(0, 255, 136, 0.15); color: var(--accent-color); border-radius: 20px; font-weight: 600; font-size: 0.9em; gap: 6px; }}
         .status-badge.warning {{ background: rgba(255, 165, 0, 0.15); color: #ffa500; }}
         .status-badge.error {{ background: rgba(255, 59, 48, 0.15); color: #ff3b30; }}
+        
+        /* Control Panel Styles */
+        .control-panel {{ display: flex; gap: 15px; align-items: center; background: var(--card-bg); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 30px; }}
+        .control-label {{ font-weight: 600; color: var(--text-dim); margin-right: 10px; }}
+        
+        .btn {{ padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.9em; }}
+        .btn:hover {{ opacity: 0.9; transform: translateY(-1px); }}
+        .btn:active {{ transform: translateY(0); }}
+        
+        .btn.primary {{ background: var(--accent-color); color: #000; }}
+        .btn.danger {{ background: rgba(255, 59, 48, 0.2); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.3); }}
+        .btn.danger:hover {{ background: rgba(255, 59, 48, 0.3); }}
+        
+        .input-group {{ display: flex; align-items: center; gap: 10px; }}
+        .input-group input {{ background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 6px; width: 80px; }}
+        
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
         <div>
             <h1>🧠 HOPE Training Dashboard</h1>
             <p class="subtitle">Real-time monitoring of brain development with scientific rigor</p>
         </div>
         <div id="status-badge" class="status-badge">
-            <span class="status-dot"></span> Initializing...
+            <span class="status-dot"></span> Connecting...
         </div>
+    </div>
+    
+    <!-- Interactive Controls -->
+    <div class="control-panel">
+        <span class="control-label">Controls:</span>
+        <button onclick="compactMemory()" class="btn primary">Compact Memory</button>
+        <div class="input-group" style="margin-left: 15px; border-left: 1px solid var(--border-color); padding-left: 15px;">
+            <label style="color: var(--text-dim); font-size: 0.9em;">Learning Rate:</label>
+            <input type="number" id="lr-input" step="0.0001" min="0.0001" max="1.0" onchange="setLearningRate(this.value)">
+        </div>
+        <div style="flex: 1;"></div>
+        <button onclick="resetBrain()" class="btn danger">Reset Brain</button>
     </div>
     
     <div class="metrics-grid">
@@ -122,6 +150,7 @@ HOPE_TRAINING_HTML = f"""
         const chartOptions = {{
             responsive: true,
             maintainAspectRatio: true,
+            animation: false, // Disable animation for performance with high-speed updates
             plugins: {{
                 legend: {{ labels: {{ color: '#e0e0e0' }} }},
             }},
@@ -162,79 +191,121 @@ HOPE_TRAINING_HTML = f"""
             }});
         }}
         
-        // Update metrics
-        async function updateMetrics() {{
+        // --- Interactive Controls ---
+        async function compactMemory() {{
             try {{
-                const res = await fetch('/api/hope/metrics');
+                const res = await fetch('/api/hope/compact', {{ method: 'POST' }});
                 const data = await res.json();
-                
-                if (data.error) {{
-                    document.getElementById('status-badge').className = 'status-badge error';
-                    document.getElementById('status-badge').innerHTML = '<span class=\"status-dot\"></span> Error: ' + data.error;
-                    return;
-                }}
-                
-                // Update metric cards
-                document.getElementById('lyapunov-value').textContent = data.lyapunov.total.toFixed(2);
-                document.getElementById('state-norm-value').textContent = data.state_norms.s.toFixed(2);
-                
-                const avgUtil = data.cms_utilization.reduce((a,b) => a+b, 0) / data.cms_utilization.length;
-                document.getElementById('cms-util-value').textContent = (avgUtil * 100).toFixed(1);
-                
-                document.getElementById('lr-value').textContent = data.learning_rate.toFixed(4);
-                document.getElementById('steps-value').textContent = data.steps;
-                
-                // Update status badge
-                document.getElementById('status-badge').className = 'status-badge';
-                document.getElementById('status-badge').innerHTML = '<span class=\"status-dot\"></span> Active';
-                
-                // Update charts
-                const timestamp = new Date(data.timestamp * 1000).toLocaleTimeString();
-                
-                // Lyapunov chart
-                lyapunovData.labels.push(timestamp);
-                lyapunovData.datasets[0].data.push(data.lyapunov.total);
-                lyapunovData.datasets[1].data.push(data.lyapunov.fast);
-                lyapunovData.datasets[2].data.push(data.lyapunov.memory);
-                
-                if (lyapunovData.labels.length > maxDataPoints) {{
-                    lyapunovData.labels.shift();
-                    lyapunovData.datasets.forEach(ds => ds.data.shift());
-                }}
-                lyapunovChart.update('none');
-                
-                // State norms chart
-                stateNormsData.labels.push(timestamp);
-                stateNormsData.datasets[0].data.push(data.state_norms.s);
-                stateNormsData.datasets[1].data.push(data.state_norms.w);
-                stateNormsData.datasets[2].data.push(data.state_norms.p);
-                
-                if (stateNormsData.labels.length > maxDataPoints) {{
-                    stateNormsData.labels.shift();
-                    stateNormsData.datasets.forEach(ds => ds.data.shift());
-                }}
-                stateNormsChart.update('none');
-                
-                // CMS utilization chart
-                cmsUtilData.labels = data.cms_utilization.map((_, i) => `Level ${{i}}`);
-                cmsUtilData.datasets = [{{
-                    label: 'Utilization %',
-                    data: data.cms_utilization.map(u => u * 100),
-                    backgroundColor: '#00ff88',
-                }}];
-                cmsUtilChart.update('none');
-                
-            }} catch(e) {{
-                console.error(e);
-                document.getElementById('status-badge').className = 'status-badge error';
-                document.getElementById('status-badge').innerHTML = '<span class=\"status-dot\"></span> Connection Error';
-            }}
+                if(data.success) alert('Memory compacted successfully');
+                else alert('Error: ' + data.error);
+            }} catch(e) {{ alert('Request failed'); }}
+        }}
+
+        async function resetBrain() {{
+            if (!confirm('Are you sure you want to reset the HOPE brain? This will clear all memory.')) return;
+            try {{
+                const res = await fetch('/api/hope/reset', {{ method: 'POST' }});
+                const data = await res.json();
+                if(data.success) alert('Brain reset successfully');
+                else alert('Error: ' + data.error);
+            }} catch(e) {{ alert('Request failed'); }}
+        }}
+
+        async function setLearningRate(val) {{
+            try {{
+                const res = await fetch('/api/hope/learning_rate', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ learning_rate: val }})
+                }});
+            }} catch(e) {{ console.error(e); }}
         }}
         
-        // Initialize and start updates
+        // --- Real-time Streaming ---
+        let evtSource;
+        
+        function setupStream() {{
+            if (evtSource) evtSource.close();
+            
+            evtSource = new EventSource("/api/hope/stream");
+            
+            evtSource.onopen = function() {{
+                document.getElementById('status-badge').className = 'status-badge';
+                document.getElementById('status-badge').innerHTML = '<span class=\"status-dot\"></span> Live Stream';
+            }};
+            
+            evtSource.onerror = function() {{
+                document.getElementById('status-badge').className = 'status-badge error';
+                document.getElementById('status-badge').innerHTML = '<span class=\"status-dot\"></span> Stream Failed';
+                // Try reconnection logic handled by browser usually, but could show retry button
+            }};
+            
+            evtSource.onmessage = function(event) {{
+                const data = JSON.parse(event.data);
+                updateDashboard(data);
+            }};
+        }}
+
+        // Update dashboard with single data point
+        function updateDashboard(data) {{
+            if (data.error) return;
+            
+            // Update metric cards
+            document.getElementById('lyapunov-value').textContent = data.lyapunov.total.toFixed(2);
+            document.getElementById('state-norm-value').textContent = data.state_norms.s.toFixed(2);
+            
+            const avgUtil = data.cms_utilization.reduce((a,b) => a+b, 0) / data.cms_utilization.length;
+            document.getElementById('cms-util-value').textContent = (avgUtil * 100).toFixed(1);
+            
+            document.getElementById('lr-value').textContent = data.learning_rate.toFixed(4);
+            // Update input placeholder if not focused (to match reality)
+            if (document.activeElement.id !== 'lr-input') {{
+                document.getElementById('lr-input').value = data.learning_rate.toFixed(4);
+            }}
+            
+            document.getElementById('steps-value').textContent = data.steps;
+            
+            // Update charts
+            const timestamp = new Date(data.timestamp * 1000).toLocaleTimeString();
+            
+            // Lyapunov chart
+            lyapunovData.labels.push(timestamp);
+            lyapunovData.datasets[0].data.push(data.lyapunov.total);
+            lyapunovData.datasets[1].data.push(data.lyapunov.fast);
+            lyapunovData.datasets[2].data.push(data.lyapunov.memory);
+            
+            if (lyapunovData.labels.length > maxDataPoints) {{
+                lyapunovData.labels.shift();
+                lyapunovData.datasets.forEach(ds => ds.data.shift());
+            }}
+            lyapunovChart.update('none');
+            
+            // State norms chart
+            stateNormsData.labels.push(timestamp);
+            stateNormsData.datasets[0].data.push(data.state_norms.s);
+            stateNormsData.datasets[1].data.push(data.state_norms.w);
+            stateNormsData.datasets[2].data.push(data.state_norms.p);
+            
+            if (stateNormsData.labels.length > maxDataPoints) {{
+                stateNormsData.labels.shift();
+                stateNormsData.datasets.forEach(ds => ds.data.shift());
+            }}
+            stateNormsChart.update('none');
+            
+            // CMS utilization chart
+            cmsUtilData.labels = data.cms_utilization.map((_, i) => `Level ${{i}}`);
+            cmsUtilData.datasets = [{{
+                label: 'Utilization %',
+                data: data.cms_utilization.map(u => u * 100),
+                backgroundColor: '#00ff88',
+            }}];
+            cmsUtilChart.update('none');
+        }}
+        
+        // Initialize
         initCharts();
-        updateMetrics();
-        setInterval(updateMetrics, 1000); // 1Hz update
+        setupStream();
+        
     </script>
 </body>
 </html>

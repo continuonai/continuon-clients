@@ -23,7 +23,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-Environment=PYTHONPATH=/home/craigm26/ContinuonXR:/home/craigm26/.local/lib/python3.13/site-packages
+
 Environment=CONFIG_DIR=/home/craigm26/.continuonbrain
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/craigm26/.Xauthority

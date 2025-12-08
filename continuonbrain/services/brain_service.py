@@ -239,9 +239,8 @@ class BrainService:
         self.conversation_sessions = {}  # session_id -> list of messages
         logger.info("💬 Conversation session management initialized")
         
-        # Initialize Gemma chat (using mock until AI accelerator available)
-        # Real Gemma 2B/4B will be enabled when Raspberry Pi AI HAT+ is installed
-        self.gemma_chat = create_gemma_chat(use_mock=True)
+        # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
+        self.gemma_chat = create_gemma_chat(use_mock=False)
 
     def ChatWithGemma(self, message: str, history: list, session_id: str = None) -> dict:
         """
@@ -1007,6 +1006,11 @@ class BrainService:
                     )
             else:
                 print("⚠️  No hardware detected!")
+
+        # Load Gemma Model
+        print("🤖 Loading Gemma Chat Model...")
+        self.gemma_chat.load_model()
+
 
         # Initialize recorder and hardware
         print("📼 Initializing episode recorder...")

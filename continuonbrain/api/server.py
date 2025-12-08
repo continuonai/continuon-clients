@@ -248,15 +248,20 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
             
             elif self.path == "/api/chat/history/clear":
                 brain_service.clear_chat_history()
-                self.send_json({"success": True, "message": "Chat history cleared"})
+                self.send_json({"success": True})
+            # HOPE API POST Endpoints
+            elif self.path.startswith("/api/hope/"):
+                try:
+                    from continuonbrain.api.routes import hope_routes
+                    hope_routes.handle_hope_request(self, body)
+                except ImportError:
+                    self.send_json({"error": "HOPE implementation not available"}, status=503)
 
             elif self.path == "/api/memory/save":
-                try:
-                    path = brain_service.save_episode_rlds()
-                    self.send_json({"success": True, "message": f"Episode saved to {os.path.basename(path)}"})
-                except Exception as e:
-
-                    self.send_json({"success": False, "message": str(e)}, status=500)
+                if brain_service.experience_logger.save_memory():
+                    self.send_json({"success": True, "message": "Memory saved"})
+                else:
+                    self.send_json({"success": False, "error": "Save failed"}, status=500)
             
             elif self.path == "/api/hope/compact":
                 try:
