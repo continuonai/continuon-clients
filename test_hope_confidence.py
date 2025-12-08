@@ -34,7 +34,9 @@ def test_confidence_accuracy():
         brain.step(x_obs=pattern_A, a_prev=a_prev, r_t=1.0, perform_param_update=True)
     
     # Check confidence for Pattern A
-    conf_A, metrics_A = agent.assess_confidence(pattern_A)
+    # Calling can_answer assesses confidence of current brain state (which just processed Pattern A)
+    _, conf_A = agent.can_answer("generic query")
+    metrics_A = brain.columns[brain.active_column_idx].stability_monitor.get_metrics()
     print(f"Confidence (Familiar): {conf_A:.4f}")
     print(f"Metrics: {metrics_A}")
     
@@ -47,7 +49,11 @@ def test_confidence_accuracy():
     print("\n[Scenario 2] Novel Pattern")
     pattern_B = np.zeros(10) # Different input
     
-    conf_B, metrics_B = agent.assess_confidence(pattern_B)
+    # Step brain with novel pattern to update state (but don't learn it yet)
+    brain.step(x_obs=pattern_B, a_prev=a_prev, r_t=0.0, perform_param_update=False)
+    
+    _, conf_B = agent.can_answer("generic query")
+    metrics_B = brain.columns[brain.active_column_idx].stability_monitor.get_metrics()
     print(f"Confidence (Novel): {conf_B:.4f}")
     print(f"Metrics: {metrics_B}")
     

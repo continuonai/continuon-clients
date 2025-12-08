@@ -245,6 +245,39 @@ class HOPEBrain(nn.Module):
         self.to(self.device)
         self.active_column_idx = 0 # Trace which column won the vote
 
+    def initialize(self, num_columns: int = None):
+        """
+        Re-initialize the brain, optionally changing topology (Hybrid vs Standard).
+        
+        Args:
+            num_columns: Number of columns to use. 1 = Standard, >1 = Hybrid.
+        """
+        if num_columns is not None:
+            self.config.num_columns = num_columns
+            self.config.use_hybrid_mode = (num_columns > 1)
+            
+        # Re-create columns
+        self.columns = nn.ModuleList()
+        # Ensure we use the potentially updated config value
+        num_cols = self.config.num_columns if self.config.use_hybrid_mode else 1
+        
+        for _ in range(num_cols):
+            col = HOPEColumn(
+                self.config, 
+                self.obs_dim, 
+                self.action_dim, 
+                self.output_dim, 
+                self.obs_type, 
+                self.output_type, 
+                self.device, 
+                self.dtype
+            )
+            self.columns.append(col)
+            
+        self.to(self.device)
+        self.active_column_idx = 0
+        print(f"HOPEBrain initialized with {num_cols} columns (Hybrid={self.config.use_hybrid_mode})")
+
     def reset(self) -> FullState:
         # Reset all columns
         states = [col.reset() for col in self.columns]
