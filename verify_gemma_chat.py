@@ -20,8 +20,8 @@ if "HUGGINGFACE_TOKEN" not in os.environ:
 from continuonbrain.gemma_chat import create_gemma_chat, GemmaChat
 
 def main():
-    # Use Gemma 2B directly
-    model_id = "google/gemma-2b-it"
+    # Use Gemma 3 4b directly
+    model_id = "google/gemma-3-4b-it"
     print(f"Initializing GemmaChat with model: {model_id}...")
     
     try:

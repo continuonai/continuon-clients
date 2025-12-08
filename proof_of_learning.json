@@ -1,0 +1,22 @@
+{
+  "timestamp": 1765152298.991373,
+  "config": {
+    "steps_per_cycle": 10,
+    "cycle_interval_sec": 0.1,
+    "checkpoint_interval": 500,
+    "exploration_bonus": 0.9,
+    "novelty_threshold": 0.0,
+    "learning_update_interval": 1
+  },
+  "metrics": [
+    {
+      "time": 0,
+      "updates": 0,
+      "param_delta": 0.0,
+      "novelty": 1.0
+    },
+    {
+      "time": 1,
+      "updates": 1,
+      "param_delta": 0.0,
+      "novelty": 

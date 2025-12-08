@@ -5988,3 +5988,302 @@ WARNING:continuonbrain.services.background_learner:Instability detected at step 
 Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002891_1765150176.pt (1 cols)
 WARNING:continuonbrain.services.background_learner:Instability detected at step 2892
 Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002892_1765150176.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2893
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002893_1765150176.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2894
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002894_1765150176.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2895
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002895_1765150176.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2896
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002896_1765150177.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2897
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002897_1765150177.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2898
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002898_1765150177.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2899
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002899_1765150177.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2900
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002900_1765150177.pt (1 cols)
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.4% - 1664MB available
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2901
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002901_1765150178.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2902
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002902_1765150178.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2903
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002903_1765150178.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2904
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002904_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2905
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002905_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2906
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002906_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2907
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002907_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2908
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002908_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2909
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002909_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2910
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002910_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2911
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002911_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2912
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002912_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2913
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002913_1765150179.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2914
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002914_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2915
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002915_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2916
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002916_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2917
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002917_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2918
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002918_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2919
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002919_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2920
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002920_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2921
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002921_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2922
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002922_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2923
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002923_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2924
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002924_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2925
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002925_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2926
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002926_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2927
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002927_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2928
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002928_1765150180.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2929
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002929_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2930
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002930_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2931
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002931_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2932
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002932_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2933
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002933_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2934
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002934_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2935
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002935_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2936
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002936_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2937
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002937_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2938
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002938_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2939
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002939_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2940
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002940_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2941
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002941_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2942
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002942_1765150181.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2943
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002943_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2944
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002944_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2945
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002945_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2946
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002946_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2947
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002947_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2948
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002948_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2949
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002949_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2950
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002950_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2951
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002951_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2952
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002952_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2953
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002953_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2954
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002954_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2955
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002955_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2956
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002956_1765150182.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2957
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002957_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2958
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002958_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2959
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002959_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2960
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002960_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2961
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002961_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2962
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002962_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2963
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002963_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2964
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002964_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2965
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002965_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2966
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002966_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2967
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002967_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2968
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002968_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2969
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002969_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2970
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002970_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2971
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002971_1765150183.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2972
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002972_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2973
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002973_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2974
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002974_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2975
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002975_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2976
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002976_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2977
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002977_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2978
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002978_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2979
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002979_1765150184.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2980
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002980_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2981
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002981_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2982
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002982_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2983
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002983_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2984
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002984_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2985
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002985_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2986
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002986_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2987
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002987_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2988
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002988_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2989
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002989_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2990
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002990_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2991
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002991_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2992
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002992_1765150185.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2993
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002993_1765150186.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2994
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002994_1765150186.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2995
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002995_1765150186.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2996
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002996_1765150186.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2997
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002997_1765150186.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2998
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002998_1765150186.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 2999
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00002999_1765150186.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3000
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003000_1765150186.pt (1 cols)
+INFO:continuonbrain.services.background_learner:Autonomous Learning | Steps: 3000 | Episodes: 0 | Speed: 13.7 steps/s | Param Δ: 0.314650 | Avg Reward: 0.000 | Novelty: 0.210 | Lyapunov: 18425403408384.00
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.0% - 1696MB available
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3001
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003001_1765150187.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3002
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003002_1765150187.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3003
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003003_1765150187.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3004
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003004_1765150187.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3005
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003005_1765150187.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3006
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003006_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3007
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003007_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3008
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003008_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3009
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003009_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3010
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003010_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3011
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003011_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3012
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003012_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3013
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003013_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3014
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003014_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3015
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003015_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3016
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003016_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3017
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003017_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3018
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003018_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3019
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003019_1765150188.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3020
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003020_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3021
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003021_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3022
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003022_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3023
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003023_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3024
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003024_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3025
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003025_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3026
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003026_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3027
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003027_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3028
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003028_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3029
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003029_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3030
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003030_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3031
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003031_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3032
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003032_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3033
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003033_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3034
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003034_1765150189.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3035
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003035_1765150190.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3036
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003036_1765150190.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3037
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003037_1765150190.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3038
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003038_1765150190.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3039
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003039_1765150190.pt (1 cols)
+WARNING:continuonbrain.services.background_learner:Instability detected at step 3040
+Hybrid Checkpoint saved to /tmp/continuonbrain_demo/checkpoints/autonomous/hope_auto_00003040_1765150190.pt (1 cols)
