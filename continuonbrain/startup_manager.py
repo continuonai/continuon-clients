@@ -36,13 +36,16 @@ class StartupManager:
         self, 
         config_dir: str = "/opt/continuonos/brain",
         start_services: bool = True,
-        robot_name: str = "ContinuonBot"
+        robot_name: str = "ContinuonBot",
+        start_trainer: bool = True
     ):
         self.config_dir = Path(config_dir)
+        self.config_dir.mkdir(parents=True, exist_ok=True)
         self.state_file = self.config_dir / ".startup_state"
         self.last_wake_time: Optional[int] = None
         self.start_services = start_services
         self.robot_name = robot_name
+        self.start_trainer = start_trainer
         self.service_port = 8080
         
         # Services
@@ -277,20 +280,23 @@ class StartupManager:
                 )
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
                 print(f"   Endpoint: http://localhost:{self.service_port}")
-                
-                # Start Nested Learning Sidecar
-                print("🧠 Starting Nested Learning Sidecar...")
-                trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
-                if trainer_path.exists():
-                    self.trainer_process = subprocess.Popen(
-                        [sys.executable, "-m", "continuonbrain.run_trainer"],
-                        env=env,
-                        stdout=subprocess.DEVNULL,  # Keep console clean
-                        stderr=subprocess.DEVNULL
-                    )
-                    print(f"   Sidecar Trainer started (PID: {self.trainer_process.pid})")
+                    
+                # Start Nested Learning Sidecar (if enabled)
+                if self.start_trainer:
+                    print("🧠 Starting Nested Learning Sidecar...")
+                    trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
+                    if trainer_path.exists():
+                        self.trainer_process = subprocess.Popen(
+                            [sys.executable, "-m", "continuonbrain.run_trainer"],
+                            env=env,
+                            stdout=subprocess.DEVNULL,  # Keep console clean
+                            stderr=subprocess.DEVNULL
+                        )
+                        print(f"   Sidecar Trainer started (PID: {self.trainer_process.pid})")
+                    else:
+                        print(f"   ⚠️ Trainer script not found: {trainer_path}")
                 else:
-                    print(f"   ⚠️ Trainer script not found: {trainer_path}")
+                    print("🧠 Nested Learning Sidecar disabled (--no-trainer flag)")
 
             else:
                 print(f"   ⚠️  Robot API module not found: {server_path}")
@@ -579,6 +585,11 @@ def main():
         help="Don't enable sleep learning when preparing for sleep"
     )
     parser.add_argument(
+        "--no-trainer",
+        action="store_true",
+        help="Don't start the automatic trainer sidecar during startup"
+    )
+    parser.add_argument(
         "--max-sleep-training-hours",
         type=float,
         default=6.0,
@@ -596,7 +607,8 @@ def main():
     manager = StartupManager(
         config_dir=args.config_dir,
         start_services=not args.no_services,
-        robot_name=args.robot_name
+        robot_name=args.robot_name,
+        start_trainer=not args.no_trainer
     )
     
     if args.prepare_sleep:

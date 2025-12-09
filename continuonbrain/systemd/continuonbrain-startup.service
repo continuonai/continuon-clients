@@ -29,7 +29,7 @@ Environment=CONFIG_DIR=/home/craigm26/.continuonbrain
 Environment=GEMINI_API_KEY=AIzaSyDhXpcXCwhNP6Xl8HGNcAMAWi6TBdBw20A
 WorkingDirectory=/home/craigm26/ContinuonXR
 User=craigm26
-ExecStart=/home/craigm26/ContinuonXR/.venv/bin/python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR}
+ExecStart=/home/craigm26/ContinuonXR/.venv/bin/python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR} --no-trainer
 Restart=on-failure
 RestartSec=3
 

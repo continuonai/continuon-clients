@@ -2587,6 +2587,24 @@ class SimpleJSONServer:
                             <input type="number" id="chat-temperature" min="0" max="1" step="0.05" value="0.35">
                         </div>
                     </div>
+
+                    <div class="settings-card">
+                        <h4>Training & Learning</h4>
+                        <div class="settings-row">
+                            <label for="training-enable-sidecar">Enable sidecar trainer</label>
+                            <input type="checkbox" id="training-enable-sidecar">
+                        </div>
+                        <div style="font-size: 11px; color: var(--muted); margin-bottom: 12px; margin-top: -4px;">
+                            Runs continuous training during active operation (checks for new data every 60s)
+                        </div>
+                        <div class="settings-row">
+                            <label for="training-enable-sleep">Enable sleep learning</label>
+                            <input type="checkbox" id="training-enable-sleep">
+                        </div>
+                        <div style="font-size: 11px; color: var(--muted); margin-top: -4px;">
+                            Self-trains on saved memories when system enters sleep mode
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-actions">
@@ -2657,6 +2675,8 @@ class SimpleJSONServer:
             document.getElementById('telemetry-rate').value = settings?.telemetry?.rate_hz ?? 2.0;
             document.getElementById('chat-persona').value = settings?.chat?.persona ?? 'operator';
             document.getElementById('chat-temperature').value = settings?.chat?.temperature ?? 0.35;
+            document.getElementById('training-enable-sidecar').checked = !!settings?.training?.enable_sidecar_trainer;
+            document.getElementById('training-enable-sleep').checked = settings?.training?.enable_sleep_learning ?? true;
         }
 
         async function fetchSettings() {
@@ -2721,6 +2741,10 @@ class SimpleJSONServer:
                 chat: {
                     persona: document.getElementById('chat-persona').value,
                     temperature: chatTemperature,
+                },
+                training: {
+                    enable_sidecar_trainer: document.getElementById('training-enable-sidecar').checked,
+                    enable_sleep_learning: document.getElementById('training-enable-sleep').checked,
                 },
             };
 

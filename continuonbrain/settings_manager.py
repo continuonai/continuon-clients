@@ -24,6 +24,10 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "persona": "operator",
         "temperature": 0.35,
     },
+    "training": {
+        "enable_sidecar_trainer": False,  # Disabled by default to save resources
+        "enable_sleep_learning": True,    # Enabled by default for autonomous learning
+    },
     "agent_manager": {
         "agent_model": "hope-v1",  # Default to HOPE Agent
         "enable_thinking_indicator": True,
@@ -122,6 +126,16 @@ class SettingsStore:
 
         if errors:
             raise SettingsValidationError("; ".join(errors))
+        
+        # Training settings
+        training = payload.get("training", {}) if isinstance(payload, dict) else {}
+        normalized["training"] = {}
+        normalized["training"]["enable_sidecar_trainer"] = bool(
+            training.get("enable_sidecar_trainer", DEFAULT_SETTINGS["training"]["enable_sidecar_trainer"])
+        )
+        normalized["training"]["enable_sleep_learning"] = bool(
+            training.get("enable_sleep_learning", DEFAULT_SETTINGS["training"]["enable_sleep_learning"])
+        )
         
         # Agent Manager settings
         agent_mgr = payload.get("agent_manager", {}) if isinstance(payload, dict) else {}
