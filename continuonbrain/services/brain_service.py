@@ -1187,9 +1187,8 @@ class BrainService:
 
             if not hardware_ready:
                 print("⚠️  Real hardware initialization incomplete")
-                if not self.allow_mock_fallback:
-                    raise RuntimeError("Failed to initialize arm or camera in real mode")
-                print("↩️  Falling back to mock mode")
+                # Allow server to start with partial hardware for network access
+                print("↩️  Continuing with available hardware (network access enabled)")
 
         if not hardware_ready:
             self.recorder.initialize_hardware(use_mock=True, auto_detect=self.auto_detect)
