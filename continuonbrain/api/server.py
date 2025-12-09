@@ -316,9 +316,20 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_json(data)
 
             elif self.path == "/api/status":
-                # Legacy robot status
-                # TODO: Implement full status serialization
-                self.send_json({"status": "ok", "mode": "idle"})
+                # Legacy robot status with battery information
+                status_data = {"status": "ok", "mode": "idle"}
+                
+                # Add battery status if available
+                try:
+                    from continuonbrain.sensors.battery_monitor import BatteryMonitor
+                    monitor = BatteryMonitor()
+                    battery_status = monitor.get_diagnostics()
+                    if battery_status:
+                        status_data["battery"] = battery_status
+                except Exception:
+                    pass  # Battery monitor unavailable, continue without it
+                
+                self.send_json(status_data)
 
             elif self.path == "/api/camera/stream":
                 self.handle_mjpeg_stream()

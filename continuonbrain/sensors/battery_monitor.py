@@ -3,7 +3,7 @@ Battery monitoring for self-charging capability.
 Reads voltage/current from INA219/INA260 sensor via I2C.
 """
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
 import logging
 
@@ -47,12 +47,18 @@ class BatteryMonitor:
     VOLTAGE_FULL = CELL_VOLTAGE_FULL * CELLS_IN_SERIES  # 12.6V
     VOLTAGE_EMPTY = CELL_VOLTAGE_EMPTY * CELLS_IN_SERIES  # 9.9V
     
+    # Overcurrent thresholds
+    OVERCURRENT_ALERT_AMPS = 8.0  # Alert if >8A continuous
+    OVERCURRENT_SHUTDOWN_AMPS = 12.0  # Emergency shutdown if >12A
+    
     def __init__(
         self,
         i2c_address: int = 0x40,  # Default INA219 address
         shunt_ohms: float = 0.1,
         max_expected_amps: float = 5.0,
         battery_capacity_mah: float = 5000.0,
+        overcurrent_alert_amps: float = 8.0,
+        overcurrent_shutdown_amps: float = 12.0,
     ):
         """
         Initialize battery monitor.
@@ -62,9 +68,13 @@ class BatteryMonitor:
             shunt_ohms: Shunt resistor value (default 0.1Ω)
             max_expected_amps: Maximum expected current draw
             battery_capacity_mah: Battery capacity in mAh
+            overcurrent_alert_amps: Alert threshold in amps (default 8.0A)
+            overcurrent_shutdown_amps: Shutdown threshold in amps (default 12.0A)
         """
         self.i2c_address = i2c_address
         self.battery_capacity_mah = battery_capacity_mah
+        self.overcurrent_alert_amps = overcurrent_alert_amps
+        self.overcurrent_shutdown_amps = overcurrent_shutdown_amps
         self.ina: Optional[INA219] = None
         
         if INA219_AVAILABLE:
@@ -134,22 +144,55 @@ class BatteryMonitor:
             return ((voltage_v - self.VOLTAGE_EMPTY) / 
                     (self.VOLTAGE_FULL - self.VOLTAGE_EMPTY) * 100.0)
     
+    def check_overcurrent(self, current_ma: float) -> Tuple[bool, Optional[str]]:
+        """
+        Check if current draw exceeds safety thresholds.
+        
+        Args:
+            current_ma: Current draw in milliamps
+            
+        Returns:
+            Tuple of (is_safe, warning_message)
+            - is_safe: True if current is within safe limits
+            - warning_message: None if safe, otherwise warning or shutdown message
+        """
+        current_amps = abs(current_ma) / 1000.0
+        
+        if current_amps >= self.overcurrent_shutdown_amps:
+            return False, f"CRITICAL: Current draw {current_amps:.2f}A exceeds shutdown threshold {self.overcurrent_shutdown_amps}A"
+        elif current_amps >= self.overcurrent_alert_amps:
+            return True, f"WARNING: Current draw {current_amps:.2f}A exceeds alert threshold {self.overcurrent_alert_amps}A"
+        else:
+            return True, None
+    
     def get_diagnostics(self) -> Dict[str, Any]:
         """Get diagnostic information."""
         status = self.read_status()
         if not status:
             return {"available": False, "error": "Sensor not available"}
         
-        return {
+        # Check for overcurrent conditions
+        is_safe, overcurrent_msg = self.check_overcurrent(status.current_ma)
+        
+        diagnostics = {
             "available": True,
             "voltage_v": round(status.voltage_v, 2),
             "current_ma": round(status.current_ma, 1),
+            "current_amps": round(status.current_ma / 1000.0, 2),
             "power_w": round(status.power_mw / 1000.0, 2),
             "charge_percent": round(status.charge_percent, 1),
             "is_charging": status.is_charging,
             "time_remaining_min": round(status.time_to_empty_min, 1) if status.time_to_empty_min else None,
             "needs_charging": status.needs_charging(),
+            "overcurrent_safe": is_safe,
+            "overcurrent_alert_amps": self.overcurrent_alert_amps,
+            "overcurrent_shutdown_amps": self.overcurrent_shutdown_amps,
         }
+        
+        if overcurrent_msg:
+            diagnostics["overcurrent_warning"] = overcurrent_msg
+        
+        return diagnostics
 
 
 if __name__ == "__main__":

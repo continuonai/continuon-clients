@@ -662,6 +662,16 @@ class RobotService:
                             "unavailable_reason": "Mock drivers loaded instead of PCA9685",
                         }
                     )
+            
+            # Add battery status if available
+            try:
+                from continuonbrain.sensors.battery_monitor import BatteryMonitor
+                monitor = BatteryMonitor()
+                battery_status = monitor.get_diagnostics()
+                if battery_status:
+                    status["battery"] = battery_status
+            except Exception:
+                pass  # Battery monitor unavailable, continue without it
 
             if self.health_checker:
                 status["safety_head"] = self.health_checker.get_safety_head_status()

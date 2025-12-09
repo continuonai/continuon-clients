@@ -104,6 +104,13 @@ class StartupManager:
 
         self._load_boot_protocols()
         
+        # Check battery voltage before proceeding (Low Voltage Cutoff)
+        if not self._check_battery_lvc():
+            print("❌ BATTERY VOLTAGE TOO LOW - EMERGENCY SHUTDOWN")
+            print("System cannot start safely with battery voltage < 9.9V")
+            print()
+            return False
+        
         # Always run health check on wake from sleep
         should_check = (
             startup_mode == StartupMode.WAKE_FROM_SLEEP or
@@ -531,6 +538,50 @@ class StartupManager:
                     return candidate
         return None
 
+    def _check_battery_lvc(self) -> bool:
+        """
+        Check battery voltage for Low Voltage Cutoff (LVC).
+        
+        Returns:
+            True if battery voltage is safe (> 9.9V), False if emergency shutdown needed
+        """
+        try:
+            from continuonbrain.sensors.battery_monitor import BatteryMonitor
+            
+            monitor = BatteryMonitor()
+            status = monitor.read_status()
+            
+            if not status:
+                # Battery monitor unavailable - allow startup (may be tethered)
+                print("ℹ️  Battery monitor unavailable (may be tethered power)")
+                return True
+            
+            voltage_v = status.voltage_v
+            
+            # Emergency shutdown threshold: < 9.9V (3.3V/cell)
+            if voltage_v < 9.9:
+                print(f"❌ CRITICAL: Battery voltage {voltage_v:.2f}V < 9.9V (3.3V/cell)")
+                print("   Emergency shutdown required to protect battery")
+                self._log_event(
+                    "battery_lvc_shutdown",
+                    f"Emergency shutdown due to low voltage: {voltage_v:.2f}V",
+                    {"voltage_v": voltage_v, "threshold_v": 9.9}
+                )
+                return False
+            
+            # Warning threshold: < 10.5V (3.5V/cell)
+            if voltage_v < 10.5:
+                print(f"⚠️  WARNING: Battery voltage {voltage_v:.2f}V < 10.5V (3.5V/cell)")
+                print("   Battery is low but safe to continue")
+            
+            return True
+            
+        except Exception as e:
+            # If battery check fails, allow startup (fail-safe)
+            print(f"⚠️  Battery LVC check failed: {e}")
+            print("   Allowing startup (may be tethered power)")
+            return True
+    
     def _record_startup(self, mode: StartupMode):
         """Record successful startup."""
         state = {
