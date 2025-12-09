@@ -27,6 +27,7 @@ This document details the power requirements for the ContinuonXR robot stack and
 ### Power State Breakdown
 
 **Idle Mode** (~20W):
+
 - Pi 5 idle: 8W
 - AI HAT+ idle: 0.5W
 - OAK-D standby: 1.5W
@@ -34,6 +35,7 @@ This document details the power requirements for the ContinuonXR robot stack and
 - Support circuitry: 0.5W
 
 **Active Vision** (~47W):
+
 - Pi 5 active: 15W
 - AI HAT+ inference: 1.5W
 - OAK-D streaming: 5W
@@ -41,6 +43,7 @@ This document details the power requirements for the ContinuonXR robot stack and
 - Support circuitry: 0.5W
 
 **Peak Motion** (~62W):
+
 - Pi 5 peak: 20W
 - AI HAT+ peak: 1.5W
 - OAK-D peak: 5W
@@ -48,6 +51,7 @@ This document details the power requirements for the ContinuonXR robot stack and
 - Support circuitry: 5W
 
 **Sleep Learning** (~25W):
+
 - Pi 5 training: 18W
 - AI HAT+ training: 2W
 - OAK-D off: 0W
@@ -71,17 +75,20 @@ Wall Outlet
 ```
 
 **Pros:**
+
 - Unlimited runtime
 - No battery management needed
 - Consistent voltage
 - Lower cost
 
 **Cons:**
+
 - Tethered to wall
 - Limited mobility
 - Cable management
 
 **Cost:** ~$55
+
 - Pi 5 27W PSU: $12
 - 6V 8A PSU: $25
 - Cables/connectors: $18
@@ -102,23 +109,27 @@ Buck Conv.  Buck Conv.
 ```
 
 **Runtime Estimates:**
+
 - Idle: ~4.5 hours (89Wh / 20W)
 - Active: ~1.9 hours (89Wh / 47W)
 - Peak: ~1.4 hours (89Wh / 62W)
 - Mixed use: ~1.5-2 hours realistic
 
 **Pros:**
+
 - Fully mobile
 - Self-charging capable
 - Professional robot deployment
 
 **Cons:**
+
 - Battery maintenance required
 - Higher complexity
 - Added weight (~300g)
 - Safety considerations (LiPo)
 
 **Cost:** ~$185
+
 - 3S 8000mAh LiPo: $65
 - 2× Buck converters (higher rated): $40
 - Battery monitor (INA219): $10
@@ -141,6 +152,7 @@ Buck Conv.  Buck Conv.
 ```
 
 **Best of both worlds:**
+
 - Mobile when needed
 - Auto-charges when docked
 - Continuous operation during charging
@@ -164,18 +176,21 @@ Buck Conv.  Buck Conv.
 **Runtime:** ~2-3 hours typical use
 
 **Pros:**
+
 - Off-the-shelf components
 - No LiPo charging/safety concerns
 - Easy to swap batteries
 - Can charge via any USB-C
 
 **Cons:**
+
 - Bulkier than LiPo
 - Two separate power sources
 - Less elegant solution
 - No integrated monitoring
 
 **Cost:** ~$80
+
 - 65W USB-C power bank: $50
 - USB to 6V converter: $15
 - Cables: $15
@@ -250,6 +265,7 @@ Buck Conv.  Buck Conv.
 **Cost:** ~$75 (PSUs + proto HAT)
 
 **Advantages:**
+
 - Compact vertical stack
 - Clean wiring
 - Easy to move as unit
@@ -298,6 +314,7 @@ Buck Conv.  Buck Conv.
 **Cost:** ~$185-235 (power system) + chassis
 
 **Dimensions (typical):**
+
 - Footprint: 250mm × 200mm (wider for dual arms)
 - Height: 350mm (with camera mast)
 - Weight: ~2.5kg fully loaded
@@ -334,6 +351,7 @@ Buck Conv.  Buck Conv.
 **Cost:** ~$55 (minimal)
 
 **Advantages:**
+
 - Repeatable workspace
 - Maximum stability
 - Easy cable management
@@ -344,6 +362,7 @@ Buck Conv.  Buck Conv.
 ### Buck Converters
 
 **For Pi 5 (5.1V rail):**
+
 - Input: 7-24V DC
 - Output: 5.0-5.2V adjustable
 - Current: 6A continuous minimum
@@ -352,6 +371,7 @@ Buck Conv.  Buck Conv.
 - Example: DROK LM2596 with voltage display
 
 **For Servos (6.0V rail):**
+
 - Input: 7-24V DC
 - Output: 5.5-6.5V adjustable
 - Current: 8A continuous minimum (for dual arms)
@@ -361,6 +381,7 @@ Buck Conv.  Buck Conv.
 ### Battery Specifications
 
 **3S LiPo (Recommended for Dual Arms):**
+
 - Voltage: 11.1V nominal (9.9-12.6V range)
 - Capacity: 8000-10000mAh (larger for dual arms)
 - Discharge: 30C minimum (50C better)
@@ -369,6 +390,7 @@ Buck Conv.  Buck Conv.
 - Example: Zeee 3S 8000mAh 50C or Turnigy 10000mAh
 
 **Safety Requirements:**
+
 - LiPo-safe charging bag
 - Temperature monitoring
 - Voltage cutoff: 9.0V absolute minimum
@@ -376,6 +398,7 @@ Buck Conv.  Buck Conv.
 - Fire extinguisher nearby
 
 **Alternative (Safer):** 3S Li-ion
+
 - Same voltage but lower energy density
 - Much safer chemistry
 - Longer cycle life
@@ -384,6 +407,7 @@ Buck Conv.  Buck Conv.
 ### Power Bank (Budget Option)
 
 **Specs:**
+
 - Capacity: 20000mAh minimum
 - Output: 65W USB-C PD minimum
 - Ports: 1× USB-C PD + 1× USB-A QC
@@ -406,6 +430,7 @@ Current Rating → Wire Gauge (AWG)
 ```
 
 **Recommended for this stack:**
+
 - Main power (battery to converters): 18 AWG
 - Pi 5 power: 20 AWG (short runs) or 18 AWG
 - Servo power rail: 18 AWG
@@ -415,12 +440,14 @@ Current Rating → Wire Gauge (AWG)
 ### Connector Standards
 
 **Power Distribution:**
+
 - Battery: XT60 (main), JST-XH (balance)
 - Buck converter input: Screw terminals or XT60
 - Pi 5: Official USB-C cable or GPIO pins 2/4 (5V)
 - Servos: JST or Dupont (factory standard)
 
 **Signal/Data:**
+
 - I2C: Dupont female or JST-PH 4-pin
 - PWM: Dupont female 3-pin
 - USB: Standard Type-C and Type-A
@@ -443,6 +470,7 @@ Single Point Ground (Star Configuration)
 ```
 
 **Critical Rules:**
+
 1. **Single ground reference** at battery negative
 2. **No ground loops** between power supplies
 3. **Star topology** not daisy-chain
@@ -454,21 +482,25 @@ Single Point Ground (Star Configuration)
 ### Heat Generation by Component
 
 **Raspberry Pi 5:** 5-15W dissipated
+
 - Official active cooler: **Required**
 - Passive heatsink: Insufficient under load
 - Target: <70°C under continuous load
 
 **AI HAT+ (Hailo-8L):** 1-2W dissipated
+
 - Included heatsink: Usually sufficient
 - Add small fan if stacking closely
 - Target: <60°C during inference
 
 **Buck Converters:** 1-3W each
+
 - Heatsink included on most modules
 - Airflow beneficial
 - Target: <80°C
 
 **Servos (SO-ARM101):** 1-2W each when active
+
 - Natural convection adequate
 - Duty cycle <50% recommended
 - Target: <60°C case temperature
@@ -476,17 +508,20 @@ Single Point Ground (Star Configuration)
 ### Cooling Solutions
 
 **Minimal (Desktop):**
+
 - Pi 5 official active cooler
 - Open air circulation
 - Cost: $5
 
 **Standard (Mobile Robot):**
+
 - Pi 5 active cooler
 - HAT+ heatsink
 - Perforated chassis panels
 - Cost: $10
 
 **Advanced (Enclosed Robot):**
+
 - Pi 5 active cooler
 - 40mm fan over HAT stack
 - Buck converter heatsinks
@@ -498,18 +533,21 @@ Single Point Ground (Star Configuration)
 ### Essential Monitoring
 
 **Battery Voltage:**
+
 - Monitor via INA219 sensor
 - Alert at <10.5V (3.5V/cell)
 - Emergency shutdown at <9.9V (3.3V/cell)
 - Log voltage every 10 seconds
 
 **Current Draw:**
+
 - Monitor total system current
 - Alert if >8A continuous
 - Track power state vs. current
 - Useful for detecting mechanical issues
 
 **Temperature:**
+
 - Pi 5 CPU temp (vcgencmd)
 - Battery temperature (if sensor available)
 - Servo temperature (thermal camera optional)
@@ -539,16 +577,19 @@ Single Point Ground (Star Configuration)
 ### Standoff Specifications
 
 **Pi 5 to AI HAT+:**
+
 - M2.5 × 11mm standoffs (GPIO HAT height)
 - Metal (brass) preferred for grounding
 - Nylon acceptable for insulation
 
 **Multi-deck Robot:**
+
 - M3 × 50mm standoffs between decks
 - Aluminum for strength + light weight
 - Use locknuts to prevent vibration loosening
 
 **Camera Mount:**
+
 - 1/4"-20 thread (standard tripod)
 - Ball joint for adjustability
 - Or fixed bracket for repeatability
@@ -556,6 +597,7 @@ Single Point Ground (Star Configuration)
 ### Mounting Plates
 
 **Material Options:**
+
 - **Acrylic (3mm):** Cheap, easy to laser cut, insulating
 - **Aluminum (2mm):** Strong, conductive (grounding plane)
 - **3D Printed (PLA/PETG):** Custom shapes, moderate strength
@@ -590,6 +632,7 @@ Single Point Ground (Star Configuration)
 ### Software Optimizations
 
 1. **Idle Components When Unused:**
+
    ```python
    # Turn off camera when not needed
    camera.stop_capture()
@@ -656,6 +699,7 @@ Single Point Ground (Star Configuration)
 **Symptom:** Rainbow square, no HDMI output  
 **Cause:** Insufficient power (voltage drop or current limit)  
 **Solution:**
+
 - Check voltage at GPIO pins (measure pin 2/4 to pin 6)
 - Should be 5.0-5.2V under load
 - Use thicker wires or shorter runs
@@ -666,6 +710,7 @@ Single Point Ground (Star Configuration)
 **Symptom:** Servos shake or oscillate when holding position  
 **Cause:** Voltage sag, noise on power rail, or insufficient current  
 **Solution:**
+
 - Add 1000-2200µF capacitor across servo power rail
 - Use separate buck converter for servos
 - Ensure ground is shared between Pi and PCA9685
@@ -676,6 +721,7 @@ Single Point Ground (Star Configuration)
 **Symptom:** Pi restarts unexpectedly during servo motion  
 **Cause:** Voltage dip when motors draw current  
 **Solution:**
+
 - Separate power rails (Pi vs servos)
 - Increase battery capacity
 - Add bulk capacitance (2200µF+)
@@ -686,6 +732,7 @@ Single Point Ground (Star Configuration)
 **Symptom:** <1 hour runtime on 5000mAh battery  
 **Cause:** Excessive current draw or bad battery  
 **Solution:**
+
 - Use INA219 to measure actual current
 - Check for short circuits or stuck servos
 - Test battery capacity with hobby charger
@@ -696,6 +743,7 @@ Single Point Ground (Star Configuration)
 **Symptom:** Converter very hot (>80°C), possibly shutting down  
 **Cause:** Overloaded or inefficient  
 **Solution:**
+
 - Verify current draw is within spec
 - Add heatsink or airflow
 - Use higher current-rated converter
@@ -704,24 +752,28 @@ Single Point Ground (Star Configuration)
 ## References & Resources
 
 ### Datasheets
-- Raspberry Pi 5 Power Guide: https://www.raspberrypi.com/documentation/computers/raspberry-pi-5.html#power-supply
-- Hailo-8L AI HAT+: https://hailo.ai/products/ai-accelerators/hailo-8l-ai-accelerator/
-- PCA9685 Servo Driver: https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf
-- INA219 Current Sensor: https://www.ti.com/lit/ds/symlink/ina219.pdf
+
+- Raspberry Pi 5 Power Guide: <https://www.raspberrypi.com/documentation/computers/raspberry-pi-5.html#power-supply>
+- Hailo-8L AI HAT+: <https://hailo.ai/products/ai-accelerators/hailo-8l-ai-accelerator/>
+- PCA9685 Servo Driver: <https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf>
+- INA219 Current Sensor: <https://www.ti.com/lit/ds/symlink/ina219.pdf>
 
 ### Calculators
-- Wire gauge calculator: https://www.calculator.net/wire-size-calculator.html
-- Battery runtime calculator: https://www.batterystuff.com/kb/tools/calculator-sizing-a-12-volt-battery-to-a-load.html
-- Buck converter efficiency: https://www.ti.com/tool/WEBENCH-POWER-DESIGNER
+
+- Wire gauge calculator: <https://www.calculator.net/wire-size-calculator.html>
+- Battery runtime calculator: <https://www.batterystuff.com/kb/tools/calculator-sizing-a-12-volt-battery-to-a-load.html>
+- Buck converter efficiency: <https://www.ti.com/tool/WEBENCH-POWER-DESIGNER>
 
 ### Safety Guides
-- LiPo battery safety: https://rogershobbycenter.com/lipoguide
-- Electrical safety basics: https://learn.sparkfun.com/tutorials/how-to-use-a-multimeter
+
+- LiPo battery safety: <https://rogershobbycenter.com/lipoguide>
+- Electrical safety basics: <https://learn.sparkfun.com/tutorials/how-to-use-a-multimeter>
 
 ### Suppliers
-- Adafruit (sensors, breakouts): https://www.adafruit.com
-- Pololu (buck converters, motors): https://www.pololu.com
-- HobbyKing (LiPo batteries): https://hobbyking.com
+
+- Adafruit (sensors, breakouts): <https://www.adafruit.com>
+- Pololu (buck converters, motors): <https://www.pololu.com>
+- HobbyKing (LiPo batteries): <https://hobbyking.com>
 - Amazon/AliExpress (bulk components)
 
 ## Appendix: Power Distribution PCB Design
@@ -729,6 +781,7 @@ Single Point Ground (Star Configuration)
 For production robots, consider designing a custom power distribution board:
 
 **Features:**
+
 - Single PCB combines buck converters, monitoring, BMS
 - Screw terminals for battery input
 - Barrel jacks or USB-C for outputs
