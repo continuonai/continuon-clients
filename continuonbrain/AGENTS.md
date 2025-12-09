@@ -11,38 +11,8 @@ Scope: `continuonbrain/`.
   - For manifest/config changes, validate JSON syntax and ensure sample paths remain coherent with README references.
   Mention any skipped checks due to unavailable dependencies or hardware.
 
-## Production Installation System
-
-**Context**: We're packaging ContinuonBrain as a single `.deb` package with kiosk mode for production deployment.
-
-**Guidelines for packaging work:**
-- Keep package structure in `packaging/continuonbrain/` directory
-- Follow Debian packaging standards (control files, scripts, etc.)
-- Test installation scripts on clean systems before committing
-- Document any new dependencies in `DEBIAN/control`
-- Maintain backward compatibility with manual installation during transition
-- Use systemd for service management (no custom init scripts)
-- Follow security best practices (least privilege, sandboxing)
-- Keep CLI tools simple and user-friendly
-
-**Key Files:**
-- `packaging/continuonbrain/DEBIAN/*` - Package control files
-- `packaging/continuonbrain/etc/systemd/system/*` - Service definitions
-- `packaging/continuonbrain/usr/bin/*` - CLI tools
-- `continuonbrain/watchdog.py` - Health monitoring service
-- `build-package.sh` - Package build script
-
-**Testing:**
-- Build: `./build-package.sh`
-- Install: `sudo apt install ./build/continuonbrain_1.0.0_arm64.deb`
-- Verify: `continuonbrain status`
-- Uninstall: `sudo apt remove continuonbrain`
-
-**Phases:**
-1. ✅ Debian Package Structure (complete)
-2. 🔄 Kiosk Mode (next)
-3. 📋 Developer Mode
-4. 📋 Installation Image
-5. 📋 Error Recovery
-
-See `packaging/implementation_plan.md` for detailed roadmap.
+Recent updates:
+- JAX-first model selection is preferred (set `CONTINUON_PREFER_JAX=1`, default). Transformers/Gemma remains optional fallback; avoid heavy imports on startup when possible.
+- Hailo export/runtime is still a placeholder; `.hef` presence is checked, but compilation/runtime requires the Hailo SDK. Document clearly when placeholders are used.
+- Robot API server has been partially decomposed (chat/tasks extracted). Further splits (devices/routes) should continue to keep the server small and testable.
+- New JAX inference utilities: CPU inference CLI (`jax_models/export/infer_cpu.py`) and hardware-aware inference router; keep imports guarded on constrained devices.

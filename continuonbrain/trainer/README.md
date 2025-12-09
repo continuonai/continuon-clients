@@ -2,6 +2,19 @@
 
 This directory hosts **offline-first** scaffolding for local adapter training on Pi/Jetson-class hardware, aligning with ContinuonBrain/OS goals (no cloud dependency, bounded jobs, RLDS-only inputs).
 
+## Trainer Types
+
+This repository supports two training pipelines:
+
+1. **PyTorch Trainer** (`local_lora_trainer.py`): Original PyTorch-based trainer for LoRA adapter training
+2. **JAX Trainer** (`../jax_models/`): JAX/Flax-based trainer optimized for TPU training and Hailo inference
+
+The trainer selector (`../jax_models/utils/trainer_selector.py`) automatically chooses the appropriate trainer based on hardware:
+- **JAX**: Selected when TPU is detected, or AI HAT+ is present, or explicitly preferred
+- **PyTorch**: Default fallback for CPU/GPU training
+
+See [`docs/jax-training-pipeline.md`](../../docs/jax-training-pipeline.md) for complete JAX pipeline documentation.
+
 ## Key modules
 - `local_lora_trainer.py`: core loop with budgets, candidate/current/history rotation, and promotion gate.
 - `hooks_torch.py`: lazy Torch hook builder (expects caller-provided base model loader + LoRA injector + loss).

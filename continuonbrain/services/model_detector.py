@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any
 import logging
+import importlib.util
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,8 @@ class ModelDetector:
     
     def __init__(self):
         self.hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
+        self.jax_available = importlib.util.find_spec("jax") is not None
+        self.transformers_available = importlib.util.find_spec("transformers") is not None
         
     def get_available_models(self) -> List[Dict[str, Any]]:
         """
@@ -26,6 +29,33 @@ class ModelDetector:
         """
         models = []
         
+        # Prefer JAX CoreModel if JAX is present
+        if self.jax_available:
+            models.append({
+                "id": "jax-core",
+                "name": "JAX CoreModel",
+                "type": "jax",
+                "size_mb": 0,
+                "source": "built-in",
+                "description": "JAX/Flax CoreModel (HOPE-inspired) for CPU/TPU/Hailo inference"
+            })
+
+        # Detect Gemma 3n (JAX/Flax weights) if present in HF cache
+        if self.jax_available and self.hf_cache.exists():
+            for model_dir in self.hf_cache.iterdir():
+                if not model_dir.is_dir():
+                    continue
+                dir_name = model_dir.name
+                if "gemma-3" in dir_name.lower():
+                    models.append({
+                        "id": "google/gemma-3n",
+                        "name": "Gemma 3n (JAX/Flax)",
+                        "type": "jax-gemma",
+                        "size_mb": 0,
+                        "source": "huggingface",
+                        "description": "Gemma 3n JAX/Flax weights detected in HF cache"
+                    })
+
         # Always include Mock model
         models.append({
             "id": "mock",

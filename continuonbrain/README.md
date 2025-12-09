@@ -5,6 +5,8 @@ The Continuon Brain runtime and scaffolding now live together in this monorepo. 
 - `trainer/` offline Pi/Jetson adapter-training scaffold (bounded, RLDS-only, safety-gated) to align with ContinuonBrain/OS goals. Synthetic RLDS samples for dry-runs sit under `continuonbrain/rlds/episodes/`. Sample manifest in `continuonbrain/model/manifest.pi5.example.json` shows how Pi 5 + `flutter_gemma` can load base + LoRA without extra quantization.
 - Raspberry Pi 5 bring-up checklist (depth cam + PCA9685) lives in `continuonbrain/PI5_CAR_READINESS.md`.
 - Pi 5 edge brain v0 execution steps (health checks, RLDS recording, trainer runbook) live in `continuonbrain/PI5_EDGE_BRAIN_INSTRUCTIONS.md`.
+- JAX training pipeline lives under `continuonbrain/jax_models/` with a unified trainer (`run_trainer.py`) that selects JAX vs PyTorch based on hardware. Use `--config-preset` or `--config-json` to tune CoreModel settings.
+- Model selection is JAX-first (`CONTINUON_PREFER_JAX=1` by default). Transformers/Gemma remains available as fallback. Gemma 3n JAX/Flax weights in the HF cache are detected when present.
 
 Production runtime code belongs here; keep docs explicit about what is production-ready versus placeholder scaffolding so downstream consumers can promote features confidently.
 
@@ -62,96 +64,14 @@ PYTHONPATH=$PWD python3 continuonbrain/startup_manager.py
 
 See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devices and [System Health](../docs/system-health.md) for health checking.
 
-## Production Installation System
+### JAX Training & Inference (CoreModel + Gemma 3n JAX)
+- Local sanity check: `python -m continuonbrain.run_trainer --trainer jax --mode local --config-preset pi5 --max-steps 5`
+- TPU training: `python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000`
+- CPU inference smoke: `python -m continuonbrain.jax_models.export.infer_cpu --model-path ./models/core_model_inference --obs-dim 128 --action-dim 32`
+- Gemma 3n JAX/Flax: ensure weights are present in HF cache; model detector will list them as `jax-gemma`.
 
-**Status**: Phase 1 Complete (Debian Package Structure)
-
-We're transforming ContinuonBrain from a manual developer setup into a production-ready appliance that installs as a single package and boots directly to a web kiosk interface.
-
-### Vision
-- **Single Package Installation**: `.deb` for apt-based systems, `.img` for Raspberry Pi
-- **Web Kiosk Mode**: Boots directly to robot management UI (no desktop/terminal visible)
-- **Automatic Recovery**: Watchdog service monitors health and auto-restarts on failures
-- **Developer Mode**: Hidden access via Ctrl+Alt+F2 or CLI for debugging
-
-### Current Status: Phase 1 Complete ✅
-
-**Debian Package Structure Created:**
-- ✅ Package control files and metadata
-- ✅ Post-installation script (auto-setup venv, deps, user, kiosk)
-- ✅ Systemd services (main service + watchdog)
-- ✅ CLI tools (`continuonbrain` command + dev-mode toggle)
-- ✅ Watchdog monitoring service
-- ✅ Build script (`./build-package.sh`)
-
-**Installation (when ready):**
-```bash
-# Build package
-./build-package.sh
-
-# Install
-sudo apt install ./build/continuonbrain_1.0.0_arm64.deb
-
-# Access web UI
-open http://localhost:8080/ui
-```
-
-**CLI Usage:**
-```bash
-continuonbrain start          # Start service
-continuonbrain status         # Show status
-continuonbrain logs           # View logs
-continuonbrain dev-mode enable  # Enable developer mode
-```
-
-### Roadmap
-
-**Phase 1: Debian Package** ✅ Complete
-- Package structure with control files
-- Installation/removal scripts
-- Systemd services
-- CLI tools
-
-**Phase 2: Kiosk Mode** 🔄 Next
-- Auto-start browser in fullscreen
-- Disable keyboard shortcuts
-- Auto-restart on crash
-- Hide system UI
-
-**Phase 3: Developer Mode** 📋 Planned
-- Web-based terminal access
-- SSH configuration
-- Log viewing interface
-
-**Phase 4: Installation Image** 📋 Planned
-- Bootable `.img` for Raspberry Pi
-- Pre-configured system
-- First-boot wizard (WiFi setup)
-- Pre-downloaded AI models
-
-**Phase 5: Error Recovery** 📋 Planned
-- Auto-update system
-- Rollback capability
-- Update notifications
-
-**Documentation:**
-- Implementation Plan: `packaging/implementation_plan.md`
-- Package README: `packaging/README.md`
-- Build Instructions: `./build-package.sh --help`
-
-### Benefits
-
-**Before (Manual Setup):**
-- 30-60 minutes setup time
-- Multiple manual steps
-- Error-prone
-- Complex troubleshooting
-
-**After (Package Installation):**
-- Single command: `sudo apt install ./continuonbrain_1.0.0_arm64.deb`
-- 5-10 minutes (mostly dependency downloads)
-- Automatic configuration
-- Built-in recovery
+### Hailo (AI HAT+) status
+- Export pipeline JAX→TF→ONNX is available; `.hef` creation is a placeholder without the Hailo SDK. Runtime inference will skip Hailo if `.hef` is missing; full acceleration requires integrating Hailo compiler/runtime tools.
 
 ## Autostart on boot (systemd template)
 - A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service`.

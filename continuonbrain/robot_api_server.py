@@ -26,107 +26,23 @@ from continuonbrain.sensors.oak_depth import OAKDepthCapture, CameraConfig
 from continuonbrain.recording.arm_episode_recorder import ArmEpisodeRecorder
 from continuonbrain.sensors.hardware_detector import HardwareDetector
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
-from continuonbrain.gemma_chat import create_gemma_chat
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
+from continuonbrain.server.chat import build_chat_service
+from continuonbrain.server.model_selector import select_model
+from continuonbrain.server.devices import auto_detect_hardware, init_recorder
+from continuonbrain.server.status import start_status_server
+from continuonbrain.server.tasks import (
+    TaskDefinition,
+    TaskEligibilityMarker,
+    TaskEligibility,
+    TaskLibraryEntry,
+    TaskSummary,
+    TaskLibrary,
+)
 
-
-@dataclass
-class TaskDefinition:
-    """Static task library entry used to seed Studio panels."""
-
-    id: str
-    title: str
-    description: str
-    group: str
-    tags: List[str] = field(default_factory=list)
-    requires_motion: bool = False
-    requires_recording: bool = False
-    required_modalities: List[str] = field(default_factory=list)
-    steps: List[str] = field(default_factory=list)
-    estimated_duration: str = ""
-    recommended_mode: str = "autonomous"
-    telemetry_topic: str = "loop/tasks"
-
-
-@dataclass
-class TaskEligibilityMarker:
-    code: str
-    label: str
-    severity: str = "info"
-    blocking: bool = False
-    source: str = "runtime"
-    remediation: str = ""
-
-    def to_dict(self) -> Dict[str, object]:
-        return {
-            "code": self.code,
-            "label": self.label,
-            "severity": self.severity,
-            "blocking": self.blocking,
-            "source": self.source,
-            "remediation": self.remediation,
-        }
-
-
-@dataclass
-class TaskEligibility:
-    eligible: bool
-    markers: List[TaskEligibilityMarker] = field(default_factory=list)
-    next_poll_after_ms: float = 250.0
-
-    def to_dict(self) -> Dict[str, object]:
-        return {
-            "eligible": self.eligible,
-            "markers": [marker.to_dict() for marker in self.markers],
-            "next_poll_after_ms": self.next_poll_after_ms,
-        }
-
-
-@dataclass
-class TaskLibraryEntry:
-    id: str
-    title: str
-    description: str
-    group: str
-    tags: List[str]
-    eligibility: TaskEligibility
-    estimated_duration: str = ""
-    recommended_mode: str = "autonomous"
-
-    def to_dict(self) -> Dict[str, object]:
-        return {
-            "id": self.id,
-            "title": self.title,
-            "description": self.description,
-            "group": self.group,
-            "tags": self.tags,
-            "eligibility": self.eligibility.to_dict(),
-            "estimated_duration": self.estimated_duration,
-            "recommended_mode": self.recommended_mode,
-        }
-
-
-@dataclass
-class TaskSummary:
-    entry: TaskLibraryEntry
-    required_modalities: List[str]
-    steps: List[str]
-    owner: str
-    updated_at: str
-    telemetry_topic: str
-
-    def to_dict(self) -> Dict[str, object]:
-        return {
-            "entry": self.entry.to_dict(),
-            "required_modalities": self.required_modalities,
-            "steps": self.steps,
-            "owner": self.owner,
-            "updated_at": self.updated_at,
-            "telemetry_topic": self.telemetry_topic,
-        }
 
 
 class TaskLibrary:
@@ -230,8 +146,35 @@ class RobotService:
         self.task_library = TaskLibrary()
         self.selected_task_id: Optional[str] = None
 
-        # Initialize Gemma chat (will use mock if transformers not available)
-        self.gemma_chat = create_gemma_chat(use_mock=False)
+        # Prefer JAX-based models by default to avoid heavyweight transformers init on boot.
+        self.prefer_jax_models = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes")
+        # Record selected model for status reporting
+        selection = select_model()
+        self.selected_model = selection.get("selected")
+
+        if self.prefer_jax_models and self.selected_model and self.selected_model.get("backend") == "jax":
+            print("ℹ️  CONTINUON_PREFER_JAX=1 and JAX detected → skipping transformers chat init; use inference_router for JAX.")
+            self.gemma_chat = None
+        else:
+            # Transformers path (fallback)
+            try:
+                self.gemma_chat = build_chat_service()
+            except Exception as e:  # noqa: BLE001
+                print(f"⚠️  Chat initialization failed ({e}); continuing without chat service.")
+                self.gemma_chat = None
+
+        # Status log for selected model/backend
+        if self.selected_model:
+            print(f"📡 Model selected: {self.selected_model.get('name')} (backend={self.selected_model.get('backend')})")
+        else:
+            print("⚠️  No chat/model backend selected; running without chat.")
+
+        # Start lightweight status endpoint
+        status_port = int(os.environ.get("CONTINUON_STATUS_PORT", "8090"))
+        try:
+            self.status_server = start_status_server(self.selected_model, port=status_port)
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️  Failed to start status endpoint: {exc}")
 
     def _ensure_system_instructions(self) -> None:
         """Guarantee that merged system instructions are available."""
@@ -263,11 +206,12 @@ class RobotService:
         # Auto-detect hardware (used for status reporting)
         if self.auto_detect:
             print("🔍 Auto-detecting hardware...")
-            detector = HardwareDetector()
-            devices = detector.detect_all()
-            if devices:
-                self.detected_config = detector.generate_config()
-                detector.print_summary()
+            detected = auto_detect_hardware()
+            if detected.devices:
+                self.detected_config = detected.config
+                print(f"✅ Detected devices: {len(detected.devices)}")
+                for dev in detected.devices:
+                    print(f" - {dev}")
                 print()
             else:
                 print("⚠️  No hardware detected!")
@@ -275,10 +219,7 @@ class RobotService:
 
         # Initialize recorder and hardware (prefers real, falls back to mock if allowed)
         print("📼 Initializing episode recorder...")
-        self.recorder = ArmEpisodeRecorder(
-            episodes_dir=f"{self.config_dir}/episodes",
-            max_steps=500,
-        )
+        self.recorder = init_recorder(self.config_dir, max_steps=500)
 
         hardware_ready = False
         if self.prefer_real_hardware:
@@ -2587,24 +2528,6 @@ class SimpleJSONServer:
                             <input type="number" id="chat-temperature" min="0" max="1" step="0.05" value="0.35">
                         </div>
                     </div>
-
-                    <div class="settings-card">
-                        <h4>Training & Learning</h4>
-                        <div class="settings-row">
-                            <label for="training-enable-sidecar">Enable sidecar trainer</label>
-                            <input type="checkbox" id="training-enable-sidecar">
-                        </div>
-                        <div style="font-size: 11px; color: var(--muted); margin-bottom: 12px; margin-top: -4px;">
-                            Runs continuous training during active operation (checks for new data every 60s)
-                        </div>
-                        <div class="settings-row">
-                            <label for="training-enable-sleep">Enable sleep learning</label>
-                            <input type="checkbox" id="training-enable-sleep">
-                        </div>
-                        <div style="font-size: 11px; color: var(--muted); margin-top: -4px;">
-                            Self-trains on saved memories when system enters sleep mode
-                        </div>
-                    </div>
                 </div>
 
                 <div class="modal-actions">
@@ -2675,8 +2598,6 @@ class SimpleJSONServer:
             document.getElementById('telemetry-rate').value = settings?.telemetry?.rate_hz ?? 2.0;
             document.getElementById('chat-persona').value = settings?.chat?.persona ?? 'operator';
             document.getElementById('chat-temperature').value = settings?.chat?.temperature ?? 0.35;
-            document.getElementById('training-enable-sidecar').checked = !!settings?.training?.enable_sidecar_trainer;
-            document.getElementById('training-enable-sleep').checked = settings?.training?.enable_sleep_learning ?? true;
         }
 
         async function fetchSettings() {
@@ -2741,10 +2662,6 @@ class SimpleJSONServer:
                 chat: {
                     persona: document.getElementById('chat-persona').value,
                     temperature: chatTemperature,
-                },
-                training: {
-                    enable_sidecar_trainer: document.getElementById('training-enable-sidecar').checked,
-                    enable_sleep_learning: document.getElementById('training-enable-sleep').checked,
                 },
             };
 
