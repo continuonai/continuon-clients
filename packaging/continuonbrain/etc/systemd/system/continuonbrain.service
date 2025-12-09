@@ -1,0 +1,38 @@
+[Unit]
+Description=ContinuonBrain Robot AI Service
+Documentation=https://docs.continuonai.com
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=continuon
+Group=continuon
+WorkingDirectory=/opt/continuonbrain/app
+Environment="PATH=/opt/continuonbrain/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/opt/continuonbrain/app"
+Environment="HUGGINGFACE_TOKEN=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"
+ExecStart=/opt/continuonbrain/venv/bin/python -m continuonbrain.startup_manager \
+    --config-dir /opt/continuonbrain/config \
+    --no-trainer
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/continuonbrain/config /opt/continuonbrain/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+
+# Resource limits
+MemoryMax=4G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

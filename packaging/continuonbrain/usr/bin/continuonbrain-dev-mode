@@ -1,0 +1,50 @@
+#!/bin/bash
+# Toggle developer mode for ContinuonBrain
+
+case "$1" in
+    enable)
+        echo "Enabling developer mode..."
+        sudo systemctl stop continuonbrain-kiosk.service 2>/dev/null || true
+        
+        # Start full desktop if available
+        if systemctl list-unit-files | grep -q gdm3.service; then
+            sudo systemctl start gdm3.service
+        elif systemctl list-unit-files | grep -q lightdm.service; then
+            # Just stop kiosk, lightdm will show login
+            echo "Kiosk mode disabled. Login screen will appear."
+        fi
+        
+        echo "✅ Developer mode enabled"
+        echo "   - Kiosk mode stopped"
+        echo "   - Full desktop access available"
+        echo "   - SSH access: ssh continuon@<robot-ip>"
+        echo ""
+        echo "To return to kiosk mode: continuonbrain dev-mode disable"
+        ;;
+        
+    disable)
+        echo "Disabling developer mode..."
+        sudo systemctl stop gdm3.service 2>/dev/null || true
+        sudo systemctl start continuonbrain-kiosk.service 2>/dev/null || true
+        
+        echo "✅ Kiosk mode restored"
+        echo "   Web UI: http://localhost:8080/ui"
+        ;;
+        
+    status)
+        if systemctl is-active --quiet continuonbrain-kiosk.service; then
+            echo "Mode: Kiosk (production)"
+        else
+            echo "Mode: Developer"
+        fi
+        ;;
+        
+    *)
+        echo "Usage: continuonbrain-dev-mode {enable|disable|status}"
+        echo ""
+        echo "  enable   - Stop kiosk mode, enable full desktop access"
+        echo "  disable  - Restore kiosk mode"
+        echo "  status   - Show current mode"
+        exit 1
+        ;;
+esac

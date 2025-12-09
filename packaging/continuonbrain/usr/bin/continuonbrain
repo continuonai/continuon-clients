@@ -1,0 +1,69 @@
+#!/bin/bash
+# ContinuonBrain CLI wrapper
+
+INSTALL_DIR="/opt/continuonbrain"
+VENV="$INSTALL_DIR/venv"
+
+# Activate virtual environment
+source "$VENV/bin/activate"
+
+# Parse command
+case "$1" in
+    start)
+        sudo systemctl start continuonbrain.service
+        ;;
+    stop)
+        sudo systemctl stop continuonbrain.service
+        ;;
+    restart)
+        sudo systemctl restart continuonbrain.service
+        ;;
+    status)
+        systemctl status continuonbrain.service
+        ;;
+    logs)
+        journalctl -u continuonbrain.service -f
+        ;;
+    dev-mode)
+        shift
+        /usr/bin/continuonbrain-dev-mode "$@"
+        ;;
+    update)
+        echo "Checking for updates..."
+        python "$INSTALL_DIR/app/updater.py"
+        ;;
+    version)
+        dpkg -l | grep continuonbrain | awk '{print $3}'
+        ;;
+    help|--help|-h)
+        cat << EOF
+ContinuonBrain CLI
+
+Usage: continuonbrain <command> [options]
+
+Commands:
+    start       Start the ContinuonBrain service
+    stop        Stop the ContinuonBrain service
+    restart     Restart the ContinuonBrain service
+    status      Show service status
+    logs        Show service logs (follow mode)
+    dev-mode    Toggle developer mode (enable|disable|status)
+    update      Check for and install updates
+    version     Show installed version
+    help        Show this help message
+
+Examples:
+    continuonbrain start
+    continuonbrain logs
+    continuonbrain dev-mode enable
+
+Web UI: http://localhost:8080/ui
+Documentation: /opt/continuonbrain/docs/
+EOF
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo "Run 'continuonbrain help' for usage information"
+        exit 1
+        ;;
+esac

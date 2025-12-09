@@ -1,0 +1,20 @@
+#!/bin/bash
+# Post-removal script for ContinuonBrain
+set -e
+
+# Restore lightdm config if backup exists
+if [ -f /etc/lightdm/lightdm.conf.backup ]; then
+    echo "Restoring original lightdm configuration..."
+    mv /etc/lightdm/lightdm.conf.backup /etc/lightdm/lightdm.conf
+fi
+
+# Optionally remove user (commented out by default to preserve data)
+# userdel -r continuon 2>/dev/null || true
+
+echo "✅ ContinuonBrain removed"
+echo ""
+echo "User data backup (if created): /tmp/continuonbrain-backup-*.tar.gz"
+echo "To completely remove user data: sudo rm -rf /opt/continuonbrain /etc/continuonbrain"
+echo ""
+
+exit 0

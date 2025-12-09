@@ -1,0 +1,105 @@
+#!/bin/bash
+# Post-installation script for ContinuonBrain
+set -e
+
+INSTALL_DIR="/opt/continuonbrain"
+CONFIG_DIR="/etc/continuonbrain"
+USER="continuon"
+GROUP="continuon"
+
+echo "🚀 Installing ContinuonBrain..."
+
+# Create system user for running the service
+if ! id "$USER" &>/dev/null; then
+    echo "Creating system user: $USER"
+    useradd --system --home-dir "$INSTALL_DIR" --shell /bin/bash \
+            --comment "ContinuonBrain Service User" "$USER"
+fi
+
+# Set up Python virtual environment
+echo "Setting up Python virtual environment..."
+cd "$INSTALL_DIR"
+python3 -m venv venv
+source venv/bin/activate
+
+# Install Python dependencies
+echo "Installing Python dependencies (this may take several minutes)..."
+pip install --upgrade pip
+pip install -r "$INSTALL_DIR/app/requirements.txt"
+
+# Install additional dependencies
+pip install pillow timm flask zeroconf smbus2 python-dotenv
+
+# Set ownership
+chown -R "$USER:$GROUP" "$INSTALL_DIR"
+chown -R "$USER:$GROUP" "$CONFIG_DIR"
+
+# Add user to necessary groups for hardware access
+usermod -a -G i2c,gpio,video,audio "$USER" 2>/dev/null || true
+
+# Enable and start services
+echo "Enabling ContinuonBrain services..."
+systemctl daemon-reload
+systemctl enable continuonbrain.service
+systemctl enable continuonbrain-watchdog.service
+
+# Configure auto-login for kiosk mode
+if [ -f /etc/lightdm/lightdm.conf ]; then
+    echo "Configuring kiosk mode..."
+    
+    # Backup original config
+    cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
+    
+    # Configure auto-login
+    if ! grep -q "autologin-user=$USER" /etc/lightdm/lightdm.conf; then
+        sed -i "/^\[Seat:\*\]/a autologin-user=$USER\nautologin-user-timeout=0\nuser-session=openbox" /etc/lightdm/lightdm.conf
+    fi
+fi
+
+# Create openbox autostart for kiosk
+mkdir -p "/home/$USER/.config/openbox"
+cat > "/home/$USER/.config/openbox/autostart" << 'EOF'
+#!/bin/bash
+# Disable screen blanking
+xset s off
+xset -dpms
+xset s noblank
+
+# Hide cursor after 5 seconds
+unclutter -idle 5 &
+
+# Wait for ContinuonBrain service to be ready
+sleep 5
+
+# Start kiosk browser
+chromium-browser \
+    --kiosk \
+    --noerrdialogs \
+    --disable-infobars \
+    --no-first-run \
+    --disable-session-crashed-bubble \
+    --disable-restore-session-state \
+    --password-store=basic \
+    --app=http://localhost:8080/ui &
+EOF
+
+chmod +x "/home/$USER/.config/openbox/autostart"
+chown -R "$USER:$GROUP" "/home/$USER/.config"
+
+# Start services
+echo "Starting ContinuonBrain services..."
+systemctl start continuonbrain.service
+systemctl start continuonbrain-watchdog.service
+
+echo ""
+echo "✅ ContinuonBrain installation complete!"
+echo ""
+echo "📱 Access the web UI at: http://localhost:8080/ui"
+echo "🔧 Developer mode: Press Ctrl+Alt+F2 for terminal access"
+echo "📖 Documentation: /opt/continuonbrain/docs/"
+echo ""
+echo "The system will reboot to kiosk mode. To prevent this, run:"
+echo "  sudo systemctl disable continuonbrain-kiosk.service"
+echo ""
+
+exit 0

@@ -1,0 +1,21 @@
+[Unit]
+Description=ContinuonBrain Watchdog Service
+Documentation=https://docs.continuonai.com
+After=continuonbrain.service
+Requires=continuonbrain.service
+
+[Service]
+Type=simple
+User=continuon
+Group=continuon
+WorkingDirectory=/opt/continuonbrain/app
+Environment="PATH=/opt/continuonbrain/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/opt/continuonbrain/venv/bin/python -m continuonbrain.watchdog \
+    --config-dir /opt/continuonbrain/config
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

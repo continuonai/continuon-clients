@@ -1,0 +1,19 @@
+Package: continuonbrain
+Version: 1.0.0
+Section: science
+Priority: optional
+Architecture: arm64
+Depends: python3 (>= 3.11), python3-venv, python3-pip, chromium-browser | google-chrome-stable, swig, liblgpio-dev, i2c-tools, systemd, openbox, lightdm, unclutter, curl
+Recommends: ssh
+Maintainer: ContinuonAI <support@continuonai.com>
+Description: Robotic AI Brain with Web Interface
+ ContinuonBrain provides a complete AI-powered robotic control system
+ with web-based management interface. Boots directly to kiosk mode.
+ .
+ Features:
+  - Web-based robot management UI
+  - AI-powered control with Gemma 3N VLM
+  - HOPE brain architecture for learning
+  - Automatic hardware detection
+  - Kiosk mode for appliance-like experience
+  - Developer mode for advanced users

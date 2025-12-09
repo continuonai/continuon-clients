@@ -1,0 +1,28 @@
+#!/bin/bash
+# Pre-removal script for ContinuonBrain
+set -e
+
+echo "🛑 Stopping ContinuonBrain services..."
+
+# Stop all services
+systemctl stop continuonbrain-kiosk.service 2>/dev/null || true
+systemctl stop continuonbrain-watchdog.service 2>/dev/null || true
+systemctl stop continuonbrain.service 2>/dev/null || true
+
+# Disable services
+systemctl disable continuonbrain-kiosk.service 2>/dev/null || true
+systemctl disable continuonbrain-watchdog.service 2>/dev/null || true
+systemctl disable continuonbrain.service 2>/dev/null || true
+
+# Backup user data
+if [ -d "/opt/continuonbrain/data" ]; then
+    echo "Backing up user data..."
+    tar -czf "/tmp/continuonbrain-backup-$(date +%Y%m%d-%H%M%S).tar.gz" \
+        /opt/continuonbrain/data \
+        /etc/continuonbrain 2>/dev/null || true
+    echo "Backup saved to /tmp/"
+fi
+
+echo "✅ ContinuonBrain services stopped"
+
+exit 0
