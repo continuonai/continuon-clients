@@ -925,7 +925,7 @@ DASHBOARD_HTML = f"""
                     // Update Hybrid Status
                     checkHybridStatus();
 
-                }
+                }}
             }} catch(e) {{ console.error("Stats update failed", e); }}
         }}
 
@@ -1636,6 +1636,29 @@ SETTINGS_HTML = f"""
             <button class="btn primary" onclick="scanHardware()">Scan Hardware 🔍</button>
         </div>
     </div>
+
+    <div class="section">
+        <h2>Connectivity (Wi‑Fi & Bluetooth)</h2>
+        <div class="form-group">
+            <button class="btn" onclick="scanWifi()">Scan Wi‑Fi Networks</button>
+            <div id="wifi-results" style="margin-top: 10px; color: var(--text-dim);">No scan yet</div>
+            <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                <input type="text" id="wifi-ssid" placeholder="SSID">
+                <input type="password" id="wifi-pass" placeholder="Password (if required)">
+                <button class="btn primary" onclick="connectWifi()">Connect Wi‑Fi</button>
+            </div>
+            <div id="wifi-status" style="margin-top: 8px; color: var(--text-dim);"></div>
+        </div>
+        <div class="form-group">
+            <button class="btn" onclick="scanBluetooth()">Scan Bluetooth Devices</button>
+            <div id="bt-results" style="margin-top: 10px; color: var(--text-dim);">No scan yet</div>
+            <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;">
+                <input type="text" id="bt-address" placeholder="Device address (e.g., AA:BB:CC:DD:EE:FF)">
+                <button class="btn primary" onclick="connectBluetooth()">Connect Bluetooth</button>
+            </div>
+            <div id="bt-status" style="margin-top: 8px; color: var(--text-dim);"></div>
+        </div>
+    </div>
     
     <div class="section">
         <h2>Personality & Identity</h2>
@@ -1952,6 +1975,104 @@ SETTINGS_HTML = f"""
             loadAvailableModels();
             loadSettings();
         }});
+
+        async function scanWifi() {{
+            const el = document.getElementById('wifi-results');
+            el.textContent = 'Scanning Wi‑Fi...';
+            try {{
+                const res = await fetch('/api/network/wifi/scan');
+                const data = await res.json();
+                if (!data.success) {{
+                    el.textContent = data.message || 'Scan failed';
+                    return;
+                }}
+                if (!data.networks || !data.networks.length) {{
+                    el.textContent = 'No networks found';
+                    return;
+                }}
+                el.innerHTML = data.networks.map(n => {{
+                    const sec = n.security && n.security !== 'open' ? n.security : 'Open';
+                    const sig = n.signal !== undefined ? `${{n.signal}}%` : '';
+                    return `<div>📶 ${{n.ssid || '<hidden>'}} ${{sig}} <span style="color: var(--text-dim);">(${{sec}})</span></div>`;
+                }}).join('');
+                refreshWifiStatus();
+            }} catch (e) {{
+                el.textContent = 'Scan error: ' + e.message;
+            }}
+        }}
+
+        async function refreshWifiStatus() {{
+            const statusEl = document.getElementById('wifi-status');
+            if (!statusEl) return;
+            try {{
+                const res = await fetch('/api/network/wifi/status');
+                const data = await res.json();
+                if (!data.success || !data.connections || !data.connections.length) {{
+                    statusEl.textContent = data.message || 'Wi‑Fi: not connected';
+                    return;
+                }}
+                const c = data.connections[0];
+                statusEl.textContent = `Connected to ${{c.name}} (${{c.device || ''}})`;
+            }} catch (e) {{
+                statusEl.textContent = 'Wi‑Fi status error: ' + e.message;
+            }}
+        }}
+
+        async function connectWifi() {{
+            const ssid = document.getElementById('wifi-ssid').value.trim();
+            const password = document.getElementById('wifi-pass').value;
+            const statusEl = document.getElementById('wifi-status');
+            statusEl.textContent = 'Connecting...';
+            try {{
+                const res = await fetch('/api/network/wifi/connect', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ ssid, password }})
+                }});
+                const data = await res.json();
+                statusEl.textContent = data.success ? (data.message || 'Connected') : (data.message || 'Connect failed');
+                refreshWifiStatus();
+            }} catch (e) {{
+                statusEl.textContent = 'Connect error: ' + e.message;
+            }}
+        }}
+
+        async function scanBluetooth() {{
+            const el = document.getElementById('bt-results');
+            el.textContent = 'Scanning Bluetooth...';
+            try {{
+                const res = await fetch('/api/network/bluetooth/scan');
+                const data = await res.json();
+                if (!data.success) {{
+                    el.textContent = data.message || 'Scan failed';
+                    return;
+                }}
+                if (!data.devices || !data.devices.length) {{
+                    el.textContent = 'No devices found';
+                    return;
+                }}
+                el.innerHTML = data.devices.map(d => `<div>🦻 ${{d.name || 'Unknown'}} <span style="color: var(--text-dim);">${{d.address}}</span></div>`).join('');
+            }} catch (e) {{
+                el.textContent = 'Scan error: ' + e.message;
+            }}
+        }}
+
+        async function connectBluetooth() {{
+            const addr = document.getElementById('bt-address').value.trim();
+            const statusEl = document.getElementById('bt-status');
+            statusEl.textContent = 'Connecting...';
+            try {{
+                const res = await fetch('/api/network/bluetooth/connect', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ address: addr }})
+                }});
+                const data = await res.json();
+                statusEl.textContent = data.success ? (data.message || 'Connected') : (data.message || 'Connect failed');
+            }} catch (e) {{
+                statusEl.textContent = 'Connect error: ' + e.message;
+            }}
+        }}
 
         async function scanHardware() {{
             const btn = event.target;

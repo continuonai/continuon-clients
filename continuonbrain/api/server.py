@@ -9,6 +9,12 @@ import json
 import logging
 import argparse
 import time
+import threading
+import webbrowser
+import platform
+import subprocess
+import shutil
+import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
@@ -46,18 +52,178 @@ identity_service: AgentIdentity = None
 event_logger: Optional[SystemEventLogger] = None
 background_learner = None  # Autonomous learning service
 
+
+def scan_wifi_networks():
+    """Scan Wi-Fi networks using nmcli; return list of dicts."""
+    if not shutil.which("nmcli"):
+        return {"success": False, "message": "nmcli not available", "networks": []}
+    try:
+        # -t for terse, fields: SSID, SIGNAL, SECURITY
+        out = subprocess.check_output(
+            ["nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "yes"],
+            text=True,
+            timeout=6,
+        )
+        networks = []
+        for line in out.splitlines():
+            if not line.strip():
+                continue
+            parts = line.split(":")
+            # nmcli joins extra colons when SSID empty; pad safely
+            ssid = parts[0] if parts else ""
+            signal = parts[1] if len(parts) > 1 else ""
+            security = parts[2] if len(parts) > 2 else ""
+            networks.append({
+                "ssid": ssid or "<hidden>",
+                "signal": int(signal) if signal.isdigit() else signal,
+                "security": security or "open",
+            })
+        return {"success": True, "networks": networks}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Wi-Fi scan timed out", "networks": []}
+    except Exception as exc:
+        return {"success": False, "message": str(exc), "networks": []}
+
+
+def scan_bluetooth_devices():
+    """Scan Bluetooth devices using bluetoothctl."""
+    if not shutil.which("bluetoothctl"):
+        return {"success": False, "message": "bluetoothctl not available", "devices": []}
+    try:
+        # Preload known devices to improve naming
+        known_out = subprocess.check_output([
+            "bluetoothctl", "devices"
+        ], text=True, timeout=4, stderr=subprocess.STDOUT)
+        known_names = {}
+        for line in known_out.splitlines():
+            match = re.search(r"Device ([0-9A-F:]{17}) (.+)", line)
+            if match:
+                addr, name = match.groups()
+                known_names[addr] = name
+
+        out = subprocess.check_output(
+            ["bluetoothctl", "--timeout", "6", "scan", "on"],
+            text=True,
+            timeout=8,
+            stderr=subprocess.STDOUT,
+        )
+        devices = []
+        for line in out.splitlines():
+            match = re.search(r"Device ([0-9A-F:]{17}) (.+)", line)
+            if match:
+                addr, name = match.groups()
+                label = name or known_names.get(addr) or "Unknown device"
+                devices.append({"address": addr, "name": label})
+        # Deduplicate by address, prefer known name
+        unique = {}
+        for dev in devices:
+            addr = dev["address"]
+            if addr not in unique:
+                unique[addr] = dev
+            elif unique[addr].get("name", "").startswith("Unknown") and dev.get("name"):
+                unique[addr] = dev
+        return {"success": True, "devices": list(unique.values())}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Bluetooth scan timed out", "devices": []}
+    except Exception as exc:
+        return {"success": False, "message": str(exc), "devices": []}
+
+
+def wifi_status():
+    """Return active Wi-Fi connection status via nmcli."""
+    if not shutil.which("nmcli"):
+        return {"success": False, "message": "nmcli not available"}
+    try:
+        out = subprocess.check_output(
+            ["nmcli", "-t", "-f", "NAME,DEVICE,TYPE,STATE,CONNECTION", "-m", "tabular", "con", "show", "--active"],
+            text=True,
+            timeout=5,
+        )
+        connections = []
+        for line in out.splitlines():
+            parts = line.split(":")
+            if len(parts) < 5:
+                continue
+            name, device, ctype, state, conn = parts[:5]
+            if ctype.lower() == "wifi" or "wifi" in name.lower():
+                connections.append({
+                    "name": name,
+                    "device": device,
+                    "state": state,
+                    "connection": conn,
+                })
+        return {"success": True, "connections": connections}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Wi-Fi status timed out"}
+    except Exception as exc:
+        return {"success": False, "message": str(exc)}
+
+
+def wifi_connect(ssid: str, password: str = None):
+    """Connect to Wi-Fi using nmcli in a single shot; does not store password beyond command execution."""
+    if not shutil.which("nmcli"):
+        return {"success": False, "message": "nmcli not available"}
+    if not ssid:
+        return {"success": False, "message": "SSID required"}
+    cmd = ["nmcli", "dev", "wifi", "connect", ssid]
+    if password:
+        cmd.extend(["password", password])
+    try:
+        out = subprocess.check_output(cmd, text=True, timeout=12, stderr=subprocess.STDOUT)
+        return {"success": True, "message": out.strip()}
+    except subprocess.CalledProcessError as exc:
+        return {"success": False, "message": exc.output.strip() if exc.output else str(exc)}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Wi-Fi connect timed out"}
+
+
+def bluetooth_paired():
+    """List paired Bluetooth devices with names."""
+    if not shutil.which("bluetoothctl"):
+        return {"success": False, "message": "bluetoothctl not available", "devices": []}
+    try:
+        out = subprocess.check_output(["bluetoothctl", "paired-devices"], text=True, timeout=5, stderr=subprocess.STDOUT)
+        devices = []
+        for line in out.splitlines():
+            match = re.search(r"Device ([0-9A-F:]{17}) (.+)", line)
+            if match:
+                addr, name = match.groups()
+                devices.append({"address": addr, "name": name})
+        return {"success": True, "devices": devices}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Bluetooth paired query timed out", "devices": []}
+    except Exception as exc:
+        return {"success": False, "message": str(exc), "devices": []}
+
+
+def bluetooth_connect(address: str):
+    """Attempt to connect to a Bluetooth device by address (paired devices preferred)."""
+    if not shutil.which("bluetoothctl"):
+        return {"success": False, "message": "bluetoothctl not available"}
+    if not address:
+        return {"success": False, "message": "Bluetooth address required"}
+    try:
+        out = subprocess.check_output(
+            ["bluetoothctl", "--timeout", "8", "connect", address],
+            text=True,
+            timeout=10,
+            stderr=subprocess.STDOUT,
+        )
+        return {"success": True, "message": out.strip()}
+    except subprocess.CalledProcessError as exc:
+        return {"success": False, "message": exc.output.strip() if exc.output else str(exc)}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "Bluetooth connect timed out"}
+
 class BrainRequestHandler(BaseHTTPRequestHandler):
     """Handles HTTP requests for the Brain API."""
 
     def do_GET(self):
         try:
-            if self.path == "/" or self.path == "/ui" or self.path == "/ui/":
+            if self.path in ("/", "/ui", "/ui/"):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-import threading
-import webbrowser
-import platform
                 self.wfile.write(ui_routes.get_home_html().encode("utf-8"))
             
             elif self.path == "/ui/status":
@@ -120,7 +286,7 @@ import platform
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_hope_dynamics_html().encode("utf-8"))
-            
+
             elif self.path == "/ui/hope/performance":
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
@@ -131,29 +297,6 @@ import platform
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-
-    def launch_ui_if_desktop():
-        if os.environ.get("CONTINUON_NO_UI_LAUNCH"):
-            return
-        system = platform.system()
-        has_display = True
-        if system == "Linux" and not os.environ.get("DISPLAY"):
-            has_display = False
-        if not has_display:
-            return
-        try:
-            webbrowser.open(f"http://localhost:{args.port}/ui")
-            if event_logger:
-                event_logger.log(
-                    "ui_launch",
-                    "Opened ContinuonBrain UI in default browser",
-                    {"port": args.port},
-                )
-        except Exception as exc:
-            logger.warning(f"Failed to launch UI browser: {exc}")
-
-    # Fire and forget UI launch on desktop systems
-    threading.Timer(1.0, launch_ui_if_desktop).start()
                 self.wfile.write(ui_routes.get_brain_map_html().encode("utf-8"))
 
             elif self.path == "/api/hope/structure":
@@ -192,6 +335,26 @@ import platform
                     self.send_json(brain_service.resource_monitor.get_status_summary())
                 else:
                     self.send_json({"error": "Resource monitor not available"}, status=503)
+
+            elif self.path == "/api/network/wifi/scan":
+                result = scan_wifi_networks()
+                status = 200 if result.get("success") else 500
+                self.send_json(result, status=status)
+
+            elif self.path == "/api/network/wifi/status":
+                result = wifi_status()
+                status = 200 if result.get("success") else 500
+                self.send_json(result, status=status)
+
+            elif self.path == "/api/network/bluetooth/scan":
+                result = scan_bluetooth_devices()
+                status = 200 if result.get("success") else 500
+                self.send_json(result, status=status)
+
+            elif self.path == "/api/network/bluetooth/paired":
+                result = bluetooth_paired()
+                status = 200 if result.get("success") else 500
+                self.send_json(result, status=status)
 
             elif self.path.startswith("/api/system/events"):
                 if not event_logger:
@@ -375,10 +538,15 @@ import platform
                 data = json.loads(body) if body else {}
                 store = SettingsStore(Path(brain_service.config_dir))
                 try:
+                    switch_result = None
                     # Check if model is changing
                     old_settings = store.load()
                     old_model = old_settings.get("agent_manager", {}).get("agent_model", "mock")
-                    new_model = data.get("agent_manager", {}).get("agent_model", "mock")
+                    # Default to HOPE if not provided
+                    if "agent_manager" not in data:
+                        data["agent_manager"] = {}
+                    new_model = data.get("agent_manager", {}).get("agent_model") or "hope-v1"
+                    data["agent_manager"]["agent_model"] = new_model
                     
                     # Save settings first
                     settings = store.save(data)
@@ -526,12 +694,30 @@ import platform
                 else:
                    self.send_json({"success": False, "message": "Missing user_id or role"}, status=400)
 
+            elif self.path == "/api/network/wifi/connect":
+                data = json.loads(body) if body else {}
+                ssid = data.get("ssid")
+                password = data.get("password")
+                result = wifi_connect(ssid, password)
+                status = 200 if result.get("success") else 500
+                # Do not echo password back
+                if "password" in result:
+                    result.pop("password")
+                self.send_json(result, status=status)
+
+            elif self.path == "/api/network/bluetooth/connect":
+                data = json.loads(body) if body else {}
+                address = data.get("address")
+                result = bluetooth_connect(address)
+                status = 200 if result.get("success") else 500
+                self.send_json(result, status=status)
+
             else:
                 self.send_error(404)
 
         except Exception as e:
             logger.error(f"POST error: {e}")
-            self.send_error(500)
+            self.send_json({"success": False, "message": str(e)}, status=500)
 
     def send_json(self, data, status: int = 200):
         self.send_response(status)
@@ -599,6 +785,43 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
 
+
+def bind_http_server(preferred_port: int):
+    """Bind HTTP server, falling back to the next available port if busy."""
+    last_error = None
+    for candidate in range(preferred_port, preferred_port + 10):
+        try:
+            server = ThreadedHTTPServer(("0.0.0.0", candidate), BrainRequestHandler)
+            return server, candidate
+        except OSError as exc:
+            last_error = exc
+            if exc.errno == 98:  # Address already in use
+                continue
+            raise
+    raise last_error or OSError("No available port found")
+
+
+def launch_ui_if_desktop(port: int):
+    """Best-effort UI auto-launch when a desktop is present."""
+    if os.environ.get("CONTINUON_NO_UI_LAUNCH"):
+        return
+    system = platform.system()
+    has_display = True
+    if system == "Linux" and not os.environ.get("DISPLAY"):
+        has_display = False
+    if not has_display:
+        return
+    try:
+        webbrowser.open(f"http://localhost:{port}/ui")
+        if event_logger:
+            event_logger.log(
+                "ui_launch",
+                "Opened ContinuonBrain UI in default browser",
+                {"port": port},
+            )
+    except Exception as exc:
+        logger.warning(f"Failed to launch UI browser: {exc}")
+
 def main():
     global brain_service, identity_service, event_logger
     
@@ -610,13 +833,22 @@ def main():
     args = parser.parse_args()
     
     prefer_real = args.real_hardware and not args.mock_hardware
-    
-    print(f"🧠 Starting ContinuonBrain Server on port {args.port}...")
+    desired_port = args.port
     event_logger = SystemEventLogger(args.config_dir)
+
+    try:
+        server, bound_port = bind_http_server(desired_port)
+    except OSError as exc:
+        print(f"❌ Failed to bind HTTP server on port {desired_port}: {exc}")
+        raise
+
+    if bound_port != desired_port:
+        logger.warning(f"Port {desired_port} in use; bound to {bound_port} instead")
+    print(f"🧠 Starting ContinuonBrain Server on port {bound_port}...")
     event_logger.log(
         "server_start",
         "Brain API server starting",
-        {"port": args.port, "config_dir": args.config_dir},
+        {"port": bound_port, "config_dir": args.config_dir},
     )
     
     # Initialize Services
@@ -654,12 +886,18 @@ def main():
     asyncio.set_event_loop(loop)
     loop.run_until_complete(brain_service.initialize())
 
+    # Ensure HOPE agent model is active by default
+    try:
+        brain_service.switch_model("hope-v1")
+    except Exception as exc:
+        logger.warning(f"HOPE model activation failed: {exc}")
+
     if event_logger:
         event_logger.log(
             "server_ready",
             "Brain API server ready",
             {
-                "port": args.port,
+                "port": bound_port,
                 "shell_type": shell_type,
                 "prefer_real_hardware": prefer_real,
             },
@@ -668,8 +906,10 @@ def main():
     # Legacy BackgroundLearner initialization removed. 
     # It is now handled by BrainService in verify_learning_startup logic / production code.
     
-    server = ThreadedHTTPServer(("0.0.0.0", args.port), BrainRequestHandler)
-    print(f"🚀 Server listening on http://0.0.0.0:{args.port}")
+    # Fire and forget UI launch on desktop systems
+    threading.Timer(1.0, lambda: launch_ui_if_desktop(bound_port)).start()
+
+    print(f"🚀 Server listening on http://0.0.0.0:{bound_port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

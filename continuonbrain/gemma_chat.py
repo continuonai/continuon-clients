@@ -7,6 +7,8 @@ integrated with robot control and vision capabilities.
 
 import os
 import json
+import subprocess
+import sys
 from typing import Optional, List, Dict, Any
 import logging
 
@@ -445,6 +447,26 @@ class MockGemmaChat:
 
 
 # Factory function to create appropriate chat instance
+def _install_missing_deps():
+    """Best-effort install of core deps to avoid mock fallback."""
+    required = ["transformers", "accelerate", "timm"]
+    missing = []
+    for pkg in required:
+        try:
+            __import__(pkg)
+        except ImportError:
+            missing.append(pkg)
+    if not missing:
+        return True
+    logger.warning(f"Missing dependencies {missing}; attempting pip install")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", *missing])
+        return True
+    except Exception as exc:
+        logger.error(f"Auto-install failed: {exc}")
+        return False
+
+
 def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
     """
     Create Gemma chat instance.
@@ -479,6 +501,13 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
         import torch
         return GemmaChat(**kwargs)
     except ImportError as e:
-        logger.warning(f"transformers not available: {e}. Using mock chat.")
+        logger.warning(f"transformers not available: {e}. Trying auto-install...")
+        if _install_missing_deps():
+            try:
+                import transformers
+                import torch
+                return GemmaChat(**kwargs)
+            except Exception as exc:
+                logger.error(f"Deps installed but Gemma init still failed: {exc}")
         return MockGemmaChat(error_msg=str(e), **kwargs)
 
