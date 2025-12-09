@@ -8,6 +8,7 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
 - Multimodal logging (audio, egocentric video/depth, gaze, voice command text) to mirror the Android XR app contract for Gemma and robot alignment.
 - Minimal UI flows for connect, control, manual driving, and record/testing.
 - Integrated RLDS browser/annotation surfaces (WorldTape) now ride inside this Flutter module for consumer review and robot control without a separate web repo.
+- Robot registration/ownership, subscription status, and OTA orchestration are managed here: a registered robot with an active subscription can receive signed OTA bundles (edge models and safety manifests).
 
 ## Project layout
 
@@ -90,6 +91,10 @@ payload. The upload helper writes an `episode.json` based on the RLDS schema doc
 in `proto/rlds_episode.proto` and issues a PUT to the signed URL. Replace the broker URL
 with your environment-specific endpoint and scopes when authenticating with a service
 account.
+
+## OTA & seed model flow
+- OTA delivery uses the signed edge bundle path (`docs/bundle_manifest.md`). The app gates download/apply on paid subscription status and robot ownership.
+- The initial OTA payload is the **v0 seed model** trained via the Pi 5 + AI HAT pipeline (`docs/seed-model-plan.md`); subsequent updates follow the same OTA flow.
 
 ## Cloud docs
 

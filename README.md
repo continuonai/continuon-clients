@@ -193,6 +193,11 @@ Use this path to run the continuous learning loop on a Raspberry Pi 5-powered Do
    - Verify sensor sync (≤5 ms), populate `episode_metadata` with environment IDs (e.g., `donkey-pi5`) and software versions, and tag modes correctly for follow-me demonstrations.
    - Use the in-repo module split intentionally: **ContinuonXR**/companion for capture, **Continuon Cloud** modules for training, **ContinuonBrain/OS** for deployment—all housed here.
 
+### Robot registration, subscription, and OTA
+- Robot ownership and OTA are managed through the **ContinuonAI Flutter app** (`continuonai/`): a registered robot with an active subscription can receive OTA bundles.
+- OTA delivery uses the same signed edge bundle flow documented in `docs/bundle_manifest.md`; paid status gates download/apply.
+- The initial OTA payload is the **v0 seed model** produced by the Pi 5 + AI HAT pipeline (see `docs/seed-model-plan.md`). Subsequent updates follow the same OTA path, replacing the bundle while preserving the Memory Plane.
+
 ### Ingestion safety & offline-first policy
 
 - Default to **offline-first logging** for XR and Pi 5 targets. Cloud uploads are **manual/opt-in** and should only be enabled after following the [Upload Readiness Checklist](docs/upload-readiness-checklist.md).
