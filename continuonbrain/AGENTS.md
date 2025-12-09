@@ -16,3 +16,5 @@ Recent updates:
 - Hailo export/runtime is still a placeholder; `.hef` presence is checked, but compilation/runtime requires the Hailo SDK. Document clearly when placeholders are used.
 - Robot API server has been partially decomposed (chat/tasks extracted). Further splits (devices/routes) should continue to keep the server small and testable.
 - New JAX inference utilities: CPU inference CLI (`jax_models/export/infer_cpu.py`) and hardware-aware inference router; keep imports guarded on constrained devices.
+- Hailo notes: `inference_router` will load `.hef` and configure the device when `hailo_platform` is installed; VStream tensor I/O is still NotImplemented until wired with Hailo SDK and tensor specs. Export creates a placeholder `.hef` if Hailo tools are absent.
+- UI templates: the router auto-materializes UI/control HTML into `server/templates/` from the existing providers; once generated, templates can be edited without touching `robot_api_server.py`.

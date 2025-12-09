@@ -34,6 +34,7 @@ from continuonbrain.server.chat import build_chat_service
 from continuonbrain.server.model_selector import select_model
 from continuonbrain.server.devices import auto_detect_hardware, init_recorder
 from continuonbrain.server.status import start_status_server
+from continuonbrain.server import routes as server_routes
 from continuonbrain.server.tasks import (
     TaskDefinition,
     TaskEligibilityMarker,
@@ -42,6 +43,9 @@ from continuonbrain.server.tasks import (
     TaskSummary,
     TaskLibrary,
 )
+
+# Use extracted SimpleJSONServer implementation
+SimpleJSONServer = server_routes.SimpleJSONServer
 
 
 
@@ -1015,18 +1019,12 @@ Answer as the Agent Manager. Be helpful, concise, and technical when needed."""
         print("✅ Shutdown complete")
 
 
-class SimpleJSONServer:
+class _LegacySimpleJSONServer:
     """
-    HTTP/JSON server for robot control and web UI.
-    Supports both HTTP endpoints and raw JSON protocol.
+    SimpleJSONServer implementation moved to continuonbrain.server.routes.
+    This stub remains for backward compatibility; import the real class from server.routes.
     """
-    
-    # Chat configuration
-    CHAT_HISTORY_LIMIT = 50  # Maximum number of chat messages to persist
-    
-    def __init__(self, service: RobotService):
-        self.service = service
-        self.server = None
+    CHAT_HISTORY_LIMIT = 50
     
     async def handle_http_request(self, request_line: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle HTTP request and return HTML/JSON response."""
@@ -4930,7 +4928,11 @@ async def main():
     await service.initialize()
     
     # Create simple JSON server
-    server = SimpleJSONServer(service)
+    server = server_routes.SimpleJSONServer(
+        service,
+        ui_provider=service.get_web_ui_html,
+        control_provider=service.get_control_interface_html,
+    )
     
     try:
         await server.start(host=args.host, port=args.port)
