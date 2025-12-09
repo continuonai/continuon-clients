@@ -62,6 +62,97 @@ PYTHONPATH=$PWD python3 continuonbrain/startup_manager.py
 
 See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devices and [System Health](../docs/system-health.md) for health checking.
 
+## Production Installation System
+
+**Status**: Phase 1 Complete (Debian Package Structure)
+
+We're transforming ContinuonBrain from a manual developer setup into a production-ready appliance that installs as a single package and boots directly to a web kiosk interface.
+
+### Vision
+- **Single Package Installation**: `.deb` for apt-based systems, `.img` for Raspberry Pi
+- **Web Kiosk Mode**: Boots directly to robot management UI (no desktop/terminal visible)
+- **Automatic Recovery**: Watchdog service monitors health and auto-restarts on failures
+- **Developer Mode**: Hidden access via Ctrl+Alt+F2 or CLI for debugging
+
+### Current Status: Phase 1 Complete ✅
+
+**Debian Package Structure Created:**
+- ✅ Package control files and metadata
+- ✅ Post-installation script (auto-setup venv, deps, user, kiosk)
+- ✅ Systemd services (main service + watchdog)
+- ✅ CLI tools (`continuonbrain` command + dev-mode toggle)
+- ✅ Watchdog monitoring service
+- ✅ Build script (`./build-package.sh`)
+
+**Installation (when ready):**
+```bash
+# Build package
+./build-package.sh
+
+# Install
+sudo apt install ./build/continuonbrain_1.0.0_arm64.deb
+
+# Access web UI
+open http://localhost:8080/ui
+```
+
+**CLI Usage:**
+```bash
+continuonbrain start          # Start service
+continuonbrain status         # Show status
+continuonbrain logs           # View logs
+continuonbrain dev-mode enable  # Enable developer mode
+```
+
+### Roadmap
+
+**Phase 1: Debian Package** ✅ Complete
+- Package structure with control files
+- Installation/removal scripts
+- Systemd services
+- CLI tools
+
+**Phase 2: Kiosk Mode** 🔄 Next
+- Auto-start browser in fullscreen
+- Disable keyboard shortcuts
+- Auto-restart on crash
+- Hide system UI
+
+**Phase 3: Developer Mode** 📋 Planned
+- Web-based terminal access
+- SSH configuration
+- Log viewing interface
+
+**Phase 4: Installation Image** 📋 Planned
+- Bootable `.img` for Raspberry Pi
+- Pre-configured system
+- First-boot wizard (WiFi setup)
+- Pre-downloaded AI models
+
+**Phase 5: Error Recovery** 📋 Planned
+- Auto-update system
+- Rollback capability
+- Update notifications
+
+**Documentation:**
+- Implementation Plan: `packaging/implementation_plan.md`
+- Package README: `packaging/README.md`
+- Build Instructions: `./build-package.sh --help`
+
+### Benefits
+
+**Before (Manual Setup):**
+- 30-60 minutes setup time
+- Multiple manual steps
+- Error-prone
+- Complex troubleshooting
+
+**After (Package Installation):**
+- Single command: `sudo apt install ./continuonbrain_1.0.0_arm64.deb`
+- 5-10 minutes (mostly dependency downloads)
+- Automatic configuration
+- Built-in recovery
+
 ## Autostart on boot (systemd template)
 - A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service`.
 - Edit the `Environment=` paths to match your install (e.g., `PYTHONPATH=/home/pi/ContinuonXR`, `CONFIG_DIR=/opt/continuonos/brain`, `WorkingDirectory=/home/pi/ContinuonXR`).

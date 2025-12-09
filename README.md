@@ -64,6 +64,33 @@ See [Hardware Detection](docs/hardware-detection.md), [System Health](docs/syste
 
 See `continuonbrain/README.md` and `continuonbrain/PI5_CAR_READINESS.md` for implementation details.
 
+### Production Installation System 🚀
+
+**Status**: Phase 1 Complete - Transforming manual setup into single-package installation
+
+We're packaging ContinuonBrain as a production-ready appliance:
+- **Single Command Install**: `sudo apt install ./continuonbrain_1.0.0_arm64.deb`
+- **Web Kiosk Mode**: Boots directly to robot management UI
+- **Automatic Recovery**: Watchdog monitors health and auto-restarts
+- **Developer Mode**: Hidden access via Ctrl+Alt+F2 for debugging
+
+**Current Progress:**
+- ✅ Phase 1: Debian package structure complete
+  - Package control files and installation scripts
+  - Systemd services (main + watchdog)
+  - CLI tools (`continuonbrain` command)
+  - Build script ready
+- 🔄 Phase 2: Kiosk mode (next)
+- 📋 Phase 3: Developer mode
+- 📋 Phase 4: Installation image (.img for Pi)
+- 📋 Phase 5: Auto-update with rollback
+
+**Benefits:**
+- **Before**: 30-60 min manual setup, error-prone
+- **After**: 5-10 min automated install, built-in recovery
+
+See `packaging/implementation_plan.md` for full roadmap and `continuonbrain/README.md` for details.
+
 ---
 
 ## Overview
