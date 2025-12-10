@@ -442,6 +442,14 @@ class _RobotListScreenState extends State<RobotListScreen> {
     final isBusy = _busyHosts.contains(host);
     final deviceInfo = _deviceInfoByHost[host] ?? {};
     final deviceId = deviceInfo['device_id'] as String? ?? '';
+    final statusAccountId = _deviceInfoByHost[host]?['account_id'] as String?;
+    final statusAccountType = _deviceInfoByHost[host]?['account_type'] as String?;
+    final mismatch = (statusAccountId != null &&
+            _accountId != null &&
+            statusAccountId != _accountId) ||
+        (statusAccountType != null &&
+            _accountType != null &&
+            statusAccountType != _accountType);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -528,7 +536,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                         if (isBusy) const SizedBox(width: 12),
                         if (!_isOwned)
                           ElevatedButton.icon(
-                            onPressed: (_isLocalNetwork && !isBusy)
+                        onPressed: (_isLocalNetwork && !isBusy && !mismatch)
                                 ? () => _claimRobot(data)
                                 : null,
                             icon: const Icon(Icons.how_to_reg),
@@ -537,7 +545,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                         if (_isOwned && !_hasSeedInstalled) const SizedBox(width: 8),
                         if (_isOwned && !_hasSeedInstalled)
                           ElevatedButton.icon(
-                            onPressed: (_isLocalNetwork && !isBusy)
+                        onPressed: (_isLocalNetwork && !isBusy && !mismatch)
                                 ? () => _installSeed(data)
                                 : null,
                             icon: const Icon(Icons.system_update),
@@ -546,7 +554,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                         if (_isOwned && _hasSeedInstalled) const SizedBox(width: 8),
                         if (_isOwned && _hasSeedInstalled)
                           ElevatedButton.icon(
-                            onPressed: (_hasSubscription && !isBusy)
+                        onPressed: (_hasSubscription && !isBusy && !mismatch)
                                 ? () => _connectOrGateRemote(data)
                                 : null,
                             icon: const Icon(Icons.power_settings_new),
@@ -559,6 +567,17 @@ class _RobotListScreenState extends State<RobotListScreen> {
                           ),
                       ],
                     ),
+                    if (mismatch && !isBusy)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Text(
+                          'Account mismatch',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.red),
+                        ),
+                      ),
                     if (_errorByHost[host] != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -612,6 +631,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
       } else if (ping.isEmpty) {
         _errorByHost[host] = 'Ping failed';
         _showSnack('Ping failed for $host');
+      } else if (_accountId != null &&
+          status['account_id'] != null &&
+          status['account_id'] != _accountId) {
+        _errorByHost[host] = 'Account mismatch';
+        _showSnack('Account mismatch for $host');
       }
     }
   }
@@ -930,29 +954,29 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text(
-                            '• Host IP: The local IP address of your robot (e.g., 192.168.1.x).',
+                            '• Host IP: Local IP of your robot (e.g., 192.168.1.x).',
                             style: TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.bold)),
                         Text(
-                            '  - Check the sticker on the back of the robot.\n  - Look at your router\'s admin page (connected devices).\n  - Use a network scanner app (e.g., Fing) to find devices named "raspberrypi" or "continuon".',
+                            '  - On robot UI: Settings → Network shows the IP.\n  - Router admin page: find connected devices.\n  - Network scanner (Fing): look for "raspberrypi" or "continuon".',
                             style: TextStyle(fontSize: 12, color: Colors.grey)),
                         SizedBox(height: 12),
-                        Text('• gRPC Port: Default is 50051.',
+                        Text('• gRPC Port: Default 50051.',
                             style: TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.bold)),
                         Text(
-                            '  - Used for high-speed real-time control (movement, video).\n  - If 50051 fails, try 50052 or check the robot\'s config.yaml.',
+                            '  - Real-time control/video. If 50051 fails, try 50052 or check robot config.',
                             style: TextStyle(fontSize: 12, color: Colors.grey)),
                         SizedBox(height: 12),
-                        Text('• HTTP Port: Default is 8080.',
+                        Text('• HTTP Port: Default 8080.',
                             style: TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.bold)),
                         Text(
-                            '  - Used for status updates, chat, and settings.\n  - Try opening http://<robot-ip>:8080 in a browser to verify.',
+                            '  - Status/settings. Try http://<robot-ip>:8080 in a browser.',
                             style: TextStyle(fontSize: 12, color: Colors.grey)),
                         SizedBox(height: 12),
                         Text(
-                            '• Note: Ensure your device is on the same WiFi network (2.4GHz/5GHz matters!) as the robot.',
+                            '• Make sure your phone is on the same Wi‑Fi/hotspot as the robot before claiming.',
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
