@@ -2,9 +2,9 @@
   "rlds_dir": "/opt/continuonos/brain/rlds/episodes",
   "min_episodes": 16,
   "max_episodes": 256,
-  "max_steps": 500,
+  "max_steps": 300,
   "max_wall_time_s": 300,
-  "batch_size": 32,
+  "batch_size": 8,
   "lora_layers": [
     "q_proj",
     "k_proj",
@@ -17,6 +17,6 @@
   "adapter_filename": "lora_adapters.pt",
   "log_dir": "/opt/continuonos/brain/trainer/logs",
   "base_model_path": "/opt/continuonos/brain/model/base_model/hat_vision_seed.pt",
-  "shuffle_buffer_multiplier": 4,
+  "shuffle_buffer_multiplier": 2,
   "log_every_steps": 10
 }

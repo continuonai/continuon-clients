@@ -97,6 +97,8 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 - Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).
 - OTA apply is gated in the ContinuonAI app by robot ownership + paid subscription; device verifies checksums/signature before swap.
 
+Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
+
 ## Autostart on boot (systemd template)
 - A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service`.
 - Edit the `Environment=` paths to match your install (e.g., `PYTHONPATH=/home/pi/ContinuonXR`, `CONFIG_DIR=/opt/continuonos/brain`, `WorkingDirectory=/home/pi/ContinuonXR`).

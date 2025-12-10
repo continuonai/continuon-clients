@@ -14,3 +14,5 @@ Scope: `continuonai/` (Flutter app hosted on web/iOS/Android/Linux + consolidate
   - Run `flutter test integration_test/connect_and_record_test.dart` for flow changes.
   - Platform builds (`flutter build aar` / `flutter build ios-framework --cocoapods`) are optional unless embedding configs change.
   Note skipped commands and why (e.g., SDKs unavailable). Doc-only edits require no tests.
+
+Context: Conversation on 2025-12-10 about Pi5 startup/training is logged at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

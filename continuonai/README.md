@@ -163,6 +163,8 @@ The Continuon-Cloud staging docs are now located under `continuonai/continuon-cl
   `ControlCommand` fields. Implement the native channel on Android/iOS hosts or reuse an
   existing Flutter gamepad plugin that emits the same event keys.
 
+Conversation log: Pi5 startup/training optimization (2025-12-10) is summarized at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
+
 ## Embedding
 
 This module is created with the Flutter module template (see `pubspec.yaml` `flutter`

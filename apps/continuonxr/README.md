@@ -24,3 +24,5 @@ This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. Gradle wir
 3. Wire Compose XR/SceneCore inputs plus iPhone sensor proxies into `InputFusion` and `CommandMapper` so both XR and phone shells drive the same teleop surface.
 4. Extend the RLDS writer with schema validation, provenance tags (environment IDs, software versions), and media blob handling for Cloud ingestion.
 5. Expand unit tests for schema validation, BLE parsing, teleop command mapping, and OTA bundle handoff triggers once the edge bundle path is plumbed.
+
+Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

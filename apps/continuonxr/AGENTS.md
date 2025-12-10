@@ -12,3 +12,5 @@ Scope: `apps/continuonxr/`.
   - Run `./gradlew :apps:continuonxr:testDebugUnitTest` for logic changes.
   - Run `./gradlew :apps:continuonxr:generateDebugProto` if proto contracts referenced by the app change.
   If commands are skipped due to environment limits (e.g., Android SDK missing), call that out in the summary.
+
+Context: Conversation on 2025-12-10 about Pi5 startup/training is logged at `../../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

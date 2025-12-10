@@ -2,10 +2,13 @@
 Startup/wake manager for ContinuonBrain OS.
 Handles system initialization, health checks, recovery, and service startup.
 """
+import os
+import sys
 import time
 import json
 import subprocess
 import socket
+import platform
 from pathlib import Path
 from typing import Optional
 from enum import Enum
@@ -44,8 +47,14 @@ class StartupManager:
         self.last_wake_time: Optional[int] = None
         self.start_services = start_services
         self.robot_name = robot_name
-        self.headless = headless
+        env_headless = self._env_flag("CONTINUON_HEADLESS", default=self._default_headless())
+        self.headless = headless or env_headless
         self.service_port = 8080
+        # Background trainer defaults to off on Pi-class boards to keep boot fast and memory low.
+        self.enable_background_trainer = self._env_flag(
+            "CONTINUON_ENABLE_BACKGROUND_TRAINER",
+            default=not self._default_headless(),
+        )
         
         # Services
         self.discovery_service: Optional[LANDiscoveryService] = None
@@ -53,6 +62,23 @@ class StartupManager:
         self.robot_api_process: Optional[subprocess.Popen] = None
         self.system_instructions: Optional[SystemInstructions] = None
         self.event_logger = SystemEventLogger(config_dir=str(self.config_dir))
+    
+    @staticmethod
+    def _env_flag(name: str, default: bool = False) -> bool:
+        """Return boolean env flag with safe default."""
+        raw = os.environ.get(name)
+        if raw is None:
+            return default
+        return raw.lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
+    def _default_headless() -> bool:
+        """
+        Prefer headless mode on ARM SBCs (e.g., Pi5) to avoid launching browsers
+        and heavy UI paths during boot.
+        """
+        machine = platform.machine().lower()
+        return machine.startswith("arm") or machine.startswith("aarch64")
         
     def detect_startup_mode(self) -> StartupMode:
         """
@@ -257,8 +283,6 @@ class StartupManager:
             if server_path.exists():
                 # Start in background
                 env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
-                # Inject HF Token for Gemma 3n
-                env["HUGGINGFACE_TOKEN"] = "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"
 
                 instructions_path = SystemContext.get_persist_path()
                 if instructions_path:
@@ -266,7 +290,7 @@ class StartupManager:
 
                 # Honor headless/JAX preference to skip transformers init in server
                 if self.headless:
-                    env["CONTINUON_PREFER_JAX"] = "1"
+                    env.setdefault("CONTINUON_PREFER_JAX", "1")
 
                 # Force usage of venv python if available/detected relative to repo root
                 venv_python = repo_root / ".venv" / "bin" / "python3"
@@ -291,19 +315,22 @@ class StartupManager:
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
                 print(f"   Endpoint: http://localhost:{self.service_port}")
                 
-                # Start Nested Learning Sidecar
-                print("🧠 Starting Nested Learning Sidecar...")
-                trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
-                if trainer_path.exists():
-                    self.trainer_process = subprocess.Popen(
-                        [sys.executable, "-m", "continuonbrain.run_trainer"],
-                        env=env,
-                        stdout=subprocess.DEVNULL,  # Keep console clean
-                        stderr=subprocess.DEVNULL
-                    )
-                    print(f"   Sidecar Trainer started (PID: {self.trainer_process.pid})")
+                # Start Nested Learning Sidecar (optional for Pi5; disabled via env)
+                if self.enable_background_trainer:
+                    print("🧠 Starting Nested Learning Sidecar...")
+                    trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
+                    if trainer_path.exists():
+                        self.trainer_process = subprocess.Popen(
+                            [sys.executable, "-m", "continuonbrain.run_trainer", "--trainer", "auto", "--mode", "local"],
+                            env=env,
+                            stdout=subprocess.DEVNULL,  # Keep console clean
+                            stderr=subprocess.DEVNULL
+                        )
+                        print(f"   Sidecar Trainer started (PID: {self.trainer_process.pid})")
+                    else:
+                        print(f"   ⚠️ Trainer script not found: {trainer_path}")
                 else:
-                    print(f"   ⚠️ Trainer script not found: {trainer_path}")
+                    print("🧠 Background trainer disabled (CONTINUON_ENABLE_BACKGROUND_TRAINER=0)")
 
             else:
                 print(f"   ⚠️  Robot API module not found: {server_path}")
@@ -339,7 +366,8 @@ class StartupManager:
         import shutil
         
         ui_config_path = self.config_dir / "ui_config.json"
-        auto_launch = True  # Default to True
+        # Default to False on headless targets unless explicitly enabled
+        auto_launch = self._env_flag("CONTINUON_UI_AUTOLAUNCH", default=not self.headless)
         
         if ui_config_path.exists():
             try:

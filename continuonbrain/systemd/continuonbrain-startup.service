@@ -24,12 +24,14 @@ Wants=network-online.target
 [Service]
 Type=simple
 # Adjust these paths for your deployment before installing:
-Environment=PYTHONPATH=/home/craigm26/ContinuonXR:/home/craigm26/.local/lib/python3.13/site-packages
-Environment=CONFIG_DIR=/home/craigm26/.continuonbrain
-Environment=GEMINI_API_KEY=AIzaSyDhXpcXCwhNP6Xl8HGNcAMAWi6TBdBw20A
-WorkingDirectory=/home/craigm26/ContinuonXR
-User=craigm26
-ExecStart=/home/craigm26/ContinuonXR/.venv/bin/python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR} --no-trainer
+Environment=PYTHONPATH=/opt/continuonos/ContinuonXR
+Environment=CONFIG_DIR=/opt/continuonos/brain
+# Prefer headless mode and skip background trainer on Pi5 by default
+Environment=CONTINUON_HEADLESS=1
+Environment=CONTINUON_ENABLE_BACKGROUND_TRAINER=0
+WorkingDirectory=/opt/continuonos/ContinuonXR
+User=pi
+ExecStart=/opt/continuonos/ContinuonXR/.venv/bin/python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR}
 Restart=on-failure
 RestartSec=3
 

@@ -7,6 +7,7 @@ based on CLI flags or automatic hardware detection.
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -162,6 +163,7 @@ def _run_jax_tpu(args) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Unified trainer launcher")
+    prefer_jax_default = os.getenv("CONTINUON_PREFER_JAX", "1").lower() in {"1", "true", "yes", "on"}
     parser.add_argument(
         "--trainer",
         choices=["auto", "pytorch", "jax"],
@@ -187,7 +189,12 @@ def main() -> int:
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--checkpoint-every", type=int, default=1000)
     parser.add_argument("--config", type=Path, help="Trainer config path (PyTorch)")
-    parser.add_argument("--prefer-jax", action="store_true", help="Prefer JAX if available")
+    parser.add_argument(
+        "--prefer-jax",
+        action="store_true",
+        default=prefer_jax_default,
+        help=f"Prefer JAX if available (env CONTINUON_PREFER_JAX, default={prefer_jax_default})",
+    )
     parser.add_argument("--hooks-module", type=str, help="Python module path providing build_hooks() for PyTorch trainer")
     parser.add_argument("--config-preset", choices=["pi5", "dev", "tpu"], help="Preset CoreModelConfig for JAX paths")
     parser.add_argument("--config-json", type=Path, help="Path to JSON with CoreModelConfig overrides (JAX)")

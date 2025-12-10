@@ -12,6 +12,10 @@ This repository relies on nested `AGENTS.md` files for area-specific rules (tool
 boundaries). See [`docs/AGENTS_ENFORCEMENT.md`](docs/AGENTS_ENFORCEMENT.md) for tips and automation ideas that help teams
 consistently follow the right scope before editing or shipping changes.
 
+> Conversation provenance: Pi5 startup/training optimization (2025-12-10) is summarized in [`docs/conversation-log.md`](docs/conversation-log.md). Key outcomes: headless-by-default Pi5 boot, optional background trainer, lighter Pi5 training config, RLDS export origin tagging.
+
+> Training plan: See [`docs/training-plan.md`](docs/training-plan.md) for the end-to-end path from Pi5 seed → RLDS → cloud training → Hope Model v1 OTA back to device.
+
 ## Project Status & Milestones
 
 The roadmap below highlights where the Android XR app and data capture stack stand today, what is actively in-flight, and what is targeted next. Owners reflect day-to-day accountability for delivery.

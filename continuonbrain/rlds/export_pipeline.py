@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import platform
 import sys
 from dataclasses import dataclass, asdict
@@ -242,6 +243,7 @@ def prepare_cloud_export(
         environment={
             "python_version": sys.version.split()[0],
             "platform": platform.platform(),
+            "origin_tag": os.getenv("CONTINUON_EXPORT_ORIGIN", "pi5"),
             "runtime": "continuonbrain scaffolding",
         },
         anonymization={
