@@ -85,6 +85,28 @@ class SimpleJSONServer:
             gates = await self.service.GetGates()
             response_body = json.dumps(gates)
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/status":
+            status_path = Path("/opt/continuonos/brain/trainer/status.json")
+            if status_path.exists():
+                response_body = status_path.read_text()
+            else:
+                response_body = json.dumps({"status": "unknown", "message": "training status file not found"})
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/logs":
+            log_dir = Path("/opt/continuonos/brain/trainer/logs")
+            logs = sorted(log_dir.glob("trainer_*.log"), key=lambda p: p.stat().st_mtime, reverse=True)[:5]
+            payload = [{"path": str(p), "mtime": p.stat().st_mtime} for p in logs]
+            response_body = json.dumps(payload)
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/run" and method == "POST":
+            # Trigger a background training run (non-blocking). Service must implement RunTraining().
+            try:
+                await self.service.RunTraining()
+                response_body = json.dumps({"status": "started"})
+                return f"HTTP/1.1 202 Accepted\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
+                return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/settings" and method == "GET":
             store = SettingsStore(Path(self.service.config_dir))
             settings = store.load()

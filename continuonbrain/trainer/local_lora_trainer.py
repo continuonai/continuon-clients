@@ -19,6 +19,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence
 
+from datetime import datetime
+
 
 # ------------------------------- Data classes ------------------------------- #
 
@@ -531,6 +533,28 @@ def maybe_run_local_training(
             cur_path.replace(history_path)
         result.adapter_path.replace(cur_path)
         result.log = (result.log or []) + ["Stub hooks: wrote adapters directly to current/"]
+        # Write status
+        try:
+            status_path = Path("/opt/continuonos/brain/trainer/status.json")
+            jax_npz = cur_path.with_suffix(".jax.npz")
+            status = {
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "steps": result.steps,
+                "avg_loss": result.avg_loss,
+                "wall_time_s": result.wall_time_s,
+                "promoted": True,
+                "current_adapter": {
+                    "path": str(cur_path),
+                    "exists": cur_path.exists(),
+                    "size_bytes": cur_path.stat().st_size if cur_path.exists() else 0,
+                },
+                "jax_export": str(jax_npz) if jax_npz.exists() else None,
+                "history_count": len(list(history_dir.glob("*.pt"))),
+                "latest_log": str(result.log_path) if result.log_path else None,
+            }
+            status_path.write_text(json.dumps(status, indent=2))
+        except Exception:
+            pass
         return result
 
     # Use most recent eval_tail_episodes for shadow test
@@ -550,6 +574,32 @@ def maybe_run_local_training(
         result.log = (result.log or []) + ["Promoted candidate adapters to current/"]
     else:
         result.log = (result.log or []) + ["Candidate adapters rejected by safety gate"]
+
+    # Update training status JSON for web/API consumption
+    try:
+        status_path = Path("/opt/continuonos/brain/trainer/status.json")
+        hist_dir = cfg.adapters_out_dir.parent / "history"
+        current_dir = cfg.adapters_out_dir.parent / "current"
+        cur_path = current_dir / result.adapter_path.name
+        jax_npz = cur_path.with_suffix(".jax.npz")
+        status = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "steps": result.steps,
+            "avg_loss": result.avg_loss,
+            "wall_time_s": result.wall_time_s,
+            "promoted": promoted,
+            "current_adapter": {
+                "path": str(cur_path),
+                "exists": cur_path.exists(),
+                "size_bytes": cur_path.stat().st_size if cur_path.exists() else 0,
+            },
+            "jax_export": str(jax_npz) if jax_npz.exists() else None,
+            "history_count": len(list(hist_dir.glob("*.pt"))),
+            "latest_log": str(result.log_path) if result.log_path else None,
+        }
+        status_path.write_text(json.dumps(status, indent=2))
+    except Exception:
+        pass
     return result
 
 
