@@ -442,12 +442,13 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 chat_info = brain_service.get_chat_agent_info()
                 
                 learning_info = {"enabled": False, "status": "disabled"}
-                if background_learner:
-                    learning_info = background_learner.get_status()
+                learner = background_learner or getattr(brain_service, "background_learner", None)
+                if learner:
+                    learning_info = learner.get_status()
                     learning_info["enabled"] = True
                 elif brain_service.agent_settings.get('enable_autonomous_learning', True) and brain_service.hope_brain:
-                     # Enabled but maybe not started or failed?
-                     learning_info = {"enabled": True, "status": "inactive"}
+                    # Enabled but maybe not started or failed?
+                    learning_info = {"enabled": True, "status": "inactive"}
 
                 self.send_json({
                     "chat_agent": chat_info,
@@ -887,7 +888,7 @@ def launch_ui_if_desktop(port: int):
         logger.warning(f"Failed to launch UI browser: {exc}")
 
 def main():
-    global brain_service, identity_service, event_logger
+    global brain_service, identity_service, event_logger, background_learner
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--config-dir", default="/tmp/continuonbrain_demo")
@@ -949,6 +950,24 @@ def main():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(brain_service.initialize())
+
+    # Bind the autonomous learner to API routes so live training metrics
+    # surface through the learning + HOPE monitoring endpoints.
+    try:
+        background_learner = getattr(brain_service, "background_learner", None)
+        if background_learner:
+            try:
+                from continuonbrain.api.routes import hope_routes, learning_routes
+
+                hope_routes.set_background_learner(background_learner)
+                learning_routes.set_background_learner(background_learner)
+                logger.info("Background learner wired to web routes for live metrics")
+            except ImportError:
+                logger.warning("Learning/HOPE routes unavailable; skipping learner binding")
+        else:
+            logger.info("Background learner not active; learning endpoints will report disabled")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Failed to bind background learner: {exc}")
 
     # Ensure HOPE agent model is active by default
     try:
