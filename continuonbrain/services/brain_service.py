@@ -878,9 +878,22 @@ class BrainService:
         """
         Get the topological structure and current state of the HOPE brain for 3D visualization.
         """
+        meta = self._get_brain_meta()
         if not self.hope_brain:
-            return {"error": "HOPE Brain not initialized", "topology": {}, "state": {}}
-            
+            return {"error": "HOPE Brain not initialized", "topology": {}, "state": {}, "meta": meta}
+
+        num_columns = len(getattr(self.hope_brain, "columns", []))
+        max_levels = 0
+        for col in getattr(self.hope_brain, "columns", []):
+            if hasattr(col, "cms") and hasattr(col.cms, "num_levels"):
+                try:
+                    max_levels = max(max_levels, int(col.cms.num_levels))
+                except Exception:
+                    pass
+        if max_levels == 0:
+            max_levels = 1
+        meta.setdefault("core_depth", {"columns": num_columns, "max_levels": max_levels})
+
         # Topology (Static-ish)
         topology = {
             "type": "HOPE_CORTEX",
@@ -949,8 +962,40 @@ class BrainService:
              
         return {
             "topology": topology,
-            "state": current_state
+            "state": current_state,
+            "meta": meta,
         }
+
+    def _get_brain_meta(self) -> Dict[str, Any]:
+        """Best-effort model metadata from manifest on disk."""
+        meta: Dict[str, Any] = {
+            "model_name": "unknown",
+            "model_version": "unknown",
+            "core_depth": {},
+            "backends": [],
+        }
+
+        model_dir = Path(self.config_dir) / "model"
+        manifest_candidates: List[Path] = []
+        if model_dir.exists():
+            manifest_candidates += list(model_dir.glob("manifest*.json"))
+            manifest_candidates += list(model_dir.glob("**/manifest*.json"))
+
+        if manifest_candidates:
+            manifest_candidates = sorted(
+                manifest_candidates,
+                key=lambda p: (0 if p.name == "manifest.json" else 1, str(p)),
+            )
+            manifest_path = manifest_candidates[0]
+            try:
+                payload = json.loads(manifest_path.read_text())
+                meta["model_name"] = payload.get("model_name") or payload.get("bundle_version") or meta["model_name"]
+                meta["model_version"] = payload.get("bundle_version") or payload.get("version") or meta["model_version"]
+                meta["backends"] = payload.get("preferred_backends", meta["backends"])
+            except Exception:
+                pass
+
+        return meta
 
     def get_chat_agent_info(self) -> Dict[str, Any]:
         """Get information about the active chat agent."""

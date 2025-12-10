@@ -40,6 +40,7 @@ if str(REPO_ROOT) not in sys.path:
 from continuonbrain.services.brain_service import BrainService
 from continuonbrain.agent_identity import AgentIdentity
 from continuonbrain.api.routes import ui_routes
+from continuonbrain.api.routes.training_plan_page import get_training_plan_html
 from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
 from continuonbrain.system_events import SystemEventLogger
 
@@ -243,6 +244,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_chat_html().encode("utf-8"))
+            
+            elif self.path == "/ui/training-plan":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(get_training_plan_html().encode("utf-8"))
 
             elif self.path == "/ui/settings":
                 self.send_response(200)

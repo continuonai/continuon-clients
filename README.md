@@ -16,18 +16,28 @@ consistently follow the right scope before editing or shipping changes.
 
 > Training plan: See [`docs/training-plan.md`](docs/training-plan.md) for the end-to-end path from Pi5 seed → RLDS → cloud training → Hope Model v1 OTA back to device.
 
+> Orchestrator: `python -m continuonbrain.services.training_manager --help` provides a dry-run view of the training plan with optional execution flags.
+
+## Alignment Snapshot (2025-12-10)
+
+- **Continuon Brain runtime (edge)**: Hardware auto-detect + startup manager validated; Debian package Phase 1 shipped (see `continuonbrain/README.md`, `packaging/README.md`). Kiosk mode is the next packaging phase.
+- **ContinuonXR Android shell**: BLE parser + RLDS writer are in place; SceneCore/Compose XR rendering and live bridge to the runtime remain in progress (see `apps/continuonxr/README.md`).
+- **Continuon AI app (Flutter) + RLDS portal**: Connect/control/record flows and integrated WorldTape portal live here; OTA gated on ownership + subscription (see `continuonai/README.md`).
+- **Continuon Cloud (staging specs)**: Staging-only ingest/training notes live under `continuonai/continuon-cloud/README.md`; production code stays in the dedicated cloud repo.
+- **Contracts**: RLDS schema, Robot API, and bundle manifest remain the single source under `docs/` + `proto/`; cross-product changes must keep these synchronized.
+
 ## Project Status & Milestones
 
-The roadmap below highlights where the Android XR app and data capture stack stand today, what is actively in-flight, and what is targeted next. Owners reflect day-to-day accountability for delivery.
+The roadmap below mirrors the authoritative owners/checkpoints in [`docs/unified-roadmap.md`](docs/unified-roadmap.md). Dates are tracked there; checkpoints here reflect current focus areas.
 
-| Area | Current Status | Owner | Target Date |
+| Area | Current Status | Owner | Checkpoint |
 | --- | --- | --- | --- |
-| XR App Shell & Navigation | Core shell, spatial panels, and input routing shipped in dogfood build; stability fixes in progress | XR Client Team | 2025-11-24 |
-| Glove BLE Parser & Telemetry | BLE link stable with flex/force streaming; expanding reconnection safeguards | XR Client Team | 2025-11-24 |
-| RLDS Logging on Device | Proto generation complete and logging enabled for head/hand poses; optimizing write batching | XR + Data Infra | 2025-11-24 |
-| Data Capture Rig (Sensors + Video) | Depth + RGB capture validated; synchronized audio alignment underway | XR + Sensors | 2025-11-24 |
-| Cloud Ingestion Hooks | Upload path wired to staging bucket; signed upload & provenance tagging next | Cloud Ingestion | 2025-11-24 |
-| **Pi5 Robot Arm Integration** | **OAK-D + PCA9685 validated; Flutter UI + RLDS recorder ready for hardware** | **Edge Team** | **2025-12-01** |
+| Android XR Shell & Navigation | BLE parser + RLDS writer shipped; SceneCore/Compose XR rendering and live runtime bridge in progress | XR Client Team | Phase 1 MVP (see `apps/continuonxr/README.md`) |
+| Glove BLE Parser & Telemetry | BLE link stable with flex/force streaming; reconnection safeguards expanding | XR Client Team | Phase 1 |
+| RLDS Logging on Device | Proto generation complete; logging enabled for head/hand poses; write batching tuning continues | XR + Data Infra | Phase 1 |
+| Data Capture Rig (Sensors + Video) | Depth + RGB capture validated; synchronized audio alignment underway | XR + Sensors | Phase 1 |
+| Cloud Ingestion Hooks | Upload path staged with signed ingestion + provenance tagging (staging docs only) | Cloud Ingestion | Phase 2 (see `continuonai/continuon-cloud/README.md`) |
+| **Pi5 Robot Arm Integration** | **OAK-D + PCA9685 validated; Flutter UI + RLDS recorder ready; waiting on hardware for live runs** | **Edge Team** | **Edge readiness (see `continuonbrain/README.md`)** |
 
 ### Pi5 Robot Arm Next Steps
 
@@ -106,7 +116,7 @@ See `packaging/implementation_plan.md` for full roadmap and `continuonbrain/READ
 
 ## Overview
 
-Continuon is an end-to-end platform that overcomes the static nature of traditional AI models by creating a continuous learning loop where every human interaction becomes training data. The platform decouples robot intelligence from physical form factors, enabling a single AI brain to control diverse robotic platforms while continuously improving through real-world experience. This repository is the **sole home** for the full Continuon stack (XR apps, ContinuonBrain/OS runtime, cloud training factory, web explorer, and org tooling); all products and services are built and versioned here with clear module boundaries instead of across separate repos.
+Continuon is an end-to-end platform that overcomes the static nature of traditional AI models by creating a continuous learning loop where every human interaction becomes training data. The platform decouples robot intelligence from physical form factors, enabling a single AI brain to control diverse robotic platforms while continuously improving through real-world experience. This repository is the **sole home** for the full Continuon stack (XR apps, Continuon Brain runtime, cloud training factory, web explorer, and org tooling); all products and services are built and versioned here with clear module boundaries instead of across separate repos.
 
 ### Core Philosophy: "One Brain, Many Shells"
 
@@ -167,8 +177,17 @@ This single repository hosts every Continuon product with clear in-repo module b
 | Module | Path | Purpose | Status |
 |--------|------|---------|--------|
 | **ContinuonXR** | `apps/continuonxr/` | Spatial UI & data capture rig (Android XR, glove BLE parsing, RLDS logging) | Active |
-| **ContinuonBrain/OS Runtime** | `continuonbrain/` + `continuonai/` | Robot OS/edge runtime scaffolding, HAL interfaces, OTA client & contracts | Active (consolidated here) |
-| **ContinuonAI App + RLDS Portal** | `continuonai/` (+ `continuonai/continuon-cloud/`) | Flutter consumer app/robot controller with integrated WorldTape RLDS browser/annotation surfaces; Cloud ingestion/train specs | Active (worldtape consolidated here) |
+| **Continuon Brain runtime** | `continuonbrain/` + `continuonai/` | On-device runtime, HAL interfaces, OTA client, and training scaffolding | Active (consolidated here) |
+| **Continuon AI app + RLDS portal** | `continuonai/` (+ `continuonai/continuon-cloud/`) | Flutter consumer app/robot controller with integrated WorldTape RLDS browser/annotation surfaces; cloud ingestion/train specs (staging) | Active (worldtape consolidated here) |
+
+### Product Design Sources
+
+- Android XR shell: `apps/continuonxr/README.md` (SceneCore/Compose XR scaffold, teleop + RLDS writer)
+- Brain runtime + hardware readiness: `continuonbrain/README.md` (auto-detect, startup manager, Pi5 arm validation)
+- Companion + portal + OTA: `continuonai/README.md` (connect/control/record flows, OTA gating on ownership + subscription)
+- Cloud staging docs: `continuonai/continuon-cloud/README.md` (signed ingest + TPU training references)
+- Packaging: `packaging/README.md` (Debian package, kiosk/dev-mode phases)
+- Studio contract: `docs/continuon-studio-spec.md` (panel model for the Brain Studio)
 
 ### In-Repository Contracts
 
@@ -185,8 +204,8 @@ This single repository hosts every Continuon product with clear in-repo module b
 
 Use this path to run the continuous learning loop on a Raspberry Pi 5-powered Donkey Car with an iPhone 16 Pro companion app (Cloud ingest/train/package staging lives under `continuonai/continuon-cloud/` for the Google Cloud backend):
 
-1. **Edge bridge on Pi (ContinuonBrain/OS)**
-   - Run the lightweight ContinuonBrain/OS bridge to expose the Robot API over gRPC/WebRTC.
+1. **Edge bridge on Pi (Continuon Brain runtime)**
+   - Run the lightweight Continuon Brain runtime bridge to expose the Robot API over gRPC/WebRTC.
    - Normalize Donkey Car steering/throttle into `action.command` and log drivetrain + sensor feedback into `observation.robot_state` per RLDS.
    - Keep camera/IMU/encoder timestamps aligned within **≤5 ms** so video and robot state stay synchronized for training.
 
@@ -199,12 +218,12 @@ Use this path to run the continuous learning loop on a Raspberry Pi 5-powered Do
    - Train the multi-head VLA stack (world model, policy, language, safety) on new episodes and export quantized TFLite heads into an edge bundle.
 
 4. **Deployment back to Pi**
-   - Deliver signed edge bundles via the ContinuonBrain/OS OTA module in this repo; authenticate, download, verify, and hot-swap models while keeping a local fallback policy.
+   - Deliver signed edge bundles via the Continuon Brain runtime OTA module in this repo; authenticate, download, verify, and hot-swap models while keeping a local fallback policy.
    - Continue logging RLDS during autonomous follow-me runs to fuel the next training round.
 
 5. **Operational checklist**
    - Verify sensor sync (≤5 ms), populate `episode_metadata` with environment IDs (e.g., `donkey-pi5`) and software versions, and tag modes correctly for follow-me demonstrations.
-   - Use the in-repo module split intentionally: **ContinuonXR**/companion for capture, **Continuon Cloud** modules for training, **ContinuonBrain/OS** for deployment—all housed here.
+   - Use the in-repo module split intentionally: **ContinuonXR**/companion for capture, **Continuon Cloud** modules for training, **Continuon Brain runtime** for deployment—all housed here.
 
 ### Robot registration, subscription, and OTA
 
@@ -220,7 +239,7 @@ Use this path to run the continuous learning loop on a Raspberry Pi 5-powered Do
 - The Pi 5 lifecycle plan documents the gating steps (manual consent, provenance signing/checksums, TLS validation, post-upload verification) in [`continuon-lifecycle-plan.md`](continuon-lifecycle-plan.md); ingestion features must inherit those rules.
 - When enabling uploads, stage curated RLDS zips locally, include provenance manifests, and perform checksum/signature verification before marking episodes as exported.
 
-### 1. Data Capture (ContinuonXR & ContinuonBrain/OS)
+### 1. Data Capture (ContinuonXR & Continuon Brain runtime)
 
 ContinuonXR captures high-fidelity human demonstrations across multiple modes:
 
@@ -325,7 +344,7 @@ L_total = L_world_model + L_policy + L_language + L_safety
 }
 ```
 
-### 5. Secure Deployment (ContinuonBrain/OS OTA)
+### 5. Secure Deployment (Continuon Brain runtime OTA)
 
 **Deployment Process:**
 
@@ -347,7 +366,7 @@ L_total = L_world_model + L_policy + L_language + L_safety
 - Automatic rollback on verification failure
 - Coordinated updates for co-dependent models
 
-### 6. Edge Runtime Execution (ContinuonBrain/OS)
+### 6. Edge Runtime Execution (Continuon Brain runtime)
 
 **Platform-Agnostic Brain Runtime:**
 
@@ -381,7 +400,7 @@ platform/linux_sbc/ # V4L2/GPIO for Raspberry Pi
 
 ## Robot Platform Coverage
 
-This repository ships both the XR-side tooling and the ContinuonBrain/OS runtime/HAL modules that power the robots. The table below tracks current coverage and obvious gaps so contributors know where to help.
+This repository ships both the XR-side tooling and the Continuon Brain runtime/HAL modules that power the robots. The table below tracks current coverage and obvious gaps so contributors know where to help.
 
 | Robot Platform | HAL Interfaces Available | Current Coverage | Known Gaps |
 |----------------|--------------------------|------------------|------------|
@@ -419,7 +438,7 @@ The single source of truth for owners, dates, and KPIs across Phases 0–4 lives
 **Goals:**
 
 - [ ] Jetpack XR app with basic spatial UI
-- [ ] Mode A teleop to mock ContinuonBrain/OS
+- [ ] Mode A teleop to mock Continuon Brain runtime
 - [ ] Continuon Glove BLE integration (100 Hz)
 - [ ] Local RLDS episode writer with schema validation
 - [ ] Manual upload to Cloud
@@ -428,7 +447,7 @@ The single source of truth for owners, dates, and KPIs across Phases 0–4 lives
 
 - 95% of Mode A sessions → valid RLDS episodes
 - 100 Hz reliable glove data streaming
-- Bidirectional gRPC with ContinuonBrain/OS mock
+- Bidirectional gRPC with Continuon Brain runtime mock
 
 ### Phase 2: Cloud Integration
 
@@ -443,7 +462,7 @@ The single source of truth for owners, dates, and KPIs across Phases 0–4 lives
 
 **Goals:**
 
-- [ ] OTA updates from Cloud to ContinuonBrain/OS
+- [ ] OTA updates from Cloud to the Continuon Brain runtime
 - [ ] Hot-swap with rollback capability
 - [ ] Telemetry feedback loop
 - [ ] Multi-timescale training (Fast/Mid/Slow)
@@ -477,12 +496,12 @@ This repository contains the **spatial UI and data capture rig** component of th
     proto/                  # Protobuf definitions
       rlds_episode.proto    # RLDS schema
       continuonbrain_link.proto  # Robot API
-    continuonbrain/         # ContinuonBrain/OS scaffolding, Robot API server entrypoint, trainer modules
+    continuonbrain/         # Continuon Brain runtime scaffolding, Robot API server entrypoint, trainer modules
     continuonai/            # ContinuonAI Flutter app (web/iOS/Android/Linux) plus consolidated Cloud docs
     worldtapeai.com/        # redirect stub; WorldTape RLDS portal now lives inside continuonai/
   ```
 
-Note: `continuonbrain/trainer/` contains an offline Pi/Jetson LoRA adapter-training scaffold (bounded jobs, RLDS-only inputs, safety-gated promotion) to stay aligned with ContinuonBrain/OS goals. The Robot API server lives in `continuonbrain/robot_api_server.py`; integrate deeper continuonos runtime/OTA paths in the dedicated `continuonos` repo.
+Note: `continuonbrain/trainer/` contains an offline Pi/Jetson LoRA adapter-training scaffold (bounded jobs, RLDS-only inputs, safety-gated promotion) to stay aligned with Continuon Brain runtime goals. The Robot API server lives in `continuonbrain/robot_api_server.py`; integrate deeper continuonos runtime/OTA paths in the dedicated `continuonos` repo.
 
 Quick Pi 5 migration tips (Jetson → Pi):
 
@@ -537,7 +556,10 @@ python -m continuonbrain.trainer.examples.pi5_integration --config /opt/continuo
 - Fails fast if `base_model_path` or `min_episodes` not met.
 - Saves adapters to `adapters/candidate/`, promotes to `adapters/current/` on safety pass.
 
-7) Wire gating & safety (replace stubs in the ContinuonBrain/OS runtime here)  - `gating_continuonos.py`: connect idle/battery/thermal/teleop to real signals; set thresholds (e.g., battery ≥40%, CPU ≤75C).  - `safety_head_stub.py`: clamp/log violations; swap in your safety head; log safety flags to RLDS.  - `gemma_hooks.py`: in-place LoRA for Gemma proj layers (`q_proj/k_proj/v_proj/o_proj`); plug in your real loader/loss.
+7) Wire gating & safety (replace stubs in the Continuon Brain runtime here)
+   - `gating_continuonos.py`: connect idle/battery/thermal/teleop to real signals; set thresholds (e.g., battery ≥40%, CPU ≤75C).
+   - `safety_head_stub.py`: clamp/log violations; swap in your safety head; log safety flags to RLDS.
+   - `gemma_hooks.py`: in-place LoRA for Gemma proj layers (`q_proj/k_proj/v_proj/o_proj`); plug in your real loader/loss.
 
 8) Offline guarantee  - No internet for any loop; uploads are manual/opt-in (see `continuonbrain/trainer/CLOUD_EXPORT.md`).
 
@@ -584,7 +606,7 @@ chmod +x gradlew
 | XR Input | `app/xr/` | SceneCore pose/gaze integration |
 | Teleop | `app/teleop/` | Map XR inputs → robot commands |
 | RLDS Logging | `app/logging/` | Write/validate/upload episodes |
-| Connectivity | `app/connectivity/` | gRPC/WebRTC to ContinuonBrain/OS runtime in this repo |
+| Connectivity | `app/connectivity/` | gRPC/WebRTC to Continuon Brain runtime in this repo |
 
 ### Current Implementation Status
 
@@ -592,7 +614,7 @@ chmod +x gradlew
 
 - RLDS schema and validation framework
 - Glove BLE parser with MTU negotiation
-- Mock ContinuonBrain/OS for testing
+- Mock Continuon Brain runtime for testing
 - Basic RLDS episode writer
 
 **⚠ In Progress:**
@@ -655,7 +677,7 @@ Human Demos (XR) ─┬─→ RLDS Episodes ─→ Cloud Training ─→ Edge Bu
 Robot Telemetry   ─┤                          ↓
 Internet Videos   ─┘                   Signed Package
                                                ↓
-                                ContinuonBrain/OS OTA Client
+                              Continuon Brain runtime OTA Client
                                               ↓
                               ┌──────────────────────┐
                               │ Signature Verify     │
@@ -679,7 +701,7 @@ signed_bundle = sign_bundle(bundle, private_key)
 upload_to_cdn(signed_bundle)
 ```
 
-**Edge (ContinuonBrain/OS):**
+**Edge (Continuon Brain runtime):**
 
 ```cpp
 // OTA client downloads and verifies
@@ -700,7 +722,7 @@ When updating shared components like VisionCore:
 
 1. **Cloud**: Co-train VisionCore + SkillPolicies + SafetyHead together
 2. **Packaging**: Bundle all dependent models with matching version tags
-3. **Deployment**: ContinuonBrain/OS verifies all models present before hot-swap
+3. **Deployment**: Continuon Brain runtime verifies all models present before hot-swap
 4. **Validation**: Run functional tests on new model ensemble
 5. **Rollback**: If any test fails, instantly revert to previous bundle
 
@@ -717,7 +739,7 @@ When updating shared components like VisionCore:
 ### Model Security
 
 - All edge bundles cryptographically signed
-- Public key pinning in ContinuonBrain/OS
+- Public key pinning in the Continuon Brain runtime
 - Version pinning prevents downgrade attacks
 
 ### Operational Safety
@@ -792,65 +814,3 @@ We welcome contributions across all modules in this monorepo. Please:
 
 **Continuon**: Building robots that learn from every interaction, one episode at a time.
 
-## Pi 5 Offline Brain Setup (Gemma + LoRA, no quant)
-
-1) Clone on Pi  
-
-```bash
-cd /opt/continuonos/brain
-git clone https://github.com/continuonai/ContinuonXR.git pi5-brain
-cd pi5-brain
-```
-
-2) Create dirs & place models  
-
-```bash
-sudo mkdir -p /opt/continuonos/brain/model/{base_model,adapters/current,adapters/candidate,adapters/history}
-sudo mkdir -p /opt/continuonos/brain/rlds/episodes
-sudo mkdir -p /opt/continuonos/brain/train
-```
-
-- Put Gemma 3n base (non-quant edge build if it fits) at `/opt/continuonos/brain/model/base_model/gemma-3n.tflite`.
-- If you have current adapters, place `/opt/continuonos/brain/model/adapters/current/lora_adapters.pt`.
-- Stage RLDS episodes (JSON/JSONL/TFRecord) under `/opt/continuonos/brain/rlds/episodes/`.
-
-3) Config paths  
-
-```bash
-cp continuonbrain/configs/pi5-donkey.json /opt/continuonos/brain/train/pi5-donkey.json
-# edit base_model_path/rlds_dir/budgets as needed
-```
-
-4) Python deps (venv recommended)  
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install torch  # choose the Pi build you use
-```
-
-5) Optional: runtime manifest for flutter_gemma  
-
-```bash
-cp continuonbrain/model/manifest.pi5.safety.example.json /opt/continuonos/brain/model/manifest.json
-# edit base/adapter/safety paths
-```
-
-6) Run trainer (Gemma hooks + gating scaffold)  
-
-```bash
-python -m continuonbrain.trainer.examples.pi5_integration --config /opt/continuonos/brain/train/pi5-donkey.json
-```
-
-- Fails fast if `base_model_path` or `min_episodes` not met.
-- Saves adapters to `adapters/candidate/`, promotes to `adapters/current/` on safety pass.
-
-7) Wire gating & safety (replace stubs in the ContinuonBrain/OS runtime here)
-
-- `gating_continuonos.py`: connect idle/battery/thermal/teleop to real signals; set thresholds (e.g., battery ≥40%, CPU ≤75C).  
-- `safety_head_stub.py`: clamp/log violations; swap in your safety head; log safety flags to RLDS.  
-- `gemma_hooks.py`: in-place LoRA for Gemma proj layers (`q_proj/k_proj/v_proj/o_proj`); plug in your real loader/loss.
-
-8) Offline guarantee  
-
-- No internet for any loop; uploads are manual/opt-in (see `continuonbrain/trainer/CLOUD_EXPORT.md`).

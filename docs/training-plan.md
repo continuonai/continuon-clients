@@ -68,5 +68,18 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
 - Data: ≥16 clean episodes, timestamp skew ≤5 ms, schema validation passes.
 - Pi training: completes without CRITICAL resource alerts; produces candidate adapters.
 - Cloud training: meets target metrics; bundle signed; size within Pi limits.
-- Deployment: OTA apply succeeds; control loop ≤100 ms mid-loop; rollback path intact. 
+- Deployment: OTA apply succeeds; control loop ≤100 ms mid-loop; rollback path intact.
 
+## Training manager helper
+
+- Dry-run the plan and optionally execute steps with the orchestrator:
+
+  ```bash
+  python -m continuonbrain.services.training_manager \
+    --health \
+    --train-local \
+    --export \
+    --post-validate
+  ```
+
+  Flags are opt-in; without them the manager only reports status and suggested commands.

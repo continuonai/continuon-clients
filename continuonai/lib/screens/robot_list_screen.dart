@@ -285,7 +285,9 @@ class _RobotListScreenState extends State<RobotListScreen> {
 
   Widget _buildStatusBanner() {
     final messages = <String>[];
-    if (!_lanLikely) {
+    if (_user == null) {
+      messages.add('Guest mode: control/record/OTA disabled. Sign in to unlock.');
+    } else if (!_lanLikely) {
       messages.add('Not on robot LAN. Join the same Wi‑Fi/hotspot as the robot to claim.');
     } else if (!_isOwned) {
       messages.add('Local claim required before remote control/OTA.');
@@ -440,6 +442,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
     final name = data['name'] ?? 'Unnamed Robot';
     final host = data['host'] ?? 'unknown';
     final isBusy = _busyHosts.contains(host);
+    final isGuest = _user == null;
     final deviceInfo = _deviceInfoByHost[host] ?? {};
     final deviceId = deviceInfo['device_id'] as String? ?? '';
     final statusAccountId = _deviceInfoByHost[host]?['account_id'] as String?;
@@ -461,7 +464,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _connectOrGateRemote(data),
+          onTap: isGuest ? null : () => _connectOrGateRemote(data),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -525,7 +528,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                         IconButton(
                           icon: const Icon(Icons.refresh),
                           tooltip: 'Refresh status',
-                          onPressed: isBusy ? null : () => _refreshStatus(data),
+                          onPressed: (isBusy || isGuest) ? null : () => _refreshStatus(data),
                         ),
                         if (isBusy)
                           const SizedBox(
@@ -536,27 +539,27 @@ class _RobotListScreenState extends State<RobotListScreen> {
                         if (isBusy) const SizedBox(width: 12),
                         if (!_isOwned)
                           ElevatedButton.icon(
-                        onPressed: (_isLocalNetwork && !isBusy && !mismatch)
-                                ? () => _claimRobot(data)
-                                : null,
+                            onPressed: (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                                ? null
+                                : () => _claimRobot(data),
                             icon: const Icon(Icons.how_to_reg),
                             label: const Text('Claim (local)'),
                           ),
                         if (_isOwned && !_hasSeedInstalled) const SizedBox(width: 8),
                         if (_isOwned && !_hasSeedInstalled)
                           ElevatedButton.icon(
-                        onPressed: (_isLocalNetwork && !isBusy && !mismatch)
-                                ? () => _installSeed(data)
-                                : null,
+                            onPressed: (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                                ? null
+                                : () => _installSeed(data),
                             icon: const Icon(Icons.system_update),
                             label: const Text('Seed install'),
                           ),
                         if (_isOwned && _hasSeedInstalled) const SizedBox(width: 8),
                         if (_isOwned && _hasSeedInstalled)
                           ElevatedButton.icon(
-                        onPressed: (_hasSubscription && !isBusy && !mismatch)
-                                ? () => _connectOrGateRemote(data)
-                                : null,
+                            onPressed: (isGuest || !_hasSubscription || isBusy || mismatch)
+                                ? null
+                                : () => _connectOrGateRemote(data),
                             icon: const Icon(Icons.power_settings_new),
                             label: const Text('Connect'),
                             style: ElevatedButton.styleFrom(
@@ -567,6 +570,17 @@ class _RobotListScreenState extends State<RobotListScreen> {
                           ),
                       ],
                     ),
+                    if (isGuest)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Guest preview: sign in to enable control, recording, and OTA.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.orange.shade700),
+                        ),
+                      ),
                     if (mismatch && !isBusy)
                       Padding(
                         padding: const EdgeInsets.only(left: 8.0),
@@ -641,6 +655,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
   }
 
   Future<void> _connectOrGateRemote(Map<String, dynamic> data) async {
+    if (_user == null) {
+      _showSnack('Sign in to control robots. Guest mode is view-only.');
+      return;
+    }
     final host = data['host'] as String? ?? '';
     final port = data['port'] as int? ?? 50051;
     final httpPort = data['httpPort'] as int? ?? 8080;
@@ -667,6 +685,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
   }
 
   Future<void> _claimRobot(Map<String, dynamic> data) async {
+    if (_user == null) {
+      _showSnack('Sign in to claim robots. Guest mode is view-only.');
+      return;
+    }
     final host = data['host'] as String? ?? '';
     if (_authToken != null) {
       _brainClient.setAuthToken(_authToken!);

@@ -3,6 +3,7 @@ UI Routes: Serve HTML/JS/CSS for the ContinuonBrain Web Interface.
 """
 from typing import Dict
 from pathlib import Path
+from continuonbrain.api.routes.training_plan_page import get_training_plan_html as get_training_plan_page
 
 # Common CSS for Premium IO Aesthetic
 COMMON_CSS = """
@@ -166,7 +167,7 @@ HOME_HTML = f"""
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ContinuonBrain</title>
+<title>Continuon Studio</title>
     <style>
         {COMMON_CSS}
     </style>
@@ -237,6 +238,23 @@ HOME_HTML = f"""
         function selectNav(el) {{
             document.querySelectorAll('#sidebar a').forEach(a => a.classList.remove('active'));
             el.classList.add('active');
+        }}
+
+        async function loadBrainMeta() {{
+            try {{
+                const resp = await fetch('/api/hope/structure');
+                const data = await resp.json();
+                const meta = data.meta || {{}};
+                const model = meta.model_name || 'unknown';
+                const version = meta.model_version || 'unknown';
+                const depth = meta.core_depth || {{}};
+                const depthLabel = `Cores: ${{depth.columns ?? '--'}}, Levels: ${{depth.max_levels ?? '--'}}`;
+                document.getElementById('brain-meta-model').textContent = `Model: ${model} (${version})`;
+                document.getElementById('brain-meta-depth').textContent = depthLabel;
+            }} catch (e) {{
+                document.getElementById('brain-meta-model').textContent = 'Model: unavailable';
+                document.getElementById('brain-meta-depth').textContent = 'Depth: unavailable';
+            }}
         }}
         
         async function sendMessage() {{
@@ -640,7 +658,7 @@ HOME_HTML = f"""
 <body>
     <div id="sidebar">
         <div class="logo">
-            <span style="font-size: 1.2em;">🧠</span> Continuon<span>Brain</span>
+            <span style="font-size: 1.2em;">🧠</span> Continuon<span> Studio</span>
         </div>
         
         <div style="flex: 1;">
@@ -655,6 +673,9 @@ HOME_HTML = f"""
             </a>
             <a href="/ui/status" target="main_frame" onclick="selectNav(this)">
                 <span class="icon">🔍</span> Brain Status
+            </a>
+            <a href="/ui/training-plan" target="main_frame" onclick="selectNav(this)">
+                <span class="icon">📚</span> Training Plan
             </a>
             
             <!-- HOPE Monitoring Section -->
@@ -692,8 +713,12 @@ HOME_HTML = f"""
         </div>
         
         <div class="sidebar-footer">
-            <div><span class="status-dot"></span> System Online</div>
-            <div style="margin-top: 8px; opacity: 0.6;">v2.0.0-alpha</div>
+            <div><span class="status-dot"></span> Continuon Studio</div>
+            <div id="brain-meta-model" style="margin-top: 8px; opacity: 0.8;">Model: --</div>
+            <div id="brain-meta-depth" style="opacity: 0.7;">Depth: --</div>
+            <div style="margin-top: 8px;">
+                <a href="/ui/training-plan" target="main_frame" style="color: var(--accent-color); text-decoration: none;">Training Plan & Manager</a>
+            </div>
         </div>
     </div>
     
@@ -2638,6 +2663,12 @@ TASKS_HTML = f"""
             event.target.classList.add('active');
             renderTasks();
         }}
+
+        // On load
+        window.addEventListener('load', () => {{
+            restorePanelStates();
+            loadBrainMeta();
+        }});
         
         async function executeTask(taskId, event) {{
             event.stopPropagation();
@@ -2681,6 +2712,9 @@ def get_manual_html() -> str:
 
 def get_tasks_html() -> str:
     return TASKS_HTML
+
+def get_training_plan_html() -> str:
+    return get_training_plan_page()
 
 def get_learning_dashboard_html() -> str:
     """Return learning dashboard page."""
