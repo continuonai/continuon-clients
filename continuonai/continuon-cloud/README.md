@@ -81,6 +81,8 @@ Delete when done:
 gcloud alpha tpu v5e delete continuon-seed-tpu --project $PROJECT_ID --zone $ZONE
 ```
 
+Reminder: clean up `startup-script.sh` in the bucket or rotate it after use to avoid stale scripts lingering in OTA/GCS paths.
+
 ## Custom container build/push (Artifact Registry, optional)
 
 If you prefer a containerized TPU job, build and push an image with deps baked in.

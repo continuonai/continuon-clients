@@ -43,6 +43,7 @@ PYTHONPATH=$PWD python -m continuonbrain.tests.integration_test --real-hardware
 ```
 
 Artifacts:
+
 - `/tmp/pi5_check.json` (hardware readiness)
 - RLDS episodes under `continuonbrain/rlds/episodes/` (mock or real)
 
@@ -65,6 +66,7 @@ PYTHONPATH=$PWD python -m continuonbrain.jax_models.data.tfrecord_converter \
 ```
 
 Artifacts:
+
 - `/opt/continuonos/brain/rlds/tfrecord/*.tfrecord`
 
 ### 4) Local sanity training (Pi CPU)
@@ -97,9 +99,16 @@ PY
 ```
 
 Artifacts:
+
 - `export-bundle/manifest.json`
 - `export-bundle/episodes/*.json`
 - `export-bundle/reports/*.validation.json`
+
+Validate episodes locally (optional, mirrored in CI):
+
+```bash
+python scripts/validate_rlds_episodes.py continuonbrain/rlds/episodes/*.json
+```
 
 ### 6) Upload to GCS (TPU input)
 
@@ -111,6 +120,7 @@ PYTHONPATH=$PWD python -m continuonbrain.jax_models.utils.upload_to_gcs \
 ```
 
 Artifacts:
+
 - `gs://<bucket>/rlds/episodes/*.tfrecord`
 
 ### 7) TPU seed training (v5e, small config)
@@ -123,11 +133,13 @@ PYTHONPATH=$PWD python -m continuonbrain.jax_models.train.cloud.tpu_train \
 ```
 
 Artifacts:
+
 - `gs://<bucket>/checkpoints/core_model_v0/*` (Orbax checkpoints)
 
 ### 8) Export inference bundles
 
 JAX/CPU:
+
 ```bash
 PYTHONPATH=$PWD python -m continuonbrain.jax_models.export.export_jax \
   --checkpoint-path gs://continuon-rlds/checkpoints/core_model_v0 \
@@ -136,6 +148,7 @@ PYTHONPATH=$PWD python -m continuonbrain.jax_models.export.export_jax \
 ```
 
 Hailo/ONNX (generates placeholder HEF if compiler absent):
+
 ```bash
 PYTHONPATH=$PWD python -m continuonbrain.jax_models.export.export_hailo \
   --checkpoint-path ./models/core_model_inference \
@@ -143,16 +156,19 @@ PYTHONPATH=$PWD python -m continuonbrain.jax_models.export.export_hailo \
 ```
 
 Artifacts:
+
 - `./models/core_model_inference/` (CPU bundle)
 - `./models/core_model_hailo/` (`.onnx`, `.hef` or placeholder, compiler logs)
 
 ### 9) Deploy to Pi and verify routing
 
 Place artifacts:
+
 - `/opt/continuonos/brain/model/base_model/` ← CPU bundle (and adapters if used)
 - `/opt/continuonos/brain/model/base_model/hailo/` ← ONNX/HEF
 
 Run inference router smoke:
+
 ```bash
 PYTHONPATH=$PWD CONTINUON_PREFER_JAX=1 python -m continuonbrain.jax_models.export.inference_router \
   --model-dir /opt/continuonos/brain/model/base_model \
@@ -168,7 +184,28 @@ PYTHONPATH=$PWD python -m continuonbrain.tests.integration_test --real-hardware
 ```
 
 Check:
+
 - RLDS actions vs logged actions (safety deltas)
 - Package `edge_manifest.json` + validation reports with the bundle for OTA swap test.
 
+### OTA checklist (subscription-gated)
 
+- Use the signed bundle manifest contract in `docs/bundle_manifest.md` (checksums + signature).
+- Only offer OTA to robots that are registered + paid in the ContinuonAI app.
+- Keep a last-known-good bundle on device; apply only after download+verify passes.
+- Include safety manifest alongside the model and preserve immutable base rules on device.
+- See `docs/ota-checklist.md` for the single-stop OTA reference.
+- Remove temporary artifacts (e.g., `startup-script.sh`) from buckets after runs to avoid stale scripts.
+
+## Flutter companion (ownership/OTA) implementation backlog (active)
+- Add real LAN detection and gate claim/seed on local presence.
+- Persist per-robot ownership/subscription/seed status (e.g., SharedPreferences/Firestore); preload on app start.
+- Align client endpoints/keys with backend (`/api/claim`, `/api/ota/install_seed`, `/api/ownership/status`); surface error messages in UI.
+- Per-card busy + error/retry UI for claim/seed/status; show state badges (Unclaimed, Seed pending, Ready).
+- Secure token storage (e.g., flutter_secure_storage) and clear-token action.
+- Add backend-aligned error messages and retries for status/claim/seed.
+- Improve LAN detection (mdns/ping gateway) and reflect in UI.
+- Add reachability ping (/api/ping) consumption in the Flutter client to show device id/uptime and better error surfacing.
+- Update `/api/ownership/status` on the brain to return real ownership/subscription/seed state from settings.
+- Persist ownership/subscription/seed in brain settings to survive restarts (`BrainService` now loads placeholders).
+- Add account hierarchy metadata to ownership (account_id/type/owner_id) and enforce in app/runtime.

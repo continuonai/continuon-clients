@@ -72,6 +72,11 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 
 ### Hailo (AI HAT+) status
 - Export pipeline JAX→TF→ONNX is available; `.hef` creation is a placeholder without the Hailo SDK. Runtime inference will skip Hailo if `.hef` is missing; full acceleration requires integrating Hailo compiler/runtime tools.
+- When `.hef` is missing or placeholder, the inference router falls back to CPU and logs a warning.
+
+### OTA packaging
+- Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).
+- OTA apply is gated in the ContinuonAI app by robot ownership + paid subscription; device verifies checksums/signature before swap.
 
 ## Autostart on boot (systemd template)
 - A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service`.

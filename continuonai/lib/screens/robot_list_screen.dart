@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 import '../theme/continuon_theme.dart';
 
@@ -21,6 +23,30 @@ class RobotListScreen extends StatefulWidget {
 class _RobotListScreenState extends State<RobotListScreen> {
   final User? _user = FirebaseAuth.instance.currentUser;
   final BrainClient _brainClient = BrainClient();
+  // TODO: wire real LAN detection + persisted ownership/subscription/seed state
+  bool _isLocalNetwork = true;
+  // Per-robot state caches
+  final Map<String, bool> _ownedByHost = {};
+  final Map<String, bool> _subByHost = {};
+  final Map<String, bool> _seedByHost = {};
+  final Map<String, Map<String, dynamic>> _deviceInfoByHost = {};
+  final Map<String, String> _errorByHost = {};
+  String? _accountId;
+  String? _accountType;
+  String? _ownerId;
+  // Busy per robot host to avoid blocking all cards
+  final Set<String> _busyHosts = {};
+  bool _isOwned = false;
+  bool _hasSubscription = false;
+  bool _hasSeedInstalled = false;
+  String? _authToken;
+  final TextEditingController _tokenController = TextEditingController();
+  final TextEditingController _accountIdController = TextEditingController();
+  final TextEditingController _accountTypeController = TextEditingController();
+  final TextEditingController _ownerIdController = TextEditingController();
+  bool _tokenLoaded = false;
+  bool _lanLikely = true;
+  bool _stateLoaded = false;
 
   // Local list for guest mode
   final List<Map<String, dynamic>> _guestRobots = [
@@ -58,6 +84,13 @@ class _RobotListScreenState extends State<RobotListScreen> {
     final port = data['port'] as int;
     final httpPort = data['httpPort'] as int? ?? 8080;
 
+    // Propagate auth token if present
+    if (_authToken != null) {
+      _brainClient.setAuthToken(_authToken!);
+    }
+
+    setState(() => _busyHosts.add(host));
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -92,6 +125,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _busyHosts.remove(host));
     }
   }
 
@@ -121,6 +156,24 @@ class _RobotListScreenState extends State<RobotListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_tokenLoaded) {
+      _brainClient.loadAuthToken().then((_) {
+        setState(() {
+          _authToken = _brainClient.authToken;
+          _tokenLoaded = true;
+        });
+      });
+      _brainClient.checkLocalNetwork().then((lan) {
+        if (mounted) {
+          setState(() {
+            _lanLikely = lan;
+            _isLocalNetwork = lan;
+          });
+        }
+      });
+      _loadCachedState();
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -136,6 +189,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.vpn_key),
+            tooltip: 'Set auth token',
+            onPressed: _showAuthTokenDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.radar),
             tooltip: 'Scan for Robots',
             onPressed: _scanForRobots,
@@ -146,7 +204,13 @@ class _RobotListScreenState extends State<RobotListScreen> {
           ),
         ],
       ),
-      body: _user == null ? _buildGuestList() : _buildFirestoreList(),
+      body: Column(
+        children: [
+          _buildStatusBanner(),
+          _buildHelpCard(),
+          Expanded(child: _user == null ? _buildGuestList() : _buildFirestoreList()),
+        ],
+      ),
       floatingActionButton: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.0, end: 1.0),
         duration: const Duration(milliseconds: 500),
@@ -164,6 +228,79 @@ class _RobotListScreenState extends State<RobotListScreen> {
           );
         },
       ),
+    );
+  }
+
+  void _showAuthTokenDialog() {
+    _tokenController.text = _authToken ?? '';
+    _accountIdController.text = _accountId ?? '';
+    _accountTypeController.text = _accountType ?? '';
+    _ownerIdController.text = _ownerId ?? '';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Auth Token'),
+        content: TextField(
+          controller: _tokenController,
+          decoration: const InputDecoration(
+            labelText: 'Bearer token',
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _accountId = _accountIdController.text;
+                _accountType = _accountTypeController.text;
+                _ownerId = _ownerIdController.text;
+              });
+            },
+            child: const Text('Save Account Meta'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _authToken =
+                    _tokenController.text.isNotEmpty ? _tokenController.text : null;
+                if (_authToken != null) {
+                  _brainClient.setAuthToken(_authToken!, persist: true);
+                }
+                _accountId = _accountIdController.text;
+                _accountType = _accountTypeController.text;
+                _ownerId = _ownerIdController.text;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner() {
+    final messages = <String>[];
+    if (!_lanLikely) {
+      messages.add('Not on robot LAN. Join the same Wi‑Fi/hotspot as the robot to claim.');
+    } else if (!_isOwned) {
+      messages.add('Local claim required before remote control/OTA.');
+    } else if (!_hasSeedInstalled) {
+      messages.add('Initial seed install required (local-only).');
+    } else if (!_hasSubscription) {
+      messages.add('Subscription required for remote control/OTA.');
+    } else {
+      messages.add('Remote control/OTA allowed (owned + subscribed).');
+    }
+    return Container(
+      width: double.infinity,
+      color: Colors.blueGrey.shade50,
+      padding: const EdgeInsets.all(12),
+      child: Text(messages.join(' ')),
     );
   }
 
@@ -213,6 +350,35 @@ class _RobotListScreenState extends State<RobotListScreen> {
       },
     );
   }
+
+  Widget _buildHelpCard() {
+    final show = !_lanLikely || !_isOwned || !_hasSeedInstalled;
+    if (!show) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      color: Colors.blueGrey.shade50,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'How to connect a new robot',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          _helpText('1) Join the same Wi‑Fi/LAN as the robot (or the robot’s hotspot).'),
+          _helpText('2) Find the robot IP (status screen or router). Defaults: gRPC 50051, HTTP 8080.'),
+          _helpText('3) Tap "Add Robot" and enter IP/ports.'),
+          _helpText('4) When on robot LAN, tap Claim (local), then Seed install. Remote control/OTA works after that.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _helpText(String text) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+      );
 
   Widget _buildEmptyState() {
     return Center(
@@ -273,6 +439,9 @@ class _RobotListScreenState extends State<RobotListScreen> {
   Widget _buildRobotCard(Map<String, dynamic> data) {
     final name = data['name'] ?? 'Unnamed Robot';
     final host = data['host'] ?? 'unknown';
+    final isBusy = _busyHosts.contains(host);
+    final deviceInfo = _deviceInfoByHost[host] ?? {};
+    final deviceId = deviceInfo['device_id'] as String? ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -284,7 +453,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _connectToRobot(data),
+          onTap: () => _connectOrGateRemote(data),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -326,21 +495,82 @@ class _RobotListScreenState extends State<RobotListScreen> {
                           const SizedBox(width: 8),
                           Text(host,
                               style: Theme.of(context).textTheme.bodyMedium),
+                          if (deviceId.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text('id:$deviceId',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.grey)),
+                          ],
                         ],
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.arrow_forward_ios,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.refresh),
+                          tooltip: 'Refresh status',
+                          onPressed: isBusy ? null : () => _refreshStatus(data),
+                        ),
+                        if (isBusy)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        if (isBusy) const SizedBox(width: 12),
+                        if (!_isOwned)
+                          ElevatedButton.icon(
+                            onPressed: (_isLocalNetwork && !isBusy)
+                                ? () => _claimRobot(data)
+                                : null,
+                            icon: const Icon(Icons.how_to_reg),
+                            label: const Text('Claim (local)'),
+                          ),
+                        if (_isOwned && !_hasSeedInstalled) const SizedBox(width: 8),
+                        if (_isOwned && !_hasSeedInstalled)
+                          ElevatedButton.icon(
+                            onPressed: (_isLocalNetwork && !isBusy)
+                                ? () => _installSeed(data)
+                                : null,
+                            icon: const Icon(Icons.system_update),
+                            label: const Text('Seed install'),
+                          ),
+                        if (_isOwned && _hasSeedInstalled) const SizedBox(width: 8),
+                        if (_isOwned && _hasSeedInstalled)
+                          ElevatedButton.icon(
+                            onPressed: (_hasSubscription && !isBusy)
+                                ? () => _connectOrGateRemote(data)
+                                : null,
+                            icon: const Icon(Icons.power_settings_new),
+                            label: const Text('Connect'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: ContinuonColors.primaryBlue,
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (_errorByHost[host] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          _errorByHost[host]!,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.red),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -348,6 +578,151 @@ class _RobotListScreenState extends State<RobotListScreen> {
         ),
       ),
     );
+  }
+  Future<void> _refreshStatus(Map<String, dynamic> data) async {
+    final host = data['host'] as String? ?? '';
+    final httpPort = data['httpPort'] as int? ?? 8080;
+    if (_authToken != null) {
+      _brainClient.setAuthToken(_authToken!);
+    }
+    setState(() => _busyHosts.add(host));
+    final status = await _brainClient.fetchOwnershipStatus(host: host, httpPort: httpPort);
+    final ping = await _brainClient.ping(host: host, httpPort: httpPort);
+    if (mounted) {
+      setState(() {
+        final owned = status['owned'] == true;
+        final sub = status['subscription_active'] == true;
+        final seed = status['seed_installed'] == true;
+        _ownedByHost[host] = owned;
+        _subByHost[host] = sub;
+        _seedByHost[host] = seed;
+        if (ping.isNotEmpty) {
+          _deviceInfoByHost[host] = ping;
+        }
+        _errorByHost.remove(host);
+        _isOwned = owned;
+        _hasSubscription = sub;
+        _hasSeedInstalled = seed;
+        _busyHosts.remove(host);
+      });
+      _saveCachedState();
+      if (status.isEmpty) {
+        _errorByHost[host] = 'Status fetch failed';
+        _showSnack('Status fetch failed for $host');
+      } else if (ping.isEmpty) {
+        _errorByHost[host] = 'Ping failed';
+        _showSnack('Ping failed for $host');
+      }
+    }
+  }
+
+  Future<void> _connectOrGateRemote(Map<String, dynamic> data) async {
+    final host = data['host'] as String? ?? '';
+    final port = data['port'] as int? ?? 50051;
+    final httpPort = data['httpPort'] as int? ?? 8080;
+
+    // Refresh status, but don't hard block on LAN—ownership + subscription + seed are required.
+    await _refreshStatus(data);
+
+    if (_isOwned && _hasSubscription && _hasSeedInstalled) {
+      _connectToRobot({
+        'name': data['name'] ?? 'Unnamed Robot',
+        'host': host,
+        'port': port,
+        'httpPort': httpPort,
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+              'Remote control requires ownership + subscription + seed install.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _claimRobot(Map<String, dynamic> data) async {
+    final host = data['host'] as String? ?? '';
+    if (_authToken != null) {
+      _brainClient.setAuthToken(_authToken!);
+    }
+    setState(() => _busyHosts.add(host));
+    final ok = await _brainClient.claimRobot(
+      host: host,
+      httpPort: data['httpPort'] as int? ?? 8080,
+      accountId: _accountId,
+      accountType: _accountType,
+      ownerId: _ownerId,
+    );
+    if (mounted) {
+      setState(() {
+        if (ok) {
+          _ownedByHost[host] = true;
+          _isOwned = true;
+          _saveCachedState();
+        }
+        _busyHosts.remove(host);
+      });
+      _showSnack(ok ? 'Claimed robot successfully.' : 'Claim failed.');
+    }
+  }
+
+  Future<void> _installSeed(Map<String, dynamic> data) async {
+    final host = data['host'] as String? ?? '';
+    if (_authToken != null) {
+      _brainClient.setAuthToken(_authToken!);
+    }
+    setState(() => _busyHosts.add(host));
+    final ok = await _brainClient.installSeedBundle(host: host, httpPort: data['httpPort'] as int? ?? 8080);
+    if (mounted) {
+      setState(() {
+        if (ok) {
+          _seedByHost[host] = true;
+          _hasSeedInstalled = true;
+          _saveCachedState();
+        }
+        _busyHosts.remove(host);
+      });
+      _showSnack(ok ? 'Seed bundle installed.' : 'Seed install failed.');
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _loadCachedState() async {
+    if (_stateLoaded) return;
+    final prefs = await SharedPreferences.getInstance();
+    final owned = prefs.getString('robot_owned_map');
+    final sub = prefs.getString('robot_sub_map');
+    final seed = prefs.getString('robot_seed_map');
+    if (owned != null) {
+      _ownedByHost
+        ..clear()
+        ..addAll(Map<String, dynamic>.from(jsonDecode(owned)).map((k, v) => MapEntry(k, v == true)));
+    }
+    if (sub != null) {
+      _subByHost
+        ..clear()
+        ..addAll(Map<String, dynamic>.from(jsonDecode(sub)).map((k, v) => MapEntry(k, v == true)));
+    }
+    if (seed != null) {
+      _seedByHost
+        ..clear()
+        ..addAll(Map<String, dynamic>.from(jsonDecode(seed)).map((k, v) => MapEntry(k, v == true)));
+    }
+    setState(() => _stateLoaded = true);
+  }
+
+  Future<void> _saveCachedState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('robot_owned_map', jsonEncode(_ownedByHost));
+    await prefs.setString('robot_sub_map', jsonEncode(_subByHost));
+    await prefs.setString('robot_seed_map', jsonEncode(_seedByHost));
   }
 }
 

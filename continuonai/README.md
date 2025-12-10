@@ -95,6 +95,36 @@ account.
 ## OTA & seed model flow
 - OTA delivery uses the signed edge bundle path (`docs/bundle_manifest.md`). The app gates download/apply on paid subscription status and robot ownership.
 - The initial OTA payload is the **v0 seed model** trained via the Pi 5 + AI HAT pipeline (`docs/seed-model-plan.md`); subsequent updates follow the same OTA flow.
+- UX expectations: surface eligibility/error states (`subscription required`, `signature/checksum failed`, `bundle unavailable`) to the operator; do not silently drop OTA attempts.
+
+## Ownership & connectivity (local/remote)
+- Registration/claim is **local-only**: the owner must be on the same LAN as the robot to claim it and perform the first ContinuonBrain install (v0 seed bundle).
+- Initial ContinuonBrain install is **local-only**; no remote install before claim.
+- After claim + initial install, remote control/OTA/Robot Editor access is allowed for the owner over TLS; enforce ownership + subscription on remote sessions.
+- Local LAN access remains available for the owner even if remote reachability is blocked; discovery/claim always requires local presence.
+
+### UX states to surface
+- **Local claim required**: Robot visible on LAN, not owned; show “claim locally to proceed” and disable remote/OTA actions.
+- **Initial install pending**: Claim succeeded but seed bundle not applied; force local install flow.
+- **Remote allowed**: Ownership + subscription valid; enable control/OTA/Editor.
+- **Blocked**: Show explicit reasons—`subscription required`, `ownership mismatch`, `signature/checksum failed`, `bundle unavailable`.
+
+### Flow essentials
+- Discovery: LAN-only for claim; remote discovery blocked until owned.
+- Claim + seed install: download + verify signed bundle (checksums/signature) locally; record ownership token/device ID.
+- Remote sessions: require ownership token + subscription before enabling control/OTA/Editor; allow read-only status view if subscription lapses.
+- OTA UI: show states for download, verify (checksum/signature), apply, rollback on failure; display current + last-known-good bundle versions and provenance.
+
+## UI checklist (Connect/Claim/OTA)
+- Connect screen should:
+  - Detect LAN presence; disable claim if not local.
+  - Show robot ownership/subscription status; if unowned, show “claim locally to proceed.”
+- Claim flow:
+  - Scan LAN, select robot, claim; fetch/apply seed bundle locally; show checksum/signature verification result and rollback on failure.
+  - Persist ownership token/device ID after successful claim/install.
+- Remote session:
+  - Require ownership + subscription before enabling control/OTA/Editor; allow read-only status if subscription lapses.
+  - Surface errors clearly (subscription required, ownership mismatch, signature/checksum failed, bundle unavailable).
 
 ## Cloud docs
 

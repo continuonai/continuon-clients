@@ -331,6 +331,59 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 
                 self.send_json(status_data)
 
+            elif self.path == "/api/ping":
+                uptime = getattr(brain_service, "uptime_seconds", None)
+                device_id = getattr(brain_service, "device_id", None)
+                self.send_json(
+                    {
+                        "ok": True,
+                        "uptime_seconds": uptime,
+                        "device_id": device_id or brain_service.agent_id,
+                        "message": "pong",
+                    }
+                )
+
+            elif self.path == "/api/ownership/status":
+                self.send_json(
+                    {
+                        "owned": bool(brain_service.is_owned),
+                        "subscription_active": bool(brain_service.subscription_active),
+                        "seed_installed": bool(brain_service.seed_installed),
+                        "account_id": getattr(brain_service, "account_id", None),
+                        "account_type": getattr(brain_service, "account_type", None),
+                        "owner_id": getattr(brain_service, "owner_id", None),
+                    }
+                )
+            elif self.path == "/api/ownership/claim":
+                length = int(self.headers.get("Content-Length", 0))
+                raw = self.rfile.read(length) if length > 0 else b""
+                account_id = None
+                account_type = None
+                owner_id = None
+                try:
+                    payload = json.loads(raw.decode("utf-8")) if raw else {}
+                    account_id = payload.get("account_id")
+                    account_type = payload.get("account_type")
+                    owner_id = payload.get("owner_id")
+                except Exception:
+                    pass
+                brain_service.set_ownership(
+                    owned=True,
+                    account_id=account_id,
+                    account_type=account_type,
+                    owner_id=owner_id,
+                )
+                self.send_json(
+                    {
+                        "owned": True,
+                        "subscription_active": brain_service.subscription_active,
+                        "seed_installed": brain_service.seed_installed,
+                        "account_id": brain_service.account_id,
+                        "account_type": brain_service.account_type,
+                        "owner_id": brain_service.owner_id,
+                    }
+                )
+
             elif self.path == "/api/camera/stream":
                 self.handle_mjpeg_stream()
 

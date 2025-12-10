@@ -1,0 +1,37 @@
+name: RLDS Episode Validation
+
+on:
+  pull_request:
+    paths:
+      - "continuonbrain/rlds/episodes/**/*.json"
+      - "scripts/validate_rlds_episodes.py"
+      - ".github/workflows/rlds-validate.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "continuonbrain/rlds/episodes/**/*.json"
+      - "scripts/validate_rlds_episodes.py"
+      - ".github/workflows/rlds-validate.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+      - name: Validate RLDS episodes
+        run: |
+          EPISODES=$(find continuonbrain/rlds/episodes -name '*.json')
+          if [ -z "$EPISODES" ]; then
+            echo "No episodes to validate."
+            exit 0
+          fi
+          python scripts/validate_rlds_episodes.py $EPISODES
+

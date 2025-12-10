@@ -25,6 +25,7 @@ Depends on all your plugins, and provides a function to register them.
   s.dependency 'firebase_core'
   s.dependency 'flutter_blue_plus_darwin'
   s.dependency 'flutter_gemma'
+  s.dependency 'flutter_secure_storage'
   s.dependency 'google_sign_in_ios'
   s.dependency 'integration_test'
   s.dependency 'large_file_handler'

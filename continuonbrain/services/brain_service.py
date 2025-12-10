@@ -264,12 +264,80 @@ class BrainService:
         self.user_context = UserContext()
         logger.info(f"🤖 Personality initialized: {self.personality_config}")
 
+        # Ownership/OTA state placeholders
+        self.device_id = self._load_or_create_device_id(config_dir)
+        self.is_owned = False
+        self.subscription_active = False
+        self.seed_installed = False
+        self.account_id: Optional[str] = None
+        self.account_type: Optional[str] = None  # enterprise|family|fleet|personal
+        self.owner_id: Optional[str] = None
+        self._start_time = time.time()
+        self._ownership_path = Path(config_dir) / "ownership.json"
+
         # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
         self.gemma_chat = create_gemma_chat(use_mock=False)
 
         # Load persistent settings
         self.agent_settings = {}
         self.load_settings()
+
+    @property
+    def uptime_seconds(self) -> float:
+        return time.time() - self._start_time
+
+    def _load_or_create_device_id(self, config_dir: str) -> str:
+        cfg_path = Path(config_dir) / "device_id.json"
+        if cfg_path.exists():
+            try:
+                data = json.loads(cfg_path.read_text())
+                if "device_id" in data:
+                    return data["device_id"]
+            except Exception:
+                logger.warning("Failed to read device_id.json; regenerating.")
+        device_id = f"brain-{int(time.time())}"
+        try:
+            cfg_path.write_text(json.dumps({"device_id": device_id}))
+        except Exception:
+            logger.warning("Failed to persist device_id.json")
+        return device_id
+
+    def set_ownership(
+        self,
+        owned: bool = None,
+        subscription_active: bool = None,
+        seed_installed: bool = None,
+        account_id: Optional[str] = None,
+        account_type: Optional[str] = None,
+        owner_id: Optional[str] = None,
+    ):
+        if owned is not None:
+            self.is_owned = owned
+        if subscription_active is not None:
+            self.subscription_active = subscription_active
+        if seed_installed is not None:
+            self.seed_installed = seed_installed
+        if account_id is not None:
+            self.account_id = account_id
+        if account_type is not None:
+            self.account_type = account_type
+        if owner_id is not None:
+            self.owner_id = owner_id
+        self._persist_ownership()
+
+    def _persist_ownership(self):
+        try:
+            payload = {
+                "owned": self.is_owned,
+                "subscription_active": self.subscription_active,
+                "seed_installed": self.seed_installed,
+                "account_id": self.account_id,
+                "account_type": self.account_type,
+                "owner_id": self.owner_id,
+            }
+            self._ownership_path.write_text(json.dumps(payload))
+        except Exception as exc:
+            logger.warning(f"Failed to persist ownership.json: {exc}")
 
     def load_settings(self):
         """Load general settings from disk."""
@@ -278,6 +346,26 @@ class BrainService:
             store = SettingsStore(Path(self.config_dir))
             settings = store.load()
             self.agent_settings = settings.get("agent_manager", {})
+            # Ownership/OTA persisted state (optional)
+            ownership = settings.get("ownership", {})
+            self.is_owned = bool(ownership.get("owned", self.is_owned))
+            self.subscription_active = bool(ownership.get("subscription_active", self.subscription_active))
+            self.seed_installed = bool(ownership.get("seed_installed", self.seed_installed))
+            self.account_id = ownership.get("account_id", self.account_id)
+            self.account_type = ownership.get("account_type", self.account_type)
+            self.owner_id = ownership.get("owner_id", self.owner_id)
+            # Load fallback ownership file if present
+            if self._ownership_path.exists():
+                try:
+                    data = json.loads(self._ownership_path.read_text())
+                    self.is_owned = bool(data.get("owned", self.is_owned))
+                    self.subscription_active = bool(data.get("subscription_active", self.subscription_active))
+                    self.seed_installed = bool(data.get("seed_installed", self.seed_installed))
+                    self.account_id = data.get("account_id", self.account_id)
+                    self.account_type = data.get("account_type", self.account_type)
+                    self.owner_id = data.get("owner_id", self.owner_id)
+                except Exception as exc:
+                    logger.warning(f"Failed to load ownership.json: {exc}")
             
             # Apply Personality if found
             p_data = settings.get("personality", {})

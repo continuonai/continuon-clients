@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:grpc/grpc.dart' as grpc;
-
 import 'package:grpc/grpc_web.dart' as grpc_web;
-
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/teleop_models.dart';
 import 'platform_channels.dart';
@@ -44,9 +45,69 @@ class BrainClient {
   bool _usePlatformBridge = false;
   String? _host;
   int _httpPort = 8080;
+  // TODO: wire to persistent auth/subscription/ownership tokens when backend is ready.
+  bool isOwned = false;
+  bool hasSubscription = false;
+  String? _authToken;
+  bool _lanLikely = true;
+
+  String? get authToken => _authToken;
 
   bool get isConnected =>
       _usePlatformBridge ? _platformBridge.isConnected : _channel != null;
+
+  Future<void> setAuthToken(String token, {bool persist = false}) async {
+    _authToken = token;
+    _callOptions = grpc.CallOptions(metadata: {'authorization': 'Bearer $token'});
+    if (persist) {
+      const secure = FlutterSecureStorage();
+      await secure.write(key: 'auth_token', value: token);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token'); // migrate away from plaintext
+    }
+  }
+
+  Map<String, String> _headers() {
+    return _authToken != null ? {'authorization': 'Bearer $_authToken'} : {};
+  }
+
+  Future<void> loadAuthToken() async {
+    const secure = FlutterSecureStorage();
+    String? token = await secure.read(key: 'auth_token');
+    if (token == null) {
+      // migrate legacy prefs storage if present
+      final prefs = await SharedPreferences.getInstance();
+      token = prefs.getString('auth_token');
+      if (token != null) {
+        await secure.write(key: 'auth_token', value: token);
+        await prefs.remove('auth_token');
+      }
+    }
+    if (token != null && token.isNotEmpty) {
+      _authToken = token;
+      _callOptions = grpc.CallOptions(metadata: {'authorization': 'Bearer $token'});
+    }
+  }
+
+  /// Heuristic LAN check: tries multiple common targets (mdns + gateways).
+  Future<bool> checkLocalNetwork({Duration timeout = const Duration(seconds: 1)}) async {
+    final targets = ['router.local', '192.168.1.1', '10.0.0.1'];
+    for (final t in targets) {
+      try {
+        final result = await InternetAddress.lookup(t).timeout(timeout);
+        if (result.isNotEmpty) {
+          _lanLikely = true;
+          return true;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    _lanLikely = false;
+    return false;
+  }
+
+  bool get isLanLikely => _lanLikely;
 
   Future<void> connect({
     required String host,
@@ -141,6 +202,92 @@ class BrainClient {
     } catch (e) {
       return {'error': e.toString()};
     }
+  }
+
+  /// Claim robot with optional account metadata.
+  Future<bool> claimRobot({
+    required String host,
+    int httpPort = 8080,
+    String? accountId,
+    String? accountType,
+    String? ownerId,
+  }) async {
+    final uri = Uri.http('$host:$httpPort', '/api/ownership/claim');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {
+          ..._headers(),
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          if (accountId != null) 'account_id': accountId,
+          if (accountType != null) 'account_type': accountType,
+          if (ownerId != null) 'owner_id': ownerId,
+        }),
+      );
+      if (response.statusCode == 200) {
+        isOwned = true;
+        return true;
+      }
+      debugPrint('Claim failed: HTTP ${response.statusCode} body=${response.body}');
+      return false;
+    } catch (e) {
+      debugPrint('Claim failed: $e');
+      return false;
+    }
+  }
+
+  /// Placeholder for seed bundle install; replace with real API when available.
+  Future<bool> installSeedBundle({required String host, int httpPort = 8080}) async {
+    final uri = Uri.http('$host:$httpPort', '/api/ota/install_seed');
+    try {
+      final response = await http.post(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return true;
+      }
+      debugPrint('Seed install failed: HTTP ${response.statusCode}');
+      return false;
+    } catch (e) {
+      debugPrint('Seed install failed: $e');
+      return false;
+    }
+  }
+
+  /// Fetch ownership/subscription/seed status; expects backend shape.
+  Future<Map<String, dynamic>> fetchOwnershipStatus({
+    required String host,
+    int httpPort = 8080,
+  }) async {
+    final uri = Uri.http('$host:$httpPort', '/api/ownership/status');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      debugPrint('Status failed: HTTP ${response.statusCode} body=${response.body}');
+    } catch (e) {
+      debugPrint('Status failed: $e');
+    }
+    return {};
+  }
+
+  /// Ping endpoint to check reachability and get device id.
+  Future<Map<String, dynamic>> ping({
+    required String host,
+    int httpPort = 8080,
+  }) async {
+    final uri = Uri.http('$host:$httpPort', '/api/ping');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      debugPrint('Ping failed: HTTP ${response.statusCode} body=${response.body}');
+    } catch (e) {
+      debugPrint('Ping failed: $e');
+    }
+    return {};
   }
 
   Future<void> sendCommand(ControlCommand command) async {
