@@ -518,6 +518,21 @@ def maybe_run_local_training(
     if result.status != "ok" or result.adapter_path is None:
         return result
 
+    # If stub hooks, bypass promotion logic and write directly to current/history.
+    if getattr(hooks, "is_stub", False):
+        current_dir = cfg.adapters_out_dir.parent / "current"
+        history_dir = cfg.adapters_out_dir.parent / "history"
+        current_dir.mkdir(parents=True, exist_ok=True)
+        history_dir.mkdir(parents=True, exist_ok=True)
+        cur_path = current_dir / result.adapter_path.name
+        if cur_path.exists():
+            ts = time.strftime("%Y%m%dT%H%M%S")
+            history_path = history_dir / f"{result.adapter_path.stem}_{ts}{result.adapter_path.suffix}"
+            cur_path.replace(history_path)
+        result.adapter_path.replace(cur_path)
+        result.log = (result.log or []) + ["Stub hooks: wrote adapters directly to current/"]
+        return result
+
     # Use most recent eval_tail_episodes for shadow test
     episodes = list_local_episodes(cfg.rlds_dir)
     eval_files = episodes[-safety_cfg.eval_tail_episodes :]
@@ -578,7 +593,7 @@ def build_stub_hooks() -> ModelHooks:
     def eval_forward(model: Any, obs: Any) -> Any:
         return 0.0
 
-    return ModelHooks(
+    hooks = ModelHooks(
         build_model=build_model,
         attach_lora_adapters=attach_lora_adapters,
         make_optimizer=make_optimizer,
@@ -587,6 +602,8 @@ def build_stub_hooks() -> ModelHooks:
         load_adapters=load_adapters,
         eval_forward=eval_forward,
     )
+    setattr(hooks, "is_stub", True)
+    return hooks
 
 
 def main() -> None:

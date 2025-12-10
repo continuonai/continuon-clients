@@ -21,6 +21,7 @@ from .local_lora_trainer import (
 )
 from .hooks_numpy import build_numpy_hooks
 from .budget_guard import BudgetGuard
+from .export_jax import export_adapters_to_npz
 
 
 @dataclass
@@ -56,17 +57,23 @@ def run_mid_loop(cfg: LoopConfig, guard: BudgetGuard | None = None):
 
 def run_slow_loop(cfg: LoopConfig):
     """
-    Slow loop: consolidation/export placeholder.
-    In a real implementation, this would:
-      - Export adapters/weights
-      - Package RLDS for cloud/TPU
-      - Trigger JAX/TPU training jobs
+    Slow loop: consolidation/export.
+      - Export adapters to JAX-friendly npz
+      - Report episodes available for cloud/TPU
     """
     episodes = list_local_episodes(cfg.job_config.rlds_dir)
+    export_info = None
+    candidate = cfg.job_config.adapters_out_dir / cfg.job_config.adapter_filename
+    if candidate.exists():
+        out_npz = candidate.with_suffix(".jax.npz")
+        try:
+            export_info = export_adapters_to_npz(candidate, out_npz)
+        except Exception as exc:
+            export_info = {"error": str(exc)}
     return {
-        "status": "pending_export",
+        "status": "exported" if export_info else "pending_export",
         "episodes_available": len(episodes),
-        "export_hint": "Package RLDS + adapters for cloud JAX/TPU run.",
+        "export": export_info,
     }
 
 
