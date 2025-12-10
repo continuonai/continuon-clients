@@ -11,6 +11,14 @@ Scope: `continuonbrain/`.
   - For manifest/config changes, validate JSON syntax and ensure sample paths remain coherent with README references.
   Mention any skipped checks due to unavailable dependencies or hardware.
 
+### Pi 5 HAT vision seed (reference names)
+- Base model placeholder: `/opt/continuonos/brain/model/base_model/hat_vision_seed.pt`
+- Current adapter target: `/opt/continuonos/brain/model/adapters/current/lora_hat_vision.pt`
+- Candidate adapter target: `/opt/continuonos/brain/model/adapters/candidate/lora_hat_vision.pt`
+- RLDS dir: `/opt/continuonos/brain/rlds/episodes/` (camera-only acceptable when PCA is down; OAK-D Lite provides RGB+depth)
+- If on-device LLM/tools (Gemma 3n 2B + MCP/http), log tool traces into `step_metadata` for later cloud/JAX ingestion.
+- Hailo: prefer Hailo for inference when available; placeholder HEF path `/opt/continuonos/brain/model/base_model/model.hef` with CPU fallback when absent.
+
 Recent updates:
 - JAX-first model selection is preferred (set `CONTINUON_PREFER_JAX=1`, default). Transformers/Gemma remains optional fallback; avoid heavy imports on startup when possible.
 - Hailo export/runtime is still a placeholder; `.hef` presence is checked, but compilation/runtime requires the Hailo SDK. Document clearly when placeholders are used.

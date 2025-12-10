@@ -16,7 +16,7 @@
   "adapters_out_dir": "/opt/continuonos/brain/model/adapters/candidate",
   "adapter_filename": "lora_adapters.pt",
   "log_dir": "/opt/continuonos/brain/trainer/logs",
-  "base_model_path": "/opt/continuonos/brain/model/base_policy.pt",
+  "base_model_path": "/opt/continuonos/brain/model/base_model/hat_vision_seed.pt",
   "shuffle_buffer_multiplier": 4,
   "log_every_steps": 10
 }

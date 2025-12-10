@@ -12,6 +12,14 @@ Production runtime code belongs here; keep docs explicit about what is productio
 
 For training-time autonomy (when humans are away), keep the robot focused on safe, creator-aligned work items listed in `SELF_IMPROVEMENT_BACKLOG.md`. Tasks emphasize offline-first checks, system health validation, and strict adherence to the safety protocol.
 
+### Pi 5 HAT vision seed (reference names)
+- Base model placeholder for HAT vision runs: `/opt/continuonos/brain/model/base_model/hat_vision_seed.pt`
+- Current adapter target: `/opt/continuonos/brain/model/adapters/current/lora_hat_vision.pt`
+- Candidate adapter target: `/opt/continuonos/brain/model/adapters/candidate/lora_hat_vision.pt`
+- RLDS episodes directory: `/opt/continuonos/brain/rlds/episodes/` (camera-only acceptable when PCA is down; OAK-D Lite provides RGB+depth frames)
+- If on-device LLM/tools (e.g., Gemma 3n 2B with MCP/http) are used, log tool traces into `step_metadata` for later cloud/JAX ingestion.
+- Hailo: prefer Hailo inference when available; placeholder HEF path `/opt/continuonos/brain/model/base_model/model.hef` with CPU fallback if SDK/hef are absent.
+
 The Robot API server launched by `startup_manager.py` now uses `python -m continuonbrain.robot_api_server` and runs in **real hardware mode by default** (it fails fast if controllers are absent). This keeps the production path aligned with the previous mock features (UI/JSON bridge) while enforcing hardware readiness.
 
 ## Pi5 Robot Arm Integration (Design Validation)
