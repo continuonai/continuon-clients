@@ -572,9 +572,28 @@ class BrainService:
             
             # Execute LLM chat with enhanced context
             full_context = system_context + hope_context
-            response = self.gemma_chat.chat(message, system_context=full_context)
-            
-            if hope_context:
+            chat_backend = self.gemma_chat
+            if chat_backend is None:
+                logger.warning("Chat backend missing; using mock chat to keep Agent Manager responsive.")
+                self._build_chat_with_fallback()
+                chat_backend = self.gemma_chat
+
+            response = chat_backend.chat(message, system_context=full_context)
+
+            if not response or "Gemma model failed to load" in str(response):
+                # Try a fallback backend ladder once before giving up to HOPE/mock text response
+                if self._build_chat_with_fallback():
+                    try:
+                        response = self.gemma_chat.chat(message, system_context=full_context)
+                        response_agent = "llm_fallback_chain"
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(f"Fallback chat attempt failed: {exc}")
+                        response_agent = "hope_only" if self.hope_brain else "mock_chat"
+                        response = self._fallback_chat_response(message, full_context)
+                else:
+                    response_agent = "hope_only" if self.hope_brain else "mock_chat"
+                    response = self._fallback_chat_response(message, full_context)
+            elif hope_context:
                 response_agent = "llm_with_hope_context"
             else:
                 response_agent = "llm_only"
@@ -797,6 +816,63 @@ class BrainService:
             "agent": response_agent,  # Track which agent provided response
             "hope_confidence": hope_confidence  # Track HOPE's confidence score
         }
+
+    # ---- Chat backend fallbacks ----
+    def _build_chat_with_fallback(self, preferred_models: Optional[list] = None) -> bool:
+        """
+        Try building chat backends in priority order until one loads.
+        Order default: Gemma 3 270M IT (lightweight), Gemma 3 4B, mock.
+        """
+        fallback_order = preferred_models or [
+            "google/gemma-3-270m-it",
+            "google/gemma-3-4b-it",
+            "mock",
+        ]
+
+        for model_id in fallback_order:
+            try:
+                if model_id == "mock":
+                    chat = create_gemma_chat(use_mock=True, error_msg="LLM unavailable; using mock fallback")
+                    self.gemma_chat = chat
+                    self.selected_model = {"id": "mock", "name": "Mock Chat", "backend": "mock", "available": True, "reason": "fallback"}
+                    return True
+
+                chat = create_gemma_chat(use_mock=False, model_name=model_id)
+                loaded = chat.load_model()
+                if loaded:
+                    self.gemma_chat = chat
+                    self.selected_model = {"id": model_id, "name": model_id, "backend": "transformers", "available": True, "reason": "fallback"}
+                    logger.info(f"✅ Chat backend ready: {model_id}")
+                    return True
+                else:
+                    logger.warning(f"Chat backend failed to load: {model_id}")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"Chat backend exception for {model_id}: {exc}")
+
+        # If we reach here, nothing loaded
+        self.gemma_chat = create_gemma_chat(use_mock=True, error_msg="All LLM fallbacks failed")
+        self.selected_model = {"id": "mock", "name": "Mock Chat", "backend": "mock", "available": True, "reason": "all_fallbacks_failed"}
+        return False
+
+    def _fallback_chat_response(self, message: str, context: str) -> str:
+        """
+        Keep Agent Manager responsive when Gemma is unavailable by leaning on HOPE seed knowledge.
+        """
+        if self.hope_brain:
+            try:
+                from continuonbrain.services.agent_hope import HOPEAgent
+
+                hope_agent = HOPEAgent(self.hope_brain)
+                hope_reply = hope_agent.generate_response(message)
+                if hope_reply:
+                    return hope_reply
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"HOPE fallback failed: {exc}")
+
+        return (
+            "Gemma is unavailable, so I'm answering from the HOPE seed model. "
+            f"Context: {context}. Ask about my sensors, motion, or training state while I restore the LLM."
+        )
     
     def get_brain_structure(self) -> Dict[str, Any]:
         """
@@ -928,12 +1004,19 @@ class BrainService:
                     if self.background_learner:
                         self.hope_brain = self.background_learner.brain
                 
-                # Create underlying LLM for fallback (default to 2B)
+                # Create underlying LLM for fallback (default to Gemma / mock)
                 # Use existing if compatible, else create new
+                llm = None
                 if getattr(self.gemma_chat, 'model_name', '') == create_gemma_chat.DEFAULT_MODEL_ID:
-                     llm = self.gemma_chat
-                else:
-                     llm = create_gemma_chat(use_mock=False) # standard default
+                    llm = self.gemma_chat
+                if llm is None:
+                    try:
+                        llm = create_gemma_chat(use_mock=False)
+                        # best-effort eager load so we discover failures early
+                        llm.load_model()
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(f"Gemma fallback unavailable ({exc}); using mock chat.")
+                        llm = create_gemma_chat(use_mock=True, error_msg="Gemma unavailable for HOPE fallback")
                 
                 # Lazily init hope agent if needed
                 from continuonbrain.services.agent_hope import HOPEAgent
@@ -1253,7 +1336,10 @@ class BrainService:
 
         # Load Gemma Model
         print("🤖 Loading Gemma Chat Model...")
-        self.gemma_chat.load_model()
+        loaded = self.gemma_chat.load_model()
+        if not loaded:
+            logger.warning("Gemma load failed; trying fallback ladder (4B -> 270M -> mock).")
+            self._build_chat_with_fallback()
 
 
         # Initialize recorder and hardware

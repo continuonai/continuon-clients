@@ -27,7 +27,36 @@ class HOPEAgentWrapper:
 
         # Fallback to LLM
         logger.info(f"HOPE yielding to LLM ({confidence:.2f} confidence)")
-        return self.llm.chat(message, system_context, image)
+
+        if not self.llm:
+            logger.warning("LLM backend missing; replying with HOPE-only safety response.")
+            return self._hope_only_response(message, "No LLM backend available")
+
+        response = None
+        try:
+            response = self.llm.chat(message, system_context, image)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"LLM chat failed ({exc}); using HOPE-only response")
+
+        # If the fallback model failed to load or returned an error string, keep the agent responsive.
+        if not response or "Gemma model failed to load" in str(response):
+            return self._hope_only_response(message, "Gemma unavailable")
+
+        return response
+
+    def _hope_only_response(self, message: str, reason: str) -> str:
+        """Graceful fallback when LLM backend is unavailable."""
+        # Try to reuse HOPE's domain knowledge first.
+        response = self.hope.generate_response(message)
+        if response:
+            return response
+
+        # Final guardrail response.
+        return (
+            "I'm running on the HOPE seed model and don't have external LLM access right now. "
+            f"I'll keep things safe and focused on the robot: {reason}. "
+            "Ask about my sensors, movement, or current mode."
+        )
 
     def get_model_info(self) -> Dict[str, Any]:
         info = self.llm.get_model_info()

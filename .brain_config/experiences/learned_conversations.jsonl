@@ -1,0 +1,1 @@
+{"type": "conversation", "question": "hello with 270m", "answer": "[Mock] You said: 'hello with 270m'. Missing dependency: LLM unavailable; using mock fallback", "agent": "llm_with_hope_context", "confidence": 0.7, "timestamp": "2025-12-10T10:56:35.612830", "validated": false, "metadata": {"hope_context": true}}

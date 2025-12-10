@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper predicates
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Craig (creator) gets universal access
+    function isCreator() {
+      return signedIn() && request.auth.token.email == "craigm26@gmail.com";
+    }
+
+    // Owner is either the creator or the user who owns this subtree
+    function isOwner(userId) {
+      return signedIn() && (isCreator() || request.auth.uid == userId);
+    }
+
+    // Per-user data (robots stored under users/{uid}/robots)
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // Robots claimed/added by the user
+      match /robots/{robotId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if isOwner(userId);
+      }
+
+      // Commands: allow emergency stop from any signed-in user; other commands require owner
+      match /commands/{commandId} {
+        allow create: if (signedIn() && request.resource.data.type == "EMERGENCY_STOP")
+                      || isOwner(userId);
+        allow read, update, delete: if isOwner(userId);
+      }
+
+      // Brain reset requests: owner/creator only; add a `catastrophicMode` flag to the doc
+      match /brainResets/{resetId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}
+

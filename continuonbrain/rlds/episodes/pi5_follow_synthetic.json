@@ -1,137 +1,336 @@
 {
-  "episode_metadata": {
-    "episode_id": "synthetic_pi5_follow_0001",
+  "metadata": {
+    "xr_mode": "trainer",
+    "control_role": "human_teleop",
     "environment_id": "house_a",
-    "robot": "donkeycar_pi5",
-    "task": "follow_human",
-    "camera": {
-      "sensor": "rgb_front",
-      "shutter": "rolling",
-      "resolution": "1280x720",
-      "fps": 30
-    },
-    "notes": "Synthetic episode: Pi 5 rolling-shutter RGB cam following a human around a house."
+    "tags": [
+      "synthetic",
+      "pi5",
+      "donkeycar",
+      "follow_human"
+    ],
+    "software": {
+      "xr_app": "synthetic_gen",
+      "continuonbrain_os": "synthetic_gen",
+      "glove_firmware": "absent"
+    }
   },
   "steps": [
     {
-      "timestamp_micros": 0,
       "observation": {
-        "rgb_front": {
-          "uri": "synthetic://frame_0000.jpg",
-          "width": 1280,
-          "height": 720,
-          "format": "rgb"
+        "headset_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "right_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "left_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "gaze": {
+          "origin": [0.0, 0.0, 0.0],
+          "direction": [0.0, 0.0, 1.0],
+          "confidence": 0.0
         },
         "robot_state": {
-          "pose": {"x": 0.0, "y": 0.0, "theta": 0.0},
-          "linear_velocity": 0.0,
-          "angular_velocity": 0.0
+          "timestamp_nanos": 0,
+          "joint_positions": [0.0, 0.0],
+          "joint_velocities": [0.0, 0.0],
+          "joint_efforts": [],
+          "end_effector_pose": {
+            "position": [0.0, 0.0, 0.0],
+            "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+            "valid": false
+          },
+          "end_effector_twist": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "gripper_open": true,
+          "frame_id": "base_link",
+          "wall_time_millis": 0
+        },
+        "glove": {
+          "timestamp_nanos": 0,
+          "flex": [0, 0, 0, 0, 0],
+          "fsr": [0, 0, 0, 0, 0, 0, 0, 0],
+          "orientation_quat": [0, 0, 0, 0],
+          "accel": [0, 0, 0],
+          "valid": false
+        },
+        "video_frame_id": "frame_0000",
+        "depth_frame_id": "frame_0000",
+        "diagnostics": {
+          "latency_ms": 0,
+          "glove_drops": 0,
+          "ble_rssi": 0,
+          "glove_sample_rate_hz": 0
         }
       },
       "action": {
-        "steering": 0.05,
-        "throttle": 0.1
+        "command": [0.05, 0.1],
+        "source": "human_teleop_xr"
       },
       "step_metadata": {
-        "human_visible": true,
-        "human_distance_m": 3.5
+        "human_visible": "true",
+        "human_distance_m": "3.5"
       }
     },
     {
-      "timestamp_micros": 100000,
       "observation": {
-        "rgb_front": {
-          "uri": "synthetic://frame_0001.jpg",
-          "width": 1280,
-          "height": 720,
-          "format": "rgb"
+        "headset_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "right_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "left_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "gaze": {
+          "origin": [0.0, 0.0, 0.0],
+          "direction": [0.0, 0.0, 1.0],
+          "confidence": 0.0
         },
         "robot_state": {
-          "pose": {"x": 0.05, "y": 0.0, "theta": 0.01},
-          "linear_velocity": 0.12,
-          "angular_velocity": 0.02
+          "timestamp_nanos": 100000000,
+          "joint_positions": [0.0, 0.0],
+          "joint_velocities": [0.0, 0.0],
+          "joint_efforts": [],
+          "end_effector_pose": {
+            "position": [0.0, 0.0, 0.0],
+            "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+            "valid": false
+          },
+          "end_effector_twist": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "gripper_open": true,
+          "frame_id": "base_link",
+          "wall_time_millis": 100
+        },
+        "glove": {
+          "timestamp_nanos": 100000000,
+          "flex": [0, 0, 0, 0, 0],
+          "fsr": [0, 0, 0, 0, 0, 0, 0, 0],
+          "orientation_quat": [0, 0, 0, 0],
+          "accel": [0, 0, 0],
+          "valid": false
+        },
+        "video_frame_id": "frame_0001",
+        "depth_frame_id": "frame_0001",
+        "diagnostics": {
+          "latency_ms": 0,
+          "glove_drops": 0,
+          "ble_rssi": 0,
+          "glove_sample_rate_hz": 0
         }
       },
       "action": {
-        "steering": 0.06,
-        "throttle": 0.12
+        "command": [0.06, 0.12],
+        "source": "human_teleop_xr"
       },
       "step_metadata": {
-        "human_visible": true,
-        "human_distance_m": 3.2
+        "human_visible": "true",
+        "human_distance_m": "3.2"
       }
     },
     {
-      "timestamp_micros": 200000,
       "observation": {
-        "rgb_front": {
-          "uri": "synthetic://frame_0002.jpg",
-          "width": 1280,
-          "height": 720,
-          "format": "rgb"
+        "headset_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "right_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "left_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "gaze": {
+          "origin": [0.0, 0.0, 0.0],
+          "direction": [0.0, 0.0, 1.0],
+          "confidence": 0.0
         },
         "robot_state": {
-          "pose": {"x": 0.12, "y": 0.01, "theta": 0.03},
-          "linear_velocity": 0.14,
-          "angular_velocity": 0.03
+          "timestamp_nanos": 200000000,
+          "joint_positions": [0.0, 0.0],
+          "joint_velocities": [0.0, 0.0],
+          "joint_efforts": [],
+          "end_effector_pose": {
+            "position": [0.0, 0.0, 0.0],
+            "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+            "valid": false
+          },
+          "end_effector_twist": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "gripper_open": true,
+          "frame_id": "base_link",
+          "wall_time_millis": 200
+        },
+        "glove": {
+          "timestamp_nanos": 200000000,
+          "flex": [0, 0, 0, 0, 0],
+          "fsr": [0, 0, 0, 0, 0, 0, 0, 0],
+          "orientation_quat": [0, 0, 0, 0],
+          "accel": [0, 0, 0],
+          "valid": false
+        },
+        "video_frame_id": "frame_0002",
+        "depth_frame_id": "frame_0002",
+        "diagnostics": {
+          "latency_ms": 0,
+          "glove_drops": 0,
+          "ble_rssi": 0,
+          "glove_sample_rate_hz": 0
         }
       },
       "action": {
-        "steering": 0.05,
-        "throttle": 0.14
+        "command": [0.05, 0.14],
+        "source": "human_teleop_xr"
       },
       "step_metadata": {
-        "human_visible": true,
-        "human_distance_m": 2.9
+        "human_visible": "true",
+        "human_distance_m": "2.9"
       }
     },
     {
-      "timestamp_micros": 300000,
       "observation": {
-        "rgb_front": {
-          "uri": "synthetic://frame_0003.jpg",
-          "width": 1280,
-          "height": 720,
-          "format": "rgb"
+        "headset_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "right_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "left_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "gaze": {
+          "origin": [0.0, 0.0, 0.0],
+          "direction": [0.0, 0.0, 1.0],
+          "confidence": 0.0
         },
         "robot_state": {
-          "pose": {"x": 0.20, "y": 0.02, "theta": 0.04},
-          "linear_velocity": 0.16,
-          "angular_velocity": 0.04
+          "timestamp_nanos": 300000000,
+          "joint_positions": [0.0, 0.0],
+          "joint_velocities": [0.0, 0.0],
+          "joint_efforts": [],
+          "end_effector_pose": {
+            "position": [0.0, 0.0, 0.0],
+            "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+            "valid": false
+          },
+          "end_effector_twist": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "gripper_open": true,
+          "frame_id": "base_link",
+          "wall_time_millis": 300
+        },
+        "glove": {
+          "timestamp_nanos": 300000000,
+          "flex": [0, 0, 0, 0, 0],
+          "fsr": [0, 0, 0, 0, 0, 0, 0, 0],
+          "orientation_quat": [0, 0, 0, 0],
+          "accel": [0, 0, 0],
+          "valid": false
+        },
+        "video_frame_id": "frame_0003",
+        "depth_frame_id": "frame_0003",
+        "diagnostics": {
+          "latency_ms": 0,
+          "glove_drops": 0,
+          "ble_rssi": 0,
+          "glove_sample_rate_hz": 0
         }
       },
       "action": {
-        "steering": 0.04,
-        "throttle": 0.16
+        "command": [0.04, 0.16],
+        "source": "human_teleop_xr"
       },
       "step_metadata": {
-        "human_visible": true,
-        "human_distance_m": 2.6
+        "human_visible": "true",
+        "human_distance_m": "2.6"
       }
     },
     {
-      "timestamp_micros": 400000,
       "observation": {
-        "rgb_front": {
-          "uri": "synthetic://frame_0004.jpg",
-          "width": 1280,
-          "height": 720,
-          "format": "rgb"
+        "headset_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "right_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "left_hand_pose": {
+          "position": [0.0, 0.0, 0.0],
+          "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+          "valid": false
+        },
+        "gaze": {
+          "origin": [0.0, 0.0, 0.0],
+          "direction": [0.0, 0.0, 1.0],
+          "confidence": 0.0
         },
         "robot_state": {
-          "pose": {"x": 0.30, "y": 0.03, "theta": 0.05},
-          "linear_velocity": 0.17,
-          "angular_velocity": 0.04
+          "timestamp_nanos": 400000000,
+          "joint_positions": [0.0, 0.0],
+          "joint_velocities": [0.0, 0.0],
+          "joint_efforts": [],
+          "end_effector_pose": {
+            "position": [0.0, 0.0, 0.0],
+            "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+            "valid": false
+          },
+          "end_effector_twist": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "gripper_open": true,
+          "frame_id": "base_link",
+          "wall_time_millis": 400
+        },
+        "glove": {
+          "timestamp_nanos": 400000000,
+          "flex": [0, 0, 0, 0, 0],
+          "fsr": [0, 0, 0, 0, 0, 0, 0, 0],
+          "orientation_quat": [0, 0, 0, 0],
+          "accel": [0, 0, 0],
+          "valid": false
+        },
+        "video_frame_id": "frame_0004",
+        "depth_frame_id": "frame_0004",
+        "diagnostics": {
+          "latency_ms": 0,
+          "glove_drops": 0,
+          "ble_rssi": 0,
+          "glove_sample_rate_hz": 0
         }
       },
       "action": {
-        "steering": 0.03,
-        "throttle": 0.17
+        "command": [0.03, 0.18],
+        "source": "human_teleop_xr"
       },
       "step_metadata": {
-        "human_visible": true,
-        "human_distance_m": 2.4
+        "human_visible": "true",
+        "human_distance_m": "2.4"
       }
     }
   ]
 }
+

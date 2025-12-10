@@ -74,6 +74,25 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
    flutter build ios-framework --cocoapods
    ```
 
+## Firebase auth & hosting setup
+
+- Enable the Google provider in Firebase Authentication, then add authorized domains: `localhost`, `127.0.0.1`, your LAN IP if you serve locally, the App Hosting/Hosting subdomain, and your production domain (for example `app.continuon.ai`).
+- Android: add release SHA-1/SHA-256 fingerprints in Firebase console and download a fresh `android/app/google-services.json` (package name stays `com.continuonxr.fluttercompanion.flutter_companion`).
+- iOS/macOS: add the Apple app in Firebase, download `ios/Runner/GoogleService-Info.plist`, and register the reversed client ID in URL types.
+- Web: the app already uses `FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider())`; no extra redirect URI is needed when the domain is authorized.
+- Firestore: a `[cloud_firestore/permission-denied]` error in the web UI indicates the current rules reject the request. Sign in first and ensure rules permit the intended reads/writes for authenticated users (or use the emulator for local-only tests).
+- Deploying the web build via Firebase App Hosting keeps auth/storage domains aligned with Firebase; add the hosted domain to authorized domains when you create it.
+
+### Firebase project bootstrap (from repo root)
+1) Install CLIs if needed: `npm install -g firebase-tools` and `dart pub global activate flutterfire_cli`.
+2) Auth and select project: `firebase login` then `firebase use continuonai`.
+3) Ensure configs are in place (already checked in): `lib/firebase_options.dart`, `android/app/google-services.json`, and `ios/Runner/GoogleService-Info.plist` (add the iOS file if you build for iOS).
+4) Update FlutterFire config if the Firebase project changes keys/apps:  
+   `flutterfire configure --project=continuonai --platforms=web,android,ios --yes`
+5) Deploy Firestore rules (creator override + owner/robot scoping lives in `firestore.rules`):  
+   `firebase deploy --only firestore`
+6) Local web run: `flutter run -d chrome --web-port 8080`; production web: deploy via Firebase App Hosting/Hosting and add that domain to Authorized domains.
+
 ## ContinuonBrain bindings
 
 The client uses the same service and message shapes as `proto/continuonbrain_link.proto`.

@@ -113,7 +113,11 @@ class HOPEAgent:
                 return self._describe_general_capabilities()
             else:
                 # Fallback for queries we can't handle yet
-                return None
+                return (
+                    "I'm running the HOPE seed model and still learning. "
+                    "I can describe my sensors, movement, and safety status. "
+                    "Ask me what I can see, how I move, or how to stay safe."
+                )
                 
         except Exception as e:
             logger.error(f"Error generating HOPE response: {e}")

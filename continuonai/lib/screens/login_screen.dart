@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 
 import '../theme/continuon_theme.dart';
 import 'robot_list_screen.dart';
@@ -56,27 +57,28 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (kIsWeb) {
+        // Web uses Firebase Auth popup for Google; no client secret needed.
+        await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+      } else {
+        // Mobile/desktop via native Google Sign-In then hand off to Firebase Auth.
+        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
-      if (googleUser == null) {
-        // The user canceled the sign-in
-        setState(() => _isLoading = false);
-        return;
+        if (googleUser == null) {
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+
+        final OAuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        await FirebaseAuth.instance.signInWithCredential(credential);
       }
-
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create a new credential
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Once signed in, return the UserCredential
-      await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, RobotListScreen.routeName);
@@ -88,6 +90,11 @@ class _LoginScreenState extends State<LoginScreen>
           _error = 'Sign in failed: ${e.toString()}';
         });
       }
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 

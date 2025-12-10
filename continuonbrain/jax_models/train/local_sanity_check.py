@@ -6,6 +6,7 @@ loss computation, and gradients before cloud TPU training.
 """
 
 import time
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Optional
 import jax
@@ -118,7 +119,7 @@ def compute_loss(
     return loss
 
 
-@jax.jit
+@partial(jax.jit, static_argnums=(2, 5, 6))
 def train_step(
     params: Dict[str, Any],
     opt_state: Any,
@@ -291,8 +292,14 @@ def run_sanity_check(
     
     print(f"\nSanity check completed:")
     print(f"  Steps: {results['steps']}")
-    print(f"  Final loss: {results['final_loss']:.6f}")
-    print(f"  Avg loss: {results['avg_loss']:.6f}")
+    if results['final_loss'] is not None:
+        print(f"  Final loss: {results['final_loss']:.6f}")
+    else:
+        print("  Final loss: n/a (no batches consumed)")
+    if results['avg_loss'] is not None:
+        print(f"  Avg loss: {results['avg_loss']:.6f}")
+    else:
+        print("  Avg loss: n/a (no batches consumed)")
     print(f"  Wall time: {wall_time:.2f}s")
     
     if metrics_file:
@@ -332,10 +339,10 @@ def main():
     )
     
     if results['status'] == 'ok':
-        print("\n✅ Sanity check passed!")
+        print("\nSanity check passed!")
         return 0
     else:
-        print("\n❌ Sanity check failed!")
+        print("\nSanity check failed!")
         return 1
 
 

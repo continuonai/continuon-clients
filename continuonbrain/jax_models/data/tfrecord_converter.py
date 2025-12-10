@@ -185,19 +185,29 @@ def convert_episode_to_tfrecord(
         episode_id = steps[0].get("episode_id", episode_path.stem) if steps else episode_path.stem
     else:
         raise ValueError(f"Unsupported file format: {episode_path.suffix}")
+    step_count = len(steps)
+    print(
+        f"Converting {episode_path.name} ({step_count} steps) -> {Path(output_path).name if output_path else 'auto'}",
+        flush=True,
+    )
     
     # Write TFRecord
     open_fn = gzip.open if compress else open
     mode = 'wb' if compress else 'w'
     
     with open_fn(output_path, mode) as f:
-        writer = tf.io.TFRecordWriter(f.name if compress else output_path)
+        # TFRecordWriter expects a string path; Path objects trigger a TypeError on Windows.
+        writer = tf.io.TFRecordWriter(f.name if compress else str(output_path))
         
         for step_index, step in enumerate(steps):
             example = convert_step_to_tfrecord(step, episode_id, step_index)
             writer.write(example.SerializeToString())
+            if step_index and step_index % 500 == 0:
+                print(f"  wrote {step_index}/{step_count} steps...", flush=True)
         
         writer.close()
+    
+    print(f"  done {episode_path.name}: {step_count} steps", flush=True)
     
     return output_path
 
@@ -232,13 +242,22 @@ def convert_directory_to_tfrecord(
     # Find episode files
     json_files = list(input_dir.glob("*.json"))
     jsonl_files = list(input_dir.glob("*.jsonl"))
-    episode_files = json_files + jsonl_files
+    episode_files = sorted(json_files + jsonl_files)
+    
+    if not episode_files:
+        print(f"No episode files found in {input_dir}", flush=True)
+        return []
+    
+    total = len(episode_files)
+    print(f"Found {total} episode files in {input_dir}, writing to {output_dir}", flush=True)
     
     output_paths = []
-    for episode_file in episode_files:
+    for idx, episode_file in enumerate(episode_files, start=1):
         output_file = output_dir / f"{episode_file.stem}.tfrecord"
         if compress:
             output_file = output_file.with_suffix('.tfrecord.gz')
+        
+        print(f"[{idx}/{total}] {episode_file.name} -> {output_file.name}", flush=True)
         
         try:
             converted_path = convert_episode_to_tfrecord(
@@ -248,7 +267,7 @@ def convert_directory_to_tfrecord(
             )
             output_paths.append(converted_path)
         except Exception as e:
-            print(f"Error converting {episode_file}: {e}")
+            print(f"Error converting {episode_file}: {e}", flush=True)
             continue
     
     return output_paths

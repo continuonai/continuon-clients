@@ -1,0 +1,28 @@
+{
+  "safety": {
+    "allow_motion": true,
+    "record_episodes": true,
+    "require_supervision": false
+  },
+  "telemetry": {
+    "rate_hz": 2.0
+  },
+  "chat": {
+    "persona": "operator",
+    "temperature": 0.35
+  },
+  "training": {
+    "enable_sidecar_trainer": false,
+    "enable_sleep_learning": true
+  },
+  "agent_manager": {
+    "enable_thinking_indicator": true,
+    "enable_intervention_prompts": true,
+    "intervention_confidence_threshold": 0.5,
+    "enable_status_updates": true,
+    "enable_autonomous_learning": true,
+    "autonomous_learning_steps_per_cycle": 100,
+    "autonomous_learning_checkpoint_interval": 1000,
+    "agent_model": "hope-v1"
+  }
+}

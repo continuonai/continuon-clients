@@ -101,9 +101,9 @@ class AgentIdentity:
         brain_mission_path = self.repo_root / "continuonbrain" / "MISSION_STATEMENT.md" # Fallback
         
         if mission_path.exists():
-            self.identity["design"]["mission_statement"] = mission_path.read_text().strip()
+            self.identity["design"]["mission_statement"] = mission_path.read_text(encoding="utf-8", errors="ignore").strip()
         elif brain_mission_path.exists():
-            self.identity["design"]["mission_statement"] = brain_mission_path.read_text().strip()
+            self.identity["design"]["mission_statement"] = brain_mission_path.read_text(encoding="utf-8", errors="ignore").strip()
         else:
             self.identity["design"]["mission_statement"] = "[NO MISSION STATEMENT FOUND]"
 
