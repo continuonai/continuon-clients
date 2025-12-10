@@ -64,3 +64,22 @@ class HailoRunner:
             return self.cpu_fallback(inputs)
         raise RuntimeError("No Hailo available and no CPU fallback provided.")
 
+
+def build_hailo_first_inference(
+    use_hailo: bool,
+    hef_path: Path,
+    cpu_fn: Callable[[Any], Any],
+) -> Callable[[Any], Any]:
+    """
+    Return an inference callable that prefers Hailo when enabled/available,
+    else falls back to the provided cpu_fn.
+    """
+    if not use_hailo:
+        return cpu_fn
+    runner = HailoRunner(hef_path=hef_path, cpu_fallback=cpu_fn)
+
+    def _fn(inputs: Any) -> Any:
+        return runner.run(inputs)
+
+    return _fn
+

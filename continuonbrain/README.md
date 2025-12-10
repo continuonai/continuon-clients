@@ -19,6 +19,17 @@ For training-time autonomy (when humans are away), keep the robot focused on saf
 - RLDS episodes directory: `/opt/continuonos/brain/rlds/episodes/` (camera-only acceptable when PCA is down; OAK-D Lite provides RGB+depth frames)
 - If on-device LLM/tools (e.g., Gemma 3n 2B with MCP/http) are used, log tool traces into `step_metadata` for later cloud/JAX ingestion.
 - Hailo: prefer Hailo inference when available; placeholder HEF path `/opt/continuonos/brain/model/base_model/model.hef` with CPU fallback if SDK/hef are absent.
+- To route inference via Hailo with fallback, use `InferenceRunner`:
+  ```python
+  from pathlib import Path
+  from continuonbrain.inference_runner import InferenceRunner
+  runner = InferenceRunner(
+      use_hailo=True,
+      hef_path=Path("/opt/continuonos/brain/model/base_model/model.hef"),
+      cpu_fn=your_cpu_forward_fn,
+  )
+  out = runner(inputs)
+  ```
 
 The Robot API server launched by `startup_manager.py` now uses `python -m continuonbrain.robot_api_server` and runs in **real hardware mode by default** (it fails fast if controllers are absent). This keeps the production path aligned with the previous mock features (UI/JSON bridge) while enforcing hardware readiness.
 
