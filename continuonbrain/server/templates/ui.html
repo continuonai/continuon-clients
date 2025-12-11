@@ -3,64 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CraigBot Control</title>
+    <title>Continuon Robot Editor</title>
     <link rel="stylesheet" href="/static/ui.css">
 </head>
-<body class="ide-body">
-    <div class="ide-shell">
-        <header class="ide-topbar">
+<body class="ide-body fullwidth">
+    <div class="ide-shell wide">
+        <header class="ide-topbar sticky">
             <div class="brand">
                 <div class="brand-mark">🤖</div>
                 <div>
-                    <div class="brand-title">Continuon AI Agent Manager</div>
-                    <div class="brand-subtitle">Default agent: HOPE (Gemma fallback)</div>
+                    <div class="brand-title">Continuon Robot Editor</div>
+                    <div class="brand-subtitle">Inline Agent Manager • Flutter-embed ready</div>
                 </div>
+            </div>
+            <div class="tool-nav">
+                <button class="tool-btn" onclick="window.setMode('manual_control')">Manual</button>
+                <button class="tool-btn" onclick="window.setMode('autonomous')">Autonomous</button>
+                <button class="tool-btn" onclick="window.setMode('sleep_learning')">Sleep Learning</button>
+                <button class="tool-btn ghost" onclick="window.setMode('idle')">Idle</button>
+                <div class="divider"></div>
+                <button class="tool-btn" onclick="openSettingsModal()">Settings</button>
+                <button class="tool-btn ghost" onclick="window.triggerSafetyHold()">Safety Hold</button>
+                <button class="tool-btn ghost" onclick="window.resetSafetyGates()">Reset Gates</button>
             </div>
             <div class="top-status">
                 <div class="chip" id="mode">Loading...</div>
                 <div class="chip" id="recording">No</div>
                 <div class="chip" id="motion">No</div>
-                <div class="chip" id="model-stack-chip">Model stack: HOPE → Gemini → Gemma</div>
+                <div class="chip" id="model-stack-chip">Model stack: detecting…</div>
             </div>
         </header>
-        <nav class="nav-links">
-            <a class="nav-link" href="/ui">Home</a>
-            <a class="nav-link" href="/control">Control</a>
-            <a class="nav-link" href="/settings">Settings</a>
-            <div class="view-toggle">
-                <button id="owner-view-btn" class="active" onclick="window.setViewMode('owner')">Owner</button>
-                <button id="research-view-btn" onclick="window.setViewMode('research')">Research</button>
-            </div>
-        </nav>
 
-        <div class="ide-workspace">
-            <aside class="ide-sidebar">
-                <div class="sidebar-section">
-                    <div class="sidebar-title">Command Deck</div>
+        <div class="workspace-grid" id="workspace-grid">
+            <!-- LEFT COLUMN -->
+            <section class="column left-column resizable" data-column="left">
+                <div class="column-header">
+                    <div class="panel-eyebrow">Roles</div>
+                    <h2>Operator & Safety Deck</h2>
+                    <p class="panel-subtitle">Role-aware controls for owners, safety, and research.</p>
+                    <div class="view-toggle">
+                        <button id="owner-view-btn" class="active" onclick="window.setViewMode('owner')">Owner</button>
+                        <button id="research-view-btn" onclick="window.setViewMode('research')">Research</button>
+                    </div>
+                </div>
+
+                <div class="panel soft">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Command Deck</div>
+                            <h3>Modes & Gates</h3>
+                        </div>
+                    </div>
                     <div class="command-grid">
                         <button id="manual-control-btn" class="command-btn primary" onclick="startManualControl(this)">🎮 Manual Control</button>
                         <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
                         <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
                         <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
                     </div>
+                    <div class="mode-pills tight" id="mode-pill-container"></div>
+                    <div class="status-deck compact">
+                        <div class="status-card">
+                            <div class="status-label">Motion gate</div>
+                            <div class="status-value" id="gate-allow">--</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-label">Recording gate</div>
+                            <div class="status-value" id="gate-record">--</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-label">Safety head</div>
+                            <div class="status-value" id="safety-head-path">--</div>
+                        </div>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="ghost" onclick="window.triggerSafetyHold()">Engage Safety Hold</button>
+                        <button class="ghost" onclick="window.resetSafetyGates()">Reset Gates</button>
+                        <button class="ghost" onclick="openSettingsModal()">Settings</button>
+                    </div>
                 </div>
-                
-                <div class="sidebar-footnote">Use the deck like an IDE command palette to swap modes quickly.</div>
-            </aside>
 
-            <main class="ide-main">
-                <section class="panel owner-only">
+                <div class="panel soft owner-only">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Training & RLDS</div>
+                            <h3>Learning Controls</h3>
+                        </div>
+                        <div class="chip subtle">Mock-safe</div>
+                    </div>
+                    <div class="command-grid">
+                        <button class="command-btn primary" onclick="window.requestTraining()">🚀 Run Training</button>
+                        <button class="command-btn" onclick="window.viewTrainingLogs()">📜 View Logs</button>
+                        <button class="command-btn" onclick="window.openEpisodeImports()">📦 Import Episodes</button>
+                    </div>
+                    <div class="panel-subtitle mt-8" id="training-status">Idle</div>
+                </div>
+            </section>
+
+            <div class="col-resizer" data-resize="left"></div>
+
+            <!-- CENTER COLUMN -->
+            <main class="column center-column resizable" data-column="center">
+                <div class="panel">
                     <div class="panel-header">
                         <div>
                             <div class="panel-eyebrow">Live State</div>
-                            <h2>Robot Health Overview</h2>
-                            <p class="panel-subtitle">Visualize safety status, recording posture, and motion gates.</p>
+                            <h2>Robot Status & Health</h2>
+                            <p class="panel-subtitle">Motion, recording, gates, hardware, and loop telemetry.</p>
                         </div>
                     </div>
                     <div class="status-deck">
                         <div class="status-card">
                             <div class="status-label">Robot Mode</div>
-                            <div class="status-value" id="mode-card">mirrors mode badge</div>
+                            <div class="status-value" id="mode-card">Loading…</div>
                         </div>
                         <div class="status-card">
                             <div class="status-label">Recording</div>
@@ -70,44 +124,42 @@
                             <div class="status-label">Motion Allowed</div>
                             <div class="status-value" id="motion-card">No</div>
                         </div>
-                    </div>
-                    <div class="agent-chip-row" id="agent-chip-row">
-                        <!-- Agent status chips injected by JS -->
-                    </div>
-                </section>
-
-                <section class="panel owner-only">
-                    <div class="panel-header">
-                        <div>
-                            <div class="panel-eyebrow">Modes</div>
-                            <h2>Robot & Training Modes</h2>
-                            <p class="panel-subtitle">See available modes and which one is active.</p>
+                        <div class="status-card">
+                            <div class="status-label">Battery / Power</div>
+                            <div class="status-value" id="battery-status">--</div>
                         </div>
                     </div>
                     <div class="status-deck">
                         <div class="status-card">
-                            <div class="status-label">Robot Modes</div>
-                            <div class="mode-pills" id="mode-pill-container">
-                                <!-- filled by JS -->
-                            </div>
+                            <div class="status-label">Wave / Particle</div>
+                            <div class="gauge-bar"><div class="gauge-fill" id="wave-meter"></div></div>
+                            <div class="loop-meta" id="wave-value">--</div>
                         </div>
                         <div class="status-card">
-                            <div class="status-label">Training Modes</div>
-                            <div class="mode-pills" id="training-mode-container">
-                                <span class="mode-pill">Local LoRA</span>
-                                <span class="mode-pill">On-device fine-tune</span>
-                                <span class="mode-pill">RLDS ingest</span>
-                            </div>
+                            <div class="status-label">HOPE Loops</div>
+                            <div class="loop-meta" id="hope-fast">--</div>
+                            <div class="loop-meta" id="hope-mid">--</div>
+                            <div class="loop-meta" id="hope-slow">--</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-label">CMS Balance</div>
+                            <div class="loop-meta" id="cms-ratio">--</div>
+                            <div class="loop-meta" id="cms-buffer">--</div>
                         </div>
                     </div>
-                </section>
+                    <div class="sensor-grid" id="hardware-status">
+                        <div class="status-item">
+                            <span class="status-label">Loading sensors...</span>
+                        </div>
+                    </div>
+                </div>
 
-                <section class="panel owner-only">
+                <div class="panel owner-only">
                     <div class="panel-header">
                         <div>
                             <div class="panel-eyebrow">Task Library</div>
-                            <h2>Autonomy Task Deck</h2>
-                            <p class="panel-subtitle">Group tasks by intent, check eligibility markers, and hand off to the robot.</p>
+                            <h2>Autonomy Tasks</h2>
+                            <p class="panel-subtitle">Eligibility, gating, and handoff to robot.</p>
                         </div>
                         <div class="selected-task-pill" id="current-task-pill">No task selected</div>
                     </div>
@@ -120,14 +172,14 @@
                             <span class="status-label">Loading tasks...</span>
                         </div>
                     </div>
-                </section>
+                </div>
 
-                <section class="panel owner-only">
+                <div class="panel owner-only">
                     <div class="panel-header">
                         <div>
                             <div class="panel-eyebrow">Skill Library</div>
                             <h2>Reusable Skills</h2>
-                            <p class="panel-subtitle">Capability-driven skills shareable across robots; pin favorites for quick use.</p>
+                            <p class="panel-subtitle">Capabilities, publishers, and eligibility.</p>
                         </div>
                         <div class="segmented-controls tight">
                             <input id="skill-filter-input" class="input-compact" type="search" placeholder="Filter skills..." oninput="window.filterSkillText(this.value)">
@@ -140,284 +192,147 @@
                             <span class="status-label">Loading skills...</span>
                         </div>
                     </div>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-header">
-                        <div>
-                            <div class="panel-eyebrow">Training & RLDS</div>
-                            <h2>Training Controls</h2>
-                            <p class="panel-subtitle">Kick off local training, inspect logs, and manage episodes.</p>
-                        </div>
-                        <div class="chip subtle">Mock-safe in UI</div>
-                    </div>
-                    <div class="command-grid">
-                        <button class="command-btn primary" onclick="window.requestTraining()">🚀 Run Training</button>
-                        <button class="command-btn" onclick="window.viewTrainingLogs()">📜 View Logs</button>
-                        <button class="command-btn" onclick="window.openEpisodeImports()">📦 Import Episodes</button>
-                    </div>
-                    <div class="panel-subtitle mt-8" id="training-status">Idle</div>
-                </section>
-
-                <section class="panel research-only">
-                    <div class="panel-header">
-                        <div>
-                            <div class="panel-eyebrow">Neural Topology</div>
-                            <h2>Brain Map</h2>
-                            <p class="panel-subtitle">HOPE topology snapshot (mock visual placeholder).</p>
-                        </div>
-                    </div>
-                    <div class="status-deck">
-                        <div class="status-card">
-                            <div class="status-label">Architecture</div>
-                            <div class="status-value">HOPE-v1</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-label">Active Columns</div>
-                            <div class="status-value">4</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-label">Global Status</div>
-                            <div class="status-value">UNKNOWN</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-label">Lyapunov Energy</div>
-                            <div class="status-value">0.00</div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="panel research-only">
-                    <div class="panel-header">
-                        <div>
-                            <div class="panel-eyebrow">HOPE / CMS</div>
-                            <h2>Loop Telemetry</h2>
-                            <p class="panel-subtitle">Wave/particle balance and core loop health.</p>
-                        </div>
-                    </div>
-                    <div class="loop-grid">
-                        <div class="loop-card">
-                            <div class="loop-title">Wave / Particle</div>
-                            <div class="gauge-bar"><div class="gauge-fill" id="wave-meter"></div></div>
-                            <div class="loop-meta" id="wave-value">--</div>
-                        </div>
-                        <div class="loop-card">
-                            <div class="loop-title">HOPE Loops</div>
-                            <div class="loop-meta" id="hope-fast">Fast: --</div>
-                            <div class="loop-meta" id="hope-mid">Mid: --</div>
-                            <div class="loop-meta" id="hope-slow">Slow: --</div>
-                        </div>
-                        <div class="loop-card">
-                            <div class="loop-title">CMS Balance</div>
-                            <div class="loop-meta" id="cms-ratio">--</div>
-                            <div class="loop-meta" id="cms-buffer">Buffer: --</div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="panel research-only">
-                    <div class="panel-header">
-                        <div>
-                            <div class="panel-eyebrow">Performance</div>
-                            <h2>System Performance</h2>
-                            <p class="panel-subtitle">Latency, gates, and health snapshots.</p>
-                        </div>
-                    </div>
-                    <div class="status-deck">
-                        <div class="status-card">
-                            <div class="status-label">Motion Gate</div>
-                            <div class="status-value" id="gate-allow">--</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-label">Recording Gate</div>
-                            <div class="status-value" id="gate-record">--</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-label">Safety Head</div>
-                            <div class="status-value" id="safety-head-path">loading...</div>
-                        </div>
-                    </div>
-                </section>
-
-                </section>
-
-                <!-- Tabs for View Switcher -->
-                <div class="tabs-container">
-                    <button class="tab-btn active" data-tab="dashboard" onclick="switchHomeTab('dashboard')">📊 Dashboard</button>
-                    <button class="tab-btn" data-tab="robot-view" onclick="switchHomeTab('robot-view')">🤖 Robot Layout</button>
                 </div>
 
-                <!-- Dashboard View (Sensors + Workspace) -->
-                <div id="dashboard-panel" class="home-panel">
-                    <section class="panel">
-                        <div class="panel-header">
-                            <div>
-                                <div class="panel-eyebrow">Sensors</div>
-                                <h2>Hardware Canvas</h2>
-                                <p class="panel-subtitle">Auto-discovered sensors render into a visual rack.</p>
-                            </div>
-                        </div>
-                        <div class="sensor-grid" id="hardware-status">
-                            <div class="status-item">
-                                <span class="status-label">Loading sensors...</span>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="panel panel-spaced">
-                <div class="panel-header">
-                    <div>
-                        <div class="panel-eyebrow">Workspace</div>
-                        <h2>Editor Canvas</h2>
-                        <p class="panel-subtitle">A visual staging area that mirrors robot readiness.</p>
-                            </div>
-                        </div>
-                        <div class="canvas-grid">
-                            <div class="canvas-card">
-                                <div class="canvas-title">Mode Timeline</div>
-                                <p class="canvas-text">Snapshot of the current behavior lane.</p>
-                            </div>
-                            <div class="canvas-card">
-                                <div class="canvas-title">Safety Boundaries</div>
-                                <p class="canvas-text">Motion gates active.</p>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-
-                <!-- Robot Layout View -->
-                <div id="robot-view-panel" class="home-panel hidden">
-                    <section class="panel">
-                        <div class="panel-header">
-                            <div>
-                                <div class="panel-eyebrow">Visual Status</div>
-                                <h2>System Health Map</h2>
-                                <p class="panel-subtitle">Component-level health and connectivity status.</p>
-                            </div>
-                        </div>
-                        
-                        <div class="viz-wrap">
-                            <!-- Visual Robot Representation -->
-                            <div class="viz-base">
-                                
-                                <!-- Base -->
-                                <div class="viz-base-card">
-                                    <span class="viz-base-label">BASE / DRIVETRAIN</span>
-                                    <span id="viz-base-status" class="viz-base-status">🟢</span>
-                                </div>
-                                
-                                <!-- Arm -->
-                                <div class="viz-arm">
-                                    <span class="viz-arm-label">ARM/GRIPPER</span>
-                                    <span id="viz-arm-status" class="viz-arm-status">🟢</span>
-                                </div>
-
-                                <!-- Head/Camera -->
-                                <div class="viz-vision">
-                                    <span class="viz-vision-label">VISION</span>
-                                    <span id="viz-vision-status" class="viz-vision-status">🟢</span>
-                                </div>
-                                
-                                <!-- Core -->
-                                <div class="viz-brain">
-                                    <span class="viz-brain-label">BRAIN</span>
-                                    <span id="viz-brain-status" class="viz-brain-status">🧠</span>
-                                </div>
-                            </div>
-                            
-                            <div class="viz-text">
-                                <div class="status-item">
-                                    <span class="status-label">Overall Safety Check</span>
-                                    <span class="status-value status-good">PASSED</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">Battery / Power</span>
-                                    <span class="status-value">100% (Simulated)</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">NPU Load</span>
-                                    <span class="status-value">Low</span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-
-
-                <section class="panel research-only">
-                <div class="panel-header">
-                    <div>
-                            <div class="panel-eyebrow">Workspace</div>
-                            <h2>Editor Canvas</h2>
-                            <p class="panel-subtitle">A visual staging area that mirrors robot readiness.</p>
-                    </div>
-                </div>
-                    <div class="canvas-grid">
-                        <div class="canvas-card">
-                            <div class="canvas-title">Mode Timeline</div>
-                            <p class="canvas-text">Snapshot of the current behavior lane; switch to Manual Control for a live scene.</p>
-                        </div>
-                        <div class="canvas-card">
-                            <div class="canvas-title">Safety Boundaries</div>
-                            <p class="canvas-text">Motion gates, emergency stops, and recording toggles stay front and center in this editor skin.</p>
-                        </div>
-                        <div class="canvas-card">
-                            <div class="canvas-title">Hardware Dock</div>
-                            <p class="canvas-text">Detected cameras and controllers render as modules so you can reason about availability before deploying changes.</p>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">API Explorer</div>
+                            <h2>Live Endpoints</h2>
+                            <p class="panel-subtitle">Call server APIs directly to verify state.</p>
                         </div>
                     </div>
-                </section>
+                    <div class="api-grid" id="api-explorer">
+                        <div class="api-card">
+                            <div class="api-meta">GET /api/status</div>
+                            <button onclick="window.updateStatus()">Fetch</button>
+                        </div>
+                        <div class="api-card">
+                            <div class="api-meta">GET /api/loops</div>
+                            <button onclick="window.pollLoopHealth()">Fetch</button>
+                        </div>
+                        <div class="api-card">
+                            <div class="api-meta">GET /api/tasks?include_ineligible=true</div>
+                            <button onclick="window.fetchTaskLibrary()">Fetch</button>
+                        </div>
+                        <div class="api-card">
+                            <div class="api-meta">GET /api/skills?include_ineligible=true</div>
+                            <button onclick="window.fetchSkillLibrary()">Fetch</button>
+                        </div>
+                        <div class="api-card">
+                            <div class="api-meta">POST /api/safety/hold</div>
+                            <button onclick="window.triggerSafetyHold()">Trigger</button>
+                        </div>
+                        <div class="api-card">
+                            <div class="api-meta">POST /api/safety/reset</div>
+                            <button onclick="window.resetSafetyGates()">Trigger</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel research-only">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">AGI Readiness</div>
+                            <h2>Capability Matrix</h2>
+                            <p class="panel-subtitle">What’s present, what’s missing, and why this is not AGI.</p>
+                        </div>
+                    </div>
+                    <div class="agi-grid" id="agi-matrix">
+                        <div class="agi-card success">
+                            <div class="agi-title">Embodiment</div>
+                            <div class="agi-detail">Drivetrain + manipulator + vision</div>
+                        </div>
+                        <div class="agi-card warning">
+                            <div class="agi-title">Continual Learning</div>
+                            <div class="agi-detail">Local training hooks; limited autonomy</div>
+                        </div>
+                        <div class="agi-card danger">
+                            <div class="agi-title">General Reasoning</div>
+                            <div class="agi-detail">No verified AGI; bounded task agents</div>
+                        </div>
+                        <div class="agi-card warning">
+                            <div class="agi-title">Safety & Alignment</div>
+                            <div class="agi-detail">Gates + supervision required; no self-cert</div>
+                        </div>
+                        <div class="agi-card neutral">
+                            <div class="agi-title">Tool Use</div>
+                            <div class="agi-detail">Sub-agents + toolchain; manual review</div>
+                        </div>
+                        <div class="agi-card neutral">
+                            <div class="agi-title">Model Stack</div>
+                            <div class="agi-detail" id="agi-model-stack">HOPE → Gemma fallback</div>
+                        </div>
+                    </div>
+                </div>
 
                 <div id="status-message" class="inline-status hidden"></div>
             </main>
 
-            <aside class="agent-rail">
-                <div class="rail-header">
-                    <div>
-                        <div class="panel-eyebrow">Continuon AI Agent Manager</div>
-                        <div class="rail-title">Threads & Guidance</div>
-                        <div id="persona-badge" class="persona-badge">Persona: default</div>
+            <div class="col-resizer" data-resize="right"></div>
+
+            <!-- RIGHT COLUMN -->
+            <aside class="column right-column resizable" data-column="right">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Continuon AI Agent Manager</div>
+                            <h2>Threads & Guidance</h2>
+                            <p class="panel-subtitle">Inline rail; no overlays for Flutter embed.</p>
+                            <div id="persona-badge" class="persona-badge">Persona: default</div>
+                        </div>
+                        <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
+                            <span>Human mode</span>
+                            <strong id="human-toggle-state">Off</strong>
+                        </div>
                     </div>
-                    <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
-                        <span>Human mode</span>
-                        <strong id="human-toggle-state">Off</strong>
+
+                    <div class="rail-actions">
+                        <button class="rail-btn primary" onclick="resumeAgents()">▶️ Resume agents</button>
+                        <button class="rail-btn" onclick="pauseAgents()">⏸️ Pause agents</button>
+                        <button class="rail-btn" onclick="reviewLearning()">📒 Review learning</button>
                     </div>
-                </div>
 
-                <div class="rail-actions">
-                    <button class="rail-btn primary" onclick="resumeAgents()">▶️ Resume agents</button>
-                    <button class="rail-btn" onclick="pauseAgents()">⏸️ Pause agents</button>
-                    <button class="rail-btn" onclick="reviewLearning()">📒 Review learning</button>
-                </div>
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Active Agents</div>
+                        <div class="agent-thread-list" id="agent-thread-list"></div>
+                    </div>
 
-                <div class="panel panel-ghost">
-                    <div class="panel-eyebrow">Active Agents</div>
-                    <div class="agent-thread-list" id="agent-thread-list"></div>
-                </div>
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Model Stack & Fallbacks</div>
+                        <div class="stack-list" id="model-stack-list"></div>
+                    </div>
 
-                <div class="panel panel-ghost">
-                    <div class="panel-eyebrow">Model Stack & Fallbacks</div>
-                    <div class="stack-list" id="model-stack-list"></div>
-                </div>
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Sub-agents & Tools</div>
+                        <div class="stack-list" id="toolchain-list"></div>
+                    </div>
 
-                <div class="panel panel-ghost">
-                    <div class="panel-eyebrow">Sub-agents & Tools</div>
-                    <div class="stack-list" id="toolchain-list"></div>
-                </div>
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Training & Memories</div>
+                        <div class="stack-list" id="training-memory-list"></div>
+                    </div>
 
-                <div class="panel panel-ghost">
-                    <div class="panel-eyebrow">Training & Memories</div>
-                    <div class="stack-list" id="training-memory-list"></div>
-                </div>
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Robot Mode Self-Learning</div>
+                        <div class="milestone-list" id="learning-milestones"></div>
+                    </div>
 
-                <div class="panel panel-ghost">
-                    <div class="panel-eyebrow">Robot Mode Self-Learning</div>
-                    <div class="milestone-list" id="learning-milestones"></div>
-                </div>
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Recent Learning Events</div>
+                        <div class="learning-list" id="learning-events"></div>
+                    </div>
 
-                <div class="panel panel-ghost">
-                    <div class="panel-eyebrow">Recent Learning Events</div>
-                    <div class="learning-list" id="learning-events"></div>
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Agent Chat</div>
+                        <div class="chat-rail">
+                            <div class="chat-messages inline" id="chat-messages"></div>
+                            <div class="chat-input-area inline">
+                                <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                                <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </aside>
         </div>
@@ -483,19 +398,6 @@
         </div>
     </div>
 
-    <!-- Chat Interface -->
-    <div class="chat-overlay" id="chat-panel">
-        <div class="chat-header">
-            <h3>Continuon AI Agent Manager</h3>
-            <button class="chat-toggle" id="chat-toggle" onclick="toggleChat()" aria-label="Toggle chat panel">−</button>
-        </div>
-        <div class="chat-messages" id="chat-messages">
-        </div>
-        <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
-            <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
-        </div>
-    </div>
     <script src="/static/client.js"></script>
     <script type="text/javascript">
         // Tab switching for Home Page
@@ -1370,18 +1272,29 @@
             var modeText = mode.replace(/_/g, ' ').toUpperCase();
             document.getElementById('mode').innerHTML = '<span class="badge ' + mode + '">' + modeText + '</span>';
             document.getElementById('recording').textContent = status.is_recording ? 'Recording' : 'Idle';
-            document.getElementById('motion').textContent = status.allow_motion ? 'Motion Enabled' : 'Motion Locked';
+            var motionAllowed = typeof status.allow_motion !== 'undefined'
+                ? status.allow_motion
+                : (status.gate_snapshot ? status.gate_snapshot.allow_motion : false);
+            document.getElementById('motion').textContent = motionAllowed ? 'Motion Enabled' : 'Motion Locked';
 
             var modeCard = document.getElementById('mode-card');
             if (modeCard) { modeCard.textContent = modeText; }
             var recordingCard = document.getElementById('recording-card');
             if (recordingCard) { recordingCard.textContent = status.is_recording ? 'Recording' : 'Idle'; }
             var motionCard = document.getElementById('motion-card');
-            if (motionCard) { motionCard.textContent = status.allow_motion ? 'Allowed' : 'Prevented'; }
+            if (motionCard) { motionCard.textContent = motionAllowed ? 'Allowed' : 'Prevented'; }
 
             renderLoopTelemetry(status);
             renderAgentRail(status);
             renderSelectedTask(status.current_task);
+
+            var batteryCard = document.getElementById('battery-status');
+            if (batteryCard) {
+                var batt = status.battery;
+                batteryCard.textContent = batt && typeof batt.level !== 'undefined'
+                    ? Math.round((batt.level || 0) * 100) + '%'
+                    : (batt && batt.percent ? batt.percent : 'n/a');
+            }
 
             // Update hardware sensors
             var hardwareDiv = document.getElementById('hardware-status');
@@ -1412,6 +1325,14 @@
             }
 
             renderModeList(status);
+
+            var agiModel = document.getElementById('agi-model-stack');
+            if (agiModel) {
+                var stack = (status && status.model_stack) || agentManagerState.modelStack || {};
+                var primary = stack.primary ? stack.primary.name : 'HOPE';
+                var fallbacks = (stack.fallbacks || []).map(function(f){ return f.name; }).filter(Boolean);
+                agiModel.textContent = [primary].concat(fallbacks).join(' → ') || 'HOPE → Gemma';
+            }
         };
 
         window.updateStatus = function(payload) {
@@ -1542,6 +1463,48 @@
                 console.warn('Loop telemetry fetch failed', err);
             }
         };
+
+        // Column resizers for full-width IDE layout
+        (function initColumnResizers() {
+            const grid = document.getElementById('workspace-grid');
+            if (!grid) return;
+            const leftHandle = document.querySelector('[data-resize="left"]');
+            const rightHandle = document.querySelector('[data-resize="right"]');
+            let leftWidth = 320;
+            let rightWidth = 360;
+            const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+            const apply = () => {
+                grid.style.gridTemplateColumns = `${leftWidth}px 10px 1fr 10px ${rightWidth}px`;
+            };
+            apply();
+
+            function startDrag(type) {
+                return function (event) {
+                    event.preventDefault();
+                    const startX = event.clientX;
+                    const startLeft = leftWidth;
+                    const startRight = rightWidth;
+                    function onMove(e) {
+                        const delta = e.clientX - startX;
+                        if (type === 'left') {
+                            leftWidth = clamp(startLeft + delta, 240, 520);
+                        } else {
+                            rightWidth = clamp(startRight - delta, 260, 520);
+                        }
+                        apply();
+                    }
+                    function onUp() {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    }
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                };
+            }
+
+            leftHandle?.addEventListener('mousedown', startDrag('left'));
+            rightHandle?.addEventListener('mousedown', startDrag('right'));
+        })();
 
         window.openAgentMenu = function(taskId) {
             const menu = document.createElement('div');
@@ -1896,3 +1859,4 @@
     <script src="/static/chat-overlay.js"></script>
 </body>
 </html>
+
