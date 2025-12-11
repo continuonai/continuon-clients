@@ -29,7 +29,8 @@ async def run_hope_eval_and_log(
     Ask HOPE a graded set of questions, fallback to on-device LLM if needed,
     and log as an RLDS JSON episode.
     """
-    fallback_order = fallback_order or ["gemma-3.7", "gemma-3n-2b"]
+    # Preferred order: smallest first, then 3n-2b
+    fallback_order = fallback_order or ["google/gemma-370m", "google/gemma-3n-2b"]
     questions = load_questions(questions_path)
     history: List[Dict[str, str]] = []
     steps: List[Dict[str, Any]] = []
@@ -37,7 +38,7 @@ async def run_hope_eval_and_log(
     async def ask_once(prompt: str, model_hint: Optional[str] = None) -> str:
         try:
             # chat_adapter.chat(self, message, history)
-            return (await service.chat_adapter.chat(prompt, history))["response"]
+            return (await service.chat_adapter.chat(prompt, history, model_hint=model_hint))["response"]
         except Exception as exc:  # pragma: no cover
             return f"[error:{type(exc).__name__}] {exc}"
 
@@ -49,7 +50,7 @@ async def run_hope_eval_and_log(
         fallback_model = None
         if use_fallback and (not answer or answer.startswith("[error")):
             for fb in fallback_order:
-                fb_ans = await ask_once(f"{q}\n\n(model hint: {fb})")
+                fb_ans = await ask_once(f"{q}\n\n(model hint: {fb})", model_hint=fb)
                 if fb_ans and not fb_ans.startswith("[error"):
                     answer = fb_ans
                     used_fallback = True

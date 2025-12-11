@@ -17,7 +17,7 @@ class ChatAdapter:
         self.status_provider = status_provider
         self.gemma_chat = gemma_chat
 
-    async def chat(self, message: str, history: list) -> dict:
+    async def chat(self, message: str, history: list, model_hint: Optional[str] = None) -> dict:
         """Chat with Gemma (or a local fallback) using live status for context."""
         try:
             status_data = await self.status_provider()
@@ -27,7 +27,7 @@ class ChatAdapter:
             allow_motion = status.get("allow_motion", False)
 
             prompt = self._build_prompt(mode, hardware, allow_motion)
-            response = self._call_model(message, prompt, history)
+            response = self._call_model(message, prompt, history, model_hint=model_hint)
             self._log_chat(message, response, status)
             return {"response": response}
         except Exception as exc:  # noqa: BLE001
@@ -47,9 +47,9 @@ class ChatAdapter:
             "Always answer as the Agent Manager. State when you are using the primary model, a fallback, or a sub-agent/tool. Be concise, technical, and action-oriented."
         )
 
-    def _call_model(self, message: str, prompt: str, _history: list) -> str:
+    def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None) -> str:
         if self.gemma_chat:
-            return self.gemma_chat.chat(message, system_context=prompt)
+            return self.gemma_chat.chat(message, system_context=prompt, model_hint=model_hint)
 
         # Robustly extract mode/hardware even if prompt structure changes
         lines = prompt.splitlines()

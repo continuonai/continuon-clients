@@ -89,7 +89,7 @@ class WavecoreTrainer:
                         questions_path=Path(payload.get("questions_path") or self.questions_path),
                         rlds_dir=Path(payload.get("eval_rlds_dir") or self.default_rlds_dir),
                         use_fallback=bool(payload.get("eval_use_fallback", True)),
-                        fallback_order=payload.get("eval_fallback_order") or ["gemma-3.7", "gemma-3n-2b"],
+                        fallback_order=payload.get("eval_fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"],
                     )
                 )
                 results["hope_eval"] = eval_res

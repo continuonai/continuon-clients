@@ -178,6 +178,8 @@ class RobotService:
     async def RunWavecoreLoops(self, payload: Optional[dict] = None) -> dict:
         """Run WaveCore fast/mid/slow loops using the JAX CoreModel seed."""
         payload = payload or {}
+        # Ensure service is available to downstream eval runner
+        payload.setdefault("service", self)
         return await self.wavecore_trainer.run_loops(payload)
 
     async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:

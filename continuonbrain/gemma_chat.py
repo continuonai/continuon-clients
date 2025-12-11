@@ -22,8 +22,9 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"  # Gemma 3n (Effective 2B) for Pi 5
-    # DEFAULT_MODEL_ID = "google/gemma-3-4b-it" # Previous default (too large for Pi 5)
+    DEFAULT_MODEL_ID = "google/gemma-370m"  # prefer smallest first
+    # Fallbacks (retain prior defaults for larger variants):
+    # "google/gemma-3n-E2B-it"
 
     def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
         """
@@ -195,7 +196,7 @@ class GemmaChat:
             logger.error(f"Failed to load Gemma model: {e}")
             return False
     
-    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None) -> str:
+    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None, model_hint: Optional[str] = None) -> str:
         """
         Generate chat response from Gemma model (local or remote).
         
@@ -212,6 +213,7 @@ class GemmaChat:
         if self.client:
             # TODO: Handle image for API if supported (e.g. GPT-4o)
             try:
+                model_name = model_hint or self.model_name
                 messages = []
                 if system_context:
                     messages.append({"role": "system", "content": system_context})
@@ -226,7 +228,7 @@ class GemmaChat:
                 
                 logger.info(f"Sending request to API: {self.api_base}")
                 completion = self.client.chat.completions.create(
-                    model=self.model_name, # vLLM often ignores this or needs it to match loaded model
+                    model=model_name, # vLLM often ignores this or needs it to match loaded model
                     messages=messages,
                     temperature=0.7,
                     max_tokens=256
@@ -247,6 +249,14 @@ class GemmaChat:
                 return f"Error from remote API: {str(e)}"
         
         # --- PATH 2: Local Transformers ---
+        if model_hint and model_hint != self.model_name:
+            # Attempt to switch models if available
+            self.model_name = model_hint
+            self.model = None
+            self.tokenizer = None
+            self.processor = None
+            self.is_vlm = False
+
         if self.model is None:
             # Pass return_error=True (we need to update load_model signature slightly or just capture it)
             # Actually load_model currently returns bool.
@@ -257,7 +267,7 @@ class GemmaChat:
                 try:
                     import transformers
                     import torch
-                    return f"Error: Gemma model failed to load. Check server logs for details."
+                return f"Error: Gemma model failed to load. Check server logs for details."
                 except ImportError as e:
                     return f"Error: Gemma model not available. Missing dependency: {e}"
                 except Exception as e:
@@ -410,7 +420,7 @@ class MockGemmaChat:
     def load_model(self) -> bool:
         return True
     
-    def chat(self, message: str, system_context: Optional[str] = None) -> str:
+    def chat(self, message: str, system_context: Optional[str] = None, model_hint: Optional[str] = None) -> str:
         """Generate mock response."""
         self.chat_history.append({"role": "User", "content": message})
         

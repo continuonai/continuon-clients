@@ -26,6 +26,12 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 
 > Orchestrator: `python -m continuonbrain.services.training_manager --help` provides a dry-run view of the training plan with optional execution flags.
 
+### On-device WaveCore seed + HOPE eval (JAX, Pi-class)
+- **WaveCore loops API:** `POST /api/training/wavecore_loops` runs fast/mid/slow loops on the JAX CoreModel using RLDS JSON at `/opt/continuonos/brain/rlds/episodes`, exports a seed manifest/checkpoint to `/opt/continuonos/brain/model/adapters/candidate/core_model_seed`, and checkpoints to `/opt/continuonos/brain/trainer/checkpoints/core_model_seed`.
+- **Presets & sparsity:** per-loop `arch_preset` (`pi5` default, `columnar_small`, `wave_only`, `hybrid`), `sparsity_lambda` (L1), optional `quantization`; JIT off by default for stability.
+- **HOPE graded eval:** `POST /api/training/hope_eval` (or `run_hope_eval` inside the wavecore payload) asks increasing-difficulty questions from `continuonbrain/eval/hope_eval_questions.json`, logs RLDS episodes to `/opt/continuonos/brain/rlds/episodes/hope_eval_<ts>.json`.
+- **Fallback order for eval:** HOPE agent first; if low confidence, fall back to `google/gemma-370m`, then `google/gemma-3n-2b`.
+
 ## Alignment Snapshot (2025-12-10)
 
 - **Continuon Brain runtime (edge)**: Hardware auto-detect + startup manager validated; Debian package Phase 1 shipped (see `continuonbrain/README.md`, `packaging/README.md`). Kiosk mode is the next packaging phase.
