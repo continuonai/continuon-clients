@@ -11,6 +11,7 @@ import pickle
 from continuonbrain.jax_models.train.local_sanity_check import run_sanity_check
 from continuonbrain.jax_models.export.export_jax import export_for_inference
 from continuonbrain.jax_models.core_model import CoreModelConfig
+from pathlib import Path
 
 
 @dataclass
@@ -28,6 +29,8 @@ class WavecoreLoopConfig:
     output_dim: int = 32
     disable_jit: bool = True
     metrics_path: Optional[Path] = None
+    arch_preset: Optional[str] = None
+    sparsity_lambda: float = 0.0
 
 
 class WavecoreTrainer:
@@ -51,6 +54,7 @@ class WavecoreTrainer:
         self.status_path = Path("/opt/continuonos/brain/trainer/status.json")
         self.checkpoint_dir = checkpoint_dir
         self.export_dir = export_dir
+        self.questions_path = Path(__file__).resolve().parent.parent / "eval" / "hope_eval_questions.json"
 
     async def run_loops(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Run fast/mid/slow loops in a worker thread."""
@@ -76,6 +80,19 @@ class WavecoreTrainer:
                 "mid": self._run_loop(mid_cfg),
                 "slow": self._run_loop(slow_cfg, checkpoint_dir=self.checkpoint_dir),
             }
+            if payload.get("run_hope_eval"):
+                from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
+
+                eval_res = asyncio.run(
+                    run_hope_eval_and_log(
+                        service=payload.get("service"),
+                        questions_path=Path(payload.get("questions_path") or self.questions_path),
+                        rlds_dir=Path(payload.get("eval_rlds_dir") or self.default_rlds_dir),
+                        use_fallback=bool(payload.get("eval_use_fallback", True)),
+                        fallback_order=payload.get("eval_fallback_order") or ["gemma-3.7", "gemma-3n-2b"],
+                    )
+                )
+                results["hope_eval"] = eval_res
             export_info = None
             slow_result = results.get("slow", {})
             ckpt_file = slow_result.get("checkpoint_dir")
@@ -101,10 +118,18 @@ class WavecoreTrainer:
                             "output_dim": slow_result["request"]["output_dim"],
                             "quantization": quantization,
                             "format": "pickle",
+                            "arch_preset": slow_result["request"].get("arch_preset"),
+                            "sparsity_lambda": slow_result["request"].get("sparsity_lambda"),
                         }
                         manifest_path = export_dir / "model_manifest.json"
                         manifest_path.write_text(json.dumps(manifest, indent=2))
-                        export_info = {"export_dir": str(export_dir), "format": "pickle", "manifest": str(manifest_path)}
+                        export_info = {
+                            "export_dir": str(export_dir),
+                            "format": "pickle",
+                            "manifest": str(manifest_path),
+                            "arch_preset": slow_result["request"].get("arch_preset"),
+                            "sparsity_lambda": slow_result["request"].get("sparsity_lambda"),
+                        }
                     else:
                         export_path = export_for_inference(
                             checkpoint_path=str(Path(ckpt_file).parent),
@@ -145,6 +170,7 @@ class WavecoreTrainer:
 
         result = run_sanity_check(
             rlds_dir=rlds_dir,
+            arch_preset=cfg.arch_preset,
             obs_dim=cfg.obs_dim,
             action_dim=cfg.action_dim,
             output_dim=cfg.output_dim,
@@ -154,6 +180,7 @@ class WavecoreTrainer:
             use_synthetic_data=cfg.use_synthetic,
             metrics_path=metrics_path,
             checkpoint_dir=checkpoint_dir if cfg.name == "slow" else None,
+            sparsity_lambda=cfg.sparsity_lambda,
         )
         return {
             "loop": cfg.name,
@@ -182,6 +209,8 @@ class WavecoreTrainer:
             output_dim=int(data.get("output_dim", 32)),
             disable_jit=bool(data.get("disable_jit", True)),
             metrics_path=metrics_path,
+            arch_preset=data.get("arch_preset"),
+            sparsity_lambda=float(data.get("sparsity_lambda", 0.0)),
         )
 
     def _write_status(self, payload: Dict[str, Any]) -> None:

@@ -50,6 +50,7 @@ from continuonbrain.services.training_runner import TrainingRunner
 from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest
 from continuonbrain.services.wavecore_trainer import WavecoreTrainer
 from continuonbrain.services.video_stream import VideoStreamHelper
+from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
 
 # Use extracted SimpleJSONServer implementation
 SimpleJSONServer = server_routes.SimpleJSONServer
@@ -178,6 +179,21 @@ class RobotService:
         """Run WaveCore fast/mid/slow loops using the JAX CoreModel seed."""
         payload = payload or {}
         return await self.wavecore_trainer.run_loops(payload)
+
+    async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
+        """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
+        payload = payload or {}
+        questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "hope_eval_questions.json"))
+        rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+        use_fallback = bool(payload.get("use_fallback", True))
+        fallback_order = payload.get("fallback_order") or ["gemma-3.7", "gemma-3n-2b"]
+        return await run_hope_eval_and_log(
+            service=self,
+            questions_path=questions_path,
+            rlds_dir=rlds_dir,
+            use_fallback=use_fallback,
+            fallback_order=fallback_order,
+        )
 
     async def initialize(self):
         """Initialize hardware components with auto-detection."""

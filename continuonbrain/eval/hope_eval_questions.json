@@ -1,0 +1,25 @@
+{
+  "tiers": [
+    {
+      "name": "easy",
+      "questions": [
+        "Summarize the current training objective for HOPE on-device.",
+        "Explain how RLDS episodes are used in our loop."
+      ]
+    },
+    {
+      "name": "medium",
+      "questions": [
+        "Describe the wave/particle/fast state roles in our CoreModel. Be concise.",
+        "Given limited compute, how would you keep the model small while retaining multi-speed loop benefits?"
+      ]
+    },
+    {
+      "name": "hard",
+      "questions": [
+        "Propose a hybrid (columnar + wave) modification to improve sample efficiency on Pi-class hardware.",
+        "Outline a self-improvement step that uses on-device tools (Gemma CLI / MCP / web) to verify a new skill and log it to RLDS without human intervention."
+      ]
+    }
+  ]
+}

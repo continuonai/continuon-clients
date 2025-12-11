@@ -15,6 +15,7 @@ import optax
 import numpy as np
 
 from ..core_model import CoreModel, make_core_model, CoreModelConfig
+from ..config_presets import get_config_for_preset
 from ..data.rlds_dataset import (
     TF_AVAILABLE,
     _extract_action_vector,
@@ -73,6 +74,7 @@ def compute_loss(
     batch: Dict[str, jnp.ndarray],
     state: Dict[str, Any],
     config: CoreModelConfig,
+    sparsity_lambda: float = 0.0,
 ) -> jnp.ndarray:
     """
     Compute loss for a batch.
@@ -119,13 +121,20 @@ def compute_loss(
     )
     
     # Simple MSE loss: predict action from observation
-    # In practice, you'd use a more sophisticated loss (e.g., policy gradient, value function)
     loss = jnp.mean((y_pred - action) ** 2)
+
+    if sparsity_lambda > 0:
+        l1 = sum(
+            jnp.sum(jnp.abs(p))
+            for p in jax.tree_util.tree_leaves(params)
+            if isinstance(p, jnp.ndarray)
+        )
+        loss = loss + sparsity_lambda * l1
     
     return loss
 
 
-@partial(jax.jit, static_argnums=(2, 5, 6))
+@partial(jax.jit, static_argnums=(2, 5, 6, 7))
 def train_step(
     params: Dict[str, Any],
     opt_state: Any,
@@ -134,6 +143,7 @@ def train_step(
     state: Dict[str, Any],
     config: CoreModelConfig,
     optimizer: optax.GradientTransformation,
+    sparsity_lambda: float = 0.0,
 ) -> tuple[Dict[str, Any], Any, jnp.ndarray, Dict[str, Any]]:
     """
     Single training step.
@@ -143,7 +153,7 @@ def train_step(
     """
     # Compute loss and gradients
     loss, grads = jax.value_and_grad(compute_loss)(
-        params, model, batch, state, config
+        params, model, batch, state, config, sparsity_lambda
     )
     
     # Clip gradients
@@ -166,6 +176,7 @@ def train_step(
 def run_sanity_check(
     rlds_dir: Optional[Path] = None,
     config: Optional[CoreModelConfig] = None,
+    arch_preset: Optional[str] = None,
     obs_dim: int = 128,
     action_dim: int = 32,
     output_dim: int = 32,
@@ -175,6 +186,7 @@ def run_sanity_check(
     use_synthetic_data: bool = True,
     metrics_path: Optional[Path] = None,
     checkpoint_dir: Optional[Path] = None,
+    sparsity_lambda: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Run sanity check training loop on Pi CPU.
@@ -194,7 +206,7 @@ def run_sanity_check(
         Dictionary with training results
     """
     if config is None:
-        config = CoreModelConfig.pi5_optimized()
+        config = get_config_for_preset(arch_preset)
     
     print(f"Starting sanity check training:")
     print(f"  Model config: d_s={config.d_s}, d_w={config.d_w}, d_p={config.d_p}")
@@ -312,7 +324,7 @@ def run_sanity_check(
 
             # Training step
             params, opt_state, loss, state = train_step(
-                params, opt_state, model, batch, state, config, optimizer
+                params, opt_state, model, batch, state, config, optimizer, sparsity_lambda
             )
 
             loss_val = float(loss)
@@ -366,6 +378,8 @@ def run_sanity_check(
                         "learning_rate": learning_rate,
                         "steps": len(losses),
                         "checkpoint_step": checkpoint_step,
+                        "arch_preset": arch_preset,
+                        "sparsity_lambda": sparsity_lambda,
                     },
                 },
                 f,
@@ -381,6 +395,8 @@ def run_sanity_check(
         'wall_time_s': wall_time,
         'losses': losses,
         'config': config,
+        'arch_preset': arch_preset,
+        'sparsity_lambda': sparsity_lambda,
         'checkpoint_dir': checkpoint_path,
         'checkpoint_step': checkpoint_step,
         'checkpoint_format': checkpoint_format,
