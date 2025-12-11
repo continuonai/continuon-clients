@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuon Studio Settings</title>
+    <style>
+        :root {
+            --bg: #0c111b;
+            --panel: #0f1729;
+            --border: #1f2a3d;
+            --text: #e8f0ff;
+            --muted: #7f8ba7;
+            --accent: #7ad7ff;
+            --radius: 14px;
+        }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+        }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .nav {
+            display: flex;
+            gap: 12px;
+        }
+        .nav a {
+            color: var(--muted);
+            text-decoration: none;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .nav a.active {
+            color: #0b1020;
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+        }
+        .card h2 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+        }
+        .field {
+            margin: 10px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        label { color: var(--muted); font-size: 13px; }
+        select, input[type="text"] {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #0b1020;
+            color: var(--text);
+        }
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .pill {
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            cursor: pointer;
+        }
+        .pill.active {
+            background: var(--accent);
+            color: #0b1020;
+            border-color: var(--accent);
+        }
+        .hint { color: var(--muted); font-size: 12px; }
+        @media (max-width: 720px) {
+            body { padding: 12px; }
+            .topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+        }
+        .slider-row {
+            display: grid;
+            grid-template-columns: 1fr 80px;
+            gap: 8px;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div>
+            <div style="font-weight:700;">Continuon Studio Settings</div>
+            <div class="hint">Configure models, agents, and safety shortcuts</div>
+        </div>
+        <div class="nav">
+            <a href="/ui">UI</a>
+            <a href="/control">Control</a>
+            <a href="/settings" class="active">Settings</a>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Agent Manager · Models</h2>
+            <div class="field">
+                <label for="model-select">Primary model</label>
+                <select id="model-select">
+                    <option value="gemma-3n">Gemma 3n (JAX)</option>
+                    <option value="gemma-transformer">Gemma (Transformers)</option>
+                    <option value="hailo-runtime">Hailo Runtime</option>
+                </select>
+                <div class="hint">Switch main model used by Agent Manager.</div>
+            </div>
+            <div class="field">
+                <label>Sub-agents</label>
+                <div class="pill-row" id="subagent-row">
+                    <div class="pill active" data-agent="planner">Planner</div>
+                    <div class="pill active" data-agent="navigator">Navigator</div>
+                    <div class="pill" data-agent="safety">Safety</div>
+                    <div class="pill active" data-agent="recorder">Recorder</div>
+                </div>
+                <div class="hint">Toggle sub-agent availability. Context menus appear per agent in UI.</div>
+            </div>
+
+        <div class="card">
+            <h2>Persona & Behavior</h2>
+            <div class="field">
+                <label for="persona-role">Persona role</label>
+                <select id="persona-role">
+                    <option value="operator">Operator</option>
+                    <option value="safety_officer">Safety Officer</option>
+                    <option value="demo_host">Demo Host</option>
+                    <option value="researcher">Researcher</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="response-style">Response tone</label>
+                <select id="response-style">
+                    <option value="concise">Concise</option>
+                    <option value="detailed">Detailed</option>
+                    <option value="technical">Technical</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Personality sliders</label>
+                <div class="slider-row">
+                    <span>Empathy</span>
+                    <input id="slider-empathy" type="range" min="0" max="1" step="0.05" value="0.4" aria-label="Empathy slider">
+                </div>
+                <div class="slider-row">
+                    <span>Directness</span>
+                    <input id="slider-directness" type="range" min="0" max="1" step="0.05" value="0.6" aria-label="Directness slider">
+                </div>
+                <div class="slider-row">
+                    <span>Verbosity</span>
+                    <input id="slider-verbosity" type="range" min="0" max="1" step="0.05" value="0.5" aria-label="Verbosity slider">
+                </div>
+                <div class="slider-row">
+                    <span>Creativity</span>
+                    <input id="temperature" type="range" min="0" max="1" step="0.05" value="0.35" aria-label="Creativity slider">
+                </div>
+                <div class="slider-row">
+                    <span>Safety bias</span>
+                    <input id="slider-safety" type="range" min="0" max="1" step="0.05" value="0.7" aria-label="Safety bias slider">
+                </div>
+                <div class="hint">Presets adjust these sliders; you can fine-tune after selecting a persona.</div>
+            </div>
+            <div class="field">
+                <label for="behavior-preset">Behavior preset</label>
+                <select id="behavior-preset">
+                    <option value="balanced">Balanced</option>
+                    <option value="autonomy-forward">Autonomy forward</option>
+                    <option value="teleop-forward">Teleop forward</option>
+                    <option value="safety-strict">Safety strict</option>
+                </select>
+                <div class="pill-row" id="behavior-flags">
+                    <div class="pill active" data-flag="cautious">Cautious</div>
+                    <div class="pill" data-flag="fast-iterate">Fast iterate</div>
+                    <div class="pill" data-flag="verbose-logs">Verbose logs</div>
+                </div>
+                <div class="hint">Persona and behavior sync to the Agent rail quick-toggle.</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Collaboration</h2>
+            <div class="field">
+                <label for="collab-channel">Shared channel</label>
+                <input id="collab-channel" type="text" placeholder="e.g. crew-alpha">
+                <div class="hint">Tag Agent Manager messages for this channel.</div>
+            </div>
+            <div class="field">
+                <label for="notes">Run notes</label>
+                <input id="notes" type="text" placeholder="Quick note for collaborators">
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Safety & Motion</h2>
+            <div class="pill-row" id="safety-shortcuts">
+                <div class="pill active" data-setting="motion">Allow motion</div>
+                <div class="pill active" data-setting="recording">Record episodes</div>
+                <div class="pill" data-setting="teleop-only">Teleop only</div>
+            </div>
+            <div class="hint">These shortcuts appear contextually in UI and Control.</div>
+        </div>
+    </div>
+
+    <script>
+        // Local-only interactions for now (placeholder until wired to backend)
+        const modelSelect = document.getElementById('model-select');
+        const subagentRow = document.getElementById('subagent-row');
+        const safetyRow = document.getElementById('safety-shortcuts');
+
+        function togglePill(evt) {
+            const pill = evt.target.closest('.pill');
+            if (!pill) return;
+            pill.classList.toggle('active');
+        }
+
+        subagentRow.addEventListener('click', togglePill);
+        safetyRow.addEventListener('click', togglePill);
+        document.getElementById('behavior-flags').addEventListener('click', togglePill);
+
+        modelSelect.addEventListener('change', () => {
+            const val = modelSelect.value;
+            localStorage.setItem('agent_manager_model', val);
+            alert('Model preference saved (local): ' + val);
+        });
+
+        const personaPresets = {
+            operator:   { empathy: 0.35, directness: 0.65, verbosity: 0.45, creativity: 0.30, safety: 0.75, preset: "balanced", response_style: "concise" },
+            safety_officer: { empathy: 0.5, directness: 0.7, verbosity: 0.35, creativity: 0.2, safety: 0.95, preset: "safety-strict", response_style: "concise" },
+            demo_host: { empathy: 0.7, directness: 0.45, verbosity: 0.7, creativity: 0.55, safety: 0.6, preset: "balanced", response_style: "detailed" },
+            researcher: { empathy: 0.4, directness: 0.5, verbosity: 0.55, creativity: 0.65, safety: 0.7, preset: "autonomy-forward", response_style: "technical" },
+        };
+
+        function applyPersonaPreset(role) {
+            const preset = personaPresets[role];
+            if (!preset) return;
+            document.getElementById('slider-empathy').value = preset.empathy;
+            document.getElementById('slider-directness').value = preset.directness;
+            document.getElementById('slider-verbosity').value = preset.verbosity;
+            document.getElementById('temperature').value = preset.creativity;
+            document.getElementById('slider-safety').value = preset.safety;
+            document.getElementById('behavior-preset').value = preset.preset;
+            document.getElementById('response-style').value = preset.response_style;
+        }
+
+        function savePersona() {
+            const payload = {
+                persona: document.getElementById('persona-role').value,
+                response_style: document.getElementById('response-style').value,
+                temperature: document.getElementById('temperature').value,
+                behavior_preset: document.getElementById('behavior-preset').value,
+                flags: Array.from(document.querySelectorAll('#behavior-flags .pill.active')).map(p => p.dataset.flag),
+                sliders: {
+                    empathy: document.getElementById('slider-empathy').value,
+                    directness: document.getElementById('slider-directness').value,
+                    verbosity: document.getElementById('slider-verbosity').value,
+                    safety: document.getElementById('slider-safety').value,
+                },
+            };
+            localStorage.setItem('agent_persona', JSON.stringify(payload));
+            alert('Persona saved (local): ' + payload.persona);
+        }
+
+        document.getElementById('behavior-preset').addEventListener('change', savePersona);
+        document.getElementById('persona-role').addEventListener('change', (e) => {
+            applyPersonaPreset(e.target.value);
+            savePersona();
+        });
+        document.getElementById('response-style').addEventListener('change', savePersona);
+        document.getElementById('temperature').addEventListener('change', savePersona);
+        document.getElementById('slider-empathy').addEventListener('input', savePersona);
+        document.getElementById('slider-directness').addEventListener('input', savePersona);
+        document.getElementById('slider-verbosity').addEventListener('input', savePersona);
+        document.getElementById('slider-safety').addEventListener('input', savePersona);
+
+        // Restore model preference if set
+        const savedModel = localStorage.getItem('agent_manager_model');
+        if (savedModel && modelSelect.querySelector(`option[value="${savedModel}"]`)) {
+            modelSelect.value = savedModel;
+        }
+
+        // Restore persona
+        const savedPersona = localStorage.getItem('agent_persona');
+        if (savedPersona) {
+            try {
+                const parsed = JSON.parse(savedPersona);
+                if (parsed.persona) document.getElementById('persona-role').value = parsed.persona;
+                if (parsed.response_style) document.getElementById('response-style').value = parsed.response_style;
+                if (parsed.temperature) document.getElementById('temperature').value = parsed.temperature;
+                if (parsed.behavior_preset) document.getElementById('behavior-preset').value = parsed.behavior_preset;
+                if (Array.isArray(parsed.flags)) {
+                    document.querySelectorAll('#behavior-flags .pill').forEach(p => {
+                        p.classList.toggle('active', parsed.flags.includes(p.dataset.flag));
+                    });
+                }
+                if (parsed.sliders) {
+                    if (parsed.sliders.empathy) document.getElementById('slider-empathy').value = parsed.sliders.empathy;
+                    if (parsed.sliders.directness) document.getElementById('slider-directness').value = parsed.sliders.directness;
+                    if (parsed.sliders.verbosity) document.getElementById('slider-verbosity').value = parsed.sliders.verbosity;
+                    if (parsed.sliders.safety) document.getElementById('slider-safety').value = parsed.sliders.safety;
+                }
+            } catch (err) {
+                console.warn('Failed to restore persona', err);
+            }
+        }
+    </script>
+</body>
+</html>
+

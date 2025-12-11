@@ -29,6 +29,13 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
 - Reuse the existing brain client and signed upload helpers to gate any review/export flows; ingest contracts stay aligned with `proto/rlds_episode.proto` and the upload checklist in `docs/upload-readiness-checklist.md`.
 - The `worldtapeai.com/` folder in the repo now serves as a redirect stub only; updates to portal behavior should land in this module and its docs.
 
+### Public RLDS episodes (viewer stub + upcoming wiring)
+- A public episodes viewer now exists at route `/#/episodes` (web) with mock data.
+- When the Continuon Cloud public-episodes API is ready, replace the mock service with a client that fetches signed URLs and metadata; list only episodes uploaded with a `share` block (`public=true`, slug, title, license, tags).
+- Detail view should render preview video/timeline and gated downloads via short-lived signed URLs; do not expose raw bucket paths.
+- Sharing controls in Continuon Brain/Studio/AI uploader must populate the `share` block and respect license/ownership rules before an episode is listed.
+- Safety/PII: require `content_rating` (general/13+/18+), `intended_audience`, and `pii_attested` in the `share` block. Run automated PII/safety scans (faces/plates blur, OCR + ASR for PII/profanity). Only list when `pii_cleared=true` and `pending_review=false`; if redacted, serve only redacted assets and badge accordingly.
+
 ## Requirements
 
 - Flutter 3.19+ (`flutter upgrade` recommended).
@@ -77,6 +84,8 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
 ## Firebase auth & hosting setup
 
 - Enable the Google provider in Firebase Authentication, then add authorized domains: `localhost`, `127.0.0.1`, your LAN IP if you serve locally, the App Hosting/Hosting subdomain, and your production domain (for example `app.continuon.ai`).
+- Enable the Email/Password provider so users can create continuonai.com accounts from the web app; include `continuonai.com`/`app.continuon.ai` in authorized domains.
+- Two-factor: when ready, turn on Firebase multi-factor (TOTP/SMS). The UI surfaces a placeholder and will prompt once the project enforces a second factor.
 - Android: add release SHA-1/SHA-256 fingerprints in Firebase console and download a fresh `android/app/google-services.json` (package name stays `com.continuonxr.fluttercompanion.flutter_companion`).
 - iOS/macOS: add the Apple app in Firebase, download `ios/Runner/GoogleService-Info.plist`, and register the reversed client ID in URL types.
 - Web: the app already uses `FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider())`; no extra redirect URI is needed when the domain is authorized.

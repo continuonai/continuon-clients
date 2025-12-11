@@ -2,6 +2,11 @@
 
 This directory contains the Debian package structure for ContinuonBrain.
 
+## Status (2025-12-10)
+
+- Phase 1 complete: Debian package structure builds and installs (`continuonbrain_1.0.0_arm64.deb`).
+- Next phases track in the root README "Production Installation System": kiosk mode → developer mode → bootable image → auto-update/rollback.
+
 ## Building the Package
 
 ```bash

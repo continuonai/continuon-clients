@@ -34,6 +34,14 @@ data class LoggingConfig(
     val uploadAuthToken: String? = null,
     val maxUploadRetries: Int = 3,
     val uploadRetryBackoffMs: Long = 1_000,
+    val environmentId: String? = null,
+    val robotId: String? = null,
+    val robotModel: String? = null,
+    val frameConvention: String? = null,
+    val appVersion: String? = null,
+    val brainVersion: String? = null,
+    val gloveFirmwareVersion: String? = null,
+    val tags: List<String> = emptyList(),
 )
 
 data class GloveConfig(
@@ -60,6 +68,8 @@ object AppConfigLoader {
             logging = LoggingConfig(
                 episodeOutputDir = "/sdcard/continuonxr/episodes",
                 uploadOnComplete = false,
+                environmentId = "dev-lab",
+                frameConvention = "base_link",
             ),
             glove = GloveConfig(
                 bleDeviceName = "ContinuonGlove",

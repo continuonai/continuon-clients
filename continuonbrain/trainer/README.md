@@ -28,7 +28,7 @@ See [`docs/jax-training-pipeline.md`](../../docs/jax-training-pipeline.md) for c
 - `../model/manifest.pi5.example.json`: sample manifest for `flutter_gemma` to load base + adapter paths on Pi 5 (use non-quantized Gemma 3n if memory permits).
 - `gemma_hooks.py`: in-place LoRA injector for Gemma models (torch) compatible with the trainer interface.
 - `gating_continuonos.py`: helper to wire trainer gating to continuonos runtime signals (idle/battery/thermals/teleop).
-- `safety_head_stub.py`: simple clamp/violation logger for steering/throttle; replace with your real safety head.
+- `safety_head_wavecore.py`: WaveCore-style safety head with clamp + risk scoring; use in runtime manifests instead of the stub.
 - `vla_adapter.py`: routes WaveCore `encode_for_policy()` outputs plus RLDS metadata into minimal VLA heads (SkillPolicies/LanguagePlanner) with switchable routing modes.
 - `INTEGRATION_CHECKLIST.md`: step-by-step to drop the scaffold into continuonos (model loader, safety, gating, manifest, RLDS).
 - `sidecar_runner.py`: RLDS-aware wrapper so a sidecar process can gate on idle/battery/thermals and only promote adapters after the safety gate passes.

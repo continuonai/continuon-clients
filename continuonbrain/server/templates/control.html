@@ -3,15 +3,1482 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual Control - ContinuonBrain</title>
+    <title>Manual Control - CraigBot</title>
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 0; background: #0b1020; color: #fff; }
-        h1 { font-size: 20px; }
+        :root {
+            --bg: #0b1020;
+            --panel: #0f1729;
+            --border: #1f2a3d;
+            --muted: #8b95b5;
+            --accent: #7ad7ff;
+            --accent-strong: #4f9dff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        /* Fullscreen Video Background */
+        .video-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .video-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.8;
+        }
+        
+        .video-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 12px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        /* Floating Header */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(15, 23, 41, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 12px 24px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .header h1 {
+            font-size: 16px;
+            color: #fff;
+            margin: 0;
+        }
+        
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        .back-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+        /* Tabs Centered Bottom */
+        .tabs-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            background: rgba(15, 23, 41, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 6px;
+            border-radius: 100px;
+            display: flex;
+            gap: 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn.active {
+            background: var(--accent);
+            color: #0b1020;
+            box-shadow: 0 4px 12px rgba(122, 215, 255, 0.3);
+        }
+        
+        /* Layout Container (Right Side Overlay) */
+        .main-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 360px;
+            z-index: 10;
+            padding: 80px 20px 20px 0;
+            pointer-events: none; /* Let clicks pass through empty areas */
+            display: block; /* Reset grid */
+            background: transparent;
+            height: auto;
+            max-width: none;
+            margin: 0;
+        }
+
+        .status-panel {
+            pointer-events: auto;
+            background: transparent;
+            border: none;
+            padding: 0;
+            box-shadow: none;
+            overflow: visible;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+        }
+
+        .control-panel {
+            background: rgba(16, 22, 38, 0.85);
+            backdrop-filter: blur(16px);
+            padding: 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .status-section { display: none; } /* Hide generic status blocks in immersive mode */
+
+        /* Joint Sliders & buttons styling (Keep existing logic but refine) */
+        .joint-slider {
+            background: rgba(0,0,0,0.2);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        .joint-slider label { color: #ccc; font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .val-badge { color: var(--accent); font-family: monospace; }
+        
+        .arrow-group { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; }
+        .arrow-btn { background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; }
+        .arrow-btn:active { background: var(--accent); color: #000; }
+        
+        .emergency-btn {
+            background: #ff3b30;
+            color: white;
+            border: none;
+            padding: 16px;
+        }
+        .arrow-controls {
+            display: grid;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .arrow-group {
+            background: #2a2a2c;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        .arrow-group-title {
+            font-size: 11px;
+            color: #86868b;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .arrow-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            max-width: 200px;
+            margin: 0 auto;
+        }
+        .arrow-btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.1s;
+            user-select: none;
+        }
+        .arrow-btn:active {
+            background: #0051d5;
+        }
+        .arrow-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .arrow-btn.center {
+            background: #333;
+        }
+        .keyboard-hint {
+            font-size: 10px;
+            color: #555;
+            text-align: center;
+            margin-top: 4px;
+        }
+        .chat-overlay {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 400px;
+            max-height: 600px;
+            background: rgba(29, 29, 31, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid #333;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+        .chat-overlay.minimized {
+            max-height: 50px;
+        }
+        .chat-header {
+            padding: 12px 16px;
+            background: #2a2a2c;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid #333;
+        }
+        .chat-header h3 {
+            font-size: 14px;
+            color: #fff;
+            margin: 0;
+        }
+        .chat-toggle {
+            background: none;
+            border: none;
+            color: #86868b;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            min-height: 200px;
+            max-height: 400px;
+        }
+        .chat-message {
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .chat-message.user {
+            background: #007aff;
+            color: white;
+            margin-left: 40px;
+        }
+        .chat-message.assistant {
+            background: #2a2a2c;
+            color: #fff;
+            margin-right: 40px;
+        }
+        .chat-message.system {
+            background: #333;
+            color: #86868b;
+            font-size: 11px;
+            text-align: center;
+            margin: 8px 20px;
+        }
+        .chat-input-area {
+            padding: 12px;
+            border-top: 1px solid #333;
+            display: flex;
+            gap: 8px;
+        }
+        .chat-input {
+            flex: 1;
+            background: #2a2a2c;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+        }
+        .chat-input:focus {
+            border-color: #007aff;
+        }
+        .chat-send-btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .chat-send-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
-<h1>Manual Control</h1>
-<p>This is a placeholder control interface. Full control UI content was previously embedded in robot_api_server.py.</p>
+    <div class="video-panel">
+        <img src="/api/camera/stream" class="video-feed" onerror="this.src='data:image/svg+xml;base64,...'">
+        <div class="video-overlay">
+             <div class="status-item">
+                <span style="width: 8px; height: 8px; background: #34c759; border-radius: 50%; display: inline-block; margin-right: 6px;"></span>
+                LIVE FEED (CAM_1)
+            </div>
+        </div>
+    </div>
+
+    <div class="header">
+        <h1>🎮 Manual Control</h1>
+        <button class="back-btn" onclick="window.location.href='/ui'">Exit</button>
+    </div>
+
+    <!-- Tabs (Bottom Center) -->
+    <div class="tabs-container">
+        <button class="tab-btn active" data-tab="arm" onclick="switchTab('arm')">🦾 Arm</button>
+        <button class="tab-btn" data-tab="drive" onclick="switchTab('drive')">🏎️ Drive</button>
+    </div>
+
+    <div class="main-container">
+        <div class="status-panel">
+            <!-- Joint/Arm Control Panel (Overlay) -->
+            <div id="arm-panel" class="control-panel">
+                <h3>Arm Manipulation</h3>
+                <!-- ... existing controls ... -->
+                <div class="joint-controls">
+                    <div class="joint-slider">
+                        <label>J0 (Base Rotation) <span class="val-badge" id="j0-display">0.0</span></label>
+                        <input type="range" id="j0" min="-100" max="100" value="0" oninput="updateJointDisplay(0, this.value); sendJointCommand()">
+                    </div>
+                    <!-- ... other sliders ... -->
+                    <div class="joint-slider">
+                        <label>J1 (Shoulder) <span class="val-badge" id="j1-display">0.0</span></label>
+                        <input type="range" id="j1" min="-100" max="100" value="0" oninput="updateJointDisplay(1, this.value); sendJointCommand()">
+                    </div>
+                    <div class="joint-slider">
+                        <label>J2 (Elbow) <span class="val-badge" id="j2-display">0.0</span></label>
+                        <input type="range" id="j2" min="-100" max="100" value="0" oninput="updateJointDisplay(2, this.value); sendJointCommand()">
+                    </div>
+                    <div class="joint-slider">
+                        <label>J3 (Wrist Roll) <span class="val-badge" id="j3-display">0.0</span></label>
+                        <input type="range" id="j3" min="-100" max="100" value="0" oninput="updateJointDisplay(3, this.value); sendJointCommand()">
+                    </div>
+                    <div class="joint-slider">
+                        <label>J4 (Wrist Pitch) <span class="val-badge" id="j4-display">0.0</span></label>
+                        <input type="range" id="j4" min="-100" max="100" value="0" oninput="updateJointDisplay(4, this.value); sendJointCommand()">
+                    </div>
+                    <div class="joint-slider">
+                        <label>Gripper State <span class="val-badge" id="j5-display">-1.0</span></label>
+                        <input type="range" id="j5" min="-100" max="100" value="-100" oninput="updateJointDisplay(5, this.value); sendJointCommand()">
+                    </div>
+                </div>
+                
+                 <div style="margin-top: 20px;">
+                    <span class="status-label">Presets & Actions</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                        <button class="action-btn" onclick="gotoHome()">🏠 Home</button>
+                        <button class="action-btn" onclick="gotoZero()">0️⃣ Zero</button>
+                        <button class="action-btn success" onclick="openGripper()">✋ Open</button>
+                        <button class="action-btn warning" onclick="closeGripper()">✊ Close</button>
+                    </div>
+                </div>
+
+                     <div class="arrow-controls" style="margin-top: 20px;">
+                        <div class="arrow-group">
+                            <div class="arrow-group-title">Fine Control (Selected Joint)</div>
+                            <div class="arrow-grid">
+                                <div></div>
+                                <button class="arrow-btn" onmousedown="startMove(activeJoint, 0.1)" onmouseup="stopMove()">+</button>
+                                <div></div>
+                                <button class="arrow-btn" onmousedown="startMove(activeJoint, -0.1)" onmouseup="stopMove()">-</button>
+                                <div></div>
+                            </div>
+                            <div class="keyboard-hint" style="margin-top: 8px;">Select a joint slider first</div>
+                        </div>
+                    </div>
+            </div>
+
+            <!-- Drive Control Panel (Overlay) -->
+            <div id="drive-panel" class="control-panel" style="display: none;">
+                <h3>Drivetrain</h3>
+                <!-- ... existing controls ... -->
+                 <div class="arrow-controls">
+                    <div class="arrow-group">
+                        <div class="arrow-group-title">Steering & Throttle</div>
+                        <div class="arrow-grid">
+                            <div></div>
+                            <button class="arrow-btn" onmousedown="startDrive('forward')" onmouseup="stopDrive()" ontouchstart="startDrive('forward')" ontouchend="stopDrive()">⬆️</button>
+                            <div></div>
+                            <button class="arrow-btn" onmousedown="startDrive('left')" onmouseup="stopDrive()" ontouchstart="startDrive('left')" ontouchend="stopDrive()">⬅️</button>
+                            <button class="arrow-btn center" disabled>🏎️</button>
+                            <button class="arrow-btn" onmousedown="startDrive('right')" onmouseup="stopDrive()" ontouchstart="startDrive('right')" ontouchend="stopDrive()">➡️</button>
+                            <div></div>
+                            <button class="arrow-btn" onmousedown="startDrive('backward')" onmouseup="stopDrive()" ontouchstart="startDrive('backward')" ontouchend="stopDrive()">⬇️</button>
+                            <div></div>
+                        </div>
+                        <div class="keyboard-hint">Arrow keys or WASD to drive</div>
+                    </div>
+
+                    <div class="arrow-group" style="margin-top: 20px;">
+                        <div class="arrow-group-title">Speed limit: <span id="speed-level">SLOW</span> (<span id="speed-value">0.3</span>)</div>
+                        <div style="display: flex; gap: 4px;">
+                            <button style="flex: 1; background: #34c759; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.2, 'CRAWL')">🐌 Crawl</button>
+                            <button style="flex: 1; background: #007aff; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.3, 'SLOW')">🚪 Slow</button>
+                            <button style="flex: 1; background: #ff9500; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.5, 'MED')">🚶 Med</button>
+                            <button style="flex: 1; background: #ff3b30; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 11px;" onclick="setSpeed(0.7, 'FAST')">🏃 Fast</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="emergency-btn" onclick="emergencyStop()">🛑 EMERGENCY STOP</button>
+        </div>
+    </div>
+    
+    <!-- Chat Interface -->
+    <div class="chat-overlay" id="chat-panel">
+        <div class="chat-header" onclick="toggleChat()">
+            <h3>🤖 Gemma 3n Assistant</h3>
+            <button class="chat-toggle" id="chat-toggle">−</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
+        </div>
+    </div>
+
+    <script src="/static/client.js"></script>
+    <script type="text/javascript">
+        var frameCount = 0;
+        var lastFrameTime = Date.now();
+        var cameraActive = false;
+        
+        window.updateCameraFrame = function() {
+            var img = document.getElementById('camera-stream');
+            var placeholder = document.getElementById('video-placeholder');
+            var currentTime = Date.now();
+            
+            // Add timestamp to prevent caching
+            img.src = '/api/camera/frame?t=' + currentTime;
+            
+            img.onload = function() {
+                if (!cameraActive) {
+                    // First successful frame - hide placeholder
+                    placeholder.style.display = 'none';
+                    img.style.display = 'block';
+                    cameraActive = true;
+                }
+                
+                // Calculate FPS
+                frameCount++;
+                var now = Date.now();
+                var elapsed = now - lastFrameTime;
+                if (elapsed >= 1000) {
+                    var fps = Math.round(frameCount * 1000 / elapsed);
+                    document.getElementById('fps').textContent = fps;
+                    frameCount = 0;
+                    lastFrameTime = now;
+                }
+                
+                // Calculate latency
+                var latency = Date.now() - currentTime;
+                document.getElementById('latency').textContent = latency;
+            };
+            
+            img.onerror = function() {
+                if (cameraActive) {
+                    // Lost camera - show placeholder
+                    img.style.display = 'none';
+                    placeholder.style.display = 'block';
+                    placeholder.innerHTML = '<div>📹</div><div>Camera Disconnected</div><div style="font-size: 14px; color: #444; margin-top: 10px;">Reconnecting...</div>';
+                    cameraActive = false;
+                }
+            };
+        };
+        
+        var currentJointPositions = [0, 0, 0, 0, 0, -1];
+        var moveInterval = null;
+        var activeJoint = -1;
+        var activeDelta = 0;
+        
+        // Car driving state
+        var carSteering = 0.0;  // -1.0 (left) to 1.0 (right)
+        var carThrottle = 0.0;  // -1.0 (reverse) to 1.0 (forward)
+        var maxSpeed = 0.3;     // Default to slow (30% throttle)
+        var driveInterval = null;
+        var activeDriveDirection = null;
+        
+        window.updateJointDisplay = function(index, value) {
+            var normalized = value / 100.0;
+            currentJointPositions[index] = normalized;
+            document.getElementById('j' + index + '-display').textContent = normalized.toFixed(2);
+        };
+        
+        window.startMove = function(jointIndex, delta) {
+            activeJoint = jointIndex;
+            activeDelta = delta;
+            
+            // Immediate first move
+            moveJoint(jointIndex, delta);
+            
+            // Continue moving while held
+            moveInterval = setInterval(function() {
+                moveJoint(jointIndex, delta);
+            }, 50); // 20Hz updates
+        };
+        
+        window.stopMove = function() {
+            if (moveInterval) {
+                clearInterval(moveInterval);
+                moveInterval = null;
+            }
+            activeJoint = -1;
+            activeDelta = 0;
+        };
+        
+        window.moveJoint = function(jointIndex, delta) {
+            var newValue = currentJointPositions[jointIndex] + delta;
+            // Clamp to [-1, 1]
+            newValue = Math.max(-1.0, Math.min(1.0, newValue));
+            
+            currentJointPositions[jointIndex] = newValue;
+            document.getElementById('j' + jointIndex).value = newValue * 100;
+            document.getElementById('j' + jointIndex + '-display').textContent = newValue.toFixed(2);
+            
+            sendJointCommand();
+        };
+        
+        // Keyboard controls
+        document.addEventListener('keydown', function(e) {
+            // Prevent if input is focused
+            if (document.activeElement.tagName === 'INPUT') return;
+            
+            var handled = false;
+            
+            // Check for modifier keys - hold Ctrl for car driving
+            var isDriving = e.ctrlKey || e.metaKey;
+            
+            switch(e.key) {
+                // Arrow keys - Car driving with Ctrl, or arm control without
+                case 'ArrowUp':
+                    if (isDriving) {
+                        if (!activeDriveDirection) startDrive('forward');
+                    }
+                    handled = isDriving;
+                    break;
+                case 'ArrowDown':
+                    if (isDriving) {
+                        if (!activeDriveDirection) startDrive('backward');
+                    }
+                    handled = isDriving;
+                    break;
+                case 'ArrowLeft':
+                    if (isDriving) {
+                        if (!activeDriveDirection) startDrive('left');
+                    } else {
+                        if (activeJoint !== 0) startMove(0, -0.1);
+                    }
+                    handled = true;
+                    break;
+                case 'ArrowRight':
+                    if (isDriving) {
+                        if (!activeDriveDirection) startDrive('right');
+                    } else {
+                        if (activeJoint !== 0) startMove(0, 0.1);
+                    }
+                    handled = true;
+                    break;
+                // W/S - Shoulder (J1)
+                case 'w':
+                case 'W':
+                    if (activeJoint !== 1) startMove(1, 0.1);
+                    handled = true;
+                    break;
+                case 's':
+                case 'S':
+                    if (activeJoint !== 1) startMove(1, -0.1);
+                    handled = true;
+                    break;
+                // A/D - Elbow (J2)
+                case 'a':
+                case 'A':
+                    if (activeJoint !== 2) startMove(2, -0.1);
+                    handled = true;
+                    break;
+                case 'd':
+                case 'D':
+                    if (activeJoint !== 2) startMove(2, 0.1);
+                    handled = true;
+                    break;
+                // Q/E - Wrist Roll (J3)
+                case 'q':
+                case 'Q':
+                    if (activeJoint !== 3) startMove(3, -0.1);
+                    handled = true;
+                    break;
+                case 'e':
+                case 'E':
+                    if (activeJoint !== 3) startMove(3, 0.1);
+                    handled = true;
+                    break;
+                // R/F - Wrist Pitch (J4)
+                case 'r':
+                case 'R':
+                    if (activeJoint !== 4) startMove(4, 0.1);
+                    handled = true;
+                    break;
+                case 'f':
+                case 'F':
+                    if (activeJoint !== 4) startMove(4, -0.1);
+                    handled = true;
+                    break;
+                // Space/Shift - Gripper
+                case ' ':
+                    openGripper();
+                    handled = true;
+                    break;
+                case 'Shift':
+                    closeGripper();
+                    handled = true;
+                    break;
+            }
+            
+            if (handled) {
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', function(e) {
+            // Stop car driving on any arrow key release
+            if (activeDriveDirection && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                stopDrive();
+                e.preventDefault();
+                return;
+            }
+            
+            var shouldStop = false;
+            switch(e.key) {
+                case 'ArrowLeft':
+                case 'ArrowRight':
+                    if (activeJoint === 0) shouldStop = true;
+                    break;
+                case 'w':
+                case 'W':
+                case 's':
+                case 'S':
+                    if (activeJoint === 1) shouldStop = true;
+                    break;
+                case 'a':
+                case 'A':
+                case 'd':
+                case 'D':
+                    if (activeJoint === 2) shouldStop = true;
+                    break;
+                case 'q':
+                case 'Q':
+                case 'e':
+                case 'E':
+                    if (activeJoint === 3) shouldStop = true;
+                    break;
+                case 'r':
+                case 'R':
+                case 'f':
+                case 'F':
+                    if (activeJoint === 4) shouldStop = true;
+                    break;
+            }
+            
+            if (shouldStop) {
+                stopMove();
+                e.preventDefault();
+            }
+        });
+        
+        window.sendJointCommand = function() {
+            // Throttle commands - only send if motion is enabled
+            var motionEnabled = document.getElementById('motion-enabled').textContent === 'Yes';
+            if (!motionEnabled) {
+                console.warn('Motion not enabled in current mode');
+                return;
+            }
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/command', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify({
+                client_id: 'web_control',
+                control_mode: 'armJointAngles',
+                arm_joint_angles: {
+                    normalized_angles: currentJointPositions
+                }
+            }));
+        };
+        
+        window.gotoHome = function() {
+            setJointPositions([0, 0, 0, 0, 0, -1]);
+        };
+        
+        window.gotoZero = function() {
+            setJointPositions([0, 0, 0, 0, 0, 0]);
+        };
+        
+        window.openGripper = function() {
+            currentJointPositions[5] = -1.0;
+            document.getElementById('j5').value = -100;
+            document.getElementById('j5-display').textContent = '-1.00';
+            sendJointCommand();
+        };
+        
+        window.closeGripper = function() {
+            currentJointPositions[5] = 1.0;
+            document.getElementById('j5').value = 100;
+            document.getElementById('j5-display').textContent = '1.00';
+            sendJointCommand();
+        };
+        
+        window.setJointPositions = function(positions) {
+            for (var i = 0; i < 6; i++) {
+                currentJointPositions[i] = positions[i];
+                document.getElementById('j' + i).value = positions[i] * 100;
+                document.getElementById('j' + i + '-display').textContent = positions[i].toFixed(2);
+            }
+            sendJointCommand();
+        };
+        
+        // Car driving controls
+        window.setSpeed = function(speed, label) {
+            maxSpeed = speed;
+            document.getElementById('speed-value').textContent = speed.toFixed(1);
+            document.getElementById('speed-level').textContent = label;
+        };
+        
+        window.startDrive = function(direction) {
+            activeDriveDirection = direction;
+            
+            // Set initial drive values
+            updateDriveValues(direction);
+            sendDriveCommand();
+            
+            // Continue sending while held
+            driveInterval = setInterval(function() {
+                updateDriveValues(direction);
+                sendDriveCommand();
+            }, 50); // 20Hz updates
+        };
+        
+        window.stopDrive = function() {
+            if (driveInterval) {
+                clearInterval(driveInterval);
+                driveInterval = null;
+            }
+            activeDriveDirection = null;
+            
+            // Stop the car
+            carSteering = 0.0;
+            carThrottle = 0.0;
+            sendDriveCommand();
+        };
+        
+        window.updateDriveValues = function(direction) {
+            switch(direction) {
+                case 'forward':
+                    carThrottle = maxSpeed;
+                    carSteering = 0.0;
+                    break;
+                case 'backward':
+                    carThrottle = -maxSpeed;
+                    carSteering = 0.0;
+                    break;
+                case 'left':
+                    carSteering = -1.0;
+                    if (carThrottle === 0) carThrottle = maxSpeed * 0.5; // Gentle forward when steering
+                    break;
+                case 'right':
+                    carSteering = 1.0;
+                    if (carThrottle === 0) carThrottle = maxSpeed * 0.5;
+                    break;
+            }
+        };
+        
+        window.sendDriveCommand = function() {
+            var motionEnabled = document.getElementById('motion-enabled').textContent === 'Yes';
+            if (!motionEnabled) {
+                console.warn('Motion not enabled in current mode');
+                renderDriveResult({ success: false, message: 'Motion disabled in current mode' });
+                return;
+            }
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/drive', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var result = JSON.parse(xhr.responseText);
+                        renderDriveResult(result);
+                    } catch (e) {
+                        console.error('Failed to parse drive response', e);
+                    }
+                }
+            };
+            xhr.onerror = function() {
+                renderDriveResult({ success: false, message: 'Drive command failed to reach server' });
+            };
+            xhr.send(JSON.stringify({
+                steering: carSteering,
+                throttle: carThrottle
+            }));
+        };
+
+        window.renderDriveResult = function(result) {
+            if (!result) return;
+            var text = (result.success ? '✅ ' : '⚠️ ') + (result.message || 'Drive command sent');
+            if (typeof result.steering === 'number' && typeof result.throttle === 'number') {
+                text += ' (S:' + parseFloat(result.steering).toFixed(2) + ', T:' + parseFloat(result.throttle).toFixed(2) + ')';
+            }
+
+            var target = document.getElementById('drive-message');
+            target.textContent = text;
+            target.className = 'status-value ' + (result.success ? 'status-good' : 'status-warning');
+
+            // Keep connection status in sync if mode returned
+            if (result.mode) {
+                var connectionText = (result.success ? 'Connected' : 'Not Connected') + ' (' + result.mode.toUpperCase() + ')';
+                var connectionClass = result.success ? 'status-good' : 'status-critical';
+                document.getElementById('drivetrain-connection').textContent = connectionText;
+                document.getElementById('drivetrain-connection').className = 'status-value ' + connectionClass;
+            }
+        };
+        
+        window.applyControlStatus = function(statusPayload) {
+            if (!statusPayload) return;
+            var status = statusPayload.status ? statusPayload.status : statusPayload;
+            document.getElementById('hardware-mode').textContent = status.hardware_mode.toUpperCase();
+            document.getElementById('hardware-mode').className = 'status-value ' + (status.hardware_mode === 'real' ? 'status-good' : 'status-warning');
+            
+            document.getElementById('robot-mode').textContent = status.mode.replace(/_/g, ' ').toUpperCase();
+            document.getElementById('current-mode').textContent = status.mode.replace(/_/g, ' ').toUpperCase();
+            
+            var motionAllowed = status.allow_motion;
+            document.getElementById('motion-enabled').textContent = motionAllowed ? 'Yes' : 'No';
+            document.getElementById('motion-enabled').className = 'status-value ' + (motionAllowed ? 'status-good' : 'status-critical');
+            
+            document.getElementById('recording-status').textContent = status.is_recording ? 'Yes' : 'No';
+            document.getElementById('recording-status').className = 'status-value ' + (status.is_recording ? 'status-good' : '');
+
+            var drivetrain = status.drivetrain || null;
+            if (drivetrain) {
+                var connectionClass = drivetrain.connected ? 'status-good' : 'status-critical';
+                var connectionText = drivetrain.connected ? 'Connected' : 'Not Connected';
+                if (drivetrain.mode) {
+                    connectionText += ' (' + drivetrain.mode.toUpperCase() + ')';
+                }
+                document.getElementById('drivetrain-connection').textContent = connectionText;
+                document.getElementById('drivetrain-connection').className = 'status-value ' + connectionClass;
+
+                if (drivetrain.last_command) {
+                    var lastCmd = drivetrain.last_command;
+                    var driveText = (lastCmd.success ? '✅ ' : '⚠️ ') + (lastCmd.message || 'Drive command sent');
+                    if (typeof lastCmd.steering === 'number' && typeof lastCmd.throttle === 'number') {
+                        driveText += ' (S:' + lastCmd.steering.toFixed(2) + ', T:' + lastCmd.throttle.toFixed(2) + ')';
+                    }
+                    document.getElementById('drive-message').textContent = driveText;
+                    document.getElementById('drive-message').className = 'status-value ' + (lastCmd.success ? 'status-good' : 'status-warning');
+                }
+            }
+
+            if (status.detected_hardware) {
+                var hw = status.detected_hardware;
+                var hwHtml = '';
+                
+                if (hw.depth_camera) {
+                    hwHtml += '<div class="status-item"><div class="status-label">📷 Camera</div><div class="status-value status-good">' + hw.depth_camera + '</div></div>';
+                }
+                if (hw.depth_camera_driver) {
+                    hwHtml += '<div class="status-item"><div class="status-label">Driver</div><div class="status-value">' + hw.depth_camera_driver + '</div></div>';
+                }
+                if (hw.servo_controller) {
+                    hwHtml += '<div class="status-item"><div class="status-label">🦾 Servo</div><div class="status-value status-good">' + hw.servo_controller + '</div></div>';
+                }
+                if (hw.servo_controller_address) {
+                    hwHtml += '<div class="status-item"><div class="status-label">I2C Address</div><div class="status-value">' + hw.servo_controller_address + '</div></div>';
+                }
+                
+                if (hwHtml) {
+                    document.getElementById('hardware-details').innerHTML = hwHtml;
+                }
+            }
+        };
+
+        window.updateControlStatus = function(payload) {
+            if (payload) {
+                window.applyControlStatus(payload);
+                return;
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/status', true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.status) {
+                            window.applyControlStatus(data.status);
+                        }
+                    } catch (e) {
+                        console.error('Parse error:', e);
+                    }
+                }
+            };
+            xhr.send();
+        };
+        
+        window.emergencyStop = function() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/mode/emergency_stop', true);
+            xhr.onload = function() {
+                alert('EMERGENCY STOP ACTIVATED');
+                window.location.href = '/ui';
+            };
+            xhr.send();
+        };
+
+        // Chat overlay persistence (shared between /ui and /control)
+        var chatMinimized = false;
+        var chatHistory = [];
+        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
+        var chatHistoryKey = chatStoragePrefix + '_history';
+        var chatMinimizedKey = chatStoragePrefix + '_minimized';
+
+        function persistChatState() {
+            try {
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
+                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
+            } catch (e) {
+                console.warn('Unable to persist chat state', e);
+            }
+        }
+
+        function applyChatMinimized() {
+            var panel = document.getElementById('chat-panel');
+            var toggle = document.getElementById('chat-toggle');
+            if (!panel || !toggle) return;
+
+            if (chatMinimized) {
+                panel.classList.add('minimized');
+                toggle.textContent = '+';
+            } else {
+                panel.classList.remove('minimized');
+                toggle.textContent = '−';
+            }
+        }
+
+        function renderChatMessage(text, role, shouldPersist) {
+            if (typeof shouldPersist === 'undefined') shouldPersist = true;
+
+            var messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + role;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            if (shouldPersist) {
+                chatHistory.push({role: role, content: text});
+                persistChatState();
+            }
+        }
+
+        function hydrateChatOverlay() {
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    chatHistory = JSON.parse(storedHistory) || [];
+                    chatHistory.forEach(function(msg) {
+                        renderChatMessage(msg.content, msg.role, false);
+                    });
+                }
+
+                var storedMinimized = localStorage.getItem(chatMinimizedKey);
+                if (storedMinimized === 'true') {
+                    chatMinimized = true;
+                }
+            } catch (e) {
+                console.warn('Unable to hydrate chat state', e);
+            }
+
+            applyChatMinimized();
+        }
+
+        window.toggleChat = function() {
+            chatMinimized = !chatMinimized;
+            persistChatState();
+            applyChatMinimized();
+        };
+
+        window.addChatMessage = function(text, role) {
+            renderChatMessage(text, role, true);
+        };
+
+        window.sendChatMessage = function() {
+            var input = document.getElementById('chat-input');
+            var sendBtn = document.getElementById('chat-send');
+            var message = input ? input.value.trim() : '';
+
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            if (input) input.value = '';
+
+            // Disable input while processing
+            if (input) input.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+
+            // Send to Gemma endpoint
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/chat', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.response) {
+                            addChatMessage(data.response, 'assistant');
+                        } else if (data.error) {
+                            addChatMessage('Error: ' + data.error, 'system');
+                        }
+                    } catch (e) {
+                        addChatMessage('Error parsing response', 'system');
+                    }
+                } else {
+                    addChatMessage('Server error: ' + xhr.status, 'system');
+                }
+
+                if (input) input.focus();
+            };
+            xhr.onerror = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                addChatMessage('Connection error', 'system');
+                if (input) input.focus();
+            };
+
+            // Include chat history for context
+            xhr.send(JSON.stringify({
+                message: message,
+                history: chatHistory.slice(-10) // Last 10 messages for context
+            }));
+        };
+
+        hydrateChatOverlay();
+        
+        // Chat overlay persistence (shared between /ui and /control)
+        var chatMinimized = false;
+        var chatHistory = [];
+        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
+        var chatHistoryKey = chatStoragePrefix + '_history';
+        var chatMinimizedKey = chatStoragePrefix + '_minimized';
+
+        function persistChatState() {
+            try {
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory.slice(-50)));
+                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
+            } catch (e) {
+                console.warn('Unable to persist chat state', e);
+            }
+        }
+
+        function applyChatMinimized() {
+            var panel = document.getElementById('chat-panel');
+            var toggle = document.getElementById('chat-toggle');
+            if (!panel || !toggle) return;
+
+            if (chatMinimized) {
+                panel.classList.add('minimized');
+                toggle.textContent = '+';
+            } else {
+                panel.classList.remove('minimized');
+                toggle.textContent = '−';
+            }
+        }
+
+        function renderChatMessage(text, role, shouldPersist) {
+            if (typeof shouldPersist === 'undefined') shouldPersist = true;
+
+            var messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + role;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            if (shouldPersist) {
+                chatHistory.push({role: role, content: text});
+                persistChatState();
+            }
+        }
+
+        function hydrateChatOverlay() {
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    chatHistory = JSON.parse(storedHistory) || [];
+                    chatHistory.forEach(function(msg) {
+                        renderChatMessage(msg.content, msg.role, false);
+                    });
+                }
+
+                var storedMinimized = localStorage.getItem(chatMinimizedKey);
+                if (storedMinimized === 'true') {
+                    chatMinimized = true;
+                }
+            } catch (e) {
+                console.warn('Unable to hydrate chat state', e);
+            }
+
+            applyChatMinimized();
+        }
+
+        window.toggleChat = function() {
+            chatMinimized = !chatMinimized;
+            persistChatState();
+            applyChatMinimized();
+        };
+
+        window.addChatMessage = function(text, role) {
+            renderChatMessage(text, role, true);
+        };
+
+        window.sendChatMessage = function() {
+            var input = document.getElementById('chat-input');
+            var sendBtn = document.getElementById('chat-send');
+            var message = input ? input.value.trim() : '';
+
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            if (input) input.value = '';
+
+            // Disable input while processing
+            if (input) input.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+
+            // Send to Gemma endpoint
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/chat', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.response) {
+                            addChatMessage(data.response, 'assistant');
+                        } else if (data.error) {
+                            addChatMessage('Error: ' + data.error, 'system');
+                        }
+                    } catch (e) {
+                        addChatMessage('Error parsing response', 'system');
+                    }
+                } else {
+                    addChatMessage('Server error: ' + xhr.status, 'system');
+                }
+
+                if (input) input.focus();
+            };
+            xhr.onerror = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                addChatMessage('Connection error', 'system');
+                if (input) input.focus();
+            };
+
+            // Include chat history for context
+            xhr.send(JSON.stringify({
+                message: message,
+                history: chatHistory.slice(-10) // Last 10 messages for context
+            }));
+        };
+
+        hydrateChatOverlay();
+        
+        // Chat functionality with persistence
+        var chatMinimized = false;
+        var chatHistory = [];
+        var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
+        var chatHistoryKey = chatStoragePrefix + '_history';
+        var chatMinimizedKey = chatStoragePrefix + '_minimized';
+        var MAX_MESSAGE_LENGTH = 10000; // Maximum allowed message length for DoS protection
+        var initialChatMessage = 'Chat with Gemma 3n about robot control';
+
+        // Sanitize text to prevent XSS attacks
+        function sanitizeText(text) {
+            if (typeof text !== 'string') {
+                return '';
+            }
+            
+            // Remove any HTML tags first
+            var sanitized = text.replace(/<[^>]*>/g, '');
+            
+            // Remove any remaining < or > characters that might be part of incomplete tags
+            sanitized = sanitized.replace(/[<>]/g, '');
+            
+            // Remove javascript: and data: URL schemes
+            sanitized = sanitized.replace(/javascript:/gi, '');
+            sanitized = sanitized.replace(/data:/gi, '');
+            
+            // Remove common XSS event handlers
+            sanitized = sanitized.replace(/on\w+\s*=/gi, '');
+            
+            // Limit length to prevent DOS attacks
+            return sanitized.substring(0, 10000);
+        }
+
+        function persistChatState() {
+            try {
+                // Trim in-memory history as well
+                if (chatHistory.length > 50) {
+                    chatHistory = chatHistory.slice(-50);
+                }
+                localStorage.setItem(chatHistoryKey, JSON.stringify(chatHistory));
+                localStorage.setItem(chatMinimizedKey, chatMinimized ? 'true' : 'false');
+            } catch (e) {
+                console.warn('Unable to persist chat state', e);
+                // Show a user-visible warning
+                alert('Warning: Unable to save chat history. Your messages may not be saved.');
+            }
+        }
+
+        function applyChatMinimized() {
+            var panel = document.getElementById('chat-panel');
+            var toggle = document.getElementById('chat-toggle');
+            if (!panel || !toggle) return;
+
+            if (chatMinimized) {
+                panel.classList.add('minimized');
+                toggle.textContent = '+';
+            } else {
+                panel.classList.remove('minimized');
+                toggle.textContent = '−';
+            }
+        }
+
+        function validateChatContent(content) {
+            // Validate chat content to prevent injection attacks
+            // Ensure content is a string and within reasonable bounds
+            if (typeof content !== 'string') return '';
+            // Limit message length to prevent DoS
+            if (content.length > MAX_MESSAGE_LENGTH) return content.substring(0, MAX_MESSAGE_LENGTH);
+            return content;
+        }
+
+        function validateChatRole(role) {
+            // Validate role to prevent class injection
+            var validRoles = ['user', 'assistant', 'system'];
+            return validRoles.indexOf(role) !== -1 ? role : 'system';
+        }
+
+        function renderChatMessage(text, role, shouldPersist) {
+            if (typeof shouldPersist === 'undefined') shouldPersist = true;
+
+            var messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
+            // Validate inputs to prevent injection attacks
+            var validatedText = validateChatContent(text);
+            var validatedRole = validateChatRole(role);
+
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + validatedRole;
+            messageDiv.textContent = validatedText; // textContent prevents XSS
+            // Sanitize text before rendering
+            var sanitized = sanitizeText(text);
+            
+            var messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message ' + role;
+            messageDiv.textContent = sanitized;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            if (shouldPersist) {
+                chatHistory.push({role: validatedRole, content: validatedText});
+                chatHistory.push({role: role, content: sanitized});
+                persistChatState();
+            }
+        }
+
+        function hydrateChatOverlay() {
+            var storedHistory = localStorage.getItem(chatHistoryKey);
+            if (storedHistory) {
+                try {
+                    chatHistory = JSON.parse(storedHistory);
+                    if (!Array.isArray(chatHistory)) {
+                        chatHistory = [];
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse chat history', parseError);
+                    chatHistory = [];
+            try {
+                var storedHistory = localStorage.getItem(chatHistoryKey);
+                if (storedHistory) {
+                    try {
+                        chatHistory = JSON.parse(storedHistory);
+                        if (!Array.isArray(chatHistory)) {
+                            chatHistory = [];
+                        }
+                    } catch (parseError) {
+                        console.warn('Failed to parse chat history from localStorage, using empty history instead:', parseError);
+                        console.warn('Failed to parse chat history', parseError);
+                        chatHistory = [];
+                    }
+                    chatHistory.forEach(function(msg) {
+                        if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                            renderChatMessage(msg.content, msg.role, false);
+                        }
+                    });
+                } else {
+                    // Only add initial message if no history exists
+                    chatHistory.push({role: 'system', content: initialChatMessage});
+                    renderChatMessage(initialChatMessage, 'system', false);
+                    persistChatState();
+                }
+                chatHistory.forEach(function(msg) {
+                    if (msg && typeof msg === 'object' && msg.role && msg.content) {
+                        renderChatMessage(msg.content, msg.role, false);
+                    }
+                });
+            }
+
+            var storedMinimized = localStorage.getItem(chatMinimizedKey);
+            if (storedMinimized === 'true') {
+                chatMinimized = true;
+            }
+
+            applyChatMinimized();
+        }
+
+        window.toggleChat = function() {
+            chatMinimized = !chatMinimized;
+            persistChatState();
+            applyChatMinimized();
+        };
+
+        window.addChatMessage = function(text, role) {
+            renderChatMessage(text, role, true);
+        };
+
+        window.sendChatMessage = function() {
+            var input = document.getElementById('chat-input');
+            var sendBtn = document.getElementById('chat-send');
+            var message = input ? input.value.trim() : '';
+
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            if (input) input.value = '';
+
+            // Disable input while processing
+            if (input) input.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+
+            // Send to Gemma endpoint
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/chat', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.response) {
+                            addChatMessage(data.response, 'assistant');
+                        } else if (data.error) {
+                            addChatMessage('Error: ' + data.error, 'system');
+                        }
+                    } catch (e) {
+                        addChatMessage('Error parsing response', 'system');
+                    }
+                } else {
+                    addChatMessage('Server error: ' + xhr.status, 'system');
+                }
+
+                if (input) input.focus();
+            };
+            xhr.onerror = function() {
+                if (input) input.disabled = false;
+                if (sendBtn) sendBtn.disabled = false;
+                addChatMessage('Connection error', 'system');
+                if (input) input.focus();
+            };
+
+            // Include chat history for context
+            xhr.send(JSON.stringify({
+                message: message,
+                history: chatHistory.slice(-10) // Last 10 messages for context
+            }));
+        };
+
+        hydrateChatOverlay();
+        
+        // Status via SSE with periodic fallback
+        window.updateControlStatus();
+        if (window.StudioClient && window.StudioClient.startRealtime) {
+            window.StudioClient.startRealtime({
+                onStatus: (payload) => window.updateControlStatus(payload),
+                fallbackPollMs: 2000,
+            });
+        } else {
+            setInterval(window.updateControlStatus, 2000);
+        }
+        
+        // Update camera feed at ~30 FPS
+        window.updateCameraFrame();
+        setInterval(window.updateCameraFrame, 33);
+    </script>
+    <!-- Shared chat overlay enhancements -->
+    <script src="/static/chat-overlay.js"></script>
 </body>
 </html>
-

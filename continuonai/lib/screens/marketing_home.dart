@@ -48,7 +48,16 @@ class MarketingHomeScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.pushNamed(context, '/login');
                   },
-                  child: const Text('Get Access'),
+                  child: const Text('Sign up / Log in'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/episodes');
+                  },
+                  child: const Text('Public RLDS'),
                 ),
               ),
             ],

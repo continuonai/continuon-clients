@@ -15,4 +15,7 @@ Scope: `continuonai/` (Flutter app hosted on web/iOS/Android/Linux + consolidate
   - Platform builds (`flutter build aar` / `flutter build ios-framework --cocoapods`) are optional unless embedding configs change.
   Note skipped commands and why (e.g., SDKs unavailable). Doc-only edits require no tests.
 
+- Upcoming: Continuon AI web now has a public RLDS viewer stub. When the Continuon Cloud public-episodes API is live, wire it with signed URLs and expose only uploads that include a `share` block (public flag, slug, license, tags). Keep README/AGENTS notes in sync when enabling.
+- Public sharing safety: public listings must remain gated until content rating + PII scans pass. Require `share` block fields: `public`, `slug`, `title`, `license`, `tags`, `content_rating` (general/13+/18+), `intended_audience`, and `pii_attested`. Only list when `pii_cleared=true` and `pending_review=false`; serve only redacted assets when `pii_redacted=true`.
+
 Context: Conversation on 2025-12-10 about Pi5 startup/training is logged at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

@@ -5,6 +5,8 @@ import 'screens/connect_screen.dart';
 import 'screens/control_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/public_episodes_screen.dart';
+import 'screens/public_episode_detail_screen.dart';
 import 'screens/manual_mode_screen.dart';
 import 'screens/record_screen.dart';
 import 'screens/robot_list_screen.dart';
@@ -44,6 +46,17 @@ class MyApp extends StatelessWidget {
         MarketingHomeScreen.routeName: (context) => const MarketingHomeScreen(),
         LoginScreen.routeName: (context) => const LoginScreen(),
         RobotListScreen.routeName: (context) => const RobotListScreen(),
+        PublicEpisodesScreen.routeName: (context) =>
+            const PublicEpisodesScreen(),
+        PublicEpisodeDetailScreen.routeName: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is String) {
+            return PublicEpisodeDetailScreen(slug: args);
+          }
+          return const Scaffold(
+            body: Center(child: Text('Episode slug missing')),
+          );
+        },
         ConnectScreen.routeName: (context) => ConnectScreen(brainClient: BrainClient()),
         DashboardScreen.routeName: (context) {
           return const Scaffold(body: Center(child: Text('Use navigation with arguments')));

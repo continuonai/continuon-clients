@@ -17,3 +17,4 @@ from .scheduler import build_gating_sensors, run_if_idle  # noqa: F401
 from .gemma_hooks import build_gemma_lora_hooks  # noqa: F401
 from .gating_continuonos import build_pi5_gating  # noqa: F401
 from .sidecar_runner import SidecarTrainer  # noqa: F401
+from .safety_head_wavecore import SafetyHead, safety_step  # noqa: F401

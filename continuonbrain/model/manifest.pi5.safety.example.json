@@ -17,9 +17,17 @@
     "alpha": 16
   },
   "safety": {
+    "path": "continuonbrain.trainer.safety_head_wavecore",
     "clamp_bounds": {
       "steering": [-1.0, 1.0],
       "throttle": [-1.0, 1.0]
+    },
+    "warn_threshold": 0.25,
+    "block_threshold": 0.6,
+    "envelope": {
+      "status": "nominal",
+      "radius_m": 1.2,
+      "decay": 0.12
     }
   },
   "notes": "Sample manifest including a safety head path; adjust to your actual safety model or keep using heuristics. The base model path expects the quantized Gemma 3n TFLite bundle."

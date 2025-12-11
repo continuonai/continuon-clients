@@ -3,6 +3,7 @@ System health checker for ContinuonBrain OS.
 Runs comprehensive hardware and software validation on startup/wake.
 """
 import json
+import importlib
 import os
 import shutil
 import subprocess
@@ -943,24 +944,37 @@ class SystemHealthChecker:
         safety_cfg = manifest.get("safety", manifest.get("safety_head", {})) if isinstance(manifest, dict) else {}
         head_path = safety_cfg.get("path") if isinstance(safety_cfg, dict) else None
         envelope = safety_cfg.get("envelope", {}) if isinstance(safety_cfg, dict) else {}
-
         heartbeat_ns = time.time_ns()
         fallback_note = "stub" if not head_path else "configured"
+        status = "ready"
+        notes = safety_cfg.get("notes", "Using safety head {}".format(fallback_note))
+        heartbeat = {"timestamp_ns": heartbeat_ns, "ok": True, "source": fallback_note}
+
+        if head_path:
+            try:
+                module = importlib.import_module(head_path)
+                status = "ready"
+                heartbeat["source"] = "wavecore"
+                SafetyHead = getattr(module, "SafetyHead", None)
+                if SafetyHead:
+                    head = SafetyHead.from_manifest(safety_cfg)
+                    heartbeat = head.heartbeat()
+            except Exception as exc:  # noqa: BLE001
+                status = "error"
+                heartbeat = {"timestamp_ns": heartbeat_ns, "ok": False, "source": "import", "error": str(exc)}
+                notes = f"Failed to load safety head: {exc}"
 
         return {
             "configured": bool(head_path),
             "head_path": head_path or "continuonbrain.trainer.safety_head_stub",
+            "status": status,
             "envelope": {
                 "status": envelope.get("status", "nominal" if head_path else "simulated"),
                 "radius_m": envelope.get("radius_m", 1.2),
                 "decay": envelope.get("decay", 0.12),
             },
-            "heartbeat": {
-                "timestamp_ns": heartbeat_ns,
-                "ok": True,
-                "source": fallback_note,
-            },
-            "notes": safety_cfg.get("notes", "Using safety head {}".format(fallback_note)),
+            "heartbeat": heartbeat,
+            "notes": notes,
         }
     
     def _compute_overall_status(self) -> HealthStatus:

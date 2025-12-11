@@ -35,6 +35,10 @@ class RldsEpisodeWriter(
         currentMetadata = metadata
     }
 
+    fun startEpisodeWithDefaults(metadata: EpisodeMetadata, defaults: EpisodeDefaults?) {
+        startEpisode(metadata.withDefaults(defaults))
+    }
+
     fun recordStep(
         observation: Observation,
         action: Action,
@@ -150,6 +154,11 @@ data class EpisodeMetadata(
     @SerialName("environment_id") val environmentId: String,
     val software: SoftwareInfo? = null,
     val tags: List<String> = emptyList(),
+    @SerialName("robot_id") val robotId: String? = null,
+    @SerialName("robot_model") val robotModel: String? = null,
+    @SerialName("frame_convention") val frameConvention: String? = null,
+    @SerialName("start_time_unix_ms") val startTimeUnixMs: Long? = null,
+    @SerialName("duration_ms") val durationMs: Long? = null,
 )
 
 @Serializable
@@ -169,6 +178,8 @@ data class Observation(
     val robotState: RobotState?,
     val videoFrameId: String? = null,
     val depthFrameId: String? = null,
+    val videoTimestampNanos: Long? = null,
+    val depthTimestampNanos: Long? = null,
     val audio: Audio? = null,
     val uiContext: UiContext? = null,
     val diagnostics: Diagnostics = Diagnostics(),
@@ -193,6 +204,7 @@ data class Pose(
 data class Diagnostics(
     val latencyMs: Float = 0f,
     val gloveDrops: Int = 0,
+    val gloveSampleRateHz: Float? = null,
     val bleRssi: Int? = null,
 )
 

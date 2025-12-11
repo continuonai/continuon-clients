@@ -403,6 +403,11 @@ class ArmEpisodeRecorder:
         language_instruction: Optional[str] = None,
         action_source: str = "human_teleop_xr",
         xr_mode: str = "trainer",
+        robot_id: Optional[str] = None,
+        robot_model: Optional[str] = None,
+        frame_convention: str = "base_link",
+        software: Optional[Dict[str, str]] = None,
+        environment_id: Optional[str] = None,
     ) -> str:
         """
         Start a new episode recording.
@@ -434,14 +439,28 @@ class ArmEpisodeRecorder:
         if self.camera:
             camera_config = self.camera.get_camera_metadata()
 
+        if xr_mode not in {"trainer", "workstation", "observer"}:
+            raise ValueError(f"xr_mode must be trainer|workstation|observer, got {xr_mode}")
+        if action_source not in {"human_teleop_xr", "human_dev_xr", "human_supervisor", "vla_policy"}:
+            raise ValueError(
+                "action_source must be one of human_teleop_xr|human_dev_xr|human_supervisor|vla_policy"
+            )
+
         self.episode_metadata = EpisodeMetadata(
             episode_id=episode_id,
-            robot_type="SO-ARM101",
+            robot_type=robot_model or "SO-ARM101",
             xr_mode=xr_mode,
             action_source=action_source,
             camera_config=camera_config,
             start_timestamp_ns=time.time_ns(),
             tags=["pi5", "oak-d-lite", "pca9685", "manipulation"],
+            robot_id=robot_id,
+            frame_convention=frame_convention,
+            environment_id=environment_id or "pi5-lab",
+            software=software or {},
+            glove_sample_rate_hz=None,
+            glove_drop_count=0,
+            glove_valid=False,
         )
         
         print(f"\n📹 Started episode: {episode_id}")
@@ -536,7 +555,7 @@ class ArmEpisodeRecorder:
 
                     if audio_delta_ms is not None and audio_delta_ms > 5.0:
                         print(f"⚠️  Audio/vision misalignment: {audio_delta_ms:.1f} ms")
-            
+
                 robot_state_timestamp_ns = time.time_ns()
 
             # Execute action on arm
@@ -588,6 +607,9 @@ class ArmEpisodeRecorder:
                 audio_timestamp_ns=audio_timestamp_ns,
                 audio_delta_ms=audio_delta_ms,
                 step_metadata=combined_metadata,
+                glove_valid=False,
+                glove_sample_rate_hz=None,
+                glove_drop_count=None,
             )
 
             self.steps.append(step)
@@ -626,6 +648,16 @@ class ArmEpisodeRecorder:
             )
             return False
 
+        if step.audio_timestamp_ns is not None:
+            audio_skew = abs(step.frame_timestamp_ns - step.audio_timestamp_ns)
+            if audio_skew > tolerance_ns:
+                audio_skew_ms = audio_skew / 1_000_000
+                print(
+                    f"ERROR: Timestamp skew {audio_skew_ms:.2f}ms exceeds tolerance between"
+                    " vision and audio"
+                )
+                return False
+
         return True
 
     def end_episode(self, success: bool = True) -> Optional[Path]:
@@ -657,6 +689,9 @@ class ArmEpisodeRecorder:
             # Update metadata
             self.episode_metadata.end_timestamp_ns = time.time_ns()
             self.episode_metadata.total_steps = len(self.steps)
+            self.episode_metadata.duration_ms = int(
+                (self.episode_metadata.end_timestamp_ns - self.episode_metadata.start_timestamp_ns) / 1e6
+            )
 
             if not success:
                 self.episode_metadata.tags.append("failed")

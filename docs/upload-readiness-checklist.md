@@ -11,6 +11,7 @@ Use this checklist whenever enabling uploads from field hardware. It keeps offli
 3. **Curate the payload**
    - Run the local curation filter: drop unsafe/redacted frames, trim to approved segments, and attach episode-level quality flags.
    - Generate a manifest containing episode count, duration, and curation outcomes.
+   - If requesting public listing, set a `share` block with: `public` (bool), `slug`, `title`, `license`, `tags`, `content_rating` (general/13+/18+), `intended_audience`, `pii_attested=true`. Skip listing until rating + PII checks pass.
 4. **Prepare network and credentials**
    - Ensure the device has outbound connectivity to the configured ingest endpoint (default: ContinuonAI/WorldTape portal URL).
    - Install the upload token/API key in the secure keystore or environment file; never bake credentials into images.
@@ -22,6 +23,7 @@ Use this checklist whenever enabling uploads from field hardware. It keeps offli
    - Hash the archive (SHA-256) and record the checksum alongside the upload request; include per-episode hashes in the manifest.
    - Sign the archive plus manifest digest with the environment’s signing key before initiating the upload; enforce the signing step in the client so unsigned payloads never leave the device.
    - Verify TLS is enforced end-to-end; reject if certificate validation fails.
+   - Run automated safety/PII scans prior to public listing: face/license-plate detection + blur, OCR for IDs/text, audio ASR + PII/toxicity filter, metadata profanity/PII check. Mark `pii_cleared=true` only after redaction or manual review; block public listing if `pii_cleared=false`.
 7. **Send and verify**
    - Perform a dry-run (HEAD or small sample) if bandwidth is constrained, then send the full package.
    - Confirm server receipt, compare the returned checksum, and check for signature/manifest validation errors; log the result locally and keep the manifest alongside the audit record.

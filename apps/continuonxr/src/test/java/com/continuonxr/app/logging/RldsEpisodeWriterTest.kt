@@ -7,6 +7,11 @@ import com.continuonxr.app.connectivity.ReferenceFrame
 import com.continuonxr.app.connectivity.RobotState
 import com.continuonxr.app.connectivity.Vector3
 import com.continuonxr.app.glove.GloveFrame
+import com.continuonxr.app.logging.Diagnostics
+import com.continuonxr.app.logging.EpisodeDefaults
+import com.continuonxr.app.logging.withDefaults
+import com.continuonxr.app.logging.withVideoDepthTimestamps
+import com.continuonxr.app.logging.withGloveDiagnostics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,12 +29,27 @@ class RldsEpisodeWriterTest {
                 validateRlds = true,
             )
         )
-        writer.startEpisode(
+        writer.startEpisodeWithDefaults(
             EpisodeMetadata(
                 xrMode = "trainer",
                 controlRole = "human_teleop",
+                environmentId = "",
+                robotId = null,
+                robotModel = null,
+                frameConvention = null,
+                startTimeUnixMs = null,
+                durationMs = null,
+            ),
+            EpisodeDefaults(
                 environmentId = "test",
-            )
+                robotId = "robot-1",
+                robotModel = "pi5-donkey",
+                frameConvention = "base_link",
+                appVersion = "1.0.0",
+                brainVersion = "0.9.0",
+                gloveFirmwareVersion = "0.1.0",
+                tags = listOf("tag-a"),
+            ),
         )
         val observation = Observation(
             headsetPose = Pose(),
@@ -46,6 +66,8 @@ class RldsEpisodeWriterTest {
             videoFrameId = "frame-1",
             depthFrameId = null,
         )
+            .withVideoDepthTimestamps(videoTimestampNanos = 1L)
+            .withGloveDiagnostics(glove = null)
         val action = Action(
             command = ControlCommand.EndEffectorVelocity(
                 linearMps = Vector3(0.1f, 0.2f, 0.0f),
@@ -74,6 +96,7 @@ class RldsEpisodeWriterTest {
                 xrMode = "trainer",
                 controlRole = "human_teleop",
                 environmentId = "test",
+                robotId = "robot-1",
             )
         )
         val observation = Observation(
@@ -89,7 +112,7 @@ class RldsEpisodeWriterTest {
             ),
             robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
             videoFrameId = "frame-1",
-        )
+        ).withVideoDepthTimestamps(videoTimestampNanos = 1L)
         val action = Action(
             command = ControlCommand.Gripper(
                 mode = GripperMode.POSITION,
@@ -125,6 +148,7 @@ class RldsEpisodeWriterTest {
                 xrMode = "trainer",
                 controlRole = "human_teleop",
                 environmentId = "test",
+                robotId = "robot-1",
             )
         )
         val observation = Observation(
@@ -140,7 +164,7 @@ class RldsEpisodeWriterTest {
             ),
             robotState = RobotState(timestampNanos = 1L, wallTimeMillis = 1L, frameId = "frame-1"),
             videoFrameId = "frame-1",
-        )
+        ).withVideoDepthTimestamps(videoTimestampNanos = 1L)
         writer.recordStep(
             observation = observation,
             action = Action(command = null, source = ""),

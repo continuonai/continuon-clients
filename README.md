@@ -12,6 +12,14 @@ This repository relies on nested `AGENTS.md` files for area-specific rules (tool
 boundaries). See [`docs/AGENTS_ENFORCEMENT.md`](docs/AGENTS_ENFORCEMENT.md) for tips and automation ideas that help teams
 consistently follow the right scope before editing or shipping changes.
 
+Authoritative sources (update these first when adjusting status/roadmaps):
+
+- [`docs/unified-roadmap.md`](docs/unified-roadmap.md) — phase owners/dates and MVP KPIs (source of truth)
+- [`docs/training-plan.md`](docs/training-plan.md) — Pi5 → cloud → OTA execution path
+- Product docs: `apps/continuonxr/README.md`, `continuonbrain/README.md`, `continuonai/README.md`, `continuonai/continuon-cloud/README.md`
+- Packaging: `packaging/README.md`
+- Safety/ownership gates: `docs/upload-readiness-checklist.md`, `continuon-lifecycle-plan.md`
+
 > Conversation provenance: Pi5 startup/training optimization (2025-12-10) is summarized in [`docs/conversation-log.md`](docs/conversation-log.md). Key outcomes: headless-by-default Pi5 boot, optional background trainer, lighter Pi5 training config, RLDS export origin tagging.
 
 > Training plan: See [`docs/training-plan.md`](docs/training-plan.md) for the end-to-end path from Pi5 seed → RLDS → cloud training → Hope Model v1 OTA back to device.
@@ -25,6 +33,8 @@ consistently follow the right scope before editing or shipping changes.
 - **Continuon AI app (Flutter) + RLDS portal**: Connect/control/record flows and integrated WorldTape portal live here; OTA gated on ownership + subscription (see `continuonai/README.md`).
 - **Continuon Cloud (staging specs)**: Staging-only ingest/training notes live under `continuonai/continuon-cloud/README.md`; production code stays in the dedicated cloud repo.
 - **Contracts**: RLDS schema, Robot API, and bundle manifest remain the single source under `docs/` + `proto/`; cross-product changes must keep these synchronized.
+- **Upcoming (Continuon AI web)**: A public RLDS viewer stub exists at `/#/episodes`. When the Continuon Cloud public-episodes API is live, wire it with signed URLs and list only uploads that include a `share` block (public flag, slug, title, license, tags); never expose raw bucket paths.
+- **Public safety/PII**: Public listings must carry content rating/audience fields and pass PII/safety scans (faces/plates blur, OCR/ASR for PII/profanity). Only list when `pii_cleared=true` and `pending_review=false`; prefer redacted assets when `pii_redacted=true`.
 
 ## Project Status & Milestones
 
@@ -558,7 +568,7 @@ python -m continuonbrain.trainer.examples.pi5_integration --config /opt/continuo
 
 7) Wire gating & safety (replace stubs in the Continuon Brain runtime here)
    - `gating_continuonos.py`: connect idle/battery/thermal/teleop to real signals; set thresholds (e.g., battery ≥40%, CPU ≤75C).
-   - `safety_head_stub.py`: clamp/log violations; swap in your safety head; log safety flags to RLDS.
+   - `safety_head_wavecore.py`: runtime safety head with clamp + risk scoring; use via manifest `safety.path`.
    - `gemma_hooks.py`: in-place LoRA for Gemma proj layers (`q_proj/k_proj/v_proj/o_proj`); plug in your real loader/loss.
 
 8) Offline guarantee  - No internet for any loop; uploads are manual/opt-in (see `continuonbrain/trainer/CLOUD_EXPORT.md`).

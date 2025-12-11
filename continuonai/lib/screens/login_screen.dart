@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../theme/continuon_theme.dart';
 import 'robot_list_screen.dart';
@@ -19,6 +20,12 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   String? _error;
+  bool _isSignUp = false; // Default to sign-in first; offer sign-up as secondary
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  bool _newsletterOptIn = false;
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -47,6 +54,9 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -98,6 +108,204 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  Future<void> _submitEmailAuth() async {
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      UserCredential credential;
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+
+      if (_isSignUp) {
+        credential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(email: email, password: password);
+        await credential.user?.sendEmailVerification();
+        final uid = credential.user?.uid;
+        if (uid != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .set(
+            {
+              'newsletterOptIn': _newsletterOptIn,
+              'createdAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+        }
+      } else {
+        credential = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(email: email, password: password);
+      }
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, RobotListScreen.routeName);
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.message ?? 'Email sign-in failed. Please try again.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Email sign-in failed: $e';
+        });
+      }
+    }
+  }
+
+  InputDecoration _inputDecoration(String label, {Widget? prefixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      prefixIcon: prefixIcon,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.08),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+      ),
+    );
+  }
+
+  Widget _buildEmailAuthForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            style: const TextStyle(color: Colors.white),
+            decoration: _inputDecoration(
+              'Email',
+              prefixIcon: const Icon(Icons.mail_outline, color: Colors.white70),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Email is required';
+              }
+              if (!value.contains('@')) {
+                return 'Enter a valid email';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: _inputDecoration(
+              'Password',
+              prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Password is required';
+              }
+              if (value.length < 8) {
+                return 'Use at least 8 characters';
+              }
+              return null;
+            },
+          ),
+          if (_isSignUp) ...[
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirmPasswordController,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDecoration(
+                'Confirm password',
+                prefixIcon:
+                    const Icon(Icons.verified_user_outlined, color: Colors.white70),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Confirm your password';
+                }
+                if (value != _passwordController.text) {
+                  return 'Passwords do not match';
+                }
+                return null;
+              },
+            ),
+            CheckboxListTile(
+              value: _newsletterOptIn,
+              onChanged: (value) {
+                setState(() => _newsletterOptIn = value ?? false);
+              },
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text(
+                'Email me updates when the newsletter ships',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isSignUp = !_isSignUp;
+                    _error = null;
+                  });
+                },
+                child: Text(
+                  _isSignUp
+                      ? 'Already have an account? Sign in'
+                      : "Don't have an account? Create one",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              onPressed: _submitEmailAuth,
+              style: FilledButton.styleFrom(
+                backgroundColor: ContinuonColors.primaryBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(_isSignUp ? 'Create account' : 'Sign in'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Two-factor authentication coming soon. We will prompt for a second factor when your account requires it.',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final brand = Theme.of(context).extension<ContinuonBrandExtension>()!;
@@ -147,7 +355,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 32),
                       Text(
-                        'Continuon',
+                        'Continuon AI',
                         style: Theme.of(context)
                             .textTheme
                             .headlineMedium
@@ -221,7 +429,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                     const SizedBox(width: 12),
                                     const Text(
-                                      'Sign in with Google',
+                                      'Continue with Google',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -232,7 +440,36 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    _isSignUp
+                                        ? 'Create your continuonai.com account'
+                                        : 'Log in with email',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildEmailAuthForm(),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                             TextButton(
                               onPressed: () {
                                 Navigator.pushReplacementNamed(

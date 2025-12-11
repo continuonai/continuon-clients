@@ -4,13 +4,13 @@ Simple JSON/HTTP server extracted from robot_api_server.
 
 import asyncio
 import json
-from urllib.parse import parse_qs
+import mimetypes
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Optional
+from urllib.parse import parse_qs
 
 from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
 from continuonbrain.server.tasks import TaskLibraryEntry, TaskSummary
-from pathlib import Path
 
 
 class SimpleJSONServer:
@@ -29,15 +29,13 @@ class SimpleJSONServer:
         self.server = None
 
     async def handle_http_request(self, request_line: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        """Handle HTTP request and return HTML/JSON response."""
-        # Parse request line
+        """Handle HTTP request and return HTML/JSON/SSE response."""
         parts = request_line.split()
         method = parts[0] if len(parts) > 0 else "GET"
         full_path = parts[1] if len(parts) > 1 else "/"
 
-        # Strip query string for routing
-        path = full_path.split('?')[0]
-        query_params = parse_qs(full_path.split('?', 1)[1]) if '?' in full_path else {}
+        path = full_path.split("?")[0]
+        query_params = parse_qs(full_path.split("?", 1)[1]) if "?" in full_path else {}
 
         print(f"[HTTP] {method} {path}")
 
@@ -45,23 +43,45 @@ class SimpleJSONServer:
         headers = {}
         while True:
             line = await reader.readline()
-            if not line or line == b'\r\n' or line == b'\n':
+            if not line or line == b"\r\n" or line == b"\n":
                 break
             header_line = line.decode().strip()
-            if ':' in header_line:
-                key, value = header_line.split(':', 1)
+            if ":" in header_line:
+                key, value = header_line.split(":", 1)
                 headers[key.strip().lower()] = value.strip()
 
-        # Route the request
-        response = await self._route(path, method, query_params, headers, reader)
+        # SSE endpoint
+        if path == "/api/events":
+            await self._handle_sse(writer)
+            return
 
-        writer.write(response.encode('utf-8') if isinstance(response, str) else response)
-        await writer.drain()
-        writer.close()
+        # Static assets
+        if path.startswith("/static/"):
+            await self._serve_static(path, writer)
+            return
 
-    async def _route(self, path: str, method: str, query_params: Dict[str, Any], headers: Dict[str, Any], reader: asyncio.StreamReader) -> str:
+        response = await self._route(path, method, query_params, headers, reader, writer)
+
+        if response is not None and not writer.is_closing():
+            writer.write(response.encode("utf-8") if isinstance(response, str) else response)
+            await writer.drain()
+            writer.close()
+
+    async def _route(
+        self,
+        path: str,
+        method: str,
+        query_params: Dict[str, Any],
+        headers: Dict[str, Any],
+        reader: asyncio.StreamReader,
+        writer: Optional[asyncio.StreamWriter],
+    ) -> Any:
         if path == "/" or path == "/ui":
             response_body = self.get_web_ui_html()
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/settings":
+            response_body = self.get_settings_html()
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
         elif path == "/control":
@@ -129,6 +149,16 @@ class SimpleJSONServer:
             result = await self.service.SelectTask(payload.get("task_id", ""), reason=payload.get("reason"))
             response_body = json.dumps(result)
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path in {"/api/skills", "/api/skills/"}:
+            include_ineligible = query_params.get("include_ineligible", ["false"])[0].lower() == "true"
+            result = await self.service.ListSkills(include_ineligible=include_ineligible)
+            response_body = json.dumps(result)
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path.startswith("/api/skills/summary/"):
+            skill_id = path.split("/")[-1]
+            result = await self.service.GetSkillSummary(skill_id)
+            response_body = json.dumps(result)
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/settings" and method == "POST":
             content_length = int(headers.get('content-length', 0))
             body = await reader.read(content_length) if content_length > 0 else b''
@@ -146,8 +176,179 @@ class SimpleJSONServer:
 
             return f"{status_line}\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
 
+        # Legacy/expected control endpoints restored for UI compatibility
+        elif path.startswith("/api/mode/"):
+            mode_name = path.split("/")[-1]
+            result = await self.service.SetRobotMode(mode_name)
+            return self._json_response(result)
+
+        elif path == "/api/command" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            result = await self.service.SendCommand(payload or {})
+            return self._json_response(result)
+
+        elif path == "/api/drive" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            steering = payload.get("steering") if isinstance(payload, dict) else None
+            throttle = payload.get("throttle") if isinstance(payload, dict) else None
+            result = await self.service.Drive(steering, throttle)
+            return self._json_response(result)
+
+        elif path == "/api/safety/hold" and method == "POST":
+            result = await self.service.TriggerSafetyHold()
+            return self._json_response(result)
+
+        elif path == "/api/safety/reset" and method == "POST":
+            result = await self.service.ResetSafetyGates()
+            return self._json_response(result)
+
+        elif path == "/api/chat" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            message = ""
+            history = []
+            if isinstance(payload, dict):
+                message = payload.get("message", "") or payload.get("msg", "")
+                history = payload.get("history", []) or []
+            result = await self.service.ChatWithGemma(message, history)
+            return self._json_response(result)
+
+        elif path == "/api/camera/frame":
+            frame = await self.service.GetCameraFrameJPEG()
+            if not frame:
+                return "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n"
+            header = (
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: image/jpeg\r\n"
+                f"Content-Length: {len(frame)}\r\n"
+                "Cache-Control: no-cache\r\n\r\n"
+            )
+            return header.encode("utf-8") + frame
+
+        elif path == "/api/camera/stream":
+            await self._serve_mjpeg(writer)
+            return b""
+
         # Fallback
         return "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+
+    async def _serve_static(self, path: str, writer: asyncio.StreamWriter) -> None:
+        """Serve static assets from server/static."""
+        static_root = Path(__file__).parent / "static"
+        relative = path[len("/static/") :]
+        file_path = (static_root / relative).resolve()
+        if not str(file_path).startswith(str(static_root.resolve())) or not file_path.exists():
+            writer.write(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
+            await writer.drain()
+            writer.close()
+            return
+
+        content = file_path.read_bytes()
+        content_type, _ = mimetypes.guess_type(str(file_path))
+        content_type = content_type or "application/octet-stream"
+        header = (
+            f"HTTP/1.1 200 OK\r\n"
+            f"Content-Type: {content_type}\r\n"
+            f"Cache-Control: max-age=120\r\n"
+            f"Content-Length: {len(content)}\r\n\r\n"
+        )
+        writer.write(header.encode("utf-8") + content)
+        await writer.drain()
+        writer.close()
+
+    async def _handle_sse(self, writer: asyncio.StreamWriter) -> None:
+        """Server-Sent Events stream for status/loop/task updates."""
+        try:
+            writer.write(
+                (
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: text/event-stream\r\n"
+                    "Cache-Control: no-cache\r\n"
+                    "Connection: keep-alive\r\n\r\n"
+                ).encode("utf-8")
+            )
+            await writer.drain()
+
+            while True:
+                if writer.is_closing():
+                    break
+
+                try:
+                    status = await self.service.GetRobotStatus()
+                    loops = await self.service.GetLoopHealth()
+                    tasks = await self.service.ListTasks(include_ineligible=True)
+                    skills = await self.service.ListSkills(include_ineligible=True)
+
+                    payload = {"status": status, "loops": loops, "tasks": tasks, "skills": skills}
+                    writer.write(f"data: {json.dumps(payload)}\n\n".encode("utf-8"))
+                    await writer.drain()
+                except Exception as exc:  # noqa: BLE001
+                    print(f"SSE error: {exc}")
+                    break
+
+                await asyncio.sleep(1.0)
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+    async def _serve_mjpeg(self, writer: Optional[asyncio.StreamWriter]) -> None:
+        """Serve a simple MJPEG stream for camera preview."""
+        if writer is None:
+            return
+
+        boundary = "frame"
+        try:
+            writer.write(
+                (
+                    "HTTP/1.1 200 OK\r\n"
+                    f"Content-Type: multipart/x-mixed-replace; boundary={boundary}\r\n"
+                    "Cache-Control: no-cache\r\n\r\n"
+                ).encode("utf-8")
+            )
+            await writer.drain()
+
+            while not writer.is_closing():
+                frame = await self.service.GetCameraFrameJPEG()
+                if frame:
+                    part_header = (
+                        f"--{boundary}\r\n"
+                        "Content-Type: image/jpeg\r\n"
+                        f"Content-Length: {len(frame)}\r\n\r\n"
+                    ).encode("utf-8")
+                    writer.write(part_header + frame + b"\r\n")
+                    await writer.drain()
+                await asyncio.sleep(0.2)
+        except Exception as exc:  # noqa: BLE001
+            print(f"MJPEG stream error: {exc}")
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+    async def _read_json_body(self, reader: asyncio.StreamReader, headers: Dict[str, Any]) -> Any:
+        content_length = int(headers.get("content-length", 0))
+        body = await reader.read(content_length) if content_length > 0 else b""
+        if not body:
+            return {}
+        try:
+            return json.loads(body.decode())
+        except Exception:
+            return {}
+
+    def _json_response(self, payload: Any, status_code: int = 200) -> bytes:
+        body = json.dumps(payload)
+        status_text = "OK" if status_code < 400 else "Error"
+        return (
+            f"HTTP/1.1 {status_code} {status_text}\r\n"
+            "Content-Type: application/json\r\n"
+            "Access-Control-Allow-Origin: *\r\n"
+            f"Content-Length: {len(body)}\r\n\r\n"
+            f"{body}"
+        ).encode("utf-8")
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle incoming client connections."""
@@ -198,4 +399,10 @@ class SimpleJSONServer:
             tmpl_path.write_text(content, encoding="utf-8")
             return content
         return "<html><body><h1>Control Interface</h1></body></html>"
+
+    def get_settings_html(self) -> str:
+        tmpl_path = Path(__file__).parent / "templates" / "settings.html"
+        if tmpl_path.exists():
+            return tmpl_path.read_text(encoding="utf-8")
+        return "<html><body><h1>Settings</h1></body></html>"
 

@@ -18,6 +18,11 @@ class RldsValidator {
             issues += ValidationIssue.error("control_role must be one of ${ALLOWED_CONTROL_ROLES.joinToString()}")
         }
         if (metadata.environmentId.isBlank()) issues += ValidationIssue.error("environment_id is required")
+        if (metadata.robotId.isNullOrBlank()) issues += ValidationIssue.warn("robot_id is recommended for alignment")
+        if (metadata.robotModel.isNullOrBlank()) issues += ValidationIssue.warn("robot_model is recommended for alignment")
+        if (metadata.frameConvention.isNullOrBlank()) issues += ValidationIssue.warn("frame_convention is recommended for alignment")
+        if (metadata.startTimeUnixMs == null) issues += ValidationIssue.warn("start_time_unix_ms is recommended for auditing")
+        if (metadata.durationMs == null) issues += ValidationIssue.warn("duration_ms is recommended for auditing")
         return issues
     }
 
@@ -78,7 +83,7 @@ class RldsValidator {
             if (glove.fsr.size != 8) issues += ValidationIssue.error("glove.fsr must have 8 elements")
             if (glove.orientationQuat.size != 4) issues += ValidationIssue.error("glove.orientationQuat must have 4 elements")
             if (glove.accel.size != 3) issues += ValidationIssue.error("glove.accel must have 3 elements")
-        } ?: issues.add(ValidationIssue.error("gloveFrame is required by PRD 3.2"))
+        } ?: issues.add(ValidationIssue.warn("gloveFrame missing; emit block with valid=false when glove absent"))
         observation.audio?.let { audio ->
             if (audio.sampleRateHz <= 0) issues += ValidationIssue.error("audio.sampleRateHz must be > 0")
             if (audio.numChannels <= 0) issues += ValidationIssue.error("audio.numChannels must be > 0")
@@ -89,6 +94,20 @@ class RldsValidator {
             )
             if (delta > ALIGNMENT_TOLERANCE_NANOS) {
                 issues += ValidationIssue.error("robotState and gloveFrame must align within 5 ms (delta=${'$'}delta ns)")
+            }
+        }
+        if (observation.robotState != null) {
+            observation.videoTimestampNanos?.let { videoTs ->
+                val delta = kotlin.math.abs(observation.robotState.timestampNanos - videoTs)
+                if (delta > ALIGNMENT_TOLERANCE_NANOS) {
+                    issues += ValidationIssue.error("robotState and video must align within 5 ms (delta=${'$'}delta ns)")
+                }
+            }
+            observation.depthTimestampNanos?.let { depthTs ->
+                val delta = kotlin.math.abs(observation.robotState.timestampNanos - depthTs)
+                if (delta > ALIGNMENT_TOLERANCE_NANOS) {
+                    issues += ValidationIssue.error("robotState and depth must align within 5 ms (delta=${'$'}delta ns)")
+                }
             }
         }
         return issues
@@ -116,6 +135,9 @@ class RldsValidator {
             }
         }
         if (action.source.isBlank()) issues += ValidationIssue.error("action.source must not be blank")
+        if (!ALLOWED_ACTION_SOURCES.contains(action.source)) {
+            issues += ValidationIssue.error("action.source must be one of ${ALLOWED_ACTION_SOURCES.joinToString()}")
+        }
         return issues
     }
 }
@@ -135,3 +157,4 @@ data class ValidationIssue(
 private const val ALIGNMENT_TOLERANCE_NANOS = 5_000_000L
 private val ALLOWED_XR_MODES = setOf("trainer", "workstation", "observer")
 private val ALLOWED_CONTROL_ROLES = setOf("human_teleop", "human_supervisor", "human_dev_xr")
+private val ALLOWED_ACTION_SOURCES = setOf("human_teleop_xr", "human_dev_xr", "human_supervisor")

@@ -26,6 +26,13 @@
 - **Maximize**: Click header again
 - **Scroll**: Auto-scrolls to latest message
 
+## 🧭 Agent Manager Role (Continuon Brain Studio)
+- Hosts the primary on-device Gemma 3n model and falls back to other models when confidence is low or resources are tight.
+- Connects sub-agents/tools to plan, critique, and safely execute actions inside Continuon Brain Studio (the robot editor).
+- Runs training/evaluation loops for researchers using local memories and RLDS datasets saved manually or automatically; reports gaps and next steps.
+- Helps end users improve the robot itself by suggesting routines, safety checks, and self-improvements that can be applied on-device.
+- Carries conversation + experience context forward so subsequent replies become more precise over time.
+
 ## ⚡ Upgrade to Real AI (Optional)
 
 ### Quick Setup
