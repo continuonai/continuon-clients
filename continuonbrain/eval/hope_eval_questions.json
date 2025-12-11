@@ -53,7 +53,8 @@
       "questions": [
         "If the primary answer is low confidence, ask a follow-up using the secondary LLM/VLM to clarify missing details; show the prompt you would send to the subagent.",
         "Design a two-turn clarifying loop where the subagent asks for a missing parameter (e.g., frame_id or command schema) and then synthesizes a final action.",
-        "Describe how to tag step_metadata with which subagent (LLM or VLM) contributed to the final answer for traceability."
+        "Describe how to tag step_metadata with which subagent (LLM or VLM) contributed to the final answer for traceability.",
+        "After receiving an initial HOPE answer about a robot control, have the subagent ask a targeted follow-up to surface missing safety context; show both prompts and the final synthesized reply."
       ]
     },
     {
@@ -64,6 +65,30 @@
         "Point out a spot where repeated JIT disablement/env handling could be centralized; describe a minimal refactor to reduce duplication.",
         "Recommend a logging improvement to surface eval failures (missing chat_adapter, missing token) without crashing the loop; outline the code change.",
         "Propose a small test or assertion to ensure RLDS episodes written by evals have obs/action/step_metadata keys before training consumes them."
+      ]
+    },
+    {
+      "name": "fundamentals_nested_learning",
+      "questions": [
+        "Explain how nested learning (fast/mid/slow) maps to our wave/particle/fast states, and suggest one metric to monitor for each loop.",
+        "Describe CMA (Continuum Memory Architecture) and how CMS decays affect retention; propose a decay tweak for Pi5 memory constraints.",
+        "Outline a multi-turn plan where HOPE self-diagnoses a regression in the slow loop by inspecting recent RLDS eval episodes."
+      ]
+    },
+    {
+      "name": "wave_particle_duality",
+      "questions": [
+        "Given a spike in fast-loop loss but stable slow-loop loss, suggest whether to adjust wave or particle dimensions first and why.",
+        "Describe how to log a wave-only eval (global context) versus a particle-only eval (local action) and tag them in RLDS.",
+        "Propose a tiny code change to expose wave/particle state norms in metrics for quick sanity checks."
+      ]
+    },
+    {
+      "name": "multi_turn_reasoning_to_rlds",
+      "questions": [
+        "Take an initial HOPE answer about training setup, have the subagent ask a clarifying question, then produce a final combined answer; show the RLDS step structure capturing both turns.",
+        "Design a three-turn dialogue where the subagent verifies a code fix suggestion, with each turn logged as a separate RLDS step and a shared episode_id.",
+        "Given a VLM follow-up on an image frame, describe how to append that context into the same RLDS episode with proper step_metadata."
       ]
     }
   ]

@@ -80,6 +80,10 @@ class SimpleJSONServer:
             response_body = self.get_web_ui_html()
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/wiring":
+            response_body = self.get_wiring_html()
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
         elif path == "/settings":
             response_body = self.get_settings_html()
             response_bytes = response_body.encode('utf-8')
@@ -96,6 +100,9 @@ class SimpleJSONServer:
         elif path == "/api/status":
             status = await self.service.GetRobotStatus()
             response_body = json.dumps(status)
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/wiring":
+            response_body = json.dumps(self._get_wiring_stats())
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/loops":
             status = await self.service.GetLoopHealth()
@@ -375,6 +382,27 @@ class SimpleJSONServer:
         except Exception:
             return {}
 
+    def _get_wiring_stats(self) -> Dict[str, Any]:
+        ep_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        compact_summary = Path("/opt/continuonos/brain/rlds/compact/compact_summary.json")
+
+        def _count(prefix: str) -> int:
+            return sum(1 for p in ep_dir.glob(f"{prefix}*.json") if p.is_file())
+
+        episodes = [p for p in ep_dir.glob("*.json") if p.is_file()]
+        summary: Dict[str, Any] = {
+            "episodes_total": len(episodes),
+            "hope_eval_episodes": _count("hope_eval_"),
+            "facts_eval_episodes": _count("facts_eval_"),
+            "hardware_mode": "unknown",
+        }
+        if compact_summary.exists():
+            try:
+                summary["compact"] = json.loads(compact_summary.read_text())
+            except Exception:
+                summary["compact"] = {"error": "failed to read compact summary"}
+        return summary
+
     def _json_response(self, payload: Any, status_code: int = 200) -> bytes:
         body = json.dumps(payload)
         status_text = "OK" if status_code < 400 else "Error"
@@ -424,6 +452,12 @@ class SimpleJSONServer:
             tmpl_path.write_text(content, encoding="utf-8")
             return content
         return "<html><body><h1>Robot UI</h1></body></html>"
+
+    def get_wiring_html(self) -> str:
+        tmpl_path = Path(__file__).parent / "templates" / "wiring.html"
+        if tmpl_path.exists():
+            return tmpl_path.read_text(encoding="utf-8")
+        return "<html><body><h1>Wiring view unavailable.</h1></body></html>"
 
     def get_control_interface_html(self) -> str:
         tmpl_path = Path(__file__).parent / "templates" / "control.html"

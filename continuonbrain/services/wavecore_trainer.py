@@ -123,14 +123,14 @@ class WavecoreTrainer:
             export_info = None
             slow_result = results.get("slow", {})
             ckpt_file = slow_result.get("checkpoint_dir")
+            compact = bool(payload.get("compact_export", False))
+            export_dir = self.export_dir if not compact else self.export_dir.parent / (self.export_dir.name + "_compact")
             if ckpt_file:
                 try:
-                    export_dir = self.export_dir
                     export_dir.mkdir(parents=True, exist_ok=True)
                     cfg: CoreModelConfig = slow_result["result"]["config"]
                     checkpoint_format = slow_result.get("checkpoint_format")
                     if checkpoint_format == "pickle":
-                        # Copy pickle checkpoint and write manifest for cloud/agent use.
                         ckpt_src = Path(ckpt_file)
                         ckpt_dst = export_dir / ckpt_src.name
                         ckpt_dst.write_bytes(ckpt_src.read_bytes())
@@ -147,6 +147,7 @@ class WavecoreTrainer:
                             "format": "pickle",
                             "arch_preset": slow_result["request"].get("arch_preset"),
                             "sparsity_lambda": slow_result["request"].get("sparsity_lambda"),
+                            "compact": compact,
                         }
                         manifest_path = export_dir / "model_manifest.json"
                         manifest_path.write_text(json.dumps(manifest, indent=2))
@@ -156,6 +157,7 @@ class WavecoreTrainer:
                             "manifest": str(manifest_path),
                             "arch_preset": slow_result["request"].get("arch_preset"),
                             "sparsity_lambda": slow_result["request"].get("sparsity_lambda"),
+                            "compact": compact,
                         }
                     else:
                         export_path = export_for_inference(
@@ -167,7 +169,7 @@ class WavecoreTrainer:
                             output_dim=slow_result["request"]["output_dim"],
                             quantization=quantization,
                         )
-                        export_info = {"export_dir": str(export_path), "quantization": quantization}
+                        export_info = {"export_dir": str(export_path), "quantization": quantization, "compact": compact}
                 except Exception as exc:
                     export_info = {"error": str(exc)}
 
