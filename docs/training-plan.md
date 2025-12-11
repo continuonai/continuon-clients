@@ -63,6 +63,18 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
 - Edge (Pi5): Health, capture, on-device adapter training, export prep, OTA apply.
 - Cloud: RLDS ingest/clean, TPU training, bundle/sign, OTA serve.
 
+## HOPE/CMS boundaries for this plan
+
+- **Fast/Mid on edge:** Fast loop stays on-device for reflexive safety + control; Mid loop runs bounded adapter training (LoRA) against the captured RLDS. These two loops are the only ones that ever train on the Pi 5 in this plan.
+- **Slow in cloud:** Slow loop retrains spectral/SSM cores and merges Memory Plane state into the OTA bundle; the Pi only applies the signed output.
+- **AINA hook:** Manipulation runs may use the AINA policy head (see `continuonbrain/aina_impl/`) inside the Fast loop, with Mid-loop LoRA updates on the same head. Cloud Slow-loop refreshes the underlying spectral cores and AINA head before shipping the bundle.
+
+## RLDS capture and eval logging (Pi → Cloud)
+
+- **Episode capture:** `continuonbrain/recording/arm_episode_recorder.py` records synchronized RGB/depth frames, servo state, and teleop or policy commands as RLDS steps with per-frame timestamps, action provenance, optional audio buffers, and episode-level tags so slow-loop trainers can stratify by xr_mode/control_role before promotion.【F:continuonbrain/recording/arm_episode_recorder.py†L22-L115】
+- **Lightweight logging for JAX:** For quick Pi-side sanity checks, `continuonbrain/jax_models/data/episode_logger.py` writes JSON/JSONL episodes (observation/action/reward/done) with per-step timestamps and metadata that can be converted to TFRecord ahead of TPU training and OTA bundle assembly.【F:continuonbrain/jax_models/data/episode_logger.py†L1-L93】【F:continuonbrain/jax_models/data/episode_logger.py†L98-L164】
+- **Eval traces:** HOPE eval runners log graded Q&A directly as RLDS episodes. `continuonbrain/eval/hope_eval_runner.py` captures each prompt/answer, whether a fallback model was used, and the fallback order for replay; `continuonbrain/eval/multi_model_compare_eval.py` runs HOPE plus Gemma/Gemini hints and writes a winner decision/rationale per step so cloud-side voters can revisit or override the heuristic during slow-loop merging.【F:continuonbrain/eval/hope_eval_runner.py†L15-L88】【F:continuonbrain/eval/multi_model_compare_eval.py†L1-L92】
+
 ## Success criteria
 
 - Data: ≥16 clean episodes, timestamp skew ≤5 ms, schema validation passes.
