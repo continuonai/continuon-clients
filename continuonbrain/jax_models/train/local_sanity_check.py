@@ -8,14 +8,19 @@ loss computation, and gradients before cloud TPU training.
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Iterable, Sequence
 import jax
 import jax.numpy as jnp
 import optax
 import numpy as np
 
 from ..core_model import CoreModel, make_core_model, CoreModelConfig
-from ..data.rlds_dataset import load_rlds_dataset
+from ..data.rlds_dataset import (
+    TF_AVAILABLE,
+    _extract_action_vector,
+    _extract_obs_vector,
+    load_rlds_dataset,
+)
 import csv
 import json
 
@@ -142,7 +147,9 @@ def train_step(
     
     # Clip gradients
     if config.gradient_clip > 0:
-        grads = optax.clip_by_global_norm(grads, config.gradient_clip)
+        clipper = optax.clip_by_global_norm(config.gradient_clip)
+        updates, _ = clipper.update(grads, clipper.init(grads))
+        grads = updates
     
     # Update parameters
     updates, opt_state = optimizer.update(grads, opt_state, params)
@@ -218,15 +225,71 @@ def run_sanity_check(
                 yield batch
         data_iter = synthetic_batch_iterator()
     else:
-        print(f"Loading RLDS dataset from {rlds_dir}")
-        data_iter = load_rlds_dataset(
-            tfrecord_paths=rlds_dir,
-            batch_size=batch_size,
-            shuffle=True,
-            repeat=False,
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-        )
+        if TF_AVAILABLE:
+            print(f"Loading RLDS dataset (TFRecord) from {rlds_dir}")
+            data_iter = load_rlds_dataset(
+                tfrecord_paths=rlds_dir,
+                batch_size=batch_size,
+                shuffle=True,
+                repeat=False,
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+            )
+        else:
+            print(f"TensorFlow not available; loading JSON episodes from {rlds_dir}")
+
+            def _iter_json_batches() -> Iterable[Dict[str, jnp.ndarray]]:
+                files = sorted(Path(rlds_dir).glob("*.json"))
+                if not files:
+                    raise RuntimeError(f"No JSON episodes found in {rlds_dir}")
+
+                buffer: list[Dict[str, Any]] = []
+                steps_emitted = 0
+
+                def flush():
+                    nonlocal buffer, steps_emitted
+                    while len(buffer) >= batch_size and steps_emitted < max_steps:
+                        batch = buffer[:batch_size]
+                        buffer = buffer[batch_size:]
+                        steps_emitted += 1
+                        yield {
+                            "obs": jnp.stack([s["obs"] for s in batch]),
+                            "action": jnp.stack([s["action"] for s in batch]),
+                            "reward": jnp.stack([s["reward"] for s in batch]),
+                            "done": jnp.stack([s["done"] for s in batch]),
+                        }
+
+                for path in files:
+                    payload = json.loads(path.read_text())
+                    for step in payload.get("steps", []):
+                        obs_vec = _extract_obs_vector(step.get("obs", {}), obs_dim)
+                        act_vec = _extract_action_vector(step.get("action", {}), action_dim)
+                        buffer.append(
+                            {
+                                "obs": jnp.asarray(obs_vec),
+                                "action": jnp.asarray(act_vec),
+                                "reward": jnp.asarray([float(step.get("reward", 0.0))]),
+                                "done": jnp.asarray([bool(step.get("done", False))]),
+                            }
+                        )
+                        if len(buffer) >= batch_size:
+                            yield from flush()
+                        if steps_emitted >= max_steps:
+                            return
+
+                # Flush any remainder if we still need steps
+                while buffer and steps_emitted < max_steps:
+                    take = buffer[:batch_size]
+                    buffer = buffer[batch_size:]
+                    steps_emitted += 1
+                    yield {
+                        "obs": jnp.stack([s["obs"] for s in take]),
+                        "action": jnp.stack([s["action"] for s in take]),
+                        "reward": jnp.stack([s["reward"] for s in take]),
+                        "done": jnp.stack([s["done"] for s in take]),
+                    }
+
+            data_iter = _iter_json_batches()
     
     # Training loop
     start_time = time.time()
@@ -324,6 +387,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=4, help="Batch size")
     parser.add_argument("--learning-rate", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--use-synthetic", action="store_true", help="Use synthetic data")
+    parser.add_argument("--metrics-path", type=Path, help="Optional path to write CSV metrics")
     
     args = parser.parse_args()
     
@@ -336,6 +400,7 @@ def main():
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         use_synthetic_data=args.use_synthetic or args.rlds_dir is None,
+        metrics_path=args.metrics_path,
     )
     
     if results['status'] == 'ok':
