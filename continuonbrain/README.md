@@ -92,6 +92,9 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 ### Hailo (AI HAT+) status
 - Export pipeline JAX→TF→ONNX is available; `.hef` creation is a placeholder without the Hailo SDK. Runtime inference will skip Hailo if `.hef` is missing; full acceleration requires integrating Hailo compiler/runtime tools.
 - When `.hef` is missing or placeholder, the inference router falls back to CPU and logs a warning.
+- To use a provided HEF (e.g., model zoo), place it at `/opt/continuonos/brain/model/base_model/model.hef` (or pass `--hef-source` and `--install-hef-path` to `continuonbrain/jax_models/export/export_hailo.py`). The export step copies the HEF to the runtime path and records input/output vstream metadata when `hailo_platform` is installed.
+- Enable depth/Hailo offload flag with `CONTINUON_HAILO_OFFLOAD=1`; OAK-D detection will mark devices as offload-capable and the hardware detector will tag the Hailo HAT accordingly.
+- Quick benchmark on-device: `hailortcli benchmark /opt/continuonos/brain/model/base_model/model.hef --time-to-run 5`
 
 ### OTA packaging
 - Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).

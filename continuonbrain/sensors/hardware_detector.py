@@ -3,6 +3,7 @@ Hardware detection and auto-configuration for Pi5 robot systems.
 Detects cameras, HATs, servos, and accessories automatically.
 """
 import subprocess
+import os
 import json
 import platform
 import importlib.util
@@ -44,6 +45,7 @@ class HardwareDetector:
         self.detected_devices: List[HardwareDevice] = []
         self.platform_info: Dict[str, Any] = {}
         self.missing_dependencies: List[str] = []
+        self.hailo_offload_enabled = os.environ.get("CONTINUON_HAILO_OFFLOAD", "1").lower() in ("1", "true", "yes")
     
     def detect_all(self, auto_install: bool = False, allow_system_install: bool = False) -> List[HardwareDevice]:
         """Run all detection methods and return found devices.
@@ -190,6 +192,7 @@ class HardwareDetector:
                             "vendor_id": vendor_id,
                             "product_id": product_id,
                             "driver": "depthai",
+                            "hailo_offload": self.hailo_offload_enabled,
                         }
                     ))
                     print(f"✅ Found: {device_name} (USB 3.0)")
@@ -411,6 +414,7 @@ class HardwareDetector:
                                 "model": "Hailo-8",
                                 "tops": 26,
                                 "driver": "hailo_platform",
+                                "hailo_offload": self.hailo_offload_enabled,
                             }
                         ))
                         print(f"✅ Found: Hailo AI HAT+ (PCIe)")
