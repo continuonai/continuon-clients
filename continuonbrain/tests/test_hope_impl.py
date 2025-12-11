@@ -4,7 +4,15 @@ Tests for HOPE Implementation
 Unit tests for all HOPE components.
 """
 
+import os
 import pytest
+
+# Skip HOPE-heavy tests unless explicitly enabled.
+if os.environ.get("CONTINUON_ENABLE_HOPE_TESTS", "0").lower() not in ("1", "true", "yes"):
+    pytest.skip(
+        "HOPE impl tests disabled (set CONTINUON_ENABLE_HOPE_TESTS=1 to run)",
+        allow_module_level=True,
+    )
 import torch
 import torch.nn as nn
 

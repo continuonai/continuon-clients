@@ -24,6 +24,7 @@ from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.server.chat import build_chat_service
+from continuonbrain.gemma_chat import create_gemma_chat as _create_gemma_chat
 from continuonbrain.server.model_selector import select_model
 from continuonbrain.server.devices import auto_detect_hardware, init_recorder
 from continuonbrain.server.status import start_status_server
@@ -50,6 +51,10 @@ from continuonbrain.services.video_stream import VideoStreamHelper
 
 # Use extracted SimpleJSONServer implementation
 SimpleJSONServer = server_routes.SimpleJSONServer
+
+# Backward-compatible chat factory for tests and mocks.
+def create_gemma_chat(use_mock: bool = False):
+    return _create_gemma_chat(use_mock=use_mock)
 
 
 
