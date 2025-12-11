@@ -77,6 +77,34 @@ class CoreModelConfig:
         # Validate decay coefficients
         for i, d in enumerate(self.cms_decays):
             assert 0 < d < 1, f"cms_decays[{i}] = {d} must be in (0, 1)"
+
+        # Normalize mutable lists to tuples for hashability and safety.
+        self.cms_sizes = tuple(self.cms_sizes)
+        self.cms_dims = tuple(self.cms_dims)
+        self.cms_decays = tuple(self.cms_decays)
+
+    def __hash__(self) -> int:
+        """Enable use as a static argument in JAX transforms."""
+        return hash(
+            (
+                self.d_s,
+                self.d_w,
+                self.d_p,
+                self.d_e,
+                self.d_k,
+                self.d_c,
+                self.num_levels,
+                self.cms_sizes,
+                self.cms_dims,
+                self.cms_decays,
+                self.learning_rate,
+                self.gradient_clip,
+                self.use_layer_norm,
+                self.state_saturation_limit,
+                self.obs_type,
+                self.output_type,
+            )
+        )
         
         # Validate timescale separation (faster levels decay more)
         for i in range(len(self.cms_decays) - 1):

@@ -42,20 +42,31 @@ class EpisodeMetadata:
     """Episode-level metadata per RLDS schema."""
     episode_id: str
     robot_type: str = "SO-ARM101"
+    robot_id: Optional[str] = None
     xr_mode: str = "trainer"  # or "inference"
     control_role: str = "human_teleop"  # aligns with docs/rlds-schema.md
     action_source: str = "human_teleop_xr"  # or "vla_policy"
     camera_config: Dict[str, Any] = None
+    frame_convention: str = "base_link"
+    environment_id: Optional[str] = None
+    software: Dict[str, str] = None
     start_timestamp_ns: int = 0
     end_timestamp_ns: int = 0
     total_steps: int = 0
     tags: List[str] = None
+    glove_sample_rate_hz: Optional[float] = None
+    glove_drop_count: int = 0
+    glove_valid: bool = False
     
     def __post_init__(self):
         if self.camera_config is None:
             self.camera_config = {}
+        if self.software is None:
+            self.software = {}
         if self.tags is None:
             self.tags = ["pi5", "oak-d-lite", "pca9685"]
+        if self.environment_id is None:
+            self.environment_id = "pi5-lab"
 
     def to_dict(self, language_instruction: Optional[str] = None) -> Dict[str, Any]:
         """Serialize metadata with continuon.* tags for downstream stratification."""
@@ -110,6 +121,9 @@ class StepData:
     audio_timestamp_ns: Optional[int] = None
     audio_delta_ms: Optional[float] = None
     step_metadata: Dict[str, str] = None
+    glove_valid: bool = False
+    glove_sample_rate_hz: Optional[float] = None
+    glove_drop_count: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for JSON serialization."""

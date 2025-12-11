@@ -9,7 +9,7 @@ import time
 import csv
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 import jax
 import jax.numpy as jnp
 from jax.experimental import mesh_utils

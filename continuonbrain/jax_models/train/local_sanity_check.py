@@ -8,7 +8,7 @@ loss computation, and gradients before cloud TPU training.
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Optional, Iterable, Sequence
+from typing import Any, Callable, Dict, Optional, Iterable, Sequence
 import jax
 import jax.numpy as jnp
 import optax
@@ -33,13 +33,12 @@ def create_initial_state(
     obs_dim: int,
     action_dim: int,
     output_dim: int,
-) -> Dict[str, Any]:
+) -> tuple[CoreModel, Dict[str, Any]]:
     """
     Create initial model state (parameters + internal states).
     
     Returns:
-        Dictionary with 'params', 'fast_state', 'wave_state', 'particle_state',
-        and 'cms_memories', 'cms_keys'
+        (model, state_dict) where state_dict contains params and memory tensors.
     """
     model, params = make_core_model(rng_key, obs_dim, action_dim, output_dim, config)
     
@@ -57,8 +56,7 @@ def create_initial_state(
         jnp.zeros((size, config.d_k)) for size in config.cms_sizes
     ]
     
-    return {
-        'model': model,
+    return model, {
         'params': params,
         'fast_state': fast_state,
         'wave_state': wave_state,
@@ -70,7 +68,7 @@ def create_initial_state(
 
 def compute_loss(
     params: Dict[str, Any],
-    model: CoreModel,
+    apply_fn: Callable[..., tuple[jnp.ndarray, Any]],
     batch: Dict[str, jnp.ndarray],
     state: Dict[str, Any],
     config: CoreModelConfig,
@@ -108,7 +106,7 @@ def compute_loss(
         p_prev = jnp.tile(p_prev[0:1], (batch_size, 1))
     
     # Forward pass
-    y_pred, info = model.apply(
+    y_pred, info = apply_fn(
         params,
         obs,
         action,
@@ -138,7 +136,7 @@ def compute_loss(
 def train_step(
     params: Dict[str, Any],
     opt_state: Any,
-    model: CoreModel,
+    apply_fn: Callable[..., tuple[jnp.ndarray, Any]],
     batch: Dict[str, jnp.ndarray],
     state: Dict[str, Any],
     config: CoreModelConfig,
@@ -153,7 +151,7 @@ def train_step(
     """
     # Compute loss and gradients
     loss, grads = jax.value_and_grad(compute_loss)(
-        params, model, batch, state, config, sparsity_lambda
+        params, apply_fn, batch, state, config, sparsity_lambda
     )
     
     # Clip gradients
@@ -215,8 +213,7 @@ def run_sanity_check(
     
     # Initialize
     rng_key = jax.random.PRNGKey(0)
-    state = create_initial_state(rng_key, config, obs_dim, action_dim, output_dim)
-    model = state['model']
+    model, state = create_initial_state(rng_key, config, obs_dim, action_dim, output_dim)
     params = state['params']
     
     # Create optimizer
@@ -324,7 +321,14 @@ def run_sanity_check(
 
             # Training step
             params, opt_state, loss, state = train_step(
-                params, opt_state, model, batch, state, config, optimizer, sparsity_lambda
+                params,
+                opt_state,
+                model.apply,
+                batch,
+                state,
+                config,
+                optimizer,
+                sparsity_lambda,
             )
 
             loss_val = float(loss)
