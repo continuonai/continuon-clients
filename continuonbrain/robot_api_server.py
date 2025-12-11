@@ -74,11 +74,13 @@ class RobotService:
         auto_detect: bool = True,
         allow_mock_fallback: bool = False,
         system_instructions: Optional[SystemInstructions] = None,
+        skip_motion_hw: bool = False,
     ):
         self.config_dir = config_dir
         self.prefer_real_hardware = prefer_real_hardware
         self.auto_detect = auto_detect
         self.allow_mock_fallback = allow_mock_fallback
+        self.skip_motion_hw = skip_motion_hw
         self.use_real_hardware = False
         self.arm: Optional[PCA9685ArmController] = None
         self.camera: Optional[OAKDepthCapture] = None
@@ -269,14 +271,19 @@ class RobotService:
 
         print("✅ Episode recorder ready")
 
-        # Initialize drivetrain controller for steering/throttle
-        print("🛞 Initializing drivetrain controller...")
-        self.drivetrain = DrivetrainController()
-        drivetrain_ready = self.drivetrain.initialize()
-        if drivetrain_ready:
-            print(f"✅ Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
+        if self.skip_motion_hw:
+            print("⏭️  Skipping arm/drivetrain init (skip-motion-hw). Motion will stay mock.")
+            self.arm = None
+            self.drivetrain = None
         else:
-            print("⚠️  Drivetrain controller unavailable")
+            # Initialize drivetrain controller for steering/throttle
+            print("🛞 Initializing drivetrain controller...")
+            self.drivetrain = DrivetrainController()
+            drivetrain_ready = self.drivetrain.initialize()
+            if drivetrain_ready:
+                print(f"✅ Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
+            else:
+                print("⚠️  Drivetrain controller unavailable")
 
         # Initialize mode manager
         print("🎮 Initializing mode manager...")
@@ -1035,6 +1042,11 @@ async def main():
         help="Force mock mode (skip hardware initialization)"
     )
     parser.add_argument(
+        "--skip-motion-hw",
+        action="store_true",
+        help="Skip arm/drivetrain init (use mock motion even in real mode)"
+    )
+    parser.add_argument(
         "--no-auto-detect",
         action="store_true",
         help="Disable hardware auto-detection"
@@ -1051,6 +1063,7 @@ async def main():
         prefer_real_hardware=prefer_real,
         auto_detect=auto_detect,
         allow_mock_fallback=allow_mock_fallback,
+        skip_motion_hw=args.skip_motion_hw,
     )
     await service.initialize()
     
