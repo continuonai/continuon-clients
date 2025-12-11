@@ -254,7 +254,8 @@ class RobotService:
 
             if not hardware_ready:
                 print("⚠️  Real hardware initialization incomplete")
-                if not self.allow_mock_fallback:
+                # If motion is skipped, allow camera-only success to proceed without raising.
+                if not self.allow_mock_fallback and not self.skip_motion_hw:
                     raise RuntimeError("Failed to initialize arm or camera in real mode")
                 print("↩️  Falling back to mock mode")
 
