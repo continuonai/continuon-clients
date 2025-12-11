@@ -129,6 +129,93 @@ window.openEpisodeImports = function() {
   alert('Episode import UI not yet wired to backend.');
 };
 
+window.runManualTraining = async function(payload = {}) {
+  const statusEl = document.getElementById('training-status');
+  if (statusEl) statusEl.textContent = 'Submitting manual training run...';
+  try {
+    const res = await fetch('/api/training/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'Manual training failed');
+    if (statusEl) statusEl.textContent = 'Manual training queued';
+  } catch (err) {
+    console.warn('Manual training failed', err);
+    if (statusEl) statusEl.textContent = 'Manual training failed: ' + (err?.message || err);
+  }
+};
+
+window.runWavecoreLoops = async function(payload = {}) {
+  const statusEl = document.getElementById('training-status');
+  if (statusEl) statusEl.textContent = 'Starting WaveCore loops...';
+  try {
+    const res = await fetch('/api/training/wavecore_loops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'WaveCore run failed');
+    if (statusEl) statusEl.textContent = 'WaveCore loops running';
+  } catch (err) {
+    console.warn('WaveCore loops failed', err);
+    if (statusEl) statusEl.textContent = 'WaveCore loops failed: ' + (err?.message || err);
+  }
+};
+
+window.runHopeEval = async function(payload = {}) {
+  const statusEl = document.getElementById('training-status');
+  if (statusEl) statusEl.textContent = 'Running HOPE eval...';
+  try {
+    const res = await fetch('/api/training/hope_eval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'HOPE eval failed');
+    if (statusEl) statusEl.textContent = 'HOPE eval completed';
+  } catch (err) {
+    console.warn('HOPE eval failed', err);
+    if (statusEl) statusEl.textContent = 'HOPE eval failed: ' + (err?.message || err);
+  }
+};
+
+window.runFactsEval = async function(payload = {}) {
+  const statusEl = document.getElementById('training-status');
+  if (statusEl) statusEl.textContent = 'Running facts eval...';
+  try {
+    const res = await fetch('/api/training/hope_eval_facts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'Facts eval failed');
+    if (statusEl) statusEl.textContent = 'Facts eval completed';
+  } catch (err) {
+    console.warn('Facts eval failed', err);
+    if (statusEl) statusEl.textContent = 'Facts eval failed: ' + (err?.message || err);
+  }
+};
+
+window.checkTrainingStatus = async function() {
+  const statusEl = document.getElementById('training-status');
+  if (statusEl) statusEl.textContent = 'Reading trainer status...';
+  try {
+    const res = await fetch('/api/training/status');
+    const data = await res.json();
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const label = data.message || data.status || JSON.stringify(data);
+    if (statusEl) statusEl.textContent = 'Trainer: ' + label;
+  } catch (err) {
+    console.warn('Training status failed', err);
+    if (statusEl) statusEl.textContent = 'Status fetch failed: ' + (err?.message || err);
+  }
+};
+
 // Initialize view mode from storage on load (requires setViewMode in page)
 (function initViewModeClient() {
   try {
