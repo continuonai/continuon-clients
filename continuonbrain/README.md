@@ -95,6 +95,7 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 - To use a provided HEF (e.g., model zoo), place it at `/opt/continuonos/brain/model/base_model/model.hef` (or pass `--hef-source` and `--install-hef-path` to `continuonbrain/jax_models/export/export_hailo.py`). The export step copies the HEF to the runtime path and records input/output vstream metadata when `hailo_platform` is installed.
 - Enable depth/Hailo offload flag with `CONTINUON_HAILO_OFFLOAD=1`; OAK-D detection will mark devices as offload-capable and the hardware detector will tag the Hailo HAT accordingly.
 - Quick benchmark on-device: `hailortcli benchmark /opt/continuonos/brain/model/base_model/model.hef --time-to-run 5`
+- Hailo inference path is now live in `inference_router.py`: it configures the HEF via `hailo_platform`, maps the first HEF input to `obs`, allocates output buffers, and runs synchronous inference. Shape must match the HEF input; extend mapping if your model has multiple inputs/outputs or a different tensor layout.
 
 ### OTA packaging
 - Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).
