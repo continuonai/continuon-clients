@@ -406,10 +406,10 @@ class HardwareDetector:
                             name="Hailo AI HAT+",
                             vendor="Hailo",
                             interface="pcie",
-                            capabilities=["ai", "inference", "neural_network", "hailo8l"],
+                            capabilities=["ai", "inference", "neural_network", "hailo8"],
                             config={
-                                "model": "Hailo-8L",
-                                "tops": 13,
+                                "model": "Hailo-8",
+                                "tops": 26,
                                 "driver": "hailo_platform",
                             }
                         ))

@@ -13,14 +13,16 @@ target model and shape.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List, Dict
 
 try:
-    import hailort  # type: ignore
+    import hailo_platform as hailo  # type: ignore
 
     HAILO_AVAILABLE = True
-except Exception:
+    HAILO_IMPORT_ERROR = ""
+except Exception as exc:  # noqa: BLE001
     HAILO_AVAILABLE = False
+    HAILO_IMPORT_ERROR = str(exc)
 
 
 class HailoRunner:
@@ -34,6 +36,9 @@ class HailoRunner:
         self._hailo_device = None
         self._hef = None
         self._configured = False
+        self._input_infos: List[Any] = []
+        self._output_infos: List[Any] = []
+        self._init_error: Optional[str] = None
 
     def _try_init(self) -> bool:
         if not HAILO_AVAILABLE:
@@ -41,11 +46,15 @@ class HailoRunner:
         if not self.hef_path.exists():
             return False
         try:
-            self._hef = hailort.Hef(self.hef_path)
-            self._hailo_device = hailort.Device()
+            self._hef = hailo.HEF(str(self.hef_path))
+            # Capture vstream metadata for downstream wiring; we intentionally
+            # avoid configuring/running here to keep initialization lightweight.
+            self._input_infos = list(self._hef.get_input_vstream_infos())
+            self._output_infos = list(self._hef.get_output_vstream_infos())
             self._configured = True
             return True
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            self._init_error = str(exc)
             self._configured = False
             return False
 
@@ -54,9 +63,32 @@ class HailoRunner:
         if self._configured or self._try_init():
             try:
                 # Placeholder: Real implementation must map inputs to VStreams,
-                # run inference, and collect outputs. This stub only signals
-                # that Hailo is selected.
-                return {"hailo": True, "note": "Hailo path stub, implement VStream I/O"}
+                # run inference, and collect outputs. We surface metadata here
+                # so downstream code can wire real tensor I/O without guessing.
+                result: Dict[str, Any] = {
+                    "hailo": True,
+                    "hef_path": str(self.hef_path),
+                    "inputs": [
+                        {
+                            "name": info.name,
+                            "shape": tuple(info.shape),
+                            "format": getattr(info.format, "order", None),
+                        }
+                        for info in self._input_infos
+                    ],
+                    "outputs": [
+                        {
+                            "name": info.name,
+                            "shape": tuple(info.shape),
+                            "format": getattr(info.format, "order", None),
+                        }
+                        for info in self._output_infos
+                    ],
+                    "note": "Hailo runtime detected; tensor I/O not yet wired",
+                }
+                if self.cpu_fallback:
+                    result["cpu_fallback_result"] = self.cpu_fallback(inputs)
+                return result
             except Exception:
                 # Fall through to CPU
                 pass

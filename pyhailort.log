@@ -1,0 +1,3 @@
+2025-12-10 18:12:11,596 - WARNING - hw_object.py:46 - HailoHWObject is deprecated! Please use VDevice/Device object.
+2025-12-10 18:12:11,596 - WARNING - hw_object.py:447 - PcieDevice is deprecated! Please use VDevice/Device object.
+2025-12-10 18:12:11,634 - WARNING - control_object.py:61 - PcieHcpControl is deprecated! Please Use Control object
