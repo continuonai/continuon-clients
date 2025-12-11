@@ -23,6 +23,9 @@ Scope: All files in this repository unless a deeper `AGENTS.md` overrides these 
 - Upcoming requirement (Continuon AI web): wire the public RLDS viewer to a Continuon Cloud public-episodes API using signed URLs; uploads must carry a `share` block (public flag, slug, title, license, tags) and only `public=true` episodes should list. Coordinate README/AGENTS updates when enabling.
 - Public safety/PII: for any public listing, require content rating/audience fields, PII attestation, automated PII/safety scans (faces/plates blur, OCR/ASR PII, profanity/toxicity). Only list when `pii_cleared=true` and `pending_review=false`; prefer serving redacted assets when `pii_redacted=true`.
 
+TODO (offline Wikipedia context)
+- Once an offline `wikimedia/wikipedia` dump or JSONL corpus is available, wire `continuonbrain/eval/wiki_retriever.py` into HOPE eval flows so prompts can include retrieved snippets; keep provenance in RLDS and default to no-op when corpus is absent.
+
 ## On-device WaveCore seed + HOPE eval (JAX path)
 - WaveCore loops (fast/mid/slow) run via `POST /api/training/wavecore_loops`; defaults use JSON RLDS at `/opt/continuonos/brain/rlds/episodes`, export seed manifest/checkpoint to `/opt/continuonos/brain/model/adapters/candidate/core_model_seed`, checkpoint dir `/opt/continuonos/brain/trainer/checkpoints/core_model_seed`.
 - Model presets: `pi5` (default), `columnar_small`, `wave_only`, `hybrid`; optional `sparsity_lambda` (L1) per loop; JIT off by default.

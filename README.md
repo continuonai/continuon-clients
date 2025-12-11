@@ -31,6 +31,7 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 - **Presets & sparsity:** per-loop `arch_preset` (`pi5` default, `columnar_small`, `wave_only`, `hybrid`), `sparsity_lambda` (L1), optional `quantization`; JIT off by default for stability.
 - **HOPE graded eval:** `POST /api/training/hope_eval` (or `run_hope_eval` inside the wavecore payload) asks increasing-difficulty questions from `continuonbrain/eval/hope_eval_questions.json`, logs RLDS episodes to `/opt/continuonos/brain/rlds/episodes/hope_eval_<ts>.json`.
 - **Fallback order for eval:** HOPE agent first; if low confidence, fall back to `google/gemma-370m`, then `google/gemma-3n-2b`.
+- **Optional Wikipedia context (offline-ready):** `continuonbrain/eval/wiki_retriever.py` can consume a local HuggingFace `wikimedia/wikipedia` dataset or JSONL corpus and feed snippets into HOPE eval prompts. It no-ops if no corpus is present. Wire it by passing a retriever into `run_hope_eval_and_log`; plan to enable once an offline dump is available.
 
 ## Alignment Snapshot (2025-12-10)
 

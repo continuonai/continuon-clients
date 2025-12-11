@@ -26,6 +26,8 @@ async def run_hope_eval_and_log(
     fallback_order: Optional[List[str]] = None,
     episode_prefix: str = "hope_eval",
     model_label: str = "hope-agent",
+    retriever: Optional[callable] = None,
+    max_ctx_chars: int = 800,
 ) -> Dict[str, Any]:
     """
     Ask HOPE a graded set of questions, fallback to on-device LLM if needed,
@@ -47,12 +49,31 @@ async def run_hope_eval_and_log(
     for item in questions:
         q = item["question"]
         tier = item["tier"]
-        answer = await ask_once(q)
+
+        contexts: List[Dict[str, str]] = []
+        if retriever:
+            try:
+                contexts = retriever(q) or []
+            except Exception:
+                contexts = []
+
+        context_text = ""
+        if contexts:
+            parts = []
+            for ctx in contexts:
+                title = ctx.get("title") or ""
+                text = ctx.get("text") or ""
+                parts.append(f"Title: {title}\n{text[:max_ctx_chars]}")
+            context_text = "\n---\n".join(parts)
+
+        prompt = q if not context_text else f"{q}\n\nContext:\n{context_text}"
+
+        answer = await ask_once(prompt)
         used_fallback = False
         fallback_model = None
         if use_fallback and (not answer or answer.startswith("[error")):
             for fb in fallback_order:
-                fb_ans = await ask_once(f"{q}\n\n(model hint: {fb})", model_hint=fb)
+                fb_ans = await ask_once(f"{prompt}\n\n(model hint: {fb})", model_hint=fb)
                 if fb_ans and not fb_ans.startswith("[error"):
                     answer = fb_ans
                     used_fallback = True
@@ -76,6 +97,7 @@ async def run_hope_eval_and_log(
                     "model": model_label,
                     "fallback_order": fallback_order,
                     "timestamp": time.time(),
+                    "contexts_used": len(contexts),
                 },
             }
         )
