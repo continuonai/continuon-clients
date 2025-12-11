@@ -67,9 +67,10 @@ class CheckpointManager:
             max_to_keep=max_to_keep,
             create=True,
         )
-        
+        checkpointer = ocp.PyTreeCheckpointer()
         self.manager = ocp.CheckpointManager(
             ckpt_path,
+            checkpointer,
             options=options,
         )
     
@@ -95,13 +96,11 @@ class CheckpointManager:
         checkpoint = {
             'params': params,
             'opt_state': opt_state,
+            'metadata': metadata or {},
         }
         
-        if metadata:
-            checkpoint['metadata'] = metadata
-        
         # Save checkpoint
-        self.manager.save(step, checkpoint)
+        self.manager.save(step, args=checkpoint)
         
         # Also save metadata as JSON for easy inspection
         if metadata:

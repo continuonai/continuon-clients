@@ -23,6 +23,7 @@ from ..data.rlds_dataset import (
 )
 import csv
 import json
+import pickle
 
 
 def create_initial_state(
@@ -173,6 +174,7 @@ def run_sanity_check(
     learning_rate: float = 1e-3,
     use_synthetic_data: bool = True,
     metrics_path: Optional[Path] = None,
+    checkpoint_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """
     Run sanity check training loop on Pi CPU.
@@ -343,6 +345,34 @@ def run_sanity_check(
     print(f"  Particle state: {state['particle_state'].shape}")
     print(f"  CMS memories: {[m.shape for m in state['cms_memories']]}")
     
+    checkpoint_path = None
+    checkpoint_step = None
+    checkpoint_format = None
+    if checkpoint_dir:
+        checkpoint_dir = Path(checkpoint_dir)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_step = len(losses)
+        # Lightweight pickle checkpoint for portability (Orbax unavailable on this platform).
+        ckpt_file = checkpoint_dir / f"params_step_{checkpoint_step}.pkl"
+        with ckpt_file.open("wb") as f:
+            pickle.dump(
+                {
+                    "params": params,
+                    "opt_state": opt_state,
+                    "metadata": {
+                        "obs_dim": obs_dim,
+                        "action_dim": action_dim,
+                        "output_dim": output_dim,
+                        "learning_rate": learning_rate,
+                        "steps": len(losses),
+                        "checkpoint_step": checkpoint_step,
+                    },
+                },
+                f,
+            )
+        checkpoint_path = str(ckpt_file)
+        checkpoint_format = "pickle"
+
     results = {
         'status': 'ok',
         'steps': len(losses),
@@ -351,6 +381,9 @@ def run_sanity_check(
         'wall_time_s': wall_time,
         'losses': losses,
         'config': config,
+        'checkpoint_dir': checkpoint_path,
+        'checkpoint_step': checkpoint_step,
+        'checkpoint_format': checkpoint_format,
     }
     
     print(f"\nSanity check completed:")

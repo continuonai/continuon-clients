@@ -47,6 +47,8 @@ from continuonbrain.server.skills import (
 )
 from continuonbrain.services.chat_adapter import ChatAdapter
 from continuonbrain.services.training_runner import TrainingRunner
+from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest
+from continuonbrain.services.wavecore_trainer import WavecoreTrainer
 from continuonbrain.services.video_stream import VideoStreamHelper
 
 # Use extracted SimpleJSONServer implementation
@@ -92,6 +94,8 @@ class RobotService:
         self.skill_library = SkillLibrary()
         self.selected_task_id: Optional[str] = None
         self.training_runner = TrainingRunner()
+        self.wavecore_trainer = WavecoreTrainer()
+        self.manual_trainer = ManualTrainer()
         self.stream_helper = VideoStreamHelper(self)
 
         # Prefer JAX-based models by default to avoid heavyweight transformers init on boot.
@@ -152,6 +156,28 @@ class RobotService:
     async def RunTraining(self):
         """Trigger a background training run using the shared TrainingRunner."""
         await self.training_runner.run()
+
+    async def RunManualTraining(self, payload: Optional[dict] = None) -> dict:
+        """Run manual JAX trainer with optional overrides from payload."""
+        payload = payload or {}
+        request = ManualTrainerRequest(
+            rlds_dir=Path(payload["rlds_dir"]) if payload.get("rlds_dir") else None,
+            use_synthetic=bool(payload.get("use_synthetic", False)),
+            max_steps=int(payload.get("max_steps", 10)),
+            batch_size=int(payload.get("batch_size", 4)),
+            learning_rate=float(payload.get("learning_rate", 1e-3)),
+            obs_dim=int(payload.get("obs_dim", 128)),
+            action_dim=int(payload.get("action_dim", 32)),
+            output_dim=int(payload.get("output_dim", 32)),
+            disable_jit=bool(payload.get("disable_jit", True)),
+            metrics_path=Path(payload["metrics_path"]) if payload.get("metrics_path") else None,
+        )
+        return await self.manual_trainer.run(request)
+
+    async def RunWavecoreLoops(self, payload: Optional[dict] = None) -> dict:
+        """Run WaveCore fast/mid/slow loops using the JAX CoreModel seed."""
+        payload = payload or {}
+        return await self.wavecore_trainer.run_loops(payload)
 
     async def initialize(self):
         """Initialize hardware components with auto-detection."""
