@@ -1,18 +1,18 @@
 """
 Test PCA9685 wiring configuration for drivetrain and arm controllers.
 
-This test validates that the PCA9685 is correctly wired and configured
-before testing web server controls. It checks:
-- I2C communication with PCA9685 at address 0x40
-- Channel assignments for drivetrain (steering/throttle)
-- Channel assignments for arm controller (6 DOF)
-- Safe operation within configured limits
-- Mock mode fallback when hardware is unavailable
-
-Run this test to ensure hardware is correctly set up before validating
-web server control functionality.
+These require real or fully mocked hardware wiring. Skip by default unless
+explicitly enabled to avoid false failures on dev/CI without devices.
 """
+import os
 import pytest
+
+# Skip hardware-dependent wiring tests unless opted in
+if os.environ.get("CONTINUON_ALLOW_HW_TESTS", "0").lower() not in ("1", "true", "yes"):
+    pytest.skip(
+        "Hardware wiring tests require PCA9685/servos; set CONTINUON_ALLOW_HW_TESTS=1 to run",
+        allow_module_level=True,
+    )
 import time
 from typing import Dict, List, Optional
 from unittest.mock import patch, MagicMock

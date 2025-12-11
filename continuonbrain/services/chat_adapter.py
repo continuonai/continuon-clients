@@ -17,7 +17,7 @@ class ChatAdapter:
         self.status_provider = status_provider
         self.gemma_chat = gemma_chat
 
-    async def chat(self, message: str, history: list) -> dict:
+    async def chat(self, message: str, history: list, model_hint: Optional[str] = None) -> dict:
         """Chat with Gemma (or a local fallback) using live status for context."""
         try:
             status_data = await self.status_provider()
@@ -27,7 +27,7 @@ class ChatAdapter:
             allow_motion = status.get("allow_motion", False)
 
             prompt = self._build_prompt(mode, hardware, allow_motion)
-            response = self._call_model(message, prompt, history)
+            response = self._call_model(message, prompt, history, model_hint=model_hint)
             self._log_chat(message, response, status)
             return {"response": response}
         except Exception as exc:  # noqa: BLE001
@@ -47,9 +47,9 @@ class ChatAdapter:
             "Always answer as the Agent Manager. State when you are using the primary model, a fallback, or a sub-agent/tool. Be concise, technical, and action-oriented."
         )
 
-    def _call_model(self, message: str, prompt: str, _history: list) -> str:
+    def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None) -> str:
         if self.gemma_chat:
-            return self.gemma_chat.chat(message, system_context=prompt)
+            return self.gemma_chat.chat(message, system_context=prompt, model_hint=model_hint)
 
         # Robustly extract mode/hardware even if prompt structure changes
         lines = prompt.splitlines()
@@ -65,7 +65,7 @@ class ChatAdapter:
             f"Mode={_extract('- Mode', 'unknown')} "
             f"Hardware={_extract('- Hardware', 'unknown')}"
         )
-        return self._generate_response(message, context)
+        return self._generate_response(message, context, model_hint=model_hint)
 
     def _log_chat(self, message: str, response: str, status: Dict[str, object]) -> None:
         try:
@@ -86,52 +86,68 @@ class ChatAdapter:
         except Exception as exc:  # noqa: BLE001
             print(f"Failed to log chat: {exc}")
 
-    def _generate_response(self, message: str, context: str) -> str:
+    def _generate_response(self, message: str, context: str, model_hint: Optional[str] = None) -> str:
         """Generate a lightweight fallback response when Gemma is unavailable."""
+        model_tag = f"[model={model_hint}]" if model_hint else "[model=primary]"
         msg_lower = message.lower()
 
+        # Model-specific phrasing variants to avoid identical outputs across hints.
+        variants = {
+            None: {
+                "status": f"{model_tag} Robot status: {context}. The robot is ready for your commands. Use the arrow controls or keyboard to move the arm joints and drive the car.",
+                "control": f"{model_tag} Control the arm with joint sliders or arrow buttons. For the car, use the driving controls (default SLOW=0.3). Hold Ctrl+Arrow keys or use WASD for arm control.",
+                "joints": f"{model_tag} Arm joints: J0 base, J1 shoulder, J2 elbow, J3 wrist roll, J4 wrist pitch, J5 gripper. Range is -1.0 to 1.0 via sliders/arrow buttons.",
+                "car": f"{model_tag} DonkeyCar platform; speed preset SLOW (0.3). Adjust via Crawl/Slow/Med/Fast and steer with arrows/keyboard.",
+                "record": f"{model_tag} Recording saves your manual demos as RLDS episodes. Ensure manual_training mode and motion enabled.",
+                "safety": f"{model_tag} Safety first: speed preset to SLOW. Emergency Stop halts motion; start with small moves.",
+                "default": f"{model_tag} I'm here to help with robot control! Current status: {context}. Ask about controls, status, movement, or safety.",
+            },
+            "google/gemma-3n-2b": {
+                "status": f"{model_tag} Status snapshot → {context}. Controls are live; keyboard/arrow input ready for arm and drive.",
+                "control": f"{model_tag} Use sliders/arrow keys for the arm; driving uses the same arrows. Keep speed at SLOW=0.3 unless testing.",
+                "joints": f"{model_tag} Six-DOF arm: J0 base, J1 shoulder, J2 elbow, J3 roll, J4 pitch, J5 gripper. Target range [-1,1].",
+                "car": f"{model_tag} DonkeyCar RC: default SLOW (0.3). Change speed with preset buttons; steer with arrows/keyboard.",
+                "record": f"{model_tag} RLDS capture on: manual_training mode + motion enabled. Your demonstrations are written as episodes.",
+                "safety": f"{model_tag} Keep it safe: stay on SLOW, use E-Stop if anything misbehaves. Start with micro-movements.",
+                "default": f"{model_tag} Ready for XR control assistance. Status={context}. Ask for controls or safety tips.",
+            },
+            "google/gemma-370m": {
+                "status": f"{model_tag} Current mode/hw → {context}. Controls armed; arrow/keyboard inputs accepted for arm and drive.",
+                "control": f"{model_tag} Drive/arm via arrows; sliders for arm joints. Speed preset SLOW(0.3); bump up only after checks.",
+                "joints": f"{model_tag} Arm DOFs: base, shoulder, elbow, wrist roll, wrist pitch, gripper. Command range [-1,1] via sliders/arrows.",
+                "car": f"{model_tag} DonkeyCar baseline. Speed presets: Crawl/Slow/Med/Fast; steering with arrows/keys. Default SLOW for safety.",
+                "record": f"{model_tag} Recording writes RLDS episodes. Enable manual_training + motion to log your demonstrations.",
+                "safety": f"{model_tag} Safety: run at SLOW, keep E-Stop handy. Start gentle, then scale up.",
+                "default": f"{model_tag} Control helper online. Status={context}. Ask for control/safety guidance.",
+            },
+        }
+
+        bucket = None
+        if model_hint in variants:
+            bucket = variants[model_hint]
+        else:
+            bucket = variants[None]
+
+        def pick(key: str, fallback_key: str = "default") -> str:
+            return bucket.get(key) or bucket.get(fallback_key) or variants[None]["default"]
+
         if any(word in msg_lower for word in ["status", "state", "how", "what"]):
-            return (
-                f"Robot status: {context}. The robot is ready for your commands. "
-                "Use the arrow controls or keyboard to move the arm joints and drive the car."
-            )
+            return pick("status")
 
         if any(word in msg_lower for word in ["control", "move", "drive", "steer"]):
-            return (
-                "Control the arm with joint sliders or arrow buttons. For the car, use the driving controls "
-                "- default speed is set to SLOW (0.3) for safety. Hold Ctrl+Arrow keys for keyboard driving, "
-                "or use WASD for arm control."
-            )
+            return pick("control")
 
         if any(word in msg_lower for word in ["joint", "arm", "gripper"]):
-            return (
-                "The arm has 6 joints: J0 (base rotation), J1 (shoulder), J2 (elbow), "
-                "J3 (wrist roll), J4 (wrist pitch), and J5 (gripper). Use the sliders or arrow buttons "
-                "to control each joint. Values range from -1.0 to 1.0."
-            )
+            return pick("joints")
 
         if any(word in msg_lower for word in ["car", "speed", "throttle"]):
-            return (
-                "The car is based on a DonkeyCar RC platform. Speed is preset to SLOW (0.3) for safety "
-                "- you can adjust using the speed buttons (Crawl, Slow, Med, Fast). Use arrow buttons or "
-                "keyboard to steer and control throttle."
-            )
+            return pick("car")
 
         if any(word in msg_lower for word in ["record", "episode", "training"]):
-            return (
-                "Episode recording captures your manual control demonstrations for training. "
-                "Make sure you're in manual_training mode and motion is enabled. "
-                "Your actions will be recorded as RLDS episodes."
-            )
+            return pick("record")
 
         if any(word in msg_lower for word in ["safe", "stop", "emergency"]):
-            return (
-                "For safety, the speed is preset to SLOW. Use the Emergency Stop button if needed - "
-                "it will halt all motion immediately. Always start with slow movements to test the robot's response."
-            )
+            return pick("safety")
 
-        return (
-            f"I'm here to help with robot control! Current status: {context}. "
-            "Ask me about controls, status, movement, or safety."
-        )
+        return pick("default")
 

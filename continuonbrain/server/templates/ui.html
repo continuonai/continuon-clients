@@ -568,6 +568,51 @@
             ],
         };
 
+        const safetyPersonaPresets = [
+            {
+                id: 'owner_safe',
+                label: 'Owner',
+                apiMode: 'manual_control',
+                fallbackMode: 'manual_control',
+                description: 'Primary owners with full controls; telemetry pinned.',
+                gates: { allow_motion: true, record_episodes: true, require_supervision: false },
+            },
+            {
+                id: 'renter_safe',
+                label: 'Renter / Leasee',
+                apiMode: 'autonomous',
+                fallbackMode: 'autonomous',
+                description: 'Temporary operators with supervised motion and recorded evidence.',
+                gates: { allow_motion: true, record_episodes: true, require_supervision: true },
+            },
+            {
+                id: 'enterprise_maintenance',
+                label: 'Enterprise Maintenance',
+                apiMode: 'sleep_learning',
+                fallbackMode: 'sleep_learning',
+                description: 'Technicians with diagnostics on and motion held unless cleared.',
+                gates: { allow_motion: false, record_episodes: true, require_supervision: true },
+            },
+            {
+                id: 'researcher',
+                label: 'Researcher',
+                apiMode: 'autonomous',
+                fallbackMode: 'autonomous',
+                description: 'Research sandboxes with cautious motion and logged changes.',
+                gates: { allow_motion: true, record_episodes: true, require_supervision: true },
+            },
+            {
+                id: 'creator',
+                label: 'Creator',
+                apiMode: 'idle',
+                fallbackMode: 'idle',
+                description: 'System creator with design-time control; motion starts locked.',
+                gates: { allow_motion: false, record_episodes: false, require_supervision: false },
+            },
+        ];
+
+        const safetyPersonaState = { selected: null, gates: {} };
+
         const taskDeckState = {
             selectedGroup: 'all',
             expandedDetails: {},
@@ -668,6 +713,107 @@
                     `<div class="metric-value">${metric.value}</div>` +
                 `</div>`;
             }).join('');
+        }
+
+        function renderGateStatus(gates) {
+            const grid = document.getElementById('gate-status-grid');
+            if (!grid) return;
+
+            const snapshot = gates || safetyPersonaState.gates || {};
+            safetyPersonaState.gates = snapshot;
+
+            const rows = [
+                { label: 'Motion gate', value: snapshot.allow_motion ? 'Open' : 'Locked', status: snapshot.allow_motion },
+                { label: 'Recording', value: snapshot.record_episodes ? 'Recording' : 'Stopped', status: snapshot.record_episodes },
+                { label: 'Supervision', value: snapshot.require_supervision ? 'Human in loop' : 'Autonomy allowed', status: !snapshot.require_supervision },
+            ];
+
+            grid.innerHTML = rows.map(row => {
+                const statusClass = row.status ? 'status-value status-good' : 'status-value';
+                return `<div class="status-item">` +
+                    `<span class="status-label">${row.label}</span>` +
+                    `<span class="${statusClass}">${row.value}</span>` +
+                `</div>`;
+            }).join('');
+
+            const trainingChip = document.getElementById('training-safe-chip');
+            if (trainingChip) {
+                const label = snapshot.require_supervision ? 'Supervised safe mode' : 'Autonomy cleared';
+                trainingChip.textContent = label;
+            }
+        }
+
+        function renderSafeModeGrid(selectedId) {
+            const grid = document.getElementById('safe-mode-grid');
+            if (!grid) return;
+
+            grid.innerHTML = safetyPersonaPresets.map(preset => {
+                const selected = preset.id === selectedId;
+                const gates = preset.gates || {};
+                const gateLine = `${gates.allow_motion ? 'Motion allowed' : 'Motion held'} • ${gates.record_episodes ? 'Recording on' : 'Recording off'} • ${gates.require_supervision ? 'Supervision required' : 'Autonomy ok'}`;
+                return `<div class="safe-mode-card ${selected ? 'selected' : ''}">` +
+                    `<div class="panel-eyebrow">${preset.label}</div>` +
+                    `<div class="safe-mode-meta">${preset.description}</div>` +
+                    `<div class="status-chip info">${gateLine}</div>` +
+                    `<button class="command-btn" onclick="window.setSafeModePreset('${preset.id}')">${selected ? 'Active' : 'Set safe mode'}</button>` +
+                `</div>`;
+            }).join('');
+
+            const statusChip = document.getElementById('safe-mode-status');
+            if (statusChip) {
+                const active = safetyPersonaPresets.find(p => p.id === selectedId);
+                statusChip.textContent = active ? `${active.label} guardrails loaded` : 'Persona guardrails synced';
+            }
+        }
+
+        window.setSafeModePreset = async function(presetId) {
+            const preset = safetyPersonaPresets.find(p => p.id === presetId);
+            const statusChip = document.getElementById('safe-mode-status');
+            if (!preset) return;
+
+            if (statusChip) statusChip.textContent = `Applying ${preset.label} safeguards...`;
+
+            try {
+                const mode = preset.apiMode || preset.fallbackMode || 'idle';
+                const res = await fetch(`/api/mode/${mode}`);
+                if (!res.ok && preset.fallbackMode && preset.fallbackMode !== mode) {
+                    await fetch(`/api/mode/${preset.fallbackMode}`);
+                }
+                safetyPersonaState.selected = preset.id;
+                const personaBadge = document.getElementById('persona-badge');
+                if (personaBadge) personaBadge.textContent = `Persona: ${preset.label}`;
+                renderSafeModeGrid(preset.id);
+                renderGateStatus(preset.gates);
+                if (statusChip) statusChip.textContent = `${preset.label} safe mode ready`;
+                window.showMessage(`${preset.label} guardrails applied`);
+            } catch (err) {
+                console.warn('Safe mode failed', err);
+                if (statusChip) statusChip.textContent = 'Safe mode failed';
+                window.showMessage('Unable to set safe mode', true);
+            }
+
+            window.fetchGates();
+            window.updateStatus();
+        }
+
+        window.applyGatesPayload = function(payload) {
+            if (!payload) return;
+            renderGateStatus(payload);
+        }
+
+        window.fetchGates = async function(payload) {
+            if (payload) {
+                window.applyGatesPayload(payload);
+                return;
+            }
+            try {
+                const res = await fetch('/api/gates');
+                if (!res.ok) return;
+                const data = await res.json();
+                window.applyGatesPayload(data);
+            } catch (err) {
+                console.warn('Gate fetch failed', err);
+            }
         }
 
         function renderAgentThreads(agents) {
@@ -818,6 +964,7 @@
                         `</div>` +
                         `<div class="task-actions">` +
                             `<button onclick="window.selectTask('${task.id}')" ${disabledAttr}>${selectLabel}</button>` +
+                            `<button class="ghost" onclick="window.viewTaskSummary('${task.id}')">Summary</button>` +
                             `<button class="ghost" onclick="window.toggleTaskDetails('${task.id}')">${detailLabel}</button>` +
                             `<div class="agent-shortcuts">` +
                                 `<span class="task-tag">Model: <span id="agent-model-chip">${localStorage.getItem('agent_manager_model') || 'gemma-3n'}</span></span>` +
@@ -1230,6 +1377,17 @@
             window.applySkillLibraryPayload(skillLibraryPayload || { skills: skillDeckState.skills });
         }
 
+        window.viewTaskSummary = async function(taskId) {
+            try {
+                const res = await fetch(`/api/tasks/summary/${taskId}`);
+                if (!res.ok) return;
+                const payload = await res.json();
+                alert(JSON.stringify(payload.summary || payload, null, 2));
+            } catch (err) {
+                console.warn('Task summary failed', err);
+            }
+        }
+
         window.viewSkillSummary = async function(skillId) {
             try {
                 const res = await fetch(`/api/skills/summary/${skillId}`);
@@ -1285,6 +1443,7 @@
             if (motionCard) { motionCard.textContent = motionAllowed ? 'Allowed' : 'Prevented'; }
 
             renderLoopTelemetry(status);
+            renderGateStatus(status.gate_snapshot || status.gates);
             renderAgentRail(status);
             renderSelectedTask(status.current_task);
 
@@ -1833,9 +1992,12 @@
         hydrateChatOverlay();
 
         // Kick off initial renders
+        renderSafeModeGrid(safetyPersonaState.selected);
+        renderGateStatus(safetyPersonaState.gates);
         renderAgentRail();
         window.updateStatus();
         window.pollLoopHealth();
+        window.fetchGates();
         window.fetchTaskLibrary();
         window.fetchSkillLibrary();
 

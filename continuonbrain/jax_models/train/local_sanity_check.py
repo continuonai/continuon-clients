@@ -8,16 +8,23 @@ loss computation, and gradients before cloud TPU training.
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Iterable, Sequence
 import jax
 import jax.numpy as jnp
 import optax
 import numpy as np
 
 from ..core_model import CoreModel, make_core_model, CoreModelConfig
-from ..data.rlds_dataset import load_rlds_dataset
+from ..config_presets import get_config_for_preset
+from ..data.rlds_dataset import (
+    TF_AVAILABLE,
+    _extract_action_vector,
+    _extract_obs_vector,
+    load_rlds_dataset,
+)
 import csv
 import json
+import pickle
 
 
 def create_initial_state(
@@ -26,13 +33,12 @@ def create_initial_state(
     obs_dim: int,
     action_dim: int,
     output_dim: int,
-) -> Dict[str, Any]:
+) -> tuple[CoreModel, Dict[str, Any]]:
     """
     Create initial model state (parameters + internal states).
     
     Returns:
-        Dictionary with 'params', 'fast_state', 'wave_state', 'particle_state',
-        and 'cms_memories', 'cms_keys'
+        (model, state_dict) where state_dict contains params and memory tensors.
     """
     model, params = make_core_model(rng_key, obs_dim, action_dim, output_dim, config)
     
@@ -50,8 +56,7 @@ def create_initial_state(
         jnp.zeros((size, config.d_k)) for size in config.cms_sizes
     ]
     
-    return {
-        'model': model,
+    return model, {
         'params': params,
         'fast_state': fast_state,
         'wave_state': wave_state,
@@ -63,10 +68,11 @@ def create_initial_state(
 
 def compute_loss(
     params: Dict[str, Any],
-    model: CoreModel,
+    apply_fn: Callable[..., tuple[jnp.ndarray, Any]],
     batch: Dict[str, jnp.ndarray],
     state: Dict[str, Any],
     config: CoreModelConfig,
+    sparsity_lambda: float = 0.0,
 ) -> jnp.ndarray:
     """
     Compute loss for a batch.
@@ -100,7 +106,7 @@ def compute_loss(
         p_prev = jnp.tile(p_prev[0:1], (batch_size, 1))
     
     # Forward pass
-    y_pred, info = model.apply(
+    y_pred, info = apply_fn(
         params,
         obs,
         action,
@@ -113,21 +119,29 @@ def compute_loss(
     )
     
     # Simple MSE loss: predict action from observation
-    # In practice, you'd use a more sophisticated loss (e.g., policy gradient, value function)
     loss = jnp.mean((y_pred - action) ** 2)
+
+    if sparsity_lambda > 0:
+        l1 = sum(
+            jnp.sum(jnp.abs(p))
+            for p in jax.tree_util.tree_leaves(params)
+            if isinstance(p, jnp.ndarray)
+        )
+        loss = loss + sparsity_lambda * l1
     
     return loss
 
 
-@partial(jax.jit, static_argnums=(2, 5, 6))
+@partial(jax.jit, static_argnums=(2, 5, 6, 7))
 def train_step(
     params: Dict[str, Any],
     opt_state: Any,
-    model: CoreModel,
+    apply_fn: Callable[..., tuple[jnp.ndarray, Any]],
     batch: Dict[str, jnp.ndarray],
     state: Dict[str, Any],
     config: CoreModelConfig,
     optimizer: optax.GradientTransformation,
+    sparsity_lambda: float = 0.0,
 ) -> tuple[Dict[str, Any], Any, jnp.ndarray, Dict[str, Any]]:
     """
     Single training step.
@@ -137,12 +151,14 @@ def train_step(
     """
     # Compute loss and gradients
     loss, grads = jax.value_and_grad(compute_loss)(
-        params, model, batch, state, config
+        params, apply_fn, batch, state, config, sparsity_lambda
     )
     
     # Clip gradients
     if config.gradient_clip > 0:
-        grads = optax.clip_by_global_norm(grads, config.gradient_clip)
+        clipper = optax.clip_by_global_norm(config.gradient_clip)
+        updates, _ = clipper.update(grads, clipper.init(grads))
+        grads = updates
     
     # Update parameters
     updates, opt_state = optimizer.update(grads, opt_state, params)
@@ -158,6 +174,7 @@ def train_step(
 def run_sanity_check(
     rlds_dir: Optional[Path] = None,
     config: Optional[CoreModelConfig] = None,
+    arch_preset: Optional[str] = None,
     obs_dim: int = 128,
     action_dim: int = 32,
     output_dim: int = 32,
@@ -166,6 +183,8 @@ def run_sanity_check(
     learning_rate: float = 1e-3,
     use_synthetic_data: bool = True,
     metrics_path: Optional[Path] = None,
+    checkpoint_dir: Optional[Path] = None,
+    sparsity_lambda: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Run sanity check training loop on Pi CPU.
@@ -185,7 +204,7 @@ def run_sanity_check(
         Dictionary with training results
     """
     if config is None:
-        config = CoreModelConfig.pi5_optimized()
+        config = get_config_for_preset(arch_preset)
     
     print(f"Starting sanity check training:")
     print(f"  Model config: d_s={config.d_s}, d_w={config.d_w}, d_p={config.d_p}")
@@ -194,8 +213,7 @@ def run_sanity_check(
     
     # Initialize
     rng_key = jax.random.PRNGKey(0)
-    state = create_initial_state(rng_key, config, obs_dim, action_dim, output_dim)
-    model = state['model']
+    model, state = create_initial_state(rng_key, config, obs_dim, action_dim, output_dim)
     params = state['params']
     
     # Create optimizer
@@ -218,15 +236,71 @@ def run_sanity_check(
                 yield batch
         data_iter = synthetic_batch_iterator()
     else:
-        print(f"Loading RLDS dataset from {rlds_dir}")
-        data_iter = load_rlds_dataset(
-            tfrecord_paths=rlds_dir,
-            batch_size=batch_size,
-            shuffle=True,
-            repeat=False,
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-        )
+        if TF_AVAILABLE:
+            print(f"Loading RLDS dataset (TFRecord) from {rlds_dir}")
+            data_iter = load_rlds_dataset(
+                tfrecord_paths=rlds_dir,
+                batch_size=batch_size,
+                shuffle=True,
+                repeat=False,
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+            )
+        else:
+            print(f"TensorFlow not available; loading JSON episodes from {rlds_dir}")
+
+            def _iter_json_batches() -> Iterable[Dict[str, jnp.ndarray]]:
+                files = sorted(Path(rlds_dir).glob("*.json"))
+                if not files:
+                    raise RuntimeError(f"No JSON episodes found in {rlds_dir}")
+
+                buffer: list[Dict[str, Any]] = []
+                steps_emitted = 0
+
+                def flush():
+                    nonlocal buffer, steps_emitted
+                    while len(buffer) >= batch_size and steps_emitted < max_steps:
+                        batch = buffer[:batch_size]
+                        buffer = buffer[batch_size:]
+                        steps_emitted += 1
+                        yield {
+                            "obs": jnp.stack([s["obs"] for s in batch]),
+                            "action": jnp.stack([s["action"] for s in batch]),
+                            "reward": jnp.stack([s["reward"] for s in batch]),
+                            "done": jnp.stack([s["done"] for s in batch]),
+                        }
+
+                for path in files:
+                    payload = json.loads(path.read_text())
+                    for step in payload.get("steps", []):
+                        obs_vec = _extract_obs_vector(step.get("obs", {}), obs_dim)
+                        act_vec = _extract_action_vector(step.get("action", {}), action_dim)
+                        buffer.append(
+                            {
+                                "obs": jnp.asarray(obs_vec),
+                                "action": jnp.asarray(act_vec),
+                                "reward": jnp.asarray([float(step.get("reward", 0.0))]),
+                                "done": jnp.asarray([bool(step.get("done", False))]),
+                            }
+                        )
+                        if len(buffer) >= batch_size:
+                            yield from flush()
+                        if steps_emitted >= max_steps:
+                            return
+
+                # Flush any remainder if we still need steps
+                while buffer and steps_emitted < max_steps:
+                    take = buffer[:batch_size]
+                    buffer = buffer[batch_size:]
+                    steps_emitted += 1
+                    yield {
+                        "obs": jnp.stack([s["obs"] for s in take]),
+                        "action": jnp.stack([s["action"] for s in take]),
+                        "reward": jnp.stack([s["reward"] for s in take]),
+                        "done": jnp.stack([s["done"] for s in take]),
+                    }
+
+            data_iter = _iter_json_batches()
     
     # Training loop
     start_time = time.time()
@@ -247,7 +321,14 @@ def run_sanity_check(
 
             # Training step
             params, opt_state, loss, state = train_step(
-                params, opt_state, model, batch, state, config, optimizer
+                params,
+                opt_state,
+                model.apply,
+                batch,
+                state,
+                config,
+                optimizer,
+                sparsity_lambda,
             )
 
             loss_val = float(loss)
@@ -280,6 +361,36 @@ def run_sanity_check(
     print(f"  Particle state: {state['particle_state'].shape}")
     print(f"  CMS memories: {[m.shape for m in state['cms_memories']]}")
     
+    checkpoint_path = None
+    checkpoint_step = None
+    checkpoint_format = None
+    if checkpoint_dir:
+        checkpoint_dir = Path(checkpoint_dir)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_step = len(losses)
+        # Lightweight pickle checkpoint for portability (Orbax unavailable on this platform).
+        ckpt_file = checkpoint_dir / f"params_step_{checkpoint_step}.pkl"
+        with ckpt_file.open("wb") as f:
+            pickle.dump(
+                {
+                    "params": params,
+                    "opt_state": opt_state,
+                    "metadata": {
+                        "obs_dim": obs_dim,
+                        "action_dim": action_dim,
+                        "output_dim": output_dim,
+                        "learning_rate": learning_rate,
+                        "steps": len(losses),
+                        "checkpoint_step": checkpoint_step,
+                        "arch_preset": arch_preset,
+                        "sparsity_lambda": sparsity_lambda,
+                    },
+                },
+                f,
+            )
+        checkpoint_path = str(ckpt_file)
+        checkpoint_format = "pickle"
+
     results = {
         'status': 'ok',
         'steps': len(losses),
@@ -288,6 +399,11 @@ def run_sanity_check(
         'wall_time_s': wall_time,
         'losses': losses,
         'config': config,
+        'arch_preset': arch_preset,
+        'sparsity_lambda': sparsity_lambda,
+        'checkpoint_dir': checkpoint_path,
+        'checkpoint_step': checkpoint_step,
+        'checkpoint_format': checkpoint_format,
     }
     
     print(f"\nSanity check completed:")
@@ -324,6 +440,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=4, help="Batch size")
     parser.add_argument("--learning-rate", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--use-synthetic", action="store_true", help="Use synthetic data")
+    parser.add_argument("--metrics-path", type=Path, help="Optional path to write CSV metrics")
     
     args = parser.parse_args()
     
@@ -336,6 +453,7 @@ def main():
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         use_synthetic_data=args.use_synthetic or args.rlds_dir is None,
+        metrics_path=args.metrics_path,
     )
     
     if results['status'] == 'ok':

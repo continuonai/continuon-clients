@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, List
 import importlib.util
 import os
+from pathlib import Path
 
 
 @dataclass
@@ -35,6 +36,18 @@ def detect_models() -> List[ModelChoice]:
                 reason="JAX detected; CoreModel available",
             )
         )
+        # Seed manifest (exported wavecore loops)
+        manifest_path = Path("/opt/continuonos/brain/model/adapters/candidate/core_model_seed/model_manifest.json")
+        if manifest_path.exists():
+            choices.append(
+                ModelChoice(
+                    id="jax-core-seed",
+                    name="JAX CoreModel Seed",
+                    backend="jax",
+                    available=True,
+                    reason=f"Found seed manifest at {manifest_path}",
+                )
+            )
 
     # Transformers/Gemma availability (best-effort check)
     tf_available = importlib.util.find_spec("transformers") is not None

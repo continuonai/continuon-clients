@@ -5,6 +5,8 @@ Load TFRecord episodes for training and convert to JAX arrays.
 Supports batching, shuffling, and prefetching for efficient TPU training.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union

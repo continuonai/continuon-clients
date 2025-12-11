@@ -82,33 +82,48 @@ class InferenceRouter:
                 print(f"Warning: Failed to load Hailo model: {e}")
     
     def _load_hailo_model(self):
-        """Load Hailo-compiled model."""
-        hailo_path = Path(self.model_path) / "hailo" / "model.hef"
-        if hailo_path.exists():
-            self.hailo_model = {"hef": str(hailo_path)}
-            try:
-                import hailo_platform  # type: ignore  # noqa: WPS433
-
-                # Minimal bring-up: open device, configure networks from HEF
-                device = hailo_platform.HailoDevice()
-                hef = hailo_platform.Hef(hailo_path)
-                configure_params = hailo_platform.ConfigureParams.create_from_hef(hef)
-                networks_group = device.configure(hef, configure_params)
-                self.hailo_model.update(
-                    {
-                        "device": device,
-                        "hef_obj": hef,
-                        "networks_group": networks_group,
-                        "hailo_ready": True,
-                    }
-                )
-                print("✅ Hailo device configured and .hef loaded.")
-            except ImportError:
-                print("⚠️  hailo_platform not installed; Hailo runtime not available.")
-            except Exception as exc:  # noqa: BLE001
-                print(f"⚠️  Hailo runtime init failed: {exc}")
-        else:
+        """Load Hailo-compiled model (metadata only until tensor I/O is wired)."""
+        candidates = [
+            Path(self.model_path) / "hailo" / "model.hef",
+            Path("/opt/continuonos/brain/model/base_model/model.hef"),
+        ]
+        hailo_path = next((p for p in candidates if p.exists()), None)
+        if not hailo_path:
             print("⚠️  Hailo .hef not found; skipping Hailo backend.")
+            return
+
+        self.hailo_model = {"hef": str(hailo_path)}
+
+        try:
+            import hailo_platform as hailo  # type: ignore  # noqa: WPS433
+        except ImportError:
+            print("⚠️  hailo_platform not installed; Hailo runtime not available.")
+            return
+
+        try:
+            vdevice = hailo.VDevice()
+            infer_model = vdevice.create_infer_model(str(hailo_path))
+            input_meta = [
+                {"name": inp.name, "shape": inp.shape, "format": getattr(inp.format, "order", None)}
+                for inp in getattr(infer_model, "inputs", [])
+            ]
+            output_meta = [
+                {"name": out.name, "shape": out.shape, "format": getattr(out.format, "order", None)}
+                for out in getattr(infer_model, "outputs", [])
+            ]
+            self.hailo_model.update(
+                {
+                    "vdevice": vdevice,
+                    "infer_model": infer_model,
+                    "configured": None,
+                    "hailo_ready": True,
+                    "inputs": input_meta,
+                    "outputs": output_meta,
+                }
+            )
+            print(f"✅ Hailo .hef loaded ({hailo_path}), inputs={len(input_meta)}, outputs={len(output_meta)}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️  Hailo runtime init failed: {exc}")
     
     def infer(
         self,
@@ -170,29 +185,69 @@ class InferenceRouter:
             raise RuntimeError("Hailo model not ready; ensure .hef exists and hailo_platform is installed.")
 
         try:
-            import hailo_platform  # type: ignore  # noqa: WPS433
+            import numpy as np
+            import hailo_platform as hailo  # type: ignore  # noqa: WPS433
         except ImportError:
             raise RuntimeError("hailo_platform not installed; cannot run Hailo inference.")
 
-        # NOTE: This is still a simplified placeholder. A full implementation
-        # should set up input/output VStreams based on the compiled network.
-        # Here we only check that we can create a VStream and then raise a clear
-        # message to integrate real tensor I/O.
-        device = self.hailo_model["device"]
-        networks_group = self.hailo_model["networks_group"]
-        hef = self.hailo_model["hef_obj"]
+        infer_model = self.hailo_model.get("infer_model")
+        vdevice = self.hailo_model.get("vdevice")
+        if infer_model is None or vdevice is None:
+            raise RuntimeError("Hailo infer model missing.")
 
-        try:
-            input_vstreams = networks_group.get_input_vstreams()
-            output_vstreams = networks_group.get_output_vstreams()
-            if not input_vstreams or not output_vstreams:
-                raise RuntimeError("No VStreams found in Hailo network.")
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(f"Hailo VStream setup failed: {exc}")
+        # Configure once and cache
+        configured = self.hailo_model.get("configured")
+        if configured is None:
+            configured = infer_model.configure()
+            self.hailo_model["configured"] = configured
 
-        raise NotImplementedError(
-            "Hailo runtime initialized; implement tensor I/O with hailo_platform VStreams to complete inference."
-        )
+        input_specs = self.hailo_model.get("inputs") or []
+        output_specs = self.hailo_model.get("outputs") or []
+        if not input_specs or not output_specs:
+            raise RuntimeError("Hailo HEF missing input/output metadata.")
+
+        # For now, map the first input to obs (as contiguous numpy, batch-aware).
+        target_input = input_specs[0]
+        target_name = target_input["name"]
+        target_shape = tuple(target_input["shape"])
+
+        obs_np = np.asarray(obs)
+        # If obs is batched, try to reshape last dimensions to match target_shape.
+        if obs_np.size != np.prod(target_shape):
+            # If batch dimension present, flatten batch and then reshape per-frame
+            if obs_np.ndim > len(target_shape):
+                obs_np = obs_np.reshape(-1, *target_shape)
+            else:
+                try:
+                    obs_np = obs_np.reshape(target_shape)
+                except Exception:
+                    raise RuntimeError(
+                        f"Input shape mismatch for Hailo: got {obs_np.shape}, expected {target_shape} (name={target_name})"
+                    )
+
+        # Create bindings and populate buffers
+        bindings = configured.create_bindings()
+        input_stream = bindings.input(target_name)
+        input_buffer = np.ascontiguousarray(obs_np, dtype=np.float32)
+        input_stream.set_buffer(input_buffer)
+
+        outputs: dict = {}
+        for spec in output_specs:
+            name = spec["name"]
+            shape = tuple(spec["shape"])
+            out_buf = np.empty(shape, dtype=np.float32)
+            bindings.output(name).set_buffer(out_buf)
+            outputs[name] = out_buf
+
+        # Run synchronously
+        configured.run([bindings], timeout=5000)
+
+        # Collect outputs; use tf_format=None to avoid transformations
+        results = {}
+        for name, buf in outputs.items():
+            results[name] = bindings.output(name).get_buffer(tf_format=None)
+
+        return jnp.array(list(results.values()))
     
     def _infer_jax(self, obs: jnp.ndarray, action: jnp.ndarray, reward: jnp.ndarray) -> jnp.ndarray:
         """Run inference on JAX backend (CPU/GPU/TPU)."""

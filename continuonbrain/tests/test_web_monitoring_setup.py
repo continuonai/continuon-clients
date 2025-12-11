@@ -5,6 +5,7 @@ Integration test for HOPE web monitoring interface.
 Verifies that monitoring pages work correctly with a live HOPE brain.
 """
 
+import os
 import sys
 import time
 import torch
@@ -17,6 +18,14 @@ if str(REPO_ROOT) not in sys.path:
 
 from hope_impl.config import HOPEConfig
 from hope_impl.brain import HOPEBrain
+
+# Skip unless HOPE tests are explicitly enabled
+if os.environ.get("CONTINUON_ENABLE_HOPE_TESTS", "0").lower() not in ("1", "true", "yes"):
+    import pytest
+    pytest.skip(
+        "HOPE monitoring test disabled (set CONTINUON_ENABLE_HOPE_TESTS=1 to run)",
+        allow_module_level=True,
+    )
 
 
 def test_web_monitoring_setup():

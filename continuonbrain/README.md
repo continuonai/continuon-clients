@@ -50,6 +50,11 @@ Built SO-ARM101 + OAK-D Lite integration for design validation without physical 
 - `arm_episode_recorder.py` - RLDS episode recorder (depth + arm state + actions)
 - `episode_upload.py` - Episode packaging and upload pipeline
 
+**RLDS capture + eval logging**:
+- `recording/arm_episode_recorder.py` captures synchronized RGB/depth frames, robot joint state, and teleop or policy actions, writing RLDS steps that keep frame/action timestamps, source tags, and optional audio buffers aligned for training.【F:continuonbrain/recording/arm_episode_recorder.py†L22-L115】
+- Lightweight JSON/JSONL logging for JAX debugging lives in `jax_models/data/episode_logger.py`, which stamps each step with observation/action/reward/done fields plus a per-step timestamp and episode metadata tags for downstream TFRecord conversion.【F:continuonbrain/jax_models/data/episode_logger.py†L1-L93】【F:continuonbrain/jax_models/data/episode_logger.py†L98-L164】
+- Eval runners log directly to RLDS: `eval/hope_eval_runner.py` records graded Q&A with fallback model hints, storing model label, fallback order, and context counts per step; `eval/multi_model_compare_eval.py` queries HOPE + Gemma/Gemini variants and writes a winner selection with rationale into each RLDS step for later replay or voting analysis.【F:continuonbrain/eval/hope_eval_runner.py†L15-L88】【F:continuonbrain/eval/multi_model_compare_eval.py†L1-L92】
+
 **System Management**:
 - `system_health.py` - Comprehensive hardware/software health checks, including MCP/Gemini discovery and a $5/day API budget guard to stay offline-first
 - `startup_manager.py` - Startup orchestration with automatic wake checks and boot
@@ -92,6 +97,10 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 ### Hailo (AI HAT+) status
 - Export pipeline JAX→TF→ONNX is available; `.hef` creation is a placeholder without the Hailo SDK. Runtime inference will skip Hailo if `.hef` is missing; full acceleration requires integrating Hailo compiler/runtime tools.
 - When `.hef` is missing or placeholder, the inference router falls back to CPU and logs a warning.
+- To use a provided HEF (e.g., model zoo), place it at `/opt/continuonos/brain/model/base_model/model.hef` (or pass `--hef-source` and `--install-hef-path` to `continuonbrain/jax_models/export/export_hailo.py`). The export step copies the HEF to the runtime path and records input/output vstream metadata when `hailo_platform` is installed.
+- Enable depth/Hailo offload flag with `CONTINUON_HAILO_OFFLOAD=1`; OAK-D detection will mark devices as offload-capable and the hardware detector will tag the Hailo HAT accordingly.
+- Quick benchmark on-device: `hailortcli benchmark /opt/continuonos/brain/model/base_model/model.hef --time-to-run 5`
+- Hailo inference path is now live in `inference_router.py`: it configures the HEF via `hailo_platform`, maps the first HEF input to `obs`, allocates output buffers, and runs synchronous inference. Shape must match the HEF input; extend mapping if your model has multiple inputs/outputs or a different tensor layout.
 
 ### OTA packaging
 - Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).

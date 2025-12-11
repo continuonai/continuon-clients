@@ -26,6 +26,13 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 
 > Orchestrator: `python -m continuonbrain.services.training_manager --help` provides a dry-run view of the training plan with optional execution flags.
 
+### On-device WaveCore seed + HOPE eval (JAX, Pi-class)
+- **WaveCore loops API:** `POST /api/training/wavecore_loops` runs fast/mid/slow loops on the JAX CoreModel using RLDS JSON at `/opt/continuonos/brain/rlds/episodes`, exports a seed manifest/checkpoint to `/opt/continuonos/brain/model/adapters/candidate/core_model_seed`, and checkpoints to `/opt/continuonos/brain/trainer/checkpoints/core_model_seed`.
+- **Presets & sparsity:** per-loop `arch_preset` (`pi5` default, `columnar_small`, `wave_only`, `hybrid`), `sparsity_lambda` (L1), optional `quantization`; JIT off by default for stability.
+- **HOPE graded eval:** `POST /api/training/hope_eval` (or `run_hope_eval` inside the wavecore payload) asks increasing-difficulty questions from `continuonbrain/eval/hope_eval_questions.json`, logs RLDS episodes to `/opt/continuonos/brain/rlds/episodes/hope_eval_<ts>.json`.
+- **Fallback order for eval:** HOPE agent first; if low confidence, fall back to `google/gemma-370m`, then `google/gemma-3n-2b`.
+- **Optional Wikipedia context (offline-ready):** `continuonbrain/eval/wiki_retriever.py` can consume a local HuggingFace `wikimedia/wikipedia` dataset or JSONL corpus and feed snippets into HOPE eval prompts. It no-ops if no corpus is present. Wire it by passing a retriever into `run_hope_eval_and_log`; plan to enable once an offline dump is available.
+
 ## Alignment Snapshot (2025-12-10)
 
 - **Continuon Brain runtime (edge)**: Hardware auto-detect + startup manager validated; Debian package Phase 1 shipped (see `continuonbrain/README.md`, `packaging/README.md`). Kiosk mode is the next packaging phase.
@@ -163,6 +170,10 @@ The CMS structures learning into three loops:
 All three loops run in both places: on-device/edge execution keeps latency low, while cloud retraining replays the same loops for regression and distillation. The Slow loop produces the "core" checkpoints that distill into Fast/Mid edge bundles, and on-device Fast/Mid traces flow back into the next cloud retrain to preserve reflexes and UI/session adaptations.
 
 See [Model Lifecycle: HOPE/CMS Governance](docs/model_lifecycle.md) for how OTA packaging, Memory Plane persistence, and cloud replay map to these loops.
+
+**Pi 5 training boundaries (HOPE on edge):** The Raspberry Pi 5 profile keeps the HOPE Fast and Mid loops fully on-device: Fast runs the reflexive control stack (50–100 ms ticks) and the Mid loop runs bounded adapter training and confidence monitors against locally captured RLDS episodes. The Slow loop only runs in the cloud (TPU/JAX trainers) and returns an OTA bundle that merges with the Memory Plane instead of overwriting it. This preserves the HOPE nested-learning contract while staying within Pi 5 thermal/memory budgets.
+
+**AINA alignment:** Manipulation tasks can swap in the AINA policy head (see `continuonbrain/aina_impl/`) as a SkillPolicies specialization without breaking HOPE semantics. AINA produces short-horizon fingertip/object predictions that live in the Fast loop, while the Mid loop fine-tunes LoRA adapters on-device (e.g., `AINAPolicy` weights) and the Slow loop refreshes the spectral/SSM cores and AINA head in the cloud. This keeps the HOPE particle/wave split intact while letting AINA specialize the manipulation branch.
 
 #### Sequence Core Beyond Transformers
 

@@ -24,6 +24,7 @@ from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.server.chat import build_chat_service
+from continuonbrain.gemma_chat import create_gemma_chat as _create_gemma_chat
 from continuonbrain.server.model_selector import select_model
 from continuonbrain.server.devices import auto_detect_hardware, init_recorder
 from continuonbrain.server.status import start_status_server
@@ -46,10 +47,17 @@ from continuonbrain.server.skills import (
 )
 from continuonbrain.services.chat_adapter import ChatAdapter
 from continuonbrain.services.training_runner import TrainingRunner
+from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest
+from continuonbrain.services.wavecore_trainer import WavecoreTrainer
 from continuonbrain.services.video_stream import VideoStreamHelper
+from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
 
 # Use extracted SimpleJSONServer implementation
 SimpleJSONServer = server_routes.SimpleJSONServer
+
+# Backward-compatible chat factory for tests and mocks.
+def create_gemma_chat(use_mock: bool = False):
+    return _create_gemma_chat(use_mock=use_mock)
 
 
 
@@ -66,11 +74,13 @@ class RobotService:
         auto_detect: bool = True,
         allow_mock_fallback: bool = False,
         system_instructions: Optional[SystemInstructions] = None,
+        skip_motion_hw: bool = False,
     ):
         self.config_dir = config_dir
         self.prefer_real_hardware = prefer_real_hardware
         self.auto_detect = auto_detect
         self.allow_mock_fallback = allow_mock_fallback
+        self.skip_motion_hw = skip_motion_hw
         self.use_real_hardware = False
         self.arm: Optional[PCA9685ArmController] = None
         self.camera: Optional[OAKDepthCapture] = None
@@ -87,6 +97,8 @@ class RobotService:
         self.skill_library = SkillLibrary()
         self.selected_task_id: Optional[str] = None
         self.training_runner = TrainingRunner()
+        self.wavecore_trainer = WavecoreTrainer()
+        self.manual_trainer = ManualTrainer()
         self.stream_helper = VideoStreamHelper(self)
 
         # Prefer JAX-based models by default to avoid heavyweight transformers init on boot.
@@ -148,6 +160,62 @@ class RobotService:
         """Trigger a background training run using the shared TrainingRunner."""
         await self.training_runner.run()
 
+    async def RunManualTraining(self, payload: Optional[dict] = None) -> dict:
+        """Run manual JAX trainer with optional overrides from payload."""
+        payload = payload or {}
+        request = ManualTrainerRequest(
+            rlds_dir=Path(payload["rlds_dir"]) if payload.get("rlds_dir") else None,
+            use_synthetic=bool(payload.get("use_synthetic", False)),
+            max_steps=int(payload.get("max_steps", 10)),
+            batch_size=int(payload.get("batch_size", 4)),
+            learning_rate=float(payload.get("learning_rate", 1e-3)),
+            obs_dim=int(payload.get("obs_dim", 128)),
+            action_dim=int(payload.get("action_dim", 32)),
+            output_dim=int(payload.get("output_dim", 32)),
+            disable_jit=bool(payload.get("disable_jit", True)),
+            metrics_path=Path(payload["metrics_path"]) if payload.get("metrics_path") else None,
+        )
+        return await self.manual_trainer.run(request)
+
+    async def RunWavecoreLoops(self, payload: Optional[dict] = None) -> dict:
+        """Run WaveCore fast/mid/slow loops using the JAX CoreModel seed."""
+        payload = payload or {}
+        # Ensure service is available to downstream eval runner
+        payload.setdefault("service", self)
+        return await self.wavecore_trainer.run_loops(payload)
+
+    async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
+        """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
+        payload = payload or {}
+        questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "hope_eval_questions.json"))
+        rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+        use_fallback = bool(payload.get("use_fallback", True))
+        fallback_order = payload.get("fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
+        return await run_hope_eval_and_log(
+            service=self,
+            questions_path=questions_path,
+            rlds_dir=rlds_dir,
+            use_fallback=use_fallback,
+            fallback_order=fallback_order,
+        )
+
+    async def RunFactsEval(self, payload: Optional[dict] = None) -> dict:
+        """Run FACTS-lite eval and log RLDS episode."""
+        payload = payload or {}
+        questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "facts_eval_questions.json"))
+        rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+        use_fallback = bool(payload.get("use_fallback", True))
+        fallback_order = payload.get("fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
+        return await run_hope_eval_and_log(
+            service=self,
+            questions_path=questions_path,
+            rlds_dir=rlds_dir,
+            use_fallback=use_fallback,
+            fallback_order=fallback_order,
+            episode_prefix="facts_eval",
+            model_label="facts-lite",
+        )
+
     async def initialize(self):
         """Initialize hardware components with auto-detection."""
         mode_label = "REAL HARDWARE" if self.prefer_real_hardware else "MOCK"
@@ -186,7 +254,8 @@ class RobotService:
 
             if not hardware_ready:
                 print("⚠️  Real hardware initialization incomplete")
-                if not self.allow_mock_fallback:
+                # If motion is skipped, allow camera-only success to proceed without raising.
+                if not self.allow_mock_fallback and not self.skip_motion_hw:
                     raise RuntimeError("Failed to initialize arm or camera in real mode")
                 print("↩️  Falling back to mock mode")
 
@@ -203,14 +272,19 @@ class RobotService:
 
         print("✅ Episode recorder ready")
 
-        # Initialize drivetrain controller for steering/throttle
-        print("🛞 Initializing drivetrain controller...")
-        self.drivetrain = DrivetrainController()
-        drivetrain_ready = self.drivetrain.initialize()
-        if drivetrain_ready:
-            print(f"✅ Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
+        if self.skip_motion_hw:
+            print("⏭️  Skipping arm/drivetrain init (skip-motion-hw). Motion will stay mock.")
+            self.arm = None
+            self.drivetrain = None
         else:
-            print("⚠️  Drivetrain controller unavailable")
+            # Initialize drivetrain controller for steering/throttle
+            print("🛞 Initializing drivetrain controller...")
+            self.drivetrain = DrivetrainController()
+            drivetrain_ready = self.drivetrain.initialize()
+            if drivetrain_ready:
+                print(f"✅ Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
+            else:
+                print("⚠️  Drivetrain controller unavailable")
 
         # Initialize mode manager
         print("🎮 Initializing mode manager...")
@@ -969,6 +1043,11 @@ async def main():
         help="Force mock mode (skip hardware initialization)"
     )
     parser.add_argument(
+        "--skip-motion-hw",
+        action="store_true",
+        help="Skip arm/drivetrain init (use mock motion even in real mode)"
+    )
+    parser.add_argument(
         "--no-auto-detect",
         action="store_true",
         help="Disable hardware auto-detection"
@@ -985,6 +1064,7 @@ async def main():
         prefer_real_hardware=prefer_real,
         auto_detect=auto_detect,
         allow_mock_fallback=allow_mock_fallback,
+        skip_motion_hw=args.skip_motion_hw,
     )
     await service.initialize()
     

@@ -1,0 +1,95 @@
+{
+  "tiers": [
+    {
+      "name": "easy",
+      "questions": [
+        "Summarize the current training objective for HOPE on-device.",
+        "Explain how RLDS episodes are used in our loop.",
+        "List the API endpoints to trigger training and eval from the web UI."
+      ]
+    },
+    {
+      "name": "medium",
+      "questions": [
+        "Describe the wave/particle/fast state roles in our CoreModel. Be concise.",
+        "Given limited compute, how would you keep the model small while retaining multi-speed loop benefits?",
+        "Draft a minimal action plan to start the server in real hardware mode with skip-motion-hw and then trigger wavecore_loops with evals from curl."
+      ]
+    },
+    {
+      "name": "hard",
+      "questions": [
+        "Propose a hybrid (columnar + wave) modification to improve sample efficiency on Pi-class hardware.",
+        "Outline a self-improvement step that uses on-device tools (Gemma CLI / MCP / web) to verify a new skill and log it to RLDS without human intervention.",
+        "Given a new action command schema with fields steering/throttle/emergency_stop, explain how to validate and log it into RLDS steps."
+      ]
+    },
+    {
+      "name": "actions",
+      "questions": [
+        "Provide a concise JSON example of a RLDS step for a drive command with steering=0.2, throttle=0.4, emergency_stop=false.",
+        "Suggest a 3-step safety checklist before issuing a drive command on the robot.",
+        "Given a failed action due to missing I2C arm, how should we degrade gracefully and still record the attempt?"
+      ]
+    },
+    {
+      "name": "coding",
+      "questions": [
+        "Write a minimal Python function to validate an RLDS step dict has obs/action/reward/done keys; return a tuple (ok, errors).",
+        "Draft a pytest that mocks /api/status response and asserts mode, hardware_mode, allow_motion keys are present.",
+        "Propose a tiny log-rotation snippet (Python) that keeps last 5 trainer metric files in /opt/continuonos/brain/trainer/logs."
+      ]
+    },
+    {
+      "name": "multimodal",
+      "questions": [
+        "Given an image frame id and a caption 'red cube on green table', describe how to attach this to RLDS step_metadata for later VLM eval.",
+        "Outline how to store a short video clip reference (URI + start/end) in step_metadata for future replay during training.",
+        "Suggest a lightweight image-processing sanity check to verify camera frames are non-empty before logging."
+      ]
+    },
+    {
+      "name": "followup_subagent",
+      "questions": [
+        "If the primary answer is low confidence, ask a follow-up using the secondary LLM/VLM to clarify missing details; show the prompt you would send to the subagent.",
+        "Design a two-turn clarifying loop where the subagent asks for a missing parameter (e.g., frame_id or command schema) and then synthesizes a final action.",
+        "Describe how to tag step_metadata with which subagent (LLM or VLM) contributed to the final answer for traceability.",
+        "After receiving an initial HOPE answer about a robot control, have the subagent ask a targeted follow-up to surface missing safety context; show both prompts and the final synthesized reply."
+      ]
+    },
+    {
+      "name": "code_fix_refactor",
+      "questions": [
+        "Identify one place in the training or server startup flow where a missing device raises instead of degrading gracefully; propose a small patch to continue with mock while logging the error.",
+        "Suggest a pruning step to remove stale checkpoints older than 5 runs from /opt/continuonos/brain/trainer/checkpoints while keeping the latest manifest intact.",
+        "Point out a spot where repeated JIT disablement/env handling could be centralized; describe a minimal refactor to reduce duplication.",
+        "Recommend a logging improvement to surface eval failures (missing chat_adapter, missing token) without crashing the loop; outline the code change.",
+        "Propose a small test or assertion to ensure RLDS episodes written by evals have obs/action/step_metadata keys before training consumes them."
+      ]
+    },
+    {
+      "name": "fundamentals_nested_learning",
+      "questions": [
+        "Explain how nested learning (fast/mid/slow) maps to our wave/particle/fast states, and suggest one metric to monitor for each loop.",
+        "Describe CMA (Continuum Memory Architecture) and how CMS decays affect retention; propose a decay tweak for Pi5 memory constraints.",
+        "Outline a multi-turn plan where HOPE self-diagnoses a regression in the slow loop by inspecting recent RLDS eval episodes."
+      ]
+    },
+    {
+      "name": "wave_particle_duality",
+      "questions": [
+        "Given a spike in fast-loop loss but stable slow-loop loss, suggest whether to adjust wave or particle dimensions first and why.",
+        "Describe how to log a wave-only eval (global context) versus a particle-only eval (local action) and tag them in RLDS.",
+        "Propose a tiny code change to expose wave/particle state norms in metrics for quick sanity checks."
+      ]
+    },
+    {
+      "name": "multi_turn_reasoning_to_rlds",
+      "questions": [
+        "Take an initial HOPE answer about training setup, have the subagent ask a clarifying question, then produce a final combined answer; show the RLDS step structure capturing both turns.",
+        "Design a three-turn dialogue where the subagent verifies a code fix suggestion, with each turn logged as a separate RLDS step and a shared episode_id.",
+        "Given a VLM follow-up on an image frame, describe how to append that context into the same RLDS episode with proper step_metadata."
+      ]
+    }
+  ]
+}

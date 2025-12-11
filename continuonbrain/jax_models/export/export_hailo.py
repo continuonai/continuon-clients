@@ -17,6 +17,13 @@ try:
 except ImportError:
     JAX2TF_AVAILABLE = False
 
+try:
+    import hailo_platform as hailo  # type: ignore
+
+    HAILO_PLATFORM_AVAILABLE = True
+except Exception:
+    HAILO_PLATFORM_AVAILABLE = False
+
 from ..core_model import CoreModel, CoreModelConfig, make_core_model
 
 import argparse
@@ -191,6 +198,8 @@ def export_for_hailo(
     output_dim: int,
     skip_onnx: bool = False,
     skip_hailo_compile: bool = True,
+    hef_source: Optional[str] = None,
+    install_hef_path: Optional[str] = "/opt/continuonos/brain/model/base_model/model.hef",
 ) -> Dict[str, Path]:
     """
     Complete export pipeline: JAX → TF → ONNX → Hailo.
@@ -204,6 +213,8 @@ def export_for_hailo(
         output_dim: Output dimension
         skip_onnx: Skip ONNX conversion (for testing)
         skip_hailo_compile: Skip Hailo compilation (requires Hailo tools)
+        hef_source: Optional path to an already-compiled HEF to include/copy
+        install_hef_path: Where to place the HEF for runtime (None to skip install)
     
     Returns:
         Dictionary with paths to exported artifacts
@@ -234,14 +245,63 @@ def export_for_hailo(
         except Exception as e:
             print(f"⚠️  ONNX conversion failed: {e}")
     
-    # Step 3: Compile for Hailo
-    if not skip_hailo_compile and 'onnx' in artifacts:
+    # Step 3: Compile for Hailo or use provided HEF
+    hailo_hef: Optional[Path] = None
+    if hef_source:
+        source_path = Path(hef_source)
+        if source_path.exists():
+            hailo_dir = output_path / "hailo"
+            hailo_dir.mkdir(parents=True, exist_ok=True)
+            hailo_hef = hailo_dir / source_path.name
+            hailo_hef.write_bytes(source_path.read_bytes())
+            artifacts["hailo_hef"] = hailo_hef
+            print(f"✅ Included provided HEF: {hailo_hef}")
+        else:
+            print(f"⚠️  Provided HEF not found: {hef_source}")
+    elif not skip_hailo_compile and "onnx" in artifacts:
         hailo_dir = output_path / "hailo"
         try:
-            hailo_binary = compile_hailo(artifacts['onnx'], hailo_dir)
-            artifacts['hailo'] = hailo_binary
+            hailo_binary = compile_hailo(artifacts["onnx"], hailo_dir)
+            artifacts["hailo"] = hailo_binary
+            hailo_hef = hailo_binary
         except Exception as e:
             print(f"⚠️  Hailo compilation failed: {e}")
+
+    # Step 4: Install HEF to runtime path and collect metadata
+    hef_metadata: Dict[str, Any] = {}
+    if hailo_hef and hailo_hef.exists():
+        if install_hef_path:
+            install_path = Path(install_hef_path)
+            install_path.parent.mkdir(parents=True, exist_ok=True)
+            install_path.write_bytes(hailo_hef.read_bytes())
+            artifacts["installed_hef"] = install_path
+            print(f"✅ Installed HEF to {install_path}")
+
+        if HAILO_PLATFORM_AVAILABLE:
+            try:
+                hef_obj = hailo.HEF(str(hailo_hef))
+                hef_metadata = {
+                    "inputs": [
+                        {
+                            "name": info.name,
+                            "shape": tuple(info.shape),
+                            "format": getattr(info.format, "order", None),
+                        }
+                        for info in hef_obj.get_input_vstream_infos()
+                    ],
+                    "outputs": [
+                        {
+                            "name": info.name,
+                            "shape": tuple(info.shape),
+                            "format": getattr(info.format, "order", None),
+                        }
+                        for info in hef_obj.get_output_vstream_infos()
+                    ],
+                }
+            except Exception as exc:  # noqa: BLE001
+                hef_metadata = {"error": f"Failed to read HEF metadata: {exc}"}
+        else:
+            hef_metadata = {"warning": "hailo_platform not installed; metadata unavailable"}
     
     # Save export manifest
     manifest_path = output_path / "export_manifest.json"
@@ -254,6 +314,7 @@ def export_for_hailo(
                 'output_dim': output_dim,
             },
             'artifacts': {k: str(v) for k, v in artifacts.items()},
+            'hef_metadata': hef_metadata,
         }, f, indent=2)
     
     print(f"\n✅ Export complete. Artifacts in {output_path}")
@@ -269,6 +330,8 @@ def main() -> int:
     parser.add_argument("--output-dim", type=int, default=32)
     parser.add_argument("--skip-onnx", action="store_true", help="Skip ONNX conversion")
     parser.add_argument("--skip-hailo-compile", action="store_true", help="Skip Hailo compilation step")
+    parser.add_argument("--hef-source", type=str, default=None, help="Path to precompiled HEF to include/copy")
+    parser.add_argument("--install-hef-path", type=str, default="/opt/continuonos/brain/model/base_model/model.hef", help="Destination to install HEF for runtime (set to empty to skip)")
 
     args = parser.parse_args()
 
@@ -297,6 +360,8 @@ def main() -> int:
         output_dim=args.output_dim,
         skip_onnx=args.skip_onnx,
         skip_hailo_compile=args.skip_hailo_compile,
+        hef_source=args.hef_source,
+        install_hef_path=args.install_hef_path if args.install_hef_path else None,
     )
     return 0
 
