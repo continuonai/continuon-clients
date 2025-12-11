@@ -1,0 +1,33 @@
+{
+  "tiers": [
+    {
+      "name": "facts_parametric",
+      "questions": [
+        "Who played harmonica on 'The Rockford Files' theme song?",
+        "What genus does the skipper butterfly shown in common field guides belong to?"
+      ]
+    },
+    {
+      "name": "facts_search",
+      "questions": [
+        "What is the sum of the birth years of the British boxer who defeated Vazik Kazarian at the 1960 Summer Olympics, the Moroccan boxer who also competed in the men’s light welterweight event at those same Olympics, and the Danish boxer who competed in both the 1960 and 1964 Summer Olympics?"
+      ]
+    },
+    {
+      "name": "facts_multimodal",
+      "questions": [
+        "Given an image of a small brown skipper resting on a leaf, identify its genus."
+      ]
+    },
+    {
+      "name": "facts_self_improve",
+      "questions": [
+        "Add a unit test for a new API endpoint that returns robot status JSON; include a mock and assert keys mode, hardware_mode, and allow_motion.",
+        "Implement a log rotation for trainer metrics to keep only the last 5 files; describe the minimal code changes.",
+        "Write a short checklist to validate RLDS episode JSON before training (fields: obs, action, reward, done).",
+        "Propose a minimal refactor to inject a model_hint into the chat adapter without breaking existing call sites.",
+        "Design a tiny health probe that pings the /api/status endpoint and emits a warning when latency > 500ms."
+      ]
+    }
+  ]
+}

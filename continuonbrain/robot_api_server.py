@@ -188,13 +188,30 @@ class RobotService:
         questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "hope_eval_questions.json"))
         rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
         use_fallback = bool(payload.get("use_fallback", True))
-        fallback_order = payload.get("fallback_order") or ["gemma-3.7", "gemma-3n-2b"]
+        fallback_order = payload.get("fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
         return await run_hope_eval_and_log(
             service=self,
             questions_path=questions_path,
             rlds_dir=rlds_dir,
             use_fallback=use_fallback,
             fallback_order=fallback_order,
+        )
+
+    async def RunFactsEval(self, payload: Optional[dict] = None) -> dict:
+        """Run FACTS-lite eval and log RLDS episode."""
+        payload = payload or {}
+        questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "facts_eval_questions.json"))
+        rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+        use_fallback = bool(payload.get("use_fallback", True))
+        fallback_order = payload.get("fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
+        return await run_hope_eval_and_log(
+            service=self,
+            questions_path=questions_path,
+            rlds_dir=rlds_dir,
+            use_fallback=use_fallback,
+            fallback_order=fallback_order,
+            episode_prefix="facts_eval",
+            model_label="facts-lite",
         )
 
     async def initialize(self):

@@ -267,7 +267,7 @@ class GemmaChat:
                 try:
                     import transformers
                     import torch
-                return f"Error: Gemma model failed to load. Check server logs for details."
+                    return f"Error: Gemma model failed to load. Check server logs for details."
                 except ImportError as e:
                     return f"Error: Gemma model not available. Missing dependency: {e}"
                 except Exception as e:

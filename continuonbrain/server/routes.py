@@ -154,6 +154,15 @@ class SimpleJSONServer:
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
                 return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/hope_eval_facts" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = await self.service.RunFactsEval(payload or {})
+                response_body = json.dumps({"status": "completed", "result": result})
+                return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
+                return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/settings" and method == "GET":
             store = SettingsStore(Path(self.service.config_dir))
             settings = store.load()

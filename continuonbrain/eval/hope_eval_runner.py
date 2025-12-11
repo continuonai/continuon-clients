@@ -24,13 +24,15 @@ async def run_hope_eval_and_log(
     *,
     use_fallback: bool = True,
     fallback_order: Optional[List[str]] = None,
+    episode_prefix: str = "hope_eval",
+    model_label: str = "hope-agent",
 ) -> Dict[str, Any]:
     """
     Ask HOPE a graded set of questions, fallback to on-device LLM if needed,
     and log as an RLDS JSON episode.
     """
     # Preferred order: smallest first, then 3n-2b
-    fallback_order = fallback_order or ["google/gemma-370m", "google/gemma-3n-2b"]
+    fallback_order = fallback_order or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
     questions = load_questions(questions_path)
     history: List[Dict[str, str]] = []
     steps: List[Dict[str, Any]] = []
@@ -71,7 +73,7 @@ async def run_hope_eval_and_log(
                     "fallback_model": fallback_model,
                 },
                 "step_metadata": {
-                    "model": "hope-agent",
+                    "model": model_label,
                     "fallback_order": fallback_order,
                     "timestamp": time.time(),
                 },
@@ -79,11 +81,12 @@ async def run_hope_eval_and_log(
         )
 
     rlds_dir.mkdir(parents=True, exist_ok=True)
-    out_path = rlds_dir / f"hope_eval_{int(time.time())}.json"
+    out_path = rlds_dir / f"{episode_prefix}_{int(time.time())}.json"
     out_path.write_text(json.dumps({"steps": steps}, indent=2))
 
     return {
         "episode_path": str(out_path),
         "steps": len(steps),
         "fallback_order": fallback_order,
+        "model_label": model_label,
     }

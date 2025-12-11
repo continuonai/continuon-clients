@@ -55,6 +55,7 @@ class WavecoreTrainer:
         self.checkpoint_dir = checkpoint_dir
         self.export_dir = export_dir
         self.questions_path = Path(__file__).resolve().parent.parent / "eval" / "hope_eval_questions.json"
+        self.facts_questions_path = Path(__file__).resolve().parent.parent / "eval" / "facts_eval_questions.json"
 
     async def run_loops(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Run fast/mid/slow loops in a worker thread."""
@@ -83,16 +84,42 @@ class WavecoreTrainer:
             if payload.get("run_hope_eval"):
                 from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
 
-                eval_res = asyncio.run(
-                    run_hope_eval_and_log(
-                        service=payload.get("service"),
-                        questions_path=Path(payload.get("questions_path") or self.questions_path),
-                        rlds_dir=Path(payload.get("eval_rlds_dir") or self.default_rlds_dir),
-                        use_fallback=bool(payload.get("eval_use_fallback", True)),
-                        fallback_order=payload.get("eval_fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"],
+                service = payload.get("service")
+                if service is None or getattr(service, "chat_adapter", None) is None:
+                    results["hope_eval"] = {"status": "skipped", "reason": "chat_adapter unavailable"}
+                else:
+                    eval_res = asyncio.run(
+                        run_hope_eval_and_log(
+                            service=service,
+                            questions_path=Path(payload.get("questions_path") or self.questions_path),
+                            rlds_dir=Path(payload.get("eval_rlds_dir") or self.default_rlds_dir),
+                            use_fallback=bool(payload.get("eval_use_fallback", True)),
+                            fallback_order=payload.get("eval_fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"],
+                            episode_prefix="hope_eval",
+                            model_label="hope-agent",
+                        )
                     )
-                )
-                results["hope_eval"] = eval_res
+                    results["hope_eval"] = eval_res
+
+            if payload.get("run_facts_eval"):
+                from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
+
+                service = payload.get("service")
+                if service is None or getattr(service, "chat_adapter", None) is None:
+                    results["facts_eval"] = {"status": "skipped", "reason": "chat_adapter unavailable"}
+                else:
+                    facts_res = asyncio.run(
+                        run_hope_eval_and_log(
+                            service=service,
+                            questions_path=Path(payload.get("facts_questions_path") or self.facts_questions_path),
+                            rlds_dir=Path(payload.get("eval_rlds_dir") or self.default_rlds_dir),
+                            use_fallback=bool(payload.get("facts_use_fallback", True)),
+                            fallback_order=payload.get("facts_fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"],
+                            episode_prefix="facts_eval",
+                            model_label="facts-lite",
+                        )
+                    )
+                    results["facts_eval"] = facts_res
             export_info = None
             slow_result = results.get("slow", {})
             ckpt_file = slow_result.get("checkpoint_dir")
