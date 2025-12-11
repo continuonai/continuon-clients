@@ -40,6 +40,18 @@ Dry-run with stub hooks:
 python -m continuonbrain.trainer.local_lora_trainer --config continuonbrain/configs/pi5-donkey.json --use-stub-hooks
 ```
 
+Import the HuggingFace VLA community dataset into RLDS before running either trainer:
+```bash
+python -m continuonbrain.rlds.community_dataset_importer \
+  --dataset-id HuggingFaceVLA/community_dataset_v3 \
+  --split train \
+  --output-dir /opt/continuonos/brain/rlds/episodes/hf_vla \
+  --max-episodes 8
+```
+The importer pads any missing robot/XR/glove signals with placeholders so the generated `metadata.json` + `steps/*.jsonl` pass
+`continuonbrain.rlds.validators.validate_episode()`. Tags include `origin:huggingface_vla:community_dataset_v3` and the source
+split for downstream stratification.
+
 Integrate real Torch model:
 ```python
 from continuonbrain.trainer import build_torch_hooks, make_episode_loader, SafetyGateConfig, LocalTrainerJobConfig, maybe_run_local_training
