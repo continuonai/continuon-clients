@@ -100,6 +100,12 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 - CPU inference smoke: `python -m continuonbrain.jax_models.export.infer_cpu --model-path ./models/core_model_inference --obs-dim 128 --action-dim 32`
 - Gemma 3n JAX/Flax: ensure weights are present in HF cache; model detector will list them as `jax-gemma`.
 
+#### v0 SSM-first inference pipeline (Pi 5)
+- **Default mid-loop predictor:** The `jax_models` export + `inference_router` should prefer the SSM/CoreModel bundle produced by the seed plan (Mamba/RWKV-style hidden state) and only route to Gemma/transformer fallback when the SSM bundle is absent.
+- **Fast loop reflex head:** Keep a lightweight continuous-time RNN/Liquid head colocated with the VQ-VAE token stream; refresh it with the same Pi RLDS slices used for the local sanity check to keep reflex latency flat.
+- **RAG + surprise logging:** During Pi inference, log `step_metadata.surprise` (pred vs actual token) and `observation.latent_tokens` so OTA reviews can detect drift before promoting an updated SSM core. Librarian-based RAG remains opt-in and should prepend context rather than expanding the SSM state size.
+- **Bundle expectations:** CPU/Hailo bundles remain the same; the only change is treating the SSM stateful forward pass as first-class in the router, with Gemma as the opt-in language fallback for slow-loop Q&A.
+
 ### Hailo (AI HAT+) status
 - Export pipeline JAX→TF→ONNX is available; `.hef` creation is a placeholder without the Hailo SDK. Runtime inference will skip Hailo if `.hef` is missing; full acceleration requires integrating Hailo compiler/runtime tools.
 - When `.hef` is missing or placeholder, the inference router falls back to CPU and logs a warning.
