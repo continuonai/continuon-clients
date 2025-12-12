@@ -233,6 +233,71 @@
                 <div class="panel research-only">
                     <div class="panel-header">
                         <div>
+                            <div class="panel-eyebrow">Reality vs. Dream</div>
+                            <h2>World-Model Proof Harness</h2>
+                            <p class="panel-subtitle">Visual tokens, temporal resolution, compute budget, and surprise tracking.</p>
+                        </div>
+                        <div class="proof-actions">
+                            <div class="chip" id="surprise-counter-chip">Surprises: 0</div>
+                            <button class="ghost" type="button" onclick="window.logRealitySurprise()">Log surprise</button>
+                        </div>
+                    </div>
+                    <div class="dream-grid">
+                        <div class="proof-card">
+                            <div class="panel-eyebrow">Visual token rate</div>
+                            <div class="proof-value" id="visual-token-rate">—</div>
+                            <div class="proof-meta">Estimated tokens/sec from vision → text</div>
+                        </div>
+                        <div class="proof-card">
+                            <div class="panel-eyebrow">Temporal resolution</div>
+                            <div class="proof-value" id="temporal-resolution">—</div>
+                            <div class="proof-meta">Milliseconds per frame/loop</div>
+                        </div>
+                        <div class="proof-card">
+                            <div class="panel-eyebrow">Dream latency</div>
+                            <div class="proof-value" id="dream-latency">—</div>
+                            <div class="proof-meta">LLM prediction latency (ms)</div>
+                        </div>
+                        <div class="proof-card">
+                            <div class="panel-eyebrow">Compute budget</div>
+                            <div class="proof-value" id="compute-budget">—</div>
+                            <div class="proof-meta">Accel vs. CPU/JAX fallback</div>
+                        </div>
+                        <div class="proof-card">
+                            <div class="panel-eyebrow">Reality delta</div>
+                            <div class="proof-value" id="reality-drift">Awaiting reality check</div>
+                            <div class="proof-meta">Prediction vs. observed outcome</div>
+                        </div>
+                        <div class="proof-card">
+                            <div class="panel-eyebrow">Context updates</div>
+                            <div class="proof-value" id="context-updates">No surprises yet</div>
+                            <div class="proof-meta">How the world model adapted</div>
+                        </div>
+                    </div>
+                    <div class="proof-checklist">
+                        <div class="proof-step">
+                            <div class="proof-title">NPU → Tokens</div>
+                            <div class="proof-detail" id="proof-vision-line">Waiting for frames…</div>
+                        </div>
+                        <div class="proof-step">
+                            <div class="proof-title">LLM Prediction</div>
+                            <div class="proof-detail" id="proof-dream-line">Awaiting model stack…</div>
+                        </div>
+                        <div class="proof-step">
+                            <div class="proof-title">Reality Check</div>
+                            <div class="proof-detail" id="proof-reality-line">No observation yet</div>
+                        </div>
+                        <div class="proof-step">
+                            <div class="proof-title">Context Update</div>
+                            <div class="proof-detail" id="proof-context-line">No updates yet</div>
+                        </div>
+                    </div>
+                    <div class="proof-log" id="surprise-log"></div>
+                </div>
+
+                <div class="panel research-only">
+                    <div class="panel-header">
+                        <div>
                             <div class="panel-eyebrow">AGI Readiness</div>
                             <h2>Capability Matrix</h2>
                             <p class="panel-subtitle">What’s present, what’s missing, and why this is not AGI.</p>
@@ -628,6 +693,53 @@
         const viewState = {
             mode: 'owner',
         };
+        const realityProofState = { status: null, loops: null, surprises: 0 };
+
+        function setProofText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+
+        function updateRealityProof() {
+            const status = realityProofState.status || {};
+            const loopsWrapper = realityProofState.loops || {};
+            const loops = loopsWrapper.loop_metrics || loopsWrapper.metrics || loopsWrapper || {};
+            const hopeLoops = loops.hope_loops || {};
+            const fast = hopeLoops.fast || loops.fast || {};
+            const hz = fast.hz || 0;
+
+            const tokens = hz ? Math.round(hz * 16) : null; // rough est: tokens per frame * hz
+            setProofText('visual-token-rate', tokens ? `${tokens} tok/s (est)` : '—');
+            setProofText('temporal-resolution', hz ? `${Math.round(1000 / hz)} ms/frame` : '—');
+            const latency = fast.latency_ms || null;
+            setProofText('dream-latency', latency ? `${latency} ms` : '—');
+
+            const accel = (status.detected_hardware && status.detected_hardware.primary && status.detected_hardware.primary.ai_accelerator) ||
+                (status.capabilities && status.capabilities.has_ai_accelerator && 'AI accelerator') ||
+                'CPU/JAX fallback';
+            setProofText('compute-budget', accel || 'Unknown');
+
+            const drift = (status.learning && (status.learning.recent_surprise || status.learning.surprise)) || null;
+            setProofText('reality-drift', drift != null ? drift : 'Awaiting reality check');
+
+            setProofText('context-updates', realityProofState.surprises > 0 ? `${realityProofState.surprises} surprise events logged` : 'No surprises yet');
+            setProofText('surprise-counter-chip', `Surprises: ${realityProofState.surprises}`);
+
+            setProofText('proof-vision-line', status.capabilities && status.capabilities.has_vision ? 'Vision tokens streaming' : 'Waiting for vision…');
+            setProofText('proof-dream-line', status.model_stack ? 'Model stack active' : 'Model stack not detected');
+            setProofText('proof-reality-line', status.allow_motion ? 'Reality checks live (motion allowed)' : 'Reality checks pending motion');
+            setProofText('proof-context-line', realityProofState.surprises > 0 ? 'Context updated after surprises' : 'No context updates logged');
+        }
+
+        window.logRealitySurprise = function() {
+            realityProofState.surprises += 1;
+            const log = document.getElementById('surprise-log');
+            const entry = `<div class="surprise-row">Surprise @ ${new Date().toLocaleTimeString()}</div>`;
+            if (log) {
+                log.innerHTML = entry + log.innerHTML;
+            }
+            updateRealityProof();
+        }
 
         function renderAgentChips(agents) {
             const chipRow = document.getElementById('agent-chip-row');
@@ -1447,6 +1559,9 @@
             renderAgentRail(status);
             renderSelectedTask(status.current_task);
 
+            realityProofState.status = status;
+            updateRealityProof();
+
             var batteryCard = document.getElementById('battery-status');
             if (batteryCard) {
                 var batt = status.battery;
@@ -1604,6 +1719,8 @@
                     safety_head: source.safety_head
                 });
             }
+            realityProofState.loops = source;
+            updateRealityProof();
         }
 
         window.pollLoopHealth = async function(payload) {

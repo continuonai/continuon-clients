@@ -38,11 +38,14 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from continuonbrain.services.brain_service import BrainService
+from continuonbrain.robot_modes import RobotMode
 from continuonbrain.agent_identity import AgentIdentity
 from continuonbrain.api.routes import ui_routes
 from continuonbrain.api.routes.training_plan_page import get_training_plan_html
 from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
 from continuonbrain.system_events import SystemEventLogger
+from continuonbrain.server.skills import SkillLibrary, SkillEligibility, SkillEligibilityMarker, SkillLibraryEntry, SkillSummary
+from continuonbrain.server.tasks import TaskEligibilityMarker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
@@ -52,6 +55,125 @@ brain_service: BrainService = None
 identity_service: AgentIdentity = None
 event_logger: Optional[SystemEventLogger] = None
 background_learner = None  # Autonomous learning service
+skill_library = SkillLibrary()
+selected_task_id: Optional[str] = None
+selected_skill_id: Optional[str] = None
+
+
+def _detect_model_stack():
+    """Best-effort model stack detection for UI chips."""
+    try:
+        from continuonbrain.services.model_detector import ModelDetector
+
+        detector = ModelDetector()
+        models = detector.get_available_models()
+        primary = models[0] if models else {"name": "Gemma"}
+        fallbacks = models[1:] if len(models) > 1 else []
+        return {
+            "primary": {"name": primary.get("name") or primary.get("id", "Gemma")},
+            "fallbacks": [{"name": m.get("name") or m.get("id")} for m in fallbacks],
+        }
+    except Exception:
+        # Fallback when detector not available
+        primary_name = "HOPE" if brain_service and getattr(brain_service, "hope_brain", None) else "Gemma"
+        return {"primary": {"name": primary_name}, "fallbacks": [{"name": "LLM fallback"}]}
+
+
+def _build_status_payload() -> dict:
+    """Build enriched status payload expected by the revamped UI."""
+    gates = {}
+    loops = {}
+    mode_value = "unknown"
+
+    if brain_service and brain_service.mode_manager:
+        gates = brain_service.mode_manager.get_gate_snapshot()
+        loops = brain_service.mode_manager.get_loop_metrics()
+        mode_value = gates.get("mode") or brain_service.mode_manager.current_mode.value
+
+    battery_status = None
+    try:
+        from continuonbrain.sensors.battery_monitor import BatteryMonitor
+
+        monitor = BatteryMonitor()
+        battery_status = monitor.get_diagnostics()
+    except Exception:
+        pass
+
+    learning = None
+    if background_learner:
+        try:
+            learning = background_learner.get_status()
+        except Exception:
+            learning = None
+
+    return {
+        "status": "ok",
+        "mode": mode_value,
+        "gate_snapshot": gates,
+        "allow_motion": gates.get("allow_motion"),
+        "record_episodes": gates.get("record_episodes"),
+        "is_recording": gates.get("record_episodes"),
+        "loop_metrics": loops,
+        "battery": battery_status,
+        "detected_hardware": getattr(brain_service, "detected_config", None),
+        "capabilities": getattr(brain_service, "capabilities", {}),
+        "model_stack": _detect_model_stack(),
+        "current_task": {"id": selected_task_id} if selected_task_id else None,
+        "current_skill": {"id": selected_skill_id} if selected_skill_id else None,
+        "learning": learning,
+    }
+
+
+def _skill_eligibility_for(skill) -> SkillEligibility:
+    """Lightweight skill eligibility using current capabilities."""
+    caps = getattr(brain_service, "capabilities", {}) if brain_service else {}
+    markers = []
+
+    for modality in getattr(skill, "required_modalities", []) or []:
+        if modality == "vision" and not caps.get("has_vision", False):
+            markers.append(SkillEligibilityMarker(code="MISSING_VISION", label="Vision required", severity="error", blocking=True))
+        elif modality in ("arm", "gripper") and not caps.get("has_manipulator", False):
+            markers.append(SkillEligibilityMarker(code="MISSING_ARM", label="Manipulator required", severity="error", blocking=True))
+
+    eligible = not any(m.blocking for m in markers)
+    return SkillEligibility(eligible=eligible, markers=markers, next_poll_after_ms=300.0)
+
+
+def _serialize_skill_entry(skill) -> SkillLibraryEntry:
+    elig = _skill_eligibility_for(skill)
+    return SkillLibraryEntry(
+        id=skill.id,
+        title=skill.title,
+        description=skill.description,
+        group=skill.group,
+        tags=skill.tags,
+        capabilities=skill.capabilities,
+        eligibility=elig,
+        estimated_duration=skill.estimated_duration,
+        publisher=skill.publisher,
+        version=skill.version,
+    )
+
+
+def _skill_summary(skill_id: str) -> Optional[dict]:
+    try:
+        skill = skill_library.get_entry(skill_id)
+    except KeyError:
+        return None
+
+    entry = _serialize_skill_entry(skill)
+    summary = SkillSummary(
+        entry=entry,
+        steps=[
+            "Load skill policy",
+            "Validate safety gates",
+            "Execute capability plan",
+        ],
+        publisher=skill.publisher,
+        version=skill.version,
+        provenance=getattr(skill, "provenance", ""),
+    )
+    return summary.to_dict()
 
 
 def scan_wifi_networks():
@@ -322,21 +444,75 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 data = identity_service.identity
                 self.send_json(data)
 
-            elif self.path == "/api/status":
-                # Legacy robot status with battery information
-                status_data = {"status": "ok", "mode": "idle"}
-                
-                # Add battery status if available
-                try:
-                    from continuonbrain.sensors.battery_monitor import BatteryMonitor
-                    monitor = BatteryMonitor()
-                    battery_status = monitor.get_diagnostics()
-                    if battery_status:
-                        status_data["battery"] = battery_status
-                except Exception:
-                    pass  # Battery monitor unavailable, continue without it
-                
-                self.send_json(status_data)
+            elif self.path.startswith("/api/status"):
+                # Enriched robot status for UI
+                self.send_json(_build_status_payload())
+
+            elif self.path.startswith("/api/loops"):
+                gates = brain_service.mode_manager.get_gate_snapshot() if brain_service and brain_service.mode_manager else {}
+                loops = brain_service.mode_manager.get_loop_metrics() if brain_service and brain_service.mode_manager else {}
+                self.send_json({"gate_snapshot": gates, "loop_metrics": loops})
+
+            elif self.path.startswith("/api/gates"):
+                gates = brain_service.mode_manager.get_gate_snapshot() if brain_service and brain_service.mode_manager else {}
+                self.send_json({"gate_snapshot": gates, "allow_motion": gates.get("allow_motion")})
+
+            elif self.path.startswith("/api/mode"):
+                # GET can be used as a mode toggle for UI convenience
+                parts = self.path.rstrip("/").split("/")
+                target = parts[-1] if len(parts) >= 3 else None
+                if target and target != "mode":
+                    self._set_mode(target)
+                gates = brain_service.mode_manager.get_gate_snapshot() if brain_service and brain_service.mode_manager else {}
+                self.send_json({"mode": gates.get("mode"), "gate_snapshot": gates})
+
+            elif self.path.startswith("/api/tasks/summary/"):
+                task_id = self.path.split("/")[-1]
+                summary = brain_service.GetTaskSummary(task_id)
+                if summary:
+                    self.send_json({"success": True, "summary": summary.to_dict()})
+                else:
+                    self.send_json({"success": False, "message": f"Task {task_id} not found"}, status=404)
+
+            elif self.path.startswith("/api/skills/summary/"):
+                skill_id = self.path.split("/")[-1]
+                summary = _skill_summary(skill_id)
+                if summary:
+                    self.send_json({"success": True, "summary": summary})
+                else:
+                    self.send_json({"success": False, "message": f"Skill {skill_id} not found"}, status=404)
+
+            elif self.path.startswith("/api/tasks"):
+                parsed = urlparse(self.path)
+                include_ineligible = parse_qs(parsed.query).get("include_ineligible", ["false"])[0].lower() == "true"
+                tasks = brain_service.get_task_library()
+                if not include_ineligible:
+                    tasks = [t for t in tasks if t.get("eligibility", {}).get("eligible", False)]
+                self.send_json({"tasks": tasks})
+
+            elif self.path.startswith("/api/skills"):
+                parsed = urlparse(self.path)
+                include_ineligible = parse_qs(parsed.query).get("include_ineligible", ["false"])[0].lower() == "true"
+                skills = []
+                for skill in skill_library.list_entries():
+                    entry = _serialize_skill_entry(skill)
+                    skills.append({
+                        "id": skill.id,
+                        "title": skill.title,
+                        "description": skill.description,
+                        "group": skill.group,
+                        "tags": skill.tags,
+                        "capabilities": skill.capabilities,
+                        "required_modalities": skill.required_modalities,
+                        "eligibility": entry.eligibility.to_dict(),
+                        "estimated_duration": skill.estimated_duration,
+                        "publisher": skill.publisher,
+                        "version": skill.version,
+                        "provenance": getattr(skill, "provenance", ""),
+                    })
+                if not include_ineligible:
+                    skills = [s for s in skills if s.get("eligibility", {}).get("eligible", False)]
+                self.send_json({"skills": skills})
 
             elif self.path == "/api/ping":
                 uptime = getattr(brain_service, "uptime_seconds", None)
@@ -542,6 +718,30 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/chat/history/clear":
                 brain_service.clear_chat_history()
                 self.send_json({"success": True})
+
+            elif self.path.startswith("/api/mode/"):
+                target_mode = self.path.rstrip("/").split("/")[-1]
+                result = self._set_mode(target_mode)
+                self.send_json(result, status=200 if result.get("success") else 400)
+
+            elif self.path == "/api/safety/hold":
+                result = self._set_mode("emergency_stop")
+                self.send_json(result, status=200 if result.get("success") else 400)
+
+            elif self.path == "/api/safety/reset":
+                result = self._set_mode("idle")
+                self.send_json(result, status=200 if result.get("success") else 400)
+
+            elif self.path == "/api/tasks/select":
+                data = json.loads(body) if body else {}
+                task_id = data.get("task_id")
+                if task_id:
+                    global selected_task_id
+                    selected_task_id = task_id
+                    self.send_json({"success": True, "selected_task": task_id})
+                else:
+                    self.send_json({"success": False, "message": "task_id required"}, status=400)
+
             # HOPE API POST Endpoints
             elif self.path.startswith("/api/hope/"):
                 try:
@@ -790,6 +990,33 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error(f"POST error: {e}")
             self.send_json({"success": False, "message": str(e)}, status=500)
+
+    def _set_mode(self, target_mode: str) -> dict:
+        """Set robot mode from string target."""
+        if not brain_service or not brain_service.mode_manager:
+            return {"success": False, "message": "Mode manager unavailable"}
+
+        target = (target_mode or "").lower()
+        mapping = {
+            "manual_control": RobotMode.MANUAL_CONTROL,
+            "manual_training": RobotMode.MANUAL_TRAINING,
+            "autonomous": RobotMode.AUTONOMOUS,
+            "sleep_learning": RobotMode.SLEEP_LEARNING,
+            "idle": RobotMode.IDLE,
+            "emergency_stop": RobotMode.EMERGENCY_STOP,
+        }
+
+        if target not in mapping:
+            return {"success": False, "message": f"Unknown mode: {target_mode}"}
+
+        if mapping[target] == RobotMode.EMERGENCY_STOP:
+            brain_service.mode_manager.emergency_stop("API trigger")
+            changed = True
+        else:
+            changed = brain_service.mode_manager.set_mode(mapping[target])
+
+        gates = brain_service.mode_manager.get_gate_snapshot()
+        return {"success": bool(changed), "mode": gates.get("mode"), "gate_snapshot": gates}
 
     def send_json(self, data, status: int = 200):
         self.send_response(status)

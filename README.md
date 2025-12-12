@@ -33,6 +33,12 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 - **Fallback order for eval:** HOPE agent first; if low confidence, fall back to `google/gemma-370m`, then `google/gemma-3n-2b`.
 - **Optional Wikipedia context (offline-ready):** `continuonbrain/eval/wiki_retriever.py` can consume a local HuggingFace `wikimedia/wikipedia` dataset or JSONL corpus and feed snippets into HOPE eval prompts. It no-ops if no corpus is present. Wire it by passing a retriever into `run_hope_eval_and_log`; plan to enable once an offline dump is available.
 
+### Pi5 world-model + RAG (VQ-VAE on HAT, predictor on Pi)
+- **Latent tokenization on HAT:** OAK-D RGB/depth is compressed by a VQ-VAE running on the AI HAT, yielding small discrete token grids instead of pixels. Tokens and codebook IDs are logged into RLDS for replay and grounding.
+- **Predictor on Pi CPU:** Fast/Mid loops predict next latent tokens from prior tokens + actions; a surprise signal (predicted vs. actual tokens) is logged for closed-loop correction.
+- **RAG for semantic grounding:** Local wiki shards are indexed via the Librarian service; planners can pull top-k facts into prompts. Remote “unknown-answer” agent stays opt-in and budget-gated by env vars.
+- **Docs/config:** See `docs/wiki-rag-plan.md` and `continuonbrain/configs/pi5-rag.json` for manifest paths, gating envs, and shard expectations.
+
 ## Alignment Snapshot (2025-12-10)
 
 - **Continuon Brain runtime (edge)**: Hardware auto-detect + startup manager validated; Debian package Phase 1 shipped (see `continuonbrain/README.md`, `packaging/README.md`). Kiosk mode is the next packaging phase.

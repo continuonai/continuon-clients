@@ -75,3 +75,8 @@ This guide stitches together the core components needed for a “version zero”
 - Depth stream stable at chosen resolution; PCA9685 responds to bounded commands.
 - `min_episodes` satisfied for training config and camera/robot timestamps align.
 - Safety bounds and gating hooks enabled; violations logged in RLDS `step_metadata` before allowing autonomous motion.
+
+## 9) Stage wiki RAG shards and log latent tokens (world-model path)
+- Wiki/episodic shards (optional but recommended for RAG): place a manifest at `/opt/continuonos/brain/memory/wiki/manifest.json` (see `docs/wiki-rag-plan.md` and `continuonbrain/configs/pi5-rag.json`). Shards should include `embeddings.npy` + `metadata.jsonl` and a manifest entry with `id`, `dim`, `size`, `license`, and optional `domain/language`.
+- Librarian service: `continuonbrain.services.librarian.Librarian` loads the manifest and serves top-k retrievals to the planner; keep it offline-first. Remote “unknown-answer” agent stays gated by `ALLOW_REMOTE_AGENT` and `MAX_API_CENTS_PER_DAY`.
+- Latent tokens (when VQ-VAE/predictor is enabled): log discrete codes from the HAT encoder into RLDS as `observation.latent_tokens` along with the codebook ID. Log the surprise signal (pred vs. actual tokens) in `step_metadata.surprise`. Keep retrieval/tool traces in `step_metadata.retrievals` and `step_metadata.tool_calls` for replay and cloud distillation.

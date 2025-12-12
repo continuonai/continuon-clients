@@ -31,6 +31,12 @@ For training-time autonomy (when humans are away), keep the robot focused on saf
   out = runner(inputs)
   ```
 
+### Pi5 world-model + RAG (VQ-VAE + Librarian)
+- **Latent tokens on HAT:** VQ-VAE runs on the AI HAT to compress OAK-D RGB/depth into discrete token grids; log tokens and codebook IDs in RLDS (`observation.latent_tokens`) for replay/grounding.
+- **Predictor on Pi CPU:** Fast/Mid loops predict next latent tokens from prior tokens + actions; log a surprise signal (pred vs. actual) in `step_metadata` for closed-loop correction.
+- **RAG via Librarian:** Local wiki/episodic shards (see `docs/wiki-rag-plan.md`) are loaded by `continuonbrain.services.librarian.Librarian`. Shard manifests live under `/opt/continuonos/brain/memory/wiki/manifest.json` (default). Remote “unknown-answer” agent stays opt-in and budget-gated (`ALLOW_REMOTE_AGENT`, `MAX_API_CENTS_PER_DAY`).
+- **Config:** `continuonbrain/configs/pi5-rag.json` documents manifest paths, cache budget, domains, and remote-agent env keys.
+
 The Robot API server launched by `startup_manager.py` now uses `python -m continuonbrain.robot_api_server` and runs in **real hardware mode by default** (it fails fast if controllers are absent). This keeps the production path aligned with the previous mock features (UI/JSON bridge) while enforcing hardware readiness.
 
 ## Pi5 Robot Arm Integration (Design Validation)

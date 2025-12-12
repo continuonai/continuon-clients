@@ -1,0 +1,12 @@
+{
+  "wiki_manifest": "/opt/continuonos/brain/memory/wiki/manifest.json",
+  "episodic_manifest": "/opt/continuonos/brain/memory/episodic/manifest.json",
+  "cache_mb": 96,
+  "top_k": 5,
+  "domains": ["household"],
+  "remote_agent": {
+    "enabled_env": "ALLOW_REMOTE_AGENT",
+    "budget_cents_env": "MAX_API_CENTS_PER_DAY"
+  }
+}
+

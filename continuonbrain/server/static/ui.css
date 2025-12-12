@@ -598,6 +598,63 @@ body {
         .agi-title { font-weight: 700; margin-bottom: 6px; }
         .agi-detail { color: var(--muted); font-size: 13px; }
 
+        .dream-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .proof-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            background: rgba(255,255,255,0.02);
+        }
+        .proof-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 2px 0;
+        }
+        .proof-meta {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .proof-checklist {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .proof-step {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(255,255,255,0.015);
+        }
+        .proof-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .proof-detail {
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .proof-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .proof-log {
+            margin-top: 10px;
+            border-top: 1px solid var(--border);
+            padding-top: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            min-height: 10px;
+        }
+        .surprise-row { padding: 4px 0; }
+
         .canvas-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

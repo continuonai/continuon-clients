@@ -38,6 +38,7 @@ class TrainingManager:
         trainer_config: Path,
         episodes_dir: Path,
         export_dir: Path,
+        wiki_manifest: Optional[Path] = None,
         run_health: bool = False,
         run_local_trainer: bool = False,
         run_export: bool = False,
@@ -47,6 +48,7 @@ class TrainingManager:
         self.trainer_config = trainer_config
         self.episodes_dir = episodes_dir
         self.export_dir = export_dir
+        self.wiki_manifest = wiki_manifest
         self.run_health = run_health
         self.run_local_trainer = run_local_trainer
         self.run_export = run_export
@@ -59,6 +61,7 @@ class TrainingManager:
         reports: List[StepReport] = []
 
         reports.append(self._step_health())
+        reports.append(self._step_wiki_manifest())
         reports.append(self._step_episode_inventory())
         reports.append(self._step_local_training())
         reports.append(self._step_export())
@@ -101,6 +104,31 @@ class TrainingManager:
                 "min_required": min_eps,
                 "episodes_dir": str(self.episodes_dir),
             },
+        )
+
+    def _step_wiki_manifest(self) -> StepReport:
+        if not self.wiki_manifest:
+            return StepReport(
+                name="wiki_manifest",
+                status="skipped",
+                details={"reason": "no manifest path provided"},
+            )
+
+        manifest_info = self._load_manifest_info(self.wiki_manifest)
+        if manifest_info is None:
+            return StepReport(
+                name="wiki_manifest",
+                status="warn",
+                details={
+                    "manifest_path": str(self.wiki_manifest),
+                    "reason": "manifest missing or unreadable",
+                },
+            )
+
+        return StepReport(
+            name="wiki_manifest",
+            status="ok",
+            details=manifest_info,
         )
 
     def _step_local_training(self) -> StepReport:
@@ -224,6 +252,22 @@ class TrainingManager:
             return {}
         return json.loads(path.read_text())
 
+    @staticmethod
+    def _load_manifest_info(path: Path) -> Optional[Dict[str, object]]:
+        if not path.exists():
+            return None
+        try:
+            payload = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            return None
+        shards = payload.get("shards", [])
+        return {
+            "manifest_path": str(path),
+            "version": payload.get("version"),
+            "shards": [s.get("id") for s in shards if "id" in s],
+            "shard_count": len(shards),
+        }
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Training plan orchestrator (dry-run by default)")
@@ -245,6 +289,12 @@ def _parse_args() -> argparse.Namespace:
         default=Path("/opt/continuonos/brain/rlds/export"),
         help="Output directory for anonymized export",
     )
+    parser.add_argument(
+        "--wiki-manifest",
+        type=Path,
+        default=None,
+        help="Optional wiki/episodic manifest path for RAG readiness reporting",
+    )
     parser.add_argument("--health", action="store_true", help="Run quick system health check")
     parser.add_argument("--train-local", action="store_true", help="Run local trainer")
     parser.add_argument("--export", action="store_true", help="Anonymize/validate episodes for cloud export")
@@ -259,6 +309,7 @@ def main() -> int:
         trainer_config=args.trainer_config,
         episodes_dir=args.episodes_dir,
         export_dir=args.export_dir,
+        wiki_manifest=args.wiki_manifest,
         run_health=args.health,
         run_local_trainer=args.train_local,
         run_export=args.export,

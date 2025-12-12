@@ -57,6 +57,7 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
 - Background trainer: `CONTINUON_ENABLE_BACKGROUND_TRAINER=0` (enable if memory headroom allows)
 - JAX preference: `CONTINUON_PREFER_JAX=1`
 - Export origin tag: `CONTINUON_EXPORT_ORIGIN=pi5`
+- RAG/world-model assets: wiki/episodic shards are referenced via `/opt/continuonos/brain/memory/wiki/manifest.json` (see `docs/wiki-rag-plan.md` and `continuonbrain/configs/pi5-rag.json`); latent tokens from the VQ-VAE on the HAT are logged in RLDS and used by the predictor for surprise-based grounding.
 
 ## Ownership of steps
 
