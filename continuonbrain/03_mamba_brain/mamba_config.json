@@ -1,0 +1,18 @@
+{
+  "model_name": "mamba-brain-prototype",
+  "sequence_length": 256,
+  "hidden_dim": 256,
+  "rms_norm": true,
+  "runtime_notes": "Tokens enter via Vision Dreamer -> Liquid Reflex -> Mamba Brain; replace with exported weights when bindings are available.",
+  "hardware_binding": "Placeholder: wire to vendor Mamba runtime or JAX accelerator stack",
+  "training": {
+    "teacher_forcing": true,
+    "checkpoint_dir": "./checkpoints/mamba_brain",
+    "comment": "Keep config aligned with Continuon Brain training manifests."
+  },
+  "inference": {
+    "streaming": true,
+    "max_latency_ms": 50,
+    "comment": "Runtime will consume reflex tokens and emit planning tokens for downstream controllers."
+  }
+}
