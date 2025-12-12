@@ -1,6 +1,6 @@
 # End-to-End Training Plan (Pi5 → Cloud → Pi OTA)
 
-Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, promoting adapters to Continuon Cloud for TPU training, and returning a signed Hope Model v1 edge bundle that replaces the seed.
+Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, promoting adapters to Continuon Cloud for TPU training, and returning a signed Hope Model v1 edge bundle that replaces the seed. See `docs/seed-model-plan.md` for the detailed Fast/Mid/Slow seed playbook (Pi capture + GCP TPU export) that this plan references.
 
 ## Phases & Gates
 
@@ -31,7 +31,7 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
 
 6) **Cloud training (Continuon Cloud / TPU)**
    - Upload RLDS + candidate adapters to cloud bucket (per cloud ingest docs).
-   - Run JAX/TPU trainer: `python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000`
+   - Run JAX/TPU trainer: `python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000` (matches the seed playbook’s TPU step).
    - Output: Hope Model v1 artifacts (TFLite/ONNX/Hailo-HEF placeholders) + safety manifest.
    - Gate: eval metrics pass (set project-specific thresholds), bundle passes integrity/signature.
 

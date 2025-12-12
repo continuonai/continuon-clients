@@ -4,13 +4,18 @@ This doc captures a short, execution-ready plan for getting the Pi 5 + AI HAT ed
 
 ## SSM-first training paradigm overlay (Fast/Mid/Slow)
 
-The Pi-side **Pi SSM seed model** stays aligned with the HOPE Fast/Mid/Slow split while swapping the transformer core for linear-time state-space/modern RNN blocks:
+The Pi-side **Pi SSM seed model** stays aligned with the HOPE Fast/Mid/Slow split (Fast at ~50–100 ms reflex ticks, Mid at 0.5–10 s, Slow in cloud) while swapping the transformer core for linear-time state-space/modern RNN blocks:
 
 - **Fast loop (ms–100 ms reflex):** Liquid Neural Network (or other lightweight continuous-time RNN) on Pi CPU Core 1 for balance/reflex; trained with short local adapters from the same RLDS streams used below. Minimal parameters keep inference constant-time and thermals low.
 - **Mid loop (0.5–10 s skill sequencing):** Compact SSM/conv blocks that fuse recent RLDS windows for short-horizon intent and skill chaining; runs on Pi CPU Core 2 or the Hailo accelerator when present.
 - **Slow loop (minutes–hours cloud replay):** Cloud TPU job distills longer-horizon SSM/spectral cores and pushes back edge-sized bundles plus adapters for Pi replay.
 
-Pi-local steps (hardware + RLDS + TFRecord + sanity training) feed the same artifacts into the GCP TPU path below, and the resulting cloud checkpoints export the edge bundles that get staged back onto the Pi.
+Pi-local steps (hardware + RLDS + TFRecord + sanity training) feed the same artifacts into the GCP TPU path below, and the resulting cloud checkpoints export the edge bundles that get staged back onto the Pi. This keeps the HOPE nested-learning contract intact (Fast/Mid train on-device only; Slow retrains in cloud and returns signed bundles).
+
+Quick validation hooks (keep docs and code aligned):
+
+- Import check: `python -m continuonbrain.trainer.local_lora_trainer --help`
+- Orchestrator dry-run: `python -m continuonbrain.services.training_manager --health --export --post-validate` (flags opt-in; no execution without them)
 
 ## 4-Week Timeline (starting now)
 
