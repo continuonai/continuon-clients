@@ -10,6 +10,9 @@ import torch
 import numpy as np
 from typing import Optional
 import logging
+import json
+import uuid
+from pathlib import Path
 
 from continuonbrain.hope_impl.curiosity_env import CuriosityEnvironment
 from continuonbrain.services.checkpoint_manager import CheckpointManager
@@ -57,6 +60,16 @@ class BackgroundLearner:
             checkpoint_dir=self.config.get('checkpoint_dir', './checkpoints/autonomous'),
             keep_last_n=self.config.get('keep_checkpoints', 10),
         )
+
+        # Optional RLDS-ish logging of curiosity/stability metrics for replay/debug.
+        # This intentionally uses the existing "step_metadata" string map pattern so we don't need
+        # schema changes for new signals (novelty/surprise/etc).
+        self.rlds_log_dir: Optional[Path] = None
+        rlds_dir = self.config.get("rlds_log_dir")
+        if rlds_dir:
+            self.rlds_log_dir = Path(rlds_dir)
+        self._rlds_episode_dir: Optional[Path] = None
+        self._rlds_steps_path: Optional[Path] = None
         
         # Thread management
         self.running = False
@@ -103,6 +116,40 @@ class BackgroundLearner:
         
         self.running = True
         self.start_time = time.time()
+
+        # Initialize RLDS-ish episode directory if enabled.
+        if self.rlds_log_dir:
+            try:
+                episode_id = f"autonomous_learning_{int(self.start_time)}_{uuid.uuid4().hex[:8]}"
+                episode_dir = self.rlds_log_dir / episode_id
+                steps_dir = episode_dir / "steps"
+                steps_dir.mkdir(parents=True, exist_ok=True)
+                self._rlds_episode_dir = episode_dir
+                self._rlds_steps_path = steps_dir / "000000.jsonl"
+
+                # Minimal metadata for offline replay/debug (kept permissive).
+                metadata = {
+                    "xr_mode": "autonomous",
+                    "control_role": "human_supervisor",
+                    "environment_id": self.config.get("environment_id", "pi5-dev"),
+                    "tags": [
+                        "autonomous_learning",
+                        "curiosity",
+                        "control_role:autonomous_agent",
+                    ],
+                    "software": {
+                        "xr_app": "n/a",
+                        "continuonbrain_os": self.config.get("continuonbrain_version", "dev"),
+                        "glove_firmware": "n/a",
+                    },
+                    "start_time_unix_ms": int(self.start_time * 1000),
+                }
+                (episode_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+                logger.info(f"Curiosity metrics logging enabled: {episode_dir}")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"Failed to initialize curiosity RLDS logging: {exc}")
+                self._rlds_episode_dir = None
+                self._rlds_steps_path = None
         
         # Start thread
         self.thread = threading.Thread(target=self._learning_loop, daemon=True)
@@ -332,6 +379,49 @@ class BackgroundLearner:
             f"Novelty: {curiosity_stats['avg_novelty']:.3f} | "
             f"Lyapunov: {metrics.get('lyapunov_current', 0):.2f}"
         )
+
+        # Persist a lightweight RLDS-ish metrics step (one per progress log).
+        self._append_rlds_metrics_step(metrics, curiosity_stats, avg_param_change, avg_reward)
+
+    def _append_rlds_metrics_step(
+        self,
+        stability_metrics: dict,
+        curiosity_stats: dict,
+        avg_param_change: float,
+        avg_reward: float,
+    ) -> None:
+        """Append a single JSONL step with curiosity/stability metrics if logging is enabled."""
+        if not self._rlds_steps_path:
+            return
+        try:
+            step = {
+                "observation": {
+                    "learning": {
+                        "total_steps": self.total_steps,
+                        "total_episodes": self.total_episodes,
+                        "learning_updates": self.learning_updates,
+                    }
+                },
+                "action": {
+                    "kind": "autonomous_learning_tick",
+                },
+                "reward": float(avg_reward),
+                "is_terminal": False,
+                "step_metadata": {
+                    "timestamp": str(time.time()),
+                    "avg_parameter_change": str(avg_param_change),
+                    "avg_episode_reward": str(avg_reward),
+                    "avg_novelty": str(curiosity_stats.get("avg_novelty", 0.0)),
+                    "novelty_rate": str(curiosity_stats.get("novelty_rate", 0.0)),
+                    "lyapunov_current": str(stability_metrics.get("lyapunov_current", 0.0)),
+                    "dissipation_rate": str(stability_metrics.get("dissipation_rate", 0.0)),
+                    "is_stable": str(bool(self.brain.stability_monitor.is_stable())),
+                },
+            }
+            with self._rlds_steps_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(step) + "\n")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"Curiosity RLDS step append failed: {exc}")
     
     def get_status(self) -> dict:
         """Get current learning status with comprehensive progress metrics."""
@@ -395,6 +485,9 @@ class BackgroundLearner:
             # Checkpoint info
             'checkpoint_count': checkpoint_stats['checkpoint_count'],
             'last_checkpoint_step': self.last_checkpoint_step,
+
+            # RLDS-ish metrics trace (optional)
+            'rlds_episode_dir': str(self._rlds_episode_dir) if self._rlds_episode_dir else None,
         }
     
     @staticmethod
@@ -408,4 +501,7 @@ class BackgroundLearner:
             'novelty_threshold': 0.5,
             'checkpoint_dir': './checkpoints/autonomous',
             'keep_checkpoints': 10,
+            # Optional: where to write RLDS-ish metrics traces for replay/debug.
+            # Example: /opt/continuonos/brain/rlds/episodes
+            'rlds_log_dir': None,
         }

@@ -3,6 +3,11 @@ ContinuonBrain Robot API server for Pi5 robot arm.
 Runs against real hardware by default with optional mock fallback for dev.
 """
 
+import asyncio
+import os
+from pathlib import Path
+from typing import AsyncIterator, Dict, Optional
+
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController
 from continuonbrain.actuators.drivetrain_controller import DrivetrainController
 from continuonbrain.sensors.oak_depth import OAKDepthCapture
@@ -959,18 +964,180 @@ class RobotService:
         """Get latest RGB camera frame as JPEG bytes."""
         return await self.stream_helper.get_camera_frame_jpeg()
     
-    async def ChatWithGemma(self, message: str, history: list) -> dict:
+    async def ChatWithGemma(self, message: str, history: list, session_id: str = None) -> dict:
         """
         Chat with Gemma 3n model acting as the Agent Manager.
         
         Args:
             message: User's message
             history: Chat history for context
+            session_id: Optional session identifier for multi-turn context (best-effort)
             
         Returns:
             dict with 'response' or 'error'
         """
-        return await self.chat_adapter.chat(message, history)
+        return await self.chat_adapter.chat(message, history, session_id=session_id)
+
+    async def PlanArmSearch(self, payload: Optional[dict] = None) -> dict:
+        """
+        Run an arm-focused planner (beam search) using the Mamba world model interface.
+
+        Safety notes:
+        - This endpoint returns a plan + diagnostics by default.
+        - It will only execute the first step if `execute=true` AND motion gate allows motion.
+        """
+        payload = payload or {}
+        try:
+            # Pull current status (includes motion gate + joint positions if available).
+            status_resp = await self.GetRobotStatus()
+            status = status_resp.get("status", {}) if isinstance(status_resp, dict) else {}
+            allow_motion = bool(status.get("allow_motion", False))
+            joints = status.get("joint_positions")
+            simulated_state = False
+
+            # In mock-hardware mode we may not have a real arm controller but still want to
+            # exercise the planner stack end-to-end (world model + search + RLDS traces).
+            if (not isinstance(joints, list) or len(joints) != 6) and status.get("hardware_mode") == "mock":
+                joints = [0.0] * 6
+                simulated_state = True
+
+            if not isinstance(joints, list) or len(joints) != 6:
+                return {"success": False, "message": "Joint positions unavailable; cannot plan", "plan": None}
+
+            # Parse goal from payload.
+            goal_joints = payload.get("goal_joint_pos")
+            if not isinstance(goal_joints, list) or len(goal_joints) != 6:
+                return {"success": False, "message": "goal_joint_pos (len=6) required", "plan": None}
+
+            execute = bool(payload.get("execute", False))
+            horizon = int(payload.get("horizon", 6))
+            beam_width = int(payload.get("beam_width", 6))
+            action_step = float(payload.get("action_step", 0.05))
+            time_budget_ms = int(payload.get("time_budget_ms", 150))
+
+            from continuonbrain.mamba_brain import build_world_model
+            from continuonbrain.reasoning.arm_state_codec import ArmGoal, state_from_joints
+            from continuonbrain.reasoning.tree_search import beam_search_plan
+            from pathlib import Path
+            from continuonbrain.rlds.planning_trace import write_planning_episode
+
+            wm = build_world_model(prefer_mamba=True, joint_dim=6)
+            start_state = state_from_joints(joints)
+            goal = ArmGoal(target_joint_pos=[float(x) for x in goal_joints])
+
+            plan = beam_search_plan(
+                world_model=wm,
+                start_state=start_state,
+                goal=goal,
+                horizon=horizon,
+                beam_width=beam_width,
+                action_step=action_step,
+                time_budget_ms=time_budget_ms,
+            )
+
+            # Optionally execute the first step (single-step only; caller can loop).
+            executed = False
+            exec_result = None
+            if execute:
+                if not allow_motion:
+                    exec_result = {"success": False, "message": "Motion gate locked; refusing to execute"}
+                elif not plan.ok or not plan.steps:
+                    exec_result = {"success": False, "message": "No plan to execute"}
+                elif self.arm is None:
+                    exec_result = {"success": False, "message": "Arm controller unavailable"}
+                else:
+                    from continuonbrain.reasoning.arm_state_codec import apply_action_to_arm
+
+                    executed = apply_action_to_arm(self.arm, joints, plan.steps[0].action)
+                    exec_result = {"success": bool(executed), "step_index": 0}
+
+            # RLDS trace: log the full plan + diagnostics as a canonical episode_dir.
+            try:
+                rlds_root = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+                plan_payload = {
+                    "ok": plan.ok,
+                    "reason": plan.reason,
+                    "diagnostics": plan.diagnostics,
+                    "steps": [
+                        {
+                            "joint_delta": step.action.joint_delta,
+                            "predicted_joint_pos": step.predicted_state.joint_pos,
+                            "score": step.score,
+                            "uncertainty": step.uncertainty,
+                        }
+                        for step in plan.steps
+                    ],
+                }
+                exec_payload = {"requested": execute, "executed": executed, "result": exec_result}
+                ep_dir = write_planning_episode(
+                    rlds_root=rlds_root,
+                    environment_id=str(status.get("hardware_mode", "pi5-dev")),
+                    control_role="human_supervisor",
+                    goal={"joint_pos": [float(x) for x in goal_joints]},
+                    start_state={"joint_pos": [float(x) for x in joints]},
+                    plan=plan_payload,
+                    execute=exec_payload,
+                    model_debug={"world_model_backend": getattr(getattr(plan.steps[0], "predicted_state", None), "debug", None) if plan.steps else None},
+                    tags=["execute:true" if execute else "execute:false"],
+                )
+                rlds_episode_dir = str(ep_dir)
+            except Exception:  # noqa: BLE001
+                rlds_episode_dir = None
+
+            # Return response.
+            return {
+                "success": True,
+                "allow_motion": allow_motion,
+                "simulated_state": simulated_state,
+                "plan": {
+                    "ok": plan.ok,
+                    "reason": plan.reason,
+                    "diagnostics": plan.diagnostics,
+                    "steps": [
+                        {
+                            "joint_delta": step.action.joint_delta,
+                            "predicted_joint_pos": step.predicted_state.joint_pos,
+                            "score": step.score,
+                            "uncertainty": step.uncertainty,
+                        }
+                        for step in plan.steps
+                    ],
+                },
+                "execute": {"requested": execute, "executed": executed, "result": exec_result},
+                "rlds_episode_dir": rlds_episode_dir,
+            }
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+
+    async def ExecuteArmDelta(self, payload: Optional[dict] = None) -> dict:
+        """
+        Execute a single joint delta step (for step-by-step planner execution).
+        Requires motion gate to be open.
+        """
+        payload = payload or {}
+        try:
+            status_resp = await self.GetRobotStatus()
+            status = status_resp.get("status", {}) if isinstance(status_resp, dict) else {}
+            allow_motion = bool(status.get("allow_motion", False))
+            joints = status.get("joint_positions")
+            if not allow_motion:
+                return {"success": False, "message": "Motion gate locked; refusing to execute", "allow_motion": False}
+            if self.arm is None:
+                return {"success": False, "message": "Arm controller unavailable", "allow_motion": allow_motion}
+            if not isinstance(joints, list) or len(joints) != 6:
+                return {"success": False, "message": "Joint positions unavailable", "allow_motion": allow_motion}
+
+            joint_delta = payload.get("joint_delta")
+            if not isinstance(joint_delta, list) or len(joint_delta) != 6:
+                return {"success": False, "message": "joint_delta (len=6) required", "allow_motion": allow_motion}
+
+            from continuonbrain.reasoning.arm_state_codec import apply_action_to_arm, action_from_delta
+
+            action = action_from_delta([float(x) for x in joint_delta])
+            ok = apply_action_to_arm(self.arm, joints, action)
+            return {"success": bool(ok), "allow_motion": allow_motion}
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "message": str(exc)}
     
     def shutdown(self):
         """Graceful shutdown."""

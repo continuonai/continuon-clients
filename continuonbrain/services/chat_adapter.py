@@ -1,7 +1,42 @@
 import datetime
 import json
 from pathlib import Path
-from typing import Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
+
+
+STRUCTURED_PREFIX = "__CONTINUON_STRUCTURED__:"
+
+
+def _extract_structured_block(text: str) -> Tuple[str, Dict[str, Any]]:
+    """
+    Extract an optional single-line structured JSON payload from the model output.
+
+    Expected format (single line, valid JSON):
+      __CONTINUON_STRUCTURED__:{...}
+
+    Returns:
+      (clean_text, structured_dict)
+    """
+    if not text:
+        return "", {}
+
+    lines = text.splitlines()
+    structured: Dict[str, Any] = {}
+    kept: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(STRUCTURED_PREFIX):
+            raw = stripped[len(STRUCTURED_PREFIX) :].strip()
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    structured = parsed
+            except Exception:
+                structured = {}
+            continue
+        kept.append(line)
+    clean = "\n".join(kept).strip()
+    return clean, structured
 
 
 class ChatAdapter:
@@ -17,8 +52,25 @@ class ChatAdapter:
         self.status_provider = status_provider
         self.gemma_chat = gemma_chat
 
-    async def chat(self, message: str, history: list, model_hint: Optional[str] = None) -> dict:
-        """Chat with Gemma (or a local fallback) using live status for context."""
+    async def chat(
+        self,
+        message: str,
+        history: list,
+        model_hint: Optional[str] = None,
+        *,
+        session_id: Optional[str] = None,
+    ) -> dict:
+        """
+        Chat with Gemma (or a local fallback) using live status for context.
+
+        Returns a BrainService-compatible envelope so UIs/clients can rely on a stable schema:
+        - response: str
+        - structured: optional dict with goals/probes/plan/approvals
+        - intervention_needed/intervention_question/intervention_options: optional human-in-the-loop
+        - status_updates: list[str] for lightweight traceability
+        - agent: label for which backend answered (best-effort)
+        - confidence/hope_confidence: optional floats when available (best-effort)
+        """
         try:
             status_data = await self.status_provider()
             status = status_data.get("status", {})
@@ -27,12 +79,40 @@ class ChatAdapter:
             allow_motion = status.get("allow_motion", False)
 
             prompt = self._build_prompt(mode, hardware, allow_motion)
-            response = self._call_model(message, prompt, history, model_hint=model_hint)
+            raw_response = self._call_model(message, prompt, history, model_hint=model_hint)
+            response, structured = _extract_structured_block(raw_response)
             self._log_chat(message, response, status)
-            return {"response": response}
+            status_updates = [
+                f"Mode={mode}",
+                f"Hardware={hardware}",
+                f"MotionAllowed={bool(allow_motion)}",
+            ]
+            if model_hint:
+                status_updates.append(f"ModelHint={model_hint}")
+            if session_id:
+                status_updates.append(f"SessionId={session_id}")
+            if structured:
+                status_updates.append("StructuredPlan=present")
+
+            # Keep fields present even when this lightweight adapter can't compute them yet.
+            return {
+                "response": response,
+                "confidence": None,
+                "intervention_needed": False,
+                "intervention_question": None,
+                "intervention_options": [],
+                "status_updates": status_updates,
+                "agent": model_hint or "agent_manager",
+                "hope_confidence": None,
+                "structured": structured,
+                # Convenience accessors (optional, best-effort)
+                "goals": structured.get("goals") if isinstance(structured, dict) else None,
+                "probes": structured.get("probes") if isinstance(structured, dict) else None,
+                "plan": structured.get("plan") if isinstance(structured, dict) else None,
+            }
         except Exception as exc:  # noqa: BLE001
             print(f"Chat error: {exc}")
-            return {"error": str(exc)}
+            return {"error": str(exc), "response": "", "status_updates": ["ChatAdapterError"]}
 
     def _build_prompt(self, mode: str, hardware: str, allow_motion: bool) -> str:
         return (
@@ -43,6 +123,16 @@ class ChatAdapter:
             "- Run training/evaluation loops for researchers using local memories and RLDS datasets saved manually or automatically; surface gaps and next actions.\n"
             "- Help end users improve the robot itself: suggest routines, safety checks, and self-improvements that can be applied on-device.\n"
             "- Preserve and use conversation + experience context to incrementally self-improve.\n"
+            "\n"
+            "Output requirements:\n"
+            "- First, write a normal human-readable answer.\n"
+            "- Then output EXACTLY ONE additional line with machine-readable JSON, prefixed with:\n"
+            f"  {STRUCTURED_PREFIX}\n"
+            "- The JSON must be valid and must be an object. Use this shape:\n"
+            '  {"goals":[{"id":"g1","text":"...","priority":0.0}],"probes":[{"id":"p1","text":"...","risk":"low"}],'
+            '"plan":{"steps":[{"id":"s1","text":"...","requires_approval":false}],"requires_human_approval":false},'
+            '"approvals":[{"id":"a1","question":"...","options":["approve","deny"]}]}\n'
+            "- If you have no probes/goals/plan, return empty arrays and requires_human_approval=false.\n"
             f"Current Status:\n- Mode: {mode}\n- Hardware: {hardware}\n- Motion Allowed: {allow_motion}\n\n"
             "Always answer as the Agent Manager. State when you are using the primary model, a fallback, or a sub-agent/tool. Be concise, technical, and action-oriented."
         )

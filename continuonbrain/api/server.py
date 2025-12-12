@@ -794,9 +794,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
             if self.path == "/api/chat":
                 data = json.loads(body)
                 msg = data.get("message", "")
+                history = data.get("history", []) or []
+                session_id = data.get("session_id")
                 
-                result = brain_service.ChatWithGemma(msg, [])
-                result = brain_service.ChatWithGemma(msg, [])
+                # Match SimpleJSONServer payload semantics: accept history + session_id.
+                # Note: BrainService deprecates history in favor of session_id.
+                result = brain_service.ChatWithGemma(msg, history, session_id=session_id)
                 self.send_json(result)
             
             elif self.path == "/api/chat/history/clear":

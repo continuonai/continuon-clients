@@ -188,6 +188,43 @@
                         <div class="stack-list" id="training-memory-list"></div>
                     </div>
                     <div class="panel-ghost">
+                        <div class="panel-eyebrow">Planner</div>
+                        <div class="stack-list" id="planning-panel">
+                            <div class="panel-subtitle">Goal in normalized joint space ([-1, 1])</div>
+                            <div class="metric-row"><div class="metric-label">J0</div><div class="metric-value"><input id="plan-goal-j0" class="input-compact" type="number" step="0.05" value="0.2" style="width:120px;"></div></div>
+                            <div class="metric-row"><div class="metric-label">J1</div><div class="metric-value"><input id="plan-goal-j1" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
+                            <div class="metric-row"><div class="metric-label">J2</div><div class="metric-value"><input id="plan-goal-j2" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
+                            <div class="metric-row"><div class="metric-label">J3</div><div class="metric-value"><input id="plan-goal-j3" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
+                            <div class="metric-row"><div class="metric-label">J4</div><div class="metric-value"><input id="plan-goal-j4" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
+                            <div class="metric-row"><div class="metric-label">J5</div><div class="metric-value"><input id="plan-goal-j5" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
+                            <div class="metric-row">
+                                <div class="metric-label">Auto-exec step 0</div>
+                                <div class="metric-value"><input id="plan-execute" type="checkbox"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Motion gate</div>
+                                <div class="metric-value">
+                                    <span class="status-chip info" id="plan-motion-gate">--</span>
+                                </div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label"> </div>
+                                <div class="metric-value">
+                                    <button class="rail-btn primary" onclick="window.runArmPlanner()">Plan</button>
+                                    <button class="rail-btn" onclick="window.executeNextPlanStep()">Execute next</button>
+                                    <button class="rail-btn" onclick="window.clearPlan()">Clear</button>
+                                </div>
+                            </div>
+                            <div class="panel-subtitle">Plan steps</div>
+                            <div id="plan-steps" class="stack-list"></div>
+                            <div class="metric-row" style="margin-top:10px;">
+                                <div class="metric-label">Show raw</div>
+                                <div class="metric-value"><input id="plan-show-raw" type="checkbox"></div>
+                            </div>
+                            <pre id="plan-output" style="display:none; white-space:pre-wrap; font-size:12px; color:#cfe9ff; background:#0b1220; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:240px; overflow:auto;">(no plan yet)</pre>
+                        </div>
+                    </div>
+                    <div class="panel-ghost">
                         <div class="panel-eyebrow">Robot Mode Self-Learning</div>
                         <div class="milestone-list" id="learning-milestones"></div>
                     </div>
@@ -199,6 +236,10 @@
                         <div class="panel-eyebrow">Agent Chat</div>
                         <div class="chat-rail">
                             <div class="chat-messages inline" id="chat-messages"></div>
+                            <div class="chat-structured-block" id="chat-structured-block" style="margin-top:12px;">
+                                <div class="panel-eyebrow">Structured (goals / probes / plan)</div>
+                                <pre id="chat-structured" style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:260px; overflow:auto;">(no structured plan yet)</pre>
+                            </div>
                             <div class="chat-input-area inline">
                                 <input type="text" class="chat-input" id="chat-input"
                                     placeholder="Ask about robot status, control tips..."

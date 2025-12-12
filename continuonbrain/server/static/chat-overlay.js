@@ -20,6 +20,7 @@
     size: null,
     lastTaskCount: 0,
     lastHeartbeat: null,
+    sessionId: null,
     lastPosted: {
       mode: 0,
       gate: 0,
@@ -39,6 +40,18 @@
     } catch (e) {
       console.warn('Chat history load failed', e);
       state.history = [];
+    }
+    try {
+      const sessionKey = storageKeyPrefix + '_session';
+      let sessionId = localStorage.getItem(sessionKey);
+      if (!sessionId) {
+        sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+        localStorage.setItem(sessionKey, sessionId);
+      }
+      state.sessionId = sessionId;
+    } catch (e) {
+      console.warn('Chat session load failed', e);
+      state.sessionId = null;
     }
     try {
       state.minimized = localStorage.getItem(minimizedKey) === 'true';
@@ -194,6 +207,21 @@
     saveState();
   }
 
+  function renderStructured(data) {
+    const pre = qs('chat-structured');
+    if (!pre) return;
+    const structured = data?.structured || data?.plan || null;
+    if (!structured) {
+      pre.textContent = '(no structured plan yet)';
+      return;
+    }
+    try {
+      pre.textContent = JSON.stringify(structured, null, 2);
+    } catch (e) {
+      pre.textContent = String(structured);
+    }
+  }
+
   async function sendChatMessage() {
     const input = qs('chat-input');
     if (!input) return;
@@ -214,11 +242,13 @@
         body: JSON.stringify({
           message: text,
           history: state.history.slice(-10),
+          session_id: state.sessionId,
         }),
       });
       const data = await res.json();
       const reply = data?.response || data?.message || JSON.stringify(data);
       appendMessage(reply, 'assistant');
+      renderStructured(data);
     } catch (err) {
       appendMessage('Error: ' + (err?.message || 'chat failed'), 'system');
     }

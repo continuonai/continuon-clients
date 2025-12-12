@@ -318,10 +318,26 @@ class SimpleJSONServer:
             payload = await self._read_json_body(reader, headers)
             message = ""
             history = []
+            session_id = None
             if isinstance(payload, dict):
                 message = payload.get("message", "") or payload.get("msg", "")
                 history = payload.get("history", []) or []
-            result = await self.service.ChatWithGemma(message, history)
+                session_id = payload.get("session_id")
+            result = await self.service.ChatWithGemma(message, history, session_id=session_id)
+            return self._json_response(result)
+
+        elif path == "/api/planning/arm_search" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                payload = {}
+            result = await self.service.PlanArmSearch(payload)
+            return self._json_response(result)
+
+        elif path == "/api/planning/arm_execute_delta" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                payload = {}
+            result = await self.service.ExecuteArmDelta(payload)
             return self._json_response(result)
 
         elif path == "/api/camera/frame":

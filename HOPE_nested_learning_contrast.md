@@ -39,6 +39,7 @@ agentMgr <--> peers[RobotToRobotExchange]
 - OS/runtime tuning (THP/ZRAM/RT threads) is not formalized in docs; safe to treat as deployment notes, not required APIs.
 - Sleep/consolidation service (systemd) aligns with CMS slow loop but remains implementation detail; keep OTA/Memory Plane merge behavior unchanged (`docs/model_lifecycle.md`).
 - Planning stack: repo positions planners as modular; ensure any mention of learned planners stays additive and does not override SafetyHead or OTA contracts.
+- Sleep/consolidation: repo already has a concrete `sleep_learning` mode (offline replay) with watchdog ceilings (time + download). External “sleep cycles” language should reference this implementation and its limits, not imply a new always-on background retrain service.
 
 ### Edge constraints & positioning (Pi 5)
 - Constant-memory fast weights align with RLDS-bound workloads and avoid KV cache blowups; fits the documented Pi 5 budget and HAT acceleration path.
@@ -52,4 +53,17 @@ agentMgr <--> peers[RobotToRobotExchange]
 - `docs/system-architecture.md`, `docs/model_lifecycle.md` — end-to-end lifecycle and Memory Plane merging.
 - `docs/rlds-schema.md`, `docs/human-centric-data.md` — RLDS field definitions feeding Fast/Mid/Slow.
 - `continuon-lifecycle-plan.md`, `docs/upload-readiness-checklist.md` — safety/PII and upload gating.
+
+## Implementation notes for gaps (what exists now vs what to build next)
+
+### Sleep learning / consolidation (current)
+- Entry point: `RobotModeManager.start_sleep_learning()` in `continuonbrain/robot_modes.py`.
+- Behavior: flips mode to `sleep_learning` (motion disabled) and launches `python -m continuonbrain.trainer.local_lora_trainer --use-stub-hooks` via `_run_sleep_training_with_watchdog()`.
+- Guardrails:
+  - Wall-time ceiling: `max_sleep_training_hours` (default 6h).
+  - Download ceiling: `max_download_bytes` via `BandwidthLimiter` (default 1GiB) to prevent surprise network/bandwidth costs.
+  - Logs: watchdog JSON + trainer output in `/opt/continuonos/brain/trainer/logs/` (under `config_dir`).
+- Development gaps:
+  - Wire “real” gating signals (idle/battery/thermal/teleop) consistently across runtime + trainer (repo has hooks; production policies belong in Continuon Brain runtime governance docs).
+  - Promote-from-candidate semantics: ensure any adapter promotion stays consistent with lifecycle gates and doesn’t overwrite the Memory Plane.
 
