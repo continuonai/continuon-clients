@@ -88,13 +88,21 @@ for step in range(100):
 logger.end_episode()
 ```
 
-### 3. Convert to TFRecord
+### 3. Convert to TFRecord (dir or single file)
 
 ```python
 from continuonbrain.jax_models.data.tfrecord_converter import convert_directory_to_tfrecord
 
+# Directory mode (scans for *.json / *.jsonl)
 convert_directory_to_tfrecord(
     input_dir="/opt/continuonos/brain/rlds/episodes",
+    output_dir="/opt/continuonos/brain/rlds/tfrecord",
+    compress=True,
+)
+
+# Single-file mode (converter accepts file paths)
+convert_directory_to_tfrecord(
+    input_dir="/opt/continuonos/brain/rlds/episodes/episode.json",
     output_dir="/opt/continuonos/brain/rlds/tfrecord",
     compress=True,
 )
@@ -144,6 +152,19 @@ python -m continuonbrain.jax_models.export.export_jax \
 python -m continuonbrain.jax_models.export.export_hailo \
     --checkpoint-path ./models/core_model_inference \
     --output-dir ./models/core_model_hailo
+```
+
+### 8. Orchestrate on Pi (health → TFRecord → local train → export)
+
+```bash
+python -m continuonbrain.services.training_manager \
+  --episodes-dir /opt/continuonos/brain/rlds/episodes \
+  --tfrecord-dir /opt/continuonos/brain/rlds/tfrecord \
+  --health \
+  --convert-tfrecord \
+  --train-local \
+  --trainer-data-path /opt/continuonos/brain/rlds/tfrecord \
+  --export
 ```
 
 ## Hardware Detection
