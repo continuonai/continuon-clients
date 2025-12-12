@@ -17,6 +17,8 @@ The ContinuonXR project employs a multi-loop learning architecture that spans on
 - Cloud train/export: TPU path uses `continuonbrain.run_trainer --trainer jax --mode tpu` with TFRecord input, then exports CPU/Hailo bundles via `jax_models.export.*`.
 - Bundle/OTA: `edge_manifest.json` + signed bundle assembled per `docs/bundle_manifest.md`; served back to Pi with Memory Plane preserved.
 - UI/API mirrors: `/ui/training-plan` and `/api/training/pipeline` present the same runbook; see `docs/training-plan.md` and `docs/jax-training-pipeline.md` for the authoritative steps.
+- End-to-end helper: `python -m continuonbrain.services.training_manager --episodes-dir /opt/continuonos/brain/rlds/episodes --tfrecord-dir /opt/continuonos/brain/rlds/tfrecord --health --convert-tfrecord --train-local --trainer-data-path /opt/continuonos/brain/rlds/tfrecord --export` runs the Pi-side health checks, TFRecord conversion, local sanity train, and export staging in one pass; omit flags to get a dry-run inventory.
+- RLDS contract harmonization: The Pi recorder, XR headset, and cloud replayers all share the same schema in `docs/rlds-schema.md` so the "one brain, many shells" footprint stays lossless; acceptance and anonymization follow `docs/rlds-acceptance-checklist.md` and `docs/rlds-export-pipeline.md` before any upload.
 
 This design maintains an "edge-first" ethos for safety and responsiveness, while leveraging cloud-scale learning for long-term improvement. We adhere to the nested learning principles from the HOPE/CMS research, layering fast, mid, and slow learning processes analogous to different frequency bands in a wave spectrum. Within the edge device diagram, the Pi-first safety boundary also aligns the "particle/wave" split to the two arms: particle = left arm (fast, reflexive ticks) and wave = right arm (slightly slower coordination), both anchored on-device.
 
@@ -86,6 +88,13 @@ In addition to the fast loop, a Mid-Loop training and smoothing cycle runs on th
 
 Both fast and mid loops remain on-device as per the original lifecycle concept – they do not require cloud connectivity and thus can function offline. The Donkey Car initiator plan originally assumed all reinforcement learning data (episodes) would be handled offline on the robot; our reconciled design preserves the spirit of that by keeping the immediate learning (fast/mid loops) local while using the mid-loop cadence to coordinate dual-arm timing on the Pi 5 + Hailo stack.
 
+### Do you need a slow loop on the device?
+
+- **Default stance**: keep the **slow loop** (heavy consolidation, global alignment) in the cloud. The Continuon Brain runtime on Pi prioritizes the fast and mid loops for safety and latency; a full slow loop would collide with power/thermal headroom and would slow reflex work.
+- **When a "micro-slow" loop helps**: If you need field-only updates (e.g., air‑gapped facilities, long expeditions), run a throttled background job that replays the latest RLDS locally during idle windows. Limit it to CPU/JAX sanity passes or short Hailo/CPU fine-tunes and pin it to low-duty windows so it never competes with fast/mid ticks.
+- **How it fits the OTA path**: Treat the on-device micro-slow loop as a cache warmer, not the source of truth. Its checkpoints stay in the Memory Plane and are merged with the next OTA global skill pack; if the merged result underperforms, you can roll back to the last OTA baseline while keeping the local Memory Plane snapshot.
+- **Operational guardrails**: Gate micro-slow runs behind explicit operator opt-in, enforce temperature/latency ceilings, and halt immediately if fast-loop deadlines slip. Keep uploads opt-in and curated—the cloud still owns broad generalization and cross-device evaluation.
+
 ### Safety & Real-Time Constraints
 
 Because the Pi hosts the inference and fast loop learning, it can enforce real-time safety constraints:
@@ -107,6 +116,8 @@ When the edge device has accumulated a set of interesting experiences or trainin
 - ContinuonAI portal path: after opt-in in the consumer app/robot controller, the device batches curated RLDS episodes, zips them with a manifest, and uploads via the in-app WorldTape ingest endpoint.
 - Gating/curation: local filters remove sensitive frames, tag quality, and attach operator consent in the manifest; uploads are hashed/signed when supported for provenance.
 - The exact enablement steps are in the [Upload Readiness Checklist](./upload-readiness-checklist.md), referenced by field teams and the lifecycle plan.
+- RAG/world-model context: when wiki/episodic shards are present under `/opt/continuonos/brain/memory/wiki/manifest.json`, the Pi logs retrieved latent tokens (e.g., VQ-VAE codes from the HAT) inside RLDS for later slow-loop replay; exporters preserve provenance tags so cloud trainers can align prompts with retrieved snippets.
+- One brain, many shells: all shells (XR headset, Pi/Hailo rig, workstation mock) emit the same episode layout—`metadata.json` + `steps/*.jsonl` with the per-arm `frame_id` and coordination fields from the schema—so OTA skill packs and cloud jobs can replay experience across shells without lossy adapters. Use the acceptance checklist to block uploads that drift from the canonical schema and the export pipeline to scrub/validate before ContinuonAI/WorldTape ingest.
 
 ### Reinforcement Learning Dataset (RLDS) Format
 
