@@ -53,18 +53,18 @@ def example_conditional_initialization():
     if has_depth_camera:
         camera_name = config["primary"]["depth_camera"]
         driver = config["primary"]["depth_camera_driver"]
-        print(f"\n✅ Would initialize {camera_name} with {driver} driver")
+        print(f"\n Would initialize {camera_name} with {driver} driver")
     
     if has_servo:
         servo_name = config["primary"]["servo_controller"]
         address = config["primary"]["servo_controller_address"]
-        print(f"✅ Would initialize {servo_name} at {address}")
+        print(f" Would initialize {servo_name} at {address}")
     
     if has_ai_accel:
         accel_name = config["primary"]["ai_accelerator"]
-        print(f"✅ Would use {accel_name} for inference")
+        print(f" Would use {accel_name} for inference")
     else:
-        print("⚠️  No AI accelerator - would use CPU inference")
+        print("  No AI accelerator - would use CPU inference")
     
     print()
 
@@ -147,10 +147,10 @@ def example_graceful_degradation():
     if "depth_camera" in config.get("devices", {}):
         camera_info = config["devices"]["depth_camera"][0]
         camera_type = camera_info["name"]
-        print(f"\n✅ Using real camera: {camera_type}")
+        print(f"\n Using real camera: {camera_type}")
         # camera = initialize_camera(camera_info)
     else:
-        print("\n⚠️  No depth camera detected - using mock camera")
+        print("\n  No depth camera detected - using mock camera")
         # camera = MockCamera()
     
     # Try to get servo controller, fall back to simulation
@@ -160,10 +160,10 @@ def example_graceful_degradation():
     if "servo_controller" in config.get("devices", {}):
         servo_info = config["devices"]["servo_controller"][0]
         servo_type = servo_info["name"]
-        print(f"✅ Using real servos: {servo_type}")
+        print(f" Using real servos: {servo_type}")
         # servo = initialize_servo(servo_info)
     else:
-        print("⚠️  No servo controller detected - using simulation")
+        print("  No servo controller detected - using simulation")
         # servo = SimulatedServo()
     
     print(f"\nRobot configuration:")

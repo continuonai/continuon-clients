@@ -186,7 +186,7 @@ class RobotModeManager:
         
         # Validate transition
         if not self._validate_transition(old_mode, new_mode):
-            print(f"❌ Invalid transition: {old_mode.value} → {new_mode.value}")
+            print(f"  Invalid transition: {old_mode.value} -> {new_mode.value}")
             return False
         
         # Get mode config
@@ -203,7 +203,7 @@ class RobotModeManager:
         
         # Print status
         print("=" * 60)
-        print(f"🤖 Mode Change: {old_mode.value} → {new_mode.value}")
+        print(f" Mode Change: {old_mode.value} -> {new_mode.value}")
         print("=" * 60)
         print(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Motion: {'Enabled' if config.allow_motion else 'Disabled'}")
@@ -233,7 +233,7 @@ class RobotModeManager:
         
         # Sleep learning can only start from idle
         if to_mode == RobotMode.SLEEP_LEARNING and from_mode != RobotMode.IDLE:
-            print("⚠️  Must be idle before sleep learning")
+            print("  Must be idle before sleep learning")
             return False
         
         # All other transitions allowed
@@ -548,26 +548,26 @@ class RobotModeManager:
     
     def emergency_stop(self, reason: str = "Manual trigger"):
         """Trigger emergency stop."""
-        print(f"🚨 EMERGENCY STOP: {reason}")
+        print(f" EMERGENCY STOP: {reason}")
         self.set_mode(RobotMode.EMERGENCY_STOP, {"reason": reason})
     
     def start_manual_control(self):
         """Enter manual control mode for teleoperation."""
-        print("🎮 Starting manual control mode...")
+        print(" Starting manual control mode...")
         print("   Direct human control - no training data recorded")
         print("   Live feed and full system status available")
         self.set_mode(RobotMode.MANUAL_CONTROL)
     
     def start_manual_training(self):
         """Enter manual training mode for human teleop."""
-        print("📝 Starting manual training mode...")
+        print(" Starting manual training mode...")
         print("   Use Flutter app or web UI to control robot")
         print("   All actions will be recorded for training")
         self.set_mode(RobotMode.MANUAL_TRAINING)
     
     def start_autonomous(self):
         """Enter autonomous mode with VLA policy."""
-        print("🤖 Starting autonomous mode...")
+        print(" Starting autonomous mode...")
         print("   Robot will use VLA policy for control")
         print("   Actions still recorded for continuous learning")
         self.set_mode(RobotMode.AUTONOMOUS)
@@ -590,7 +590,7 @@ class RobotModeManager:
             max_download_bytes: Maximum bytes allowed for model/assets downloads.
             training_config: Optional explicit path to the trainer config JSON.
         """
-        print("💤 Entering sleep learning mode...")
+        print(" Entering sleep learning mode...")
         print("   Robot will self-train on saved memories")
         print("   Using Gemma-3 model for knowledge extraction")
         print("   Motion disabled during learning")
@@ -613,7 +613,7 @@ class RobotModeManager:
     
     def return_to_idle(self):
         """Return to idle mode."""
-        print("⏸️  Returning to idle...")
+        print("  Returning to idle...")
         self.set_mode(RobotMode.IDLE)
 
 
@@ -650,7 +650,7 @@ def main():
     # Emergency → Idle (required)
     manager.return_to_idle()
     
-    print("\n✅ Mode transition test complete!")
+    print("\n Mode transition test complete!")
 
 
 if __name__ == "__main__":

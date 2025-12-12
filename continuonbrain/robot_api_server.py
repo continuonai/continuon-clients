@@ -2,18 +2,6 @@
 ContinuonBrain Robot API server for Pi5 robot arm.
 Runs against real hardware by default with optional mock fallback for dev.
 """
-import asyncio
-import os
-import time
-from typing import AsyncIterator, Dict, List, Optional
-import json
-import sys
-from pathlib import Path
-
-# Ensure repo root on path when launched as a script
-REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController
 from continuonbrain.actuators.drivetrain_controller import DrivetrainController
@@ -108,28 +96,28 @@ class RobotService:
         self.selected_model = selection.get("selected")
 
         if self.prefer_jax_models and self.selected_model and self.selected_model.get("backend") == "jax":
-            print("ℹ️  CONTINUON_PREFER_JAX=1 and JAX detected → skipping transformers chat init; use inference_router for JAX.")
+            print("  CONTINUON_PREFER_JAX=1 and JAX detected -> skipping transformers chat init; use inference_router for JAX.")
             self.gemma_chat = None
         else:
             # Transformers path (fallback)
             try:
                 self.gemma_chat = build_chat_service()
             except Exception as e:  # noqa: BLE001
-                print(f"⚠️  Chat initialization failed ({e}); continuing without chat service.")
+                print(f"  Chat initialization failed ({e}); continuing without chat service.")
                 self.gemma_chat = None
 
         # Status log for selected model/backend
         if self.selected_model:
-            print(f"📡 Model selected: {self.selected_model.get('name')} (backend={self.selected_model.get('backend')})")
+            print(f" Model selected: {self.selected_model.get('name')} (backend={self.selected_model.get('backend')})")
         else:
-            print("⚠️  No chat/model backend selected; running without chat.")
+            print("  No chat/model backend selected; running without chat.")
 
         # Start lightweight status endpoint
         status_port = int(os.environ.get("CONTINUON_STATUS_PORT", "8090"))
         try:
             self.status_server = start_status_server(self.selected_model, port=status_port)
         except Exception as exc:  # noqa: BLE001
-            print(f"⚠️  Failed to start status endpoint: {exc}")
+            print(f"  Failed to start status endpoint: {exc}")
 
         self.chat_adapter = ChatAdapter(
             config_dir=config_dir,
@@ -226,25 +214,25 @@ class RobotService:
 
         # Auto-detect hardware (used for status reporting)
         if self.auto_detect:
-            print("🔍 Auto-detecting hardware...")
+            print(" Auto-detecting hardware...")
             detected = auto_detect_hardware()
             if detected.devices:
                 self.detected_config = detected.config
-                print(f"✅ Detected devices: {len(detected.devices)}")
+                print(f" Detected devices: {len(detected.devices)}")
                 for dev in detected.devices:
                     print(f" - {dev}")
                 print()
             else:
-                print("⚠️  No hardware detected!")
+                print("  No hardware detected!")
                 print()
 
         # Initialize recorder and hardware (prefers real, falls back to mock if allowed)
-        print("📼 Initializing episode recorder...")
+        print(" Initializing episode recorder...")
         self.recorder = init_recorder(self.config_dir, max_steps=500)
 
         hardware_ready = False
         if self.prefer_real_hardware:
-            print("🦾 Initializing hardware via ContinuonBrain...")
+            print(" Initializing hardware via ContinuonBrain...")
             hardware_ready = self.recorder.initialize_hardware(
                 use_mock=False,
                 auto_detect=self.auto_detect,
@@ -253,11 +241,11 @@ class RobotService:
             self.camera = self.recorder.camera
 
             if not hardware_ready:
-                print("⚠️  Real hardware initialization incomplete")
+                print("  Real hardware initialization incomplete")
                 # If motion is skipped, allow camera-only success to proceed without raising.
                 if not self.allow_mock_fallback and not self.skip_motion_hw:
                     raise RuntimeError("Failed to initialize arm or camera in real mode")
-                print("↩️  Falling back to mock mode")
+                print("  Falling back to mock mode")
 
         if not hardware_ready:
             # Ensure clean mock state
@@ -270,37 +258,37 @@ class RobotService:
         else:
             self.use_real_hardware = True
 
-        print("✅ Episode recorder ready")
+        print(" Episode recorder ready")
 
         if self.skip_motion_hw:
-            print("⏭️  Skipping arm/drivetrain init (skip-motion-hw). Motion will stay mock.")
+            print("  Skipping arm/drivetrain init (skip-motion-hw). Motion will stay mock.")
             self.arm = None
             self.drivetrain = None
         else:
             # Initialize drivetrain controller for steering/throttle
-            print("🛞 Initializing drivetrain controller...")
+            print(" Initializing drivetrain controller...")
             self.drivetrain = DrivetrainController()
             drivetrain_ready = self.drivetrain.initialize()
             if drivetrain_ready:
-                print(f"✅ Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
+                print(f" Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
             else:
-                print("⚠️  Drivetrain controller unavailable")
+                print("  Drivetrain controller unavailable")
 
         # Initialize mode manager
-        print("🎮 Initializing mode manager...")
+        print(" Initializing mode manager...")
         self.mode_manager = RobotModeManager(
             config_dir=self.config_dir,
             system_instructions=self.system_instructions,
         )
         self.mode_manager.return_to_idle()  # Start in idle mode
-        print("✅ Mode manager ready")
+        print(" Mode manager ready")
 
         print()
         print("=" * 60)
-        print(f"✅ Robot Service Ready ({'REAL' if self.use_real_hardware else 'MOCK'} MODE)")
+        print(f" Robot Service Ready ({'REAL' if self.use_real_hardware else 'MOCK'} MODE)")
         print("=" * 60)
         if self.use_real_hardware and self.detected_config.get("primary"):
-            print("\n🎯 Using detected hardware:")
+            print("\n Using detected hardware:")
             for key, value in self.detected_config["primary"].items():
                 print(f"  {key.replace('_', ' ').title()}: {value}")
         print()

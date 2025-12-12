@@ -96,7 +96,7 @@
   };
 })();
 
-window.requestTraining = async function() {
+window.requestTraining = async function () {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Starting...';
   try {
@@ -109,7 +109,7 @@ window.requestTraining = async function() {
   }
 };
 
-window.viewTrainingLogs = async function() {
+window.viewTrainingLogs = async function () {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Fetching logs...';
   try {
@@ -123,13 +123,13 @@ window.viewTrainingLogs = async function() {
   }
 };
 
-window.openEpisodeImports = function() {
+window.openEpisodeImports = function () {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Episode import UI not yet wired';
   alert('Episode import UI not yet wired to backend.');
 };
 
-window.runManualTraining = async function(payload = {}) {
+window.runManualTraining = async function (payload = {}) {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Submitting manual training run...';
   try {
@@ -147,7 +147,7 @@ window.runManualTraining = async function(payload = {}) {
   }
 };
 
-window.runWavecoreLoops = async function(payload = {}) {
+window.runWavecoreLoops = async function (payload = {}) {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Starting WaveCore loops...';
   try {
@@ -165,7 +165,7 @@ window.runWavecoreLoops = async function(payload = {}) {
   }
 };
 
-window.runHopeEval = async function(payload = {}) {
+window.runHopeEval = async function (payload = {}) {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Running HOPE eval...';
   try {
@@ -183,7 +183,7 @@ window.runHopeEval = async function(payload = {}) {
   }
 };
 
-window.runFactsEval = async function(payload = {}) {
+window.runFactsEval = async function (payload = {}) {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Running facts eval...';
   try {
@@ -201,7 +201,7 @@ window.runFactsEval = async function(payload = {}) {
   }
 };
 
-window.checkTrainingStatus = async function() {
+window.checkTrainingStatus = async function () {
   const statusEl = document.getElementById('training-status');
   if (statusEl) statusEl.textContent = 'Reading trainer status...';
   try {

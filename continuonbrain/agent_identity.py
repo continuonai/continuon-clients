@@ -163,18 +163,18 @@ class AgentIdentity:
         self._check_shell()
 
         print("\n" + "="*60)
-        print("🤖 AGENT SELF-ACTIVATION REPORT")
+        print("AGENT SELF-ACTIVATION REPORT")
         print("="*60 + "\n")
 
         # Identity / Shell
         shell = self.identity.get("shell", {})
-        print(f"🏠 SHELL TYPE: {shell.get('type', 'Unknown')}")
+        print(f"SHELL TYPE: {shell.get('type', 'Unknown')}")
         print(f"   OS: {shell.get('os')} ({shell.get('arch')})")
         print(f"   Hostname: {shell.get('hostname')}\n")
 
         # Brain / Memory
         mem = self.identity.get("memory", {})
-        print(f"\n🧠 BRAIN & MEMORY:")
+        print(f"\nBRAIN & MEMORY:")
         print(f"   I possess {mem.get('local_episodes', 0)} local memories (episodes).")
         if mem.get('has_cloud_model'):
             print(f"   My trained models are present at {mem.get('model_path')}.")
@@ -186,7 +186,7 @@ class AgentIdentity:
         sensors = body.get("sensors", [])
         actuators = body.get("actuators", [])
         
-        print(f"\n🦾 BODY & HARDWARE:")
+        print(f"\nBODY & HARDWARE:")
         if sensors:
             print(f"   I see the world through: {', '.join(sensors)}.")
         else:
@@ -210,9 +210,9 @@ class AgentIdentity:
         design = self.identity.get("design", {})
         directives = design.get("core_directives", {})
         
-        print(f"\n📜 DESIGN & PURPOSE:")
+        print(f"\nDESIGN & PURPOSE:")
         print(f"   My core directives contain {directives.get('safety_rules_count', 0)} safety rules and {directives.get('instructions_count', 0)} instructions.")
-        print(f"   My mission is: {design.get('mission_statement', 'Unknown')}")
+        # print(f"   My mission is: {design.get('mission_statement', 'Unknown')}")
         
         print("\nready_status: [INGESTION: OK] [PROCESSING: OK] [TASK_CREATION: WAITING]")
         print("Status: Awaiting owner instructions in AUTONOMY mode.\n")

@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import re
+from datetime import datetime
 
 from continuonbrain.system_installer import SystemInstaller
 
@@ -59,7 +60,7 @@ class HardwareDetector:
         self.detected_devices = []
         self._detect_environment()
         
-        print("🔍 Scanning for hardware devices...\n")
+        print("Scanning for hardware devices...\n")
         
         # Detect in order of interface type
         self.detect_usb_devices()
@@ -511,8 +512,7 @@ class HardwareDetector:
         config = {
             "hardware_profile": "auto_detected",
             "platform": "raspberry_pi_5",
-            "detected_timestamp": subprocess.run(['date', '+%Y-%m-%d %H:%M:%S'],
-                                                capture_output=True, text=True).stdout.strip(),
+            "detected_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             "devices": {},
         }
         

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
 
+import jinja2
+
 from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
 from continuonbrain.server.tasks import TaskLibraryEntry, TaskSummary
 
@@ -27,6 +29,25 @@ class SimpleJSONServer:
         self.ui_provider = ui_provider
         self.control_provider = control_provider
         self.server = None
+        
+        # Initialize Jinja2 environment
+        template_dir = Path(__file__).parent / "templates"
+        self.jinja_env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(str(template_dir)),
+            autoescape=jinja2.select_autoescape(['html', 'xml'])
+        )
+
+    def render_template(self, template_name: str, context: Dict[str, Any] = None) -> str:
+        """Render a Jinja2 template."""
+        if context is None:
+            context = {}
+        try:
+            template = self.jinja_env.get_template(template_name)
+            return template.render(**context)
+        except jinja2.TemplateNotFound:
+            return f"<html><body><h1>Template {template_name} not found</h1></body></html>"
+        except Exception as e:
+            return f"<html><body><h1>Error rendering template: {e}</h1></body></html>"
 
     async def handle_http_request(self, request_line: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle HTTP request and return HTML/JSON/SSE response."""
@@ -76,10 +97,32 @@ class SimpleJSONServer:
         reader: asyncio.StreamReader,
         writer: Optional[asyncio.StreamWriter],
     ) -> Any:
+        # Page Routes
         if path == "/" or path == "/ui":
-            response_body = self.get_web_ui_html()
+            response_body = self.render_template("home.html", {"active_page": "home"})
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/safety":
+            response_body = self.render_template("safety.html", {"active_page": "safety"})
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/tasks":
+            response_body = self.render_template("tasks.html", {"active_page": "tasks"})
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/skills":
+            response_body = self.render_template("skills.html", {"active_page": "skills"})
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/research":
+            response_body = self.render_template("research.html", {"active_page": "research"})
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/api_explorer":
+            response_body = self.render_template("api_explorer.html", {"active_page": "api_explorer"})
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+            
         elif path == "/wiring":
             response_body = self.get_wiring_html()
             response_bytes = response_body.encode('utf-8')
@@ -436,13 +479,14 @@ class SimpleJSONServer:
             port=port,
         )
         addr = self.server.sockets[0].getsockname()
-        print("📱 Web UI: http://{0}:{1}/ui".format(addr[0] if addr[0] != '0.0.0.0' else 'localhost', addr[1]))
-        print("🔌 API Endpoint: http://{0}:{1}/status".format(addr[0] if addr[0] != '0.0.0.0' else 'localhost', addr[1]))
+        print("Web UI: http://{0}:{1}/ui".format(addr[0] if addr[0] != '0.0.0.0' else 'localhost', addr[1]))
+        print("API Endpoint: http://{0}:{1}/status".format(addr[0] if addr[0] != '0.0.0.0' else 'localhost', addr[1]))
 
         async with self.server:
             await self.server.serve_forever()
 
     def get_web_ui_html(self) -> str:
+        # Legacy fallback
         tmpl_path = Path(__file__).parent / "templates" / "ui.html"
         if tmpl_path.exists():
             return tmpl_path.read_text(encoding="utf-8")
@@ -475,4 +519,3 @@ class SimpleJSONServer:
         if tmpl_path.exists():
             return tmpl_path.read_text(encoding="utf-8")
         return "<html><body><h1>Settings</h1></body></html>"
-

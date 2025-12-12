@@ -5,7 +5,6 @@ from flask import Blueprint
 
 # Initialize Blueprint
 ui_bp = Blueprint('ui', __name__)
-print("DEBUG: Loading ui_routes.py with Jinja2 templates")
 
 # Template Directory
 # Templates are in continuonbrain/server/templates/
@@ -54,11 +53,7 @@ def api_explorer():
 # These are called directly by server.py's BaseHTTPRequestHandler
 
 def get_home_html() -> str:
-    print(f"DEBUG: get_home_html called. TEMPLATE_DIR={TEMPLATE_DIR}")
-    content = render_template("home.html", active_page="home")
-    print(f"DEBUG: Rendered content length: {len(content)}")
-    print(f"DEBUG: Content snippet: {content[:100]}")
-    return content
+    return render_template("home.html", active_page="home")
 
 def get_safety_html() -> str:
     return render_template("safety.html", active_page="safety")

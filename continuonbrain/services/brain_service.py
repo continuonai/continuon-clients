@@ -1361,7 +1361,7 @@ class BrainService:
 
         # Auto-detect hardware
         if self.auto_detect:
-            print("🔍 Auto-detecting hardware...")
+            print("Auto-detecting hardware...")
             detector = HardwareDetector()
             devices = detector.detect_all(auto_install=True, allow_system_install=True)
             if devices:
@@ -1377,10 +1377,10 @@ class BrainService:
                         accelerator_device=accelerator
                     )
             else:
-                print("⚠️  No hardware detected!")
+                print("  No hardware detected!")
 
         # Load Gemma Model
-        print("🤖 Loading Gemma Chat Model...")
+        print("Loading Gemma Chat Model...")
         loaded = self.gemma_chat.load_model()
         if not loaded:
             logger.warning("Gemma load failed; trying fallback ladder (4B -> 270M -> mock).")
@@ -1388,7 +1388,7 @@ class BrainService:
 
 
         # Initialize recorder and hardware
-        print("📼 Initializing episode recorder...")
+        print("Initializing episode recorder...")
         self.recorder = ArmEpisodeRecorder(
             episodes_dir=f"{self.config_dir}/episodes",
             max_steps=500,
@@ -1396,7 +1396,7 @@ class BrainService:
 
         hardware_ready = False
         if self.prefer_real_hardware:
-            print("🦾 Initializing hardware via ContinuonBrain...")
+            print("Initializing hardware via ContinuonBrain...")
             hardware_ready = self.recorder.initialize_hardware(
                 use_mock=False,
                 auto_detect=self.auto_detect,
@@ -1405,9 +1405,9 @@ class BrainService:
             self.camera = self.recorder.camera
 
             if not hardware_ready:
-                print("⚠️  Real hardware initialization incomplete")
+                print("  Real hardware initialization incomplete")
                 # Allow server to start with partial hardware for network access
-                print("↩️  Continuing with available hardware (network access enabled)")
+                print("  Continuing with available hardware (network access enabled)")
 
         if not hardware_ready:
             self.recorder.initialize_hardware(use_mock=True, auto_detect=self.auto_detect)
@@ -1419,25 +1419,25 @@ class BrainService:
         else:
             self.use_real_hardware = True
 
-        print("✅ Episode recorder ready")
+        print("Episode recorder ready")
         
         # Drivetrain
-        print("🛞 Initializing drivetrain controller...")
+        print("Initializing drivetrain controller...")
         self.drivetrain = DrivetrainController()
         drivetrain_ready = self.drivetrain.initialize()
         if drivetrain_ready:
-            print(f"✅ Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
+            print(f"Drivetrain ready ({self.drivetrain.mode.upper()} MODE)")
         else:
-            print("⚠️  Drivetrain controller unavailable")
+            print("  Drivetrain controller unavailable")
 
         # Mode Manager
-        print("🎮 Initializing mode manager...")
+        print("Initializing mode manager...")
         self.mode_manager = RobotModeManager(
             config_dir=self.config_dir,
             system_instructions=self.system_instructions,
         )
         # Always start in AUTONOMOUS mode for production (motion + inference + training enabled)
-        print("🤖 Activating AUTONOMOUS mode (motion + inference + training enabled)")
+        print("Activating AUTONOMOUS mode (motion + inference + training enabled)")
         self.mode_manager.set_mode(
             RobotMode.AUTONOMOUS,
             metadata={
@@ -1446,10 +1446,10 @@ class BrainService:
                 "self_training_enabled": True
             }
         )
-        print("✅ Mode manager ready")
+        print("Mode manager ready")
         
         # Initialize HOPE brain (MANDATORY with resource awareness)
-        print("🧠 Initializing HOPE brain...")
+        print("Initializing HOPE brain...")
         try:
             from continuonbrain.hope_impl.config import HOPEConfig
             from continuonbrain.hope_impl.brain import HOPEBrain
@@ -1481,7 +1481,7 @@ class BrainService:
                 logger.warning(f"Memory constrained: {available_mb}MB available, need {estimated_brain_mb}MB + reserve")
                 # Force Pi5 optimized config
                 config = HOPEConfig.pi5_optimized()
-                print("  ⚠️  Forcing Pi5-optimized config due to memory constraints")
+                print("    Forcing Pi5-optimized config due to memory constraints")
             
             self.hope_brain = HOPEBrain(
                 config=config,
@@ -1506,18 +1506,18 @@ class BrainService:
             try:
                 from continuonbrain.api.routes import hope_routes
                 hope_routes.set_hope_brain(self.hope_brain)
-                print("  ✓ Registered with web monitoring")
+                print("    Registered with web monitoring")
             except ImportError:
-                print("  ⚠ Web monitoring not available")
+                print("    Web monitoring not available")
             
             # Report memory usage
             memory_usage = self.hope_brain.get_memory_usage()
             param_count = sum(p.numel() for p in self.hope_brain.parameters())
-            print(f"  ✓ HOPE brain ready ({param_count:,} parameters, {memory_usage['overall_total']:.1f}MB)")
+            print(f"    HOPE brain ready ({param_count:,} parameters, {memory_usage['overall_total']:.1f}MB)")
             
             # Start autonomous learning if enabled in config
             if config.enable_autonomous_learning:
-                print("🎓 Starting autonomous learning loop...")
+                print("Starting autonomous learning loop...")
                 self.background_learner = BackgroundLearner(
                     brain=self.hope_brain,
                     config={
@@ -1526,7 +1526,7 @@ class BrainService:
                     resource_monitor=self.resource_monitor
                 )
                 self.background_learner.start()
-                print("  ✓ Background learner started")
+                print("    Background learner started")
             
         except ImportError as e:
             error_msg = (
@@ -1536,7 +1536,7 @@ class BrainService:
                 "    pip install -e .\n"
                 f"  Error: {e}"
             )
-            print(f"  ❌ {error_msg}")
+            print(f"   {error_msg}")
             raise RuntimeError(error_msg) from e
         except Exception as e:
             error_msg = (
@@ -1547,12 +1547,12 @@ class BrainService:
                 "    - hope_impl dependencies are satisfied\n"
                 "    - System has sufficient memory ({resource_status.available_memory_mb}MB available)"
             )
-            print(f"  ❌ {error_msg}")
+            print(f"   {error_msg}")
             raise RuntimeError(error_msg) from e
         
         
         print("=" * 60)
-        print(f"✅ Brain Service Ready")
+        print(f"Brain Service Ready")
         print("=" * 60)
 
     def _ensure_mode_manager(self) -> RobotModeManager:

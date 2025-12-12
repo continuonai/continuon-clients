@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2>Skill Library</h2>
+        <div class="panel-actions">
+            <button class="btn small" onclick="refreshSkills()">Refresh</button>
+        </div>
+    </div>
+    <div class="panel-content">
+        <div id="skill-list" class="list-container">
+            <div class="loading-spinner">Loading skills...</div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2>Skill Details</h2>
+    </div>
+    <div class="panel-content">
+        <div id="skill-details">
+            <p class="placeholder-text">Select a skill to view details.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

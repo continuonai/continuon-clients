@@ -44,7 +44,7 @@ class GemmaChat:
         
         self.accelerator_device = accelerator_device
         if self.accelerator_device:
-            logger.info(f"🚀 Initializing GemmaChat with accelerator: {self.accelerator_device}")
+            logger.info(f"Initializing GemmaChat with accelerator: {self.accelerator_device}")
         
         self.model = None
         self.tokenizer = None
@@ -125,7 +125,7 @@ class GemmaChat:
                     )
                     
                     self.is_vlm = True
-                    logger.info("✅ Gemma 3N VLM loaded successfully!")
+                    logger.info(" Gemma 3N VLM loaded successfully!")
                     return True
                     
                 except Exception as e:
@@ -413,7 +413,7 @@ class MockGemmaChat:
         self.error_msg = error_msg
         self.min_history = []
         if accelerator_device:
-             logger.info(f"🚀 MockGemmaChat using mock accelerator: {accelerator_device}")
+             logger.info(f" MockGemmaChat using mock accelerator: {accelerator_device}")
         self.chat_history = []
         logger.info(f"Using mock Gemma chat. Error: {error_msg}")
     

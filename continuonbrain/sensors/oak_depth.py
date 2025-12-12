@@ -72,11 +72,11 @@ class OAKDepthCapture:
             # V3 API: Create device first
             devices = dai.Device.getAllAvailableDevices()
             if not devices:
-                print("⚠️  No OAK devices found (DepthAI reported zero devices)")
+                print("  No OAK devices found (DepthAI reported zero devices)")
                 return False
                 
             self.device = dai.Device()
-            print(f"✅ Device connected: {self.device.getDeviceName()}")
+            print(f" Device connected: {self.device.getDeviceName()}")
             
             # V3 API: Create pipeline with device context
             self.pipeline = dai.Pipeline(self.device)
@@ -276,7 +276,7 @@ def test_oak_capture():
         time.sleep(0.1)
     
     camera.stop()
-    print("\n✅ OAK-D capture test complete")
+    print("\n OAK-D capture test complete")
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import platform
 import subprocess
 import shutil
 import re
+import mimetypes
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
@@ -34,6 +35,7 @@ except ImportError:
 
 # Ensure repo root on path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+STATIC_DIR = Path(__file__).parent.parent / "server" / "static"
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -373,12 +375,59 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
     """Handles HTTP requests for the Brain API."""
 
     def do_GET(self):
+        print(f"DEBUG: do_GET called for path: {self.path}")
         try:
             if self.path in ("/", "/ui", "/ui/"):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_home_html().encode("utf-8"))
+
+            elif self.path in ("/safety", "/safety/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_safety_html().encode("utf-8"))
+
+            elif self.path in ("/tasks", "/tasks/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_tasks_html().encode("utf-8"))
+
+            elif self.path in ("/skills", "/skills/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_skills_html().encode("utf-8"))
+
+            elif self.path in ("/research", "/research/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_research_html().encode("utf-8"))
+
+            elif self.path in ("/api_explorer", "/api_explorer/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_api_explorer_html().encode("utf-8"))
+
+            elif self.path.startswith("/static/"):
+                # Basic static file serving
+                rel_path = self.path.replace("/static/", "", 1)
+                file_path = (STATIC_DIR / rel_path).resolve()
+                
+                # Security check: ensure we stay within STATIC_DIR
+                if str(file_path).startswith(str(STATIC_DIR.resolve())) and file_path.exists() and file_path.is_file():
+                    mime_type, _ = mimetypes.guess_type(file_path)
+                    self.send_response(200)
+                    self.send_header("Content-type", mime_type or "application/octet-stream")
+                    self.end_headers()
+                    with open(file_path, "rb") as f:
+                        self.wfile.write(f.read())
+                else:
+                    self.send_error(404, "File not found")
             
             elif self.path == "/ui/status":
                 self.send_response(200)
@@ -1178,7 +1227,7 @@ def main():
 
     if bound_port != desired_port:
         logger.warning(f"Port {desired_port} in use; bound to {bound_port} instead")
-    print(f"🧠 Starting ContinuonBrain Server on port {bound_port}...")
+    print(f"Starting ContinuonBrain Server on port {bound_port}...")
     event_logger.log(
         "server_start",
         "Brain API server starting",
@@ -1196,7 +1245,7 @@ def main():
     settings = settings_store.load()
     agent_settings = settings.get("agent_manager", {})
     
-    print(f"📋 Agent Manager Settings:")
+    print(f"Agent Manager Settings:")
     print(f"  Thinking Indicator: {agent_settings.get('enable_thinking_indicator', True)}")
     print(f"  Intervention Prompts: {agent_settings.get('enable_intervention_prompts', True)}")
     print(f"  Confidence Threshold: {agent_settings.get('intervention_confidence_threshold', 0.5)}")
@@ -1261,7 +1310,7 @@ def main():
     # Fire and forget UI launch on desktop systems
     threading.Timer(1.0, lambda: launch_ui_if_desktop(bound_port)).start()
 
-    print(f"🚀 Server listening on http://0.0.0.0:{bound_port}")
+    print(f" Server listening on http://0.0.0.0:{bound_port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

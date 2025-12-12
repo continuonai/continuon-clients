@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2>Autonomy Tasks</h2>
+        <div class="panel-actions">
+            <button class="btn small" onclick="refreshTasks()">Refresh</button>
+        </div>
+    </div>
+    <div class="panel-content">
+        <div id="task-list" class="list-container">
+            <div class="loading-spinner">Loading tasks...</div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2>Task Details</h2>
+    </div>
+    <div class="panel-content">
+        <div id="task-details">
+            <p class="placeholder-text">Select a task to view details.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

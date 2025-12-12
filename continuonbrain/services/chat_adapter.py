@@ -36,7 +36,7 @@ class ChatAdapter:
 
     def _build_prompt(self, mode: str, hardware: str, allow_motion: bool) -> str:
         return (
-            "You are the Agent Manager for the Continuon Brain Studio (🤖 Gemma 3n on-device orchestrator).\n"
+            "You are the Agent Manager for the Continuon Brain Studio (Gemma 3n on-device orchestrator).\n"
             "Responsibilities:\n"
             "- Host the primary on-device model and fall back to other available models when confidence is low or resources are constrained.\n"
             "- Connect and supervise sub-agents/tools to plan, review, and safely execute actions.\n"

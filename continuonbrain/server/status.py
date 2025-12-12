@@ -51,6 +51,6 @@ def start_status_server(selected_model: Dict[str, Any], port: int = 8090) -> HTT
     server = HTTPServer(("0.0.0.0", port), StatusHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    print(f"ℹ️  Status endpoint started on http://0.0.0.0:{port}/status")
+    print(f"  Status endpoint started on http://0.0.0.0:{port}/status")
     return server
 

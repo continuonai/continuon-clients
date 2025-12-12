@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2>Operator Controls</h2>
+    </div>
+    <div class="panel-content">
+        <div class="control-group">
+            <button class="btn danger" onclick="triggerEStop()">EMERGENCY STOP</button>
+            <button class="btn warning" onclick="pauseRobot()">Pause</button>
+            <button class="btn primary" onclick="resumeRobot()">Resume</button>
+        </div>
+        <div class="control-group" style="margin-top: 16px;">
+            <button class="btn" onclick="window.location.href='/control'">Manual Control Interface</button>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2>Safety Gates</h2>
+    </div>
+    <div class="panel-content">
+        <div id="safety-gates-list">
+            <!-- Safety gates will be injected here -->
+            <div class="loading-spinner">Loading safety gates...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

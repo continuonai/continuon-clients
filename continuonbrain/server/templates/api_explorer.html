@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel full-height">
+    <div class="panel-header">
+        <h2>API Explorer</h2>
+    </div>
+    <div class="panel-content">
+        <iframe src="/docs" style="width: 100%; height: 100%; border: none;"></iframe>
+        <!-- Fallback if /docs is not available or for custom explorer -->
+        <div id="api-endpoints-list">
+            <h3>Available Endpoints</h3>
+            <ul>
+                <li>GET /api/status</li>
+                <li>GET /api/loops</li>
+                <li>GET /api/tasks</li>
+                <li>GET /api/skills</li>
+                <li>POST /api/command</li>
+                <li>POST /api/chat</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

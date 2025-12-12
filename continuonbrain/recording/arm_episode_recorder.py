@@ -198,7 +198,7 @@ class MicrophoneCapture:
 
     def initialize(self) -> bool:
         if self.use_mock:
-            print("🎙️  Using mock microphone capture")
+            print("  Using mock microphone capture")
             self.active = True
             return True
 
@@ -211,10 +211,10 @@ class MicrophoneCapture:
             )
             self.stream.start()
             self.active = True
-            print(f"✅ Microphone initialized at {self.sample_rate_hz} Hz")
+            print(f"Microphone initialized at {self.sample_rate_hz} Hz")
             return True
         except Exception as e:
-            print(f"⚠️  Microphone init failed: {e}")
+            print(f"  Microphone init failed: {e}")
             self.active = False
             self.stream = None
             return False
@@ -361,7 +361,7 @@ class ArmEpisodeRecorder:
             # Auto-detect hardware if requested
             detected_config = {}
             if auto_detect and HardwareDetector:
-                print("🔍 Auto-detecting hardware...")
+                print("Auto-detecting hardware...")
                 detector = HardwareDetector()
                 devices = detector.detect_all()
                 detected_config = detector.generate_config()
@@ -377,9 +377,9 @@ class ArmEpisodeRecorder:
                 self.camera = OAKDepthCapture(CameraConfig())
                 if self.camera.initialize():
                     self.camera.start()
-                    print(f"✅ {camera_type or 'Depth'} camera initialized")
+                    print(f"{camera_type or 'Depth'} camera initialized")
                 else:
-                    print("⚠️  Camera initialization failed (continuing without camera)")
+                    print("  Camera initialization failed (continuing without camera)")
                     self.camera = None
                     # success = False  # Allow partial initialization
 
@@ -393,9 +393,9 @@ class ArmEpisodeRecorder:
 
                 self.arm = PCA9685ArmController(ArmConfig())
                 if self.arm.initialize():
-                    print("✅ Arm controller initialized")
+                    print("Arm controller initialized")
                 else:
-                    print("⚠️  Arm initialization failed (continuing without arm)")
+                    print("  Arm initialization failed (continuing without arm)")
                     self.arm = None
                     success = False
 
@@ -404,9 +404,9 @@ class ArmEpisodeRecorder:
         audio_ready = self.microphone.initialize()
         self.audio_enabled = audio_ready
         if audio_ready:
-            print("✅ Microphone capture initialized")
+            print("Microphone capture initialized")
         else:
-            print("⚠️  Microphone capture unavailable (audio disabled)")
+            print("  Microphone capture unavailable (audio disabled)")
             self.microphone = None
 
         return success
@@ -477,7 +477,7 @@ class ArmEpisodeRecorder:
             glove_valid=False,
         )
         
-        print(f"\n📹 Started episode: {episode_id}")
+        print(f"\nStarted episode: {episode_id}")
         if language_instruction:
             print(f"   Task: {language_instruction}")
         
@@ -568,7 +568,7 @@ class ArmEpisodeRecorder:
                     audio_uri = f"step_{self.step_counter:04d}_audio.{self.microphone.file_extension}"
 
                     if audio_delta_ms is not None and audio_delta_ms > 5.0:
-                        print(f"⚠️  Audio/vision misalignment: {audio_delta_ms:.1f} ms")
+                        print(f"  Audio/vision misalignment: {audio_delta_ms:.1f} ms")
 
                 robot_state_timestamp_ns = time.time_ns()
 
@@ -692,7 +692,7 @@ class ArmEpisodeRecorder:
             # Validate alignment before persisting
             for step in self.steps:
                 if not self._validate_step_alignment(step):
-                    print("❌ Episode failed schema validation; discarding recording")
+                    print(" Episode failed schema validation; discarding recording")
                     self.current_episode = None
                     self.episode_metadata = None
                     self.steps = []
@@ -754,7 +754,7 @@ class ArmEpisodeRecorder:
 
             pipeline = EpisodeUploadPipeline()
             if not pipeline.validate_episode(episode_path):
-                print("❌ Episode failed on-disk validation; removing recording")
+                print(" Episode failed on-disk validation; removing recording")
                 shutil.rmtree(episode_path, ignore_errors=True)
                 self.current_episode = None
                 self.episode_metadata = None
@@ -766,7 +766,7 @@ class ArmEpisodeRecorder:
             duration_s = (self.episode_metadata.end_timestamp_ns -
                          self.episode_metadata.start_timestamp_ns) / 1e9
             
-            print(f"\n✅ Episode saved: {self.current_episode}")
+            print(f"\nEpisode saved: {self.current_episode}")
             print(f"   Steps: {len(self.steps)}")
             print(f"   Duration: {duration_s:.1f}s")
             print(f"   Path: {episode_path}")
@@ -800,7 +800,7 @@ class ArmEpisodeRecorder:
             self.microphone.stop()
             self.audio_enabled = False
 
-        print("✅ Recorder shutdown complete")
+        print("Recorder shutdown complete")
 
 
 def test_recorder():

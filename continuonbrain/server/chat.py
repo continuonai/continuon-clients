@@ -21,12 +21,12 @@ def build_chat_service() -> Optional[Any]:
     """
     prefer_jax = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes")
     if prefer_jax:
-        print("ℹ️  CONTINUON_PREFER_JAX=1 → skipping transformers chat; use JAX router when available.")
+        print("  CONTINUON_PREFER_JAX=1 -> skipping transformers chat; use JAX router when available.")
         return None
 
     try:
         return create_gemma_chat(use_mock=False)
     except Exception as exc:  # noqa: BLE001
-        print(f"⚠️  Gemma chat initialization failed ({exc}); continuing without transformers.")
+        print(f"  Gemma chat initialization failed ({exc}); continuing without transformers.")
         return None
 

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2>Robot Status</h2>
+        <div class="status-badge" id="robot-mode-badge">Initializing...</div>
+    </div>
+    <div class="panel-content">
+        <div class="status-grid">
+            <div class="status-item">
+                <label>Hardware Mode</label>
+                <span id="hardware-mode">Checking...</span>
+            </div>
+            <div class="status-item">
+                <label>Battery</label>
+                <span id="battery-status">--</span>
+            </div>
+            <div class="status-item">
+                <label>Uptime</label>
+                <span id="uptime">--</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2>System Health</h2>
+    </div>
+    <div class="panel-content">
+        <div id="health-metrics">
+            <!-- Health metrics will be injected here by client.js -->
+            <div class="loading-spinner">Waiting for telemetry...</div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2>Camera Feed</h2>
+    </div>
+    <div class="panel-content">
+        <img src="/api/camera/stream" alt="Camera Feed" style="width: 100%; border-radius: 4px;">
+    </div>
+</div>
+{% endblock %}
