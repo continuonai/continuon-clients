@@ -1,9 +1,9 @@
 """
 WaveCore-style multi-speed loops for nested learning (fast/mid/slow).
 
-Fast loop: reactive, low-latency updates (e.g., on-device small adapters).
-Mid loop: bounded background learning (e.g., LoRA refresh from latest RLDS).
-Slow loop: consolidation/aggregation for cloud/JAX/TPU seed updates.
+- Fast loop: reactive, low-latency updates (~ms–100 ms reflex) for Pi SSM seed adapters.
+- Mid loop: bounded background learning (short RLDS windows, LoRA refresh).
+- Slow loop: consolidation/aggregation for cloud/JAX/TPU seed exports.
 
 This is a sketch scaffold; plug in your real hooks/adapters/exporters.
 """

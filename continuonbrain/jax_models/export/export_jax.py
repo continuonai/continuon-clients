@@ -1,7 +1,7 @@
 """
-JAX CPU Export
+JAX CPU Export (Pi SSM seed edge bundle)
 
-Export trained model parameters for JAX CPU inference on Pi.
+Export trained model parameters for JAX CPU inference on Pi (seed/edge bundle).
 Uses Orbax checkpoint format.
 """
 

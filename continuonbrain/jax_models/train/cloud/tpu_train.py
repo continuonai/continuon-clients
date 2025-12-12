@@ -1,8 +1,9 @@
 """
-TPU Training Script
+TPU Training Script (Pi SSM seed → cloud → Pi)
 
 Full training loop for Google Cloud TPU using the same CoreModel code as Pi.
-Uses XLA compilation and TPU mesh configuration for optimal performance.
+Consumes Pi-exported TFRecords and produces checkpoints that feed Pi SSM seed
+edge bundles. Uses XLA compilation and TPU mesh configuration for optimal performance.
 """
 
 import time
@@ -449,9 +450,9 @@ def main():
     """CLI entry point for TPU training."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Run TPU training for CoreModel")
-    parser.add_argument("--data-path", type=str, required=True, help="Path to TFRecord data")
-    parser.add_argument("--output-dir", type=str, required=True, help="Output directory")
+    parser = argparse.ArgumentParser(description="Run TPU training for Pi SSM seed CoreModel")
+    parser.add_argument("--data-path", type=str, required=True, help="Path to TFRecord data (e.g., gs://continuon-rlds/rlds/episodes)")
+    parser.add_argument("--output-dir", type=str, required=True, help="Output directory (e.g., gs://continuon-rlds/checkpoints/core_model_v0)")
     parser.add_argument("--obs-dim", type=int, default=128, help="Observation dimension")
     parser.add_argument("--action-dim", type=int, default=32, help="Action dimension")
     parser.add_argument("--output-dim", type=int, default=32, help="Output dimension")

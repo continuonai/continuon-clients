@@ -1,8 +1,8 @@
 """
-Hailo Export Pipeline
+Hailo Export Pipeline (Pi SSM seed edge bundle)
 
 Convert JAX model → TensorFlow SavedModel → ONNX → Hailo compiler.
-Generates Hailo-compiled binary for AI HAT+ inference.
+Generates Hailo-compiled binary for AI HAT+ inference alongside CPU seed bundle.
 """
 
 from pathlib import Path
@@ -322,7 +322,7 @@ def export_for_hailo(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Export CoreModel for Hailo")
+    parser = argparse.ArgumentParser(description="Export Pi SSM seed CoreModel for Hailo (edge bundle)")
     parser.add_argument("--checkpoint-path", required=True, help="Path to JAX inference checkpoint directory")
     parser.add_argument("--output-dir", required=True, help="Output directory for exported artifacts")
     parser.add_argument("--obs-dim", type=int, default=128)
@@ -331,7 +331,7 @@ def main() -> int:
     parser.add_argument("--skip-onnx", action="store_true", help="Skip ONNX conversion")
     parser.add_argument("--skip-hailo-compile", action="store_true", help="Skip Hailo compilation step")
     parser.add_argument("--hef-source", type=str, default=None, help="Path to precompiled HEF to include/copy")
-    parser.add_argument("--install-hef-path", type=str, default="/opt/continuonos/brain/model/base_model/model.hef", help="Destination to install HEF for runtime (set to empty to skip)")
+    parser.add_argument("--install-hef-path", type=str, default="/opt/continuonos/brain/model/base_model/hailo/model.hef", help="Destination to install HEF for runtime (set to empty to skip)")
 
     args = parser.parse_args()
 

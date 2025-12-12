@@ -1,8 +1,9 @@
 """
-Local Sanity Check Training Loop
+Local Sanity Check Training Loop (Pi SSM seed)
 
 Tiny training loop on Pi CPU (JAX CPU backend) to verify model shapes,
-loss computation, and gradients before cloud TPU training.
+loss computation, and gradients before the cloud TPU Pi→GCP→Pi pipeline.
+Designed to mirror the HOPE Fast/Mid on-device path (ms–100 ms reflex budget).
 """
 
 import time
@@ -431,8 +432,8 @@ def main():
     """CLI entry point for sanity check training."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Run sanity check training on Pi CPU")
-    parser.add_argument("--rlds-dir", type=Path, help="Directory with TFRecord episodes")
+    parser = argparse.ArgumentParser(description="Run Pi SSM seed sanity check on Pi CPU")
+    parser.add_argument("--rlds-dir", type=Path, help="Directory with TFRecord episodes (e.g., /opt/continuonos/brain/rlds/tfrecord)")
     parser.add_argument("--obs-dim", type=int, default=128, help="Observation dimension")
     parser.add_argument("--action-dim", type=int, default=32, help="Action dimension")
     parser.add_argument("--output-dim", type=int, default=32, help="Output dimension")

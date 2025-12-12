@@ -1,5 +1,5 @@
 """
-Inference Router
+Inference Router (Pi SSM seed edge bundle)
 
 Hardware-aware inference routing with fallback chain:
 Hailo → TPU → JAX CPU
@@ -85,6 +85,7 @@ class InferenceRouter:
         """Load Hailo-compiled model (metadata only until tensor I/O is wired)."""
         candidates = [
             Path(self.model_path) / "hailo" / "model.hef",
+            Path("/opt/continuonos/brain/model/base_model/hailo/model.hef"),
             Path("/opt/continuonos/brain/model/base_model/model.hef"),
         ]
         hailo_path = next((p for p in candidates if p.exists()), None)

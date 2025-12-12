@@ -4,19 +4,13 @@ This doc captures a short, execution-ready plan for getting the Pi 5 + AI HAT ed
 
 ## SSM-first training paradigm overlay (Fast/Mid/Slow)
 
-The Pi-side **Bo seed model** stays aligned with the HOPE Fast/Mid/Slow split while swapping the transformer core for linear-time state-space/modern RNN blocks:
+The Pi-side **Pi SSM seed model** stays aligned with the HOPE Fast/Mid/Slow split while swapping the transformer core for linear-time state-space/modern RNN blocks:
 
-- **Fast loop (µs–ms reflex):** Liquid Neural Network (or other lightweight continuous-time RNN) on Pi CPU Core 1 for balance/reflex; trained with short local adapters from the same RLDS streams used below. Minimal parameters keep inference constant-time and thermals low.
-- **Mid loop (0.5–10 s world model):** Mamba/RWKV-style SSM on Pi CPU Cores 2–4 (or `mamba.cpp`/ONNX Runtime) fed by HAT VQ-VAE tokens. This replaces the attention KV cache with a compact hidden state so rollout speed remains stable during long teleop sessions.
-- **Slow loop (cloud distillation/refresh):** Cloud TPU run periodically refreshes the SSM weights and distills improved context handling; OTA bundles replace only the core model while preserving on-device Memory Plane state.
+- **Fast loop (ms–100 ms reflex):** Liquid Neural Network (or other lightweight continuous-time RNN) on Pi CPU Core 1 for balance/reflex; trained with short local adapters from the same RLDS streams used below. Minimal parameters keep inference constant-time and thermals low.
+- **Mid loop (0.5–10 s skill sequencing):** Compact SSM/conv blocks that fuse recent RLDS windows for short-horizon intent and skill chaining; runs on Pi CPU Core 2 or the Hailo accelerator when present.
+- **Slow loop (minutes–hours cloud replay):** Cloud TPU job distills longer-horizon SSM/spectral cores and pushes back edge-sized bundles plus adapters for Pi replay.
 
-### Where it lands in the playbook
-
-- **Steps 1–3 (Pi capture + TFRecord)** already collect the RLDS needed for Fast/Mid adapters. Keep logging `observation.latent_tokens` so both the fast reflex adapter and the mid SSM predictor can replay token dynamics.
-- **Step 4 (local sanity training)** now doubles as a small-window adapter refresh for the Fast loop (reflex) and a warm start for the Mid SSM hidden-state update head. Use the same RLDS slice; keep budgets tiny for Pi.
-- **Step 7 (TPU seed training)** trains the long-horizon Mid/Slow SSM core (CoreModelConfig remains JAX-first) to export a linear-time v0 checkpoint that Pi can run without an attention cache.
-- **Step 8–9 (exports + routing)** keep the same CPU/Hailo bundles, but the inference router should treat the SSM core as the default mid-loop predictor and only fall back to the legacy transformer/Gemma path when the SSM bundle is missing.
-- **Step 10 (shadow + OTA)** validates that the SSM bundle maintains constant latency; log per-step “surprise” (pred vs. actual token) in `step_metadata` to track drift before promoting via OTA.
+Pi-local steps (hardware + RLDS + TFRecord + sanity training) feed the same artifacts into the GCP TPU path below, and the resulting cloud checkpoints export the edge bundles that get staged back onto the Pi.
 
 ## 4-Week Timeline (starting now)
 
@@ -49,6 +43,8 @@ The Pi-side **Bo seed model** stays aligned with the HOPE Fast/Mid/Slow split wh
 ## Seed Run Playbook (commands + expected artifacts)
 
 > Set `PYTHONPATH=$PWD` at repo root for all Python invocations.
+
+Pi-local steps (1–5) collect and validate RLDS/TFRecord artifacts; GCP cloud steps (6–8) consume the same TFRecords for TPU training; export + deploy steps (9–10) package the cloud checkpoint back onto the Pi (CPU + optional Hailo bundle) with the HOPE-aligned Fast/Mid/Slow split.
 
 ### 1) Pi hardware + RLDS sanity
 
