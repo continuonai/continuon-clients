@@ -148,7 +148,9 @@ body {
 
 .workspace-grid {
     display: grid;
-    grid-template-columns: 320px 10px 1fr 10px 360px;
+    /* Left-to-right: Agent rail, Nav tabs, Page content */
+    grid-template-columns: minmax(360px, 42vw) 10px 320px 10px 1fr;
+    grid-template-areas: "agent agent-resizer nav nav-resizer content";
     align-items: start;
     gap: 0;
     width: 100%;
@@ -164,10 +166,27 @@ body {
     margin-bottom: 12px;
 }
 
+.agent-live-panel .chat-messages {
+    /* Make sure chat stays visible even when the rail is packed. */
+    min-height: 160px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.agent-details-panel .panel-content {
+    padding-top: 0;
+}
+
 .left-column,
 .right-column {
     position: relative;
 }
+
+.right-column { grid-area: agent; }
+.left-column { grid-area: nav; }
+.center-column { grid-area: content; }
+.col-resizer[data-resize="right"] { grid-area: agent-resizer; }
+.col-resizer[data-resize="left"] { grid-area: nav-resizer; }
 
 .center-column {
     min-width: 480px;

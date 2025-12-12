@@ -14,10 +14,19 @@
         /* Base layout specific styles */
         .workspace-grid {
             display: grid;
-            grid-template-columns: 320px 10px 1fr 10px 360px;
+            /* Left-to-right: Agent rail, Nav tabs, Page content */
+            grid-template-columns: minmax(360px, 42vw) 10px 320px 10px 1fr;
+            grid-template-areas: "agent agent-resizer nav nav-resizer content";
             height: calc(100vh - 48px);
             overflow: hidden;
         }
+
+        /* Place existing columns into the new grid order without changing HTML structure. */
+        .right-column { grid-area: agent; }
+        .left-column { grid-area: nav; }
+        .center-column { grid-area: content; }
+        .col-resizer[data-resize="right"] { grid-area: agent-resizer; }
+        .col-resizer[data-resize="left"] { grid-area: nav-resizer; }
 
         .column {
             overflow-y: auto;
@@ -84,11 +93,7 @@
                 min-height: 300px;
             }
 
-            .right-column {
-                order: 3;
-                /* Ensure chat is at the bottom or accessible */
-                border-top: 1px solid #333;
-            }
+            /* Mobile uses flex column; DOM order already keeps rail accessible. */
         }
     </style>
 </head>
@@ -153,17 +158,21 @@
 
             <!-- RIGHT COLUMN: Agent Chat Manager (Persistent) -->
             <aside class="column right-column resizable" data-column="right">
-                <div class="panel">
+                <!-- LIVE INTERACTION: always visible on load -->
+                <div class="panel agent-live-panel">
                     <div class="panel-header">
                         <div>
                             <div class="panel-eyebrow">Continuon AI Agent Manager</div>
-                            <h2>Threads & Guidance</h2>
-                            <p class="panel-subtitle">Inline rail; no overlays for Flutter embed.</p>
+                            <h2>Chat & Planning</h2>
+                            <p class="panel-subtitle">Primary interaction surface (chat + planner).</p>
                             <div id="persona-badge" class="persona-badge">Persona: default</div>
                         </div>
-                        <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
-                            <span>Human mode</span>
-                            <strong id="human-toggle-state">Off</strong>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <button class="rail-btn" id="agent-details-toggle" onclick="toggleAgentDetails()" aria-expanded="false" type="button">Show details</button>
+                            <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
+                                <span>Human mode</span>
+                                <strong id="human-toggle-state">Off</strong>
+                            </div>
                         </div>
                     </div>
                     <div class="rail-actions">
@@ -171,22 +180,25 @@
                         <button class="rail-btn" onclick="pauseAgents()">⏸️ Pause agents</button>
                         <button class="rail-btn" onclick="reviewLearning()">📒 Review learning</button>
                     </div>
+
                     <div class="panel-ghost">
-                        <div class="panel-eyebrow">Active Agents</div>
-                        <div class="agent-thread-list" id="agent-thread-list"></div>
+                        <div class="panel-eyebrow">Agent Chat</div>
+                        <div class="chat-rail">
+                            <div class="chat-messages inline" id="chat-messages"></div>
+                            <div class="chat-structured-block" id="chat-structured-block" style="margin-top:12px;">
+                                <div class="panel-eyebrow">Structured (goals / probes / plan)</div>
+                                <pre id="chat-structured" style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:260px; overflow:auto;">(no structured plan yet)</pre>
+                            </div>
+                            <div class="chat-input-area inline">
+                                <input type="text" class="chat-input" id="chat-input"
+                                    placeholder="Ask about robot status, control tips..."
+                                    aria-label="Chat message input"
+                                    onkeypress="if(event.key==='Enter') sendChatMessage()">
+                                <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Model Stack & Fallbacks</div>
-                        <div class="stack-list" id="model-stack-list"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Sub-agents & Tools</div>
-                        <div class="stack-list" id="toolchain-list"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Training & Memories</div>
-                        <div class="stack-list" id="training-memory-list"></div>
-                    </div>
+
                     <div class="panel-ghost">
                         <div class="panel-eyebrow">Planner</div>
                         <div class="stack-list" id="planning-panel">
@@ -224,29 +236,41 @@
                             <pre id="plan-output" style="display:none; white-space:pre-wrap; font-size:12px; color:#cfe9ff; background:#0b1220; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:240px; overflow:auto;">(no plan yet)</pre>
                         </div>
                     </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Robot Mode Self-Learning</div>
-                        <div class="milestone-list" id="learning-milestones"></div>
+                </div>
+
+                <!-- DETAILS: collapsed by default, but can be expanded -->
+                <div class="panel agent-details-panel" id="agent-details-panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">HOPE internals</div>
+                            <h2>Agent Details</h2>
+                            <p class="panel-subtitle">Threads, tools, training, and recent learning signals.</p>
+                        </div>
                     </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Recent Learning Events</div>
-                        <div class="learning-list" id="learning-events"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Agent Chat</div>
-                        <div class="chat-rail">
-                            <div class="chat-messages inline" id="chat-messages"></div>
-                            <div class="chat-structured-block" id="chat-structured-block" style="margin-top:12px;">
-                                <div class="panel-eyebrow">Structured (goals / probes / plan)</div>
-                                <pre id="chat-structured" style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:260px; overflow:auto;">(no structured plan yet)</pre>
-                            </div>
-                            <div class="chat-input-area inline">
-                                <input type="text" class="chat-input" id="chat-input"
-                                    placeholder="Ask about robot status, control tips..."
-                                    aria-label="Chat message input"
-                                    onkeypress="if(event.key==='Enter') sendChatMessage()">
-                                <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
-                            </div>
+                    <div class="panel-content" id="agent-details-content">
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Active Agents</div>
+                            <div class="agent-thread-list" id="agent-thread-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Model Stack & Fallbacks</div>
+                            <div class="stack-list" id="model-stack-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Sub-agents & Tools</div>
+                            <div class="stack-list" id="toolchain-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Training & Memories</div>
+                            <div class="stack-list" id="training-memory-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Robot Mode Self-Learning</div>
+                            <div class="milestone-list" id="learning-milestones"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Recent Learning Events</div>
+                            <div class="learning-list" id="learning-events"></div>
                         </div>
                     </div>
                 </div>
@@ -265,11 +289,14 @@
                 const leftHandle = document.querySelector('[data-resize="left"]');
                 const rightHandle = document.querySelector('[data-resize="right"]');
                 let leftWidth = 320;
-                let rightWidth = 360;
+                // Agent rail should be prominent on desktop so chat is visible immediately.
+                let rightWidth = Math.round(window.innerWidth * 0.42);
                 const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
                 const apply = () => {
-                    if (window.innerWidth > 768) {
-                        grid.style.gridTemplateColumns = `${leftWidth}px 10px 1fr 10px ${rightWidth}px`;
+                    if (window.innerWidth > 1024) {
+                        const agentWidth = clamp(rightWidth, 320, 980);
+                        const navWidth = clamp(leftWidth, 240, 520);
+                        grid.style.gridTemplateColumns = `${agentWidth}px 10px ${navWidth}px 10px 1fr`;
                     } else {
                         grid.style.gridTemplateColumns = '1fr';
                     }
@@ -288,9 +315,11 @@
                         function onMove(e) {
                             const delta = e.clientX - startX;
                             if (type === 'left') {
+                                // Nav column resizer (between nav and content)
                                 leftWidth = clamp(startLeft + delta, 240, 520);
                             } else {
-                                rightWidth = clamp(startRight - delta, 260, 520);
+                                // Agent rail resizer (between agent and nav)
+                                rightWidth = clamp(startRight + delta, 320, 980);
                             }
                             apply();
                         }
@@ -311,6 +340,27 @@
             if (window.hydrateChatOverlay) {
                 window.hydrateChatOverlay();
             }
+
+            // Agent details collapse/expand (default collapsed so chat is visible immediately)
+            const detailsKey = 'continuonbrain_agent_details_open';
+            const detailsPanel = document.getElementById('agent-details-panel');
+            const detailsToggle = document.getElementById('agent-details-toggle');
+            const setDetailsOpen = (open) => {
+                document.body.classList.toggle('agent-details-open', !!open);
+                if (detailsPanel) detailsPanel.style.display = open ? '' : 'none';
+                if (detailsToggle) {
+                    detailsToggle.textContent = open ? 'Hide details' : 'Show details';
+                    detailsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                }
+                try { localStorage.setItem(detailsKey, open ? '1' : '0'); } catch (e) {}
+            };
+            window.toggleAgentDetails = () => {
+                const open = document.body.classList.contains('agent-details-open');
+                setDetailsOpen(!open);
+            };
+            let initialOpen = false;
+            try { initialOpen = localStorage.getItem(detailsKey) === '1'; } catch (e) { initialOpen = false; }
+            setDetailsOpen(initialOpen);
         });
     </script>
 </body>
