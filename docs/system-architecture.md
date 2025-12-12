@@ -11,6 +11,13 @@ The ContinuonXR project employs a multi-loop learning architecture that spans on
 - **New skill packs or model checkpoints** are delivered back to devices as over-the-air (OTA) updates
 - **The device's Memory Plane** (persistent local learning state) is preserved across updates and merged with incoming global models at boot
 
+### Training run plan alignment (JAX-first)
+- Edge capture + quick check: Pi logs RLDS under `/opt/continuonos/brain/rlds/episodes`, runs `continuonbrain.jax_models.train.local_sanity_check` for JAX sanity with optional JSON→TFRecord conversion (`jax_models.data.tfrecord_converter`).
+- Proof artifact: `prove_learning_capability.py` records `proof_of_learning.json` to accompany edge bundles.
+- Cloud train/export: TPU path uses `continuonbrain.run_trainer --trainer jax --mode tpu` with TFRecord input, then exports CPU/Hailo bundles via `jax_models.export.*`.
+- Bundle/OTA: `edge_manifest.json` + signed bundle assembled per `docs/bundle_manifest.md`; served back to Pi with Memory Plane preserved.
+- UI/API mirrors: `/ui/training-plan` and `/api/training/pipeline` present the same runbook; see `docs/training-plan.md` and `docs/jax-training-pipeline.md` for the authoritative steps.
+
 This design maintains an "edge-first" ethos for safety and responsiveness, while leveraging cloud-scale learning for long-term improvement. We adhere to the nested learning principles from the HOPE/CMS research, layering fast, mid, and slow learning processes analogous to different frequency bands in a wave spectrum. Within the edge device diagram, the Pi-first safety boundary also aligns the "particle/wave" split to the two arms: particle = left arm (fast, reflexive ticks) and wave = right arm (slightly slower coordination), both anchored on-device.
 
 ```

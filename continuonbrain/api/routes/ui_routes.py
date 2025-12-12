@@ -249,7 +249,7 @@ HOME_HTML = f"""
                 const version = meta.model_version || 'unknown';
                 const depth = meta.core_depth || {{}};
                 const depthLabel = `Cores: ${{depth.columns ?? '--'}}, Levels: ${{depth.max_levels ?? '--'}}`;
-                document.getElementById('brain-meta-model').textContent = `Model: ${model} (${version})`;
+                document.getElementById('brain-meta-model').textContent = `Model: ${{model}} (${{version}})`;
                 document.getElementById('brain-meta-depth').textContent = depthLabel;
             }} catch (e) {{
                 document.getElementById('brain-meta-model').textContent = 'Model: unavailable';
