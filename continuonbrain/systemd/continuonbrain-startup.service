@@ -21,11 +21,13 @@
 Description=Continuon Brain runtime startup (health checks + Robot API server)
 After=network-online.target
 Wants=network-online.target
+# Disable start burst limiting for a “keep trying” appliance behavior.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-User=pi
-Group=pi
+User=root
+Group=root
 
 # Site overrides (recommended).
 EnvironmentFile=-/etc/continuonbrain/continuonbrain.env
@@ -34,19 +36,18 @@ EnvironmentFile=-/etc/continuonbrain/continuonbrain.env
 Environment=CONTINUON_REPO=/opt/continuonos/ContinuonXR
 Environment=CONFIG_DIR=/opt/continuonos/brain
 Environment=PYTHONPATH=/opt/continuonos/ContinuonXR
-Environment=CONTINUON_PYTHON=/opt/continuonos/ContinuonXR/.venv/bin/python3
+Environment=CONTINUON_PYTHON=/usr/bin/python3
 
 # Prefer headless mode and skip background trainer on Pi-class devices by default.
 Environment=CONTINUON_HEADLESS=1
 Environment=CONTINUON_ENABLE_BACKGROUND_TRAINER=0
 
-WorkingDirectory=/opt/continuonos/ContinuonXR
-ExecStart=$CONTINUON_PYTHON -m continuonbrain.startup_manager --config-dir $CONFIG_DIR
+ExecStartPre=/usr/bin/test -d $CONTINUON_REPO
+ExecStart=/usr/bin/env bash -lc 'cd "$CONTINUON_REPO" && export PYTHONPATH="${PYTHONPATH:-$CONTINUON_REPO}" && exec "$CONTINUON_PYTHON" -m continuonbrain.startup_manager --config-dir "$CONFIG_DIR"'
 
 # Make "restart" robust (covers crashes and stop/start cycles).
 Restart=always
 RestartSec=2
-StartLimitIntervalSec=0
 
 # Graceful shutdown.
 KillSignal=SIGINT

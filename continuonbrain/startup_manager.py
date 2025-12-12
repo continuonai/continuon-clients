@@ -9,6 +9,7 @@ import json
 import subprocess
 import socket
 import platform
+import threading
 from pathlib import Path
 from typing import Optional
 from enum import Enum
@@ -60,6 +61,7 @@ class StartupManager:
         self.discovery_service: Optional[LANDiscoveryService] = None
         self.mode_manager: Optional[RobotModeManager] = None
         self.robot_api_process: Optional[subprocess.Popen] = None
+        self._robot_api_log_fh = None
         self.system_instructions: Optional[SystemInstructions] = None
         self.event_logger = SystemEventLogger(config_dir=str(self.config_dir))
     
@@ -277,8 +279,10 @@ class StartupManager:
         print(f"🌐 Starting Robot API server on port {self.service_port}...")
         try:
             repo_root = Path(__file__).parent.parent
-            server_module = "continuonbrain.api.server"
-            server_path = repo_root / "continuonbrain" / "api" / "server.py"
+            # Prefer the lightweight robot API server (async, dependency-light) for boot.
+            # The Flask API server is heavier and pulls optional deps; keep boot reliable.
+            server_module = "continuonbrain.robot_api_server"
+            server_path = repo_root / "continuonbrain" / "robot_api_server.py"
             
             if server_path.exists():
                 # Start in background
@@ -296,24 +300,58 @@ class StartupManager:
                 venv_python = repo_root / ".venv" / "bin" / "python3"
                 python_exec = str(venv_python) if venv_python.exists() else sys.executable
 
+                # Capture child process logs to a persistent file so boot failures are diagnosable.
+                log_dir = self.config_dir / "logs"
+                log_dir.mkdir(parents=True, exist_ok=True)
+                robot_log_path = log_dir / "robot_api_server.log"
+                self._robot_api_log_fh = robot_log_path.open("a", buffering=1)
+                self._robot_api_log_fh.write(f"\n=== robot_api_server start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+
                 self.robot_api_process = subprocess.Popen(
-                    [
+                    ([
                         python_exec,
                         "-m",
                         server_module,
+                        "--host",
+                        "0.0.0.0",
                         "--port",
                         str(self.service_port),
                         "--config-dir",
                         self.config_dir,
-                        "--real-hardware",  # production path uses real controllers; fail fast if missing
-                    ],
+                    ]
+                    + (["--skip-motion-hw"] if self._env_flag("CONTINUON_SKIP_MOTION_HW", default=False) else [])
+                    # Hardware mode policy:
+                    # - Default to real-hardware mode on boot for production alignment.
+                    # - Allow overrides via env flags for dev/testing.
+                    + (["--mock-hardware"] if self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False) else [])
+                    + (
+                        ["--real-hardware"]
+                        if (
+                            not self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False)
+                            and self._env_flag("CONTINUON_FORCE_REAL_HARDWARE", default=True)
+                        )
+                        else []
+                    )
+                    ),
                     env=env,
-                    # Inherit stdout/stderr to see logs in systemd
-                    # stdout=subprocess.PIPE,
-                    # stderr=subprocess.PIPE
+                    stdout=self._robot_api_log_fh,
+                    stderr=self._robot_api_log_fh,
                 )
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
                 print(f"   Endpoint: http://localhost:{self.service_port}")
+
+                def _watch_child(proc: subprocess.Popen) -> None:
+                    code = proc.wait()
+                    try:
+                        if self._robot_api_log_fh:
+                            self._robot_api_log_fh.write(f"\n=== robot_api_server exited code={code} at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                            self._robot_api_log_fh.flush()
+                    except Exception:
+                        pass
+                    # If the API server dies, force a non-zero exit so systemd restarts the whole startup sequence.
+                    os._exit(1)  # noqa: WPS437
+
+                threading.Thread(target=_watch_child, args=(self.robot_api_process,), daemon=True).start()
                 
                 # Start Nested Learning Sidecar (optional for Pi5; disabled via env)
                 if self.enable_background_trainer:
@@ -438,6 +476,11 @@ class StartupManager:
                 self.robot_api_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.robot_api_process.kill()
+        try:
+            if self._robot_api_log_fh:
+                self._robot_api_log_fh.close()
+        except Exception:
+            pass
         
         if hasattr(self, 'trainer_process') and self.trainer_process:
             self.trainer_process.terminate()
