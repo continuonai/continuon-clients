@@ -26,5 +26,6 @@ Recent updates:
 - New JAX inference utilities: CPU inference CLI (`jax_models/export/infer_cpu.py`) and hardware-aware inference router; keep imports guarded on constrained devices.
 - Hailo notes: `inference_router` will load `.hef` and configure the device when `hailo_platform` is installed; VStream tensor I/O is still NotImplemented until wired with Hailo SDK and tensor specs. Export creates a placeholder `.hef` if Hailo tools are absent.
 - UI templates: the router auto-materializes UI/control HTML into `server/templates/` from the existing providers; once generated, templates can be edited without touching `robot_api_server.py`.
+- Cloud TPU handoff + re-acquire (UI-backed, offline-first): readiness/export/install endpoints live in `continuonbrain/server/routes.py` (`/api/training/cloud_readiness`, `/api/training/export_zip`, `/api/training/exports`, `/api/training/install_bundle`). Vertex AI Edge distribution is supported as a transport option (`kind=vertex_edge` auto-detects `edge_manifest.json` vs `model_manifest.json` zips).
 
 Context: Conversation on 2025-12-10 about Pi5 startup/training is logged at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

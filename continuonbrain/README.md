@@ -121,16 +121,25 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
 
 ## Autostart on boot (systemd template)
-- A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service`.
-- Edit the `Environment=` paths to match your install (e.g., `PYTHONPATH=/home/pi/ContinuonXR`, `CONFIG_DIR=/opt/continuonos/brain`, `WorkingDirectory=/home/pi/ContinuonXR`).
-- Install and enable:
+- A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service` and is designed to:
+  - Start the Continuon Brain runtime on **boot**
+  - **Restart automatically** if the process exits/crashes
+  - Keep “wake/resume” behavior robust (service continues through suspend; if it stops, it restarts)
+- Configure via an environment file (recommended), then install as a system unit:
   ```bash
-  sudo cp continuonbrain/systemd/continuonbrain-startup.service /etc/systemd/system/
+  sudo mkdir -p /etc/continuonbrain
+  sudo cp continuonbrain/systemd/continuonbrain.env.example /etc/continuonbrain/continuonbrain.env
+  sudo nano /etc/continuonbrain/continuonbrain.env  # set CONTINUON_REPO/CONFIG_DIR/CONTINUON_PYTHON as needed
+
+  sudo cp continuonbrain/systemd/continuonbrain-startup.service /etc/systemd/system/continuonbrain-startup.service
   sudo systemctl daemon-reload
-  sudo systemctl enable continuonbrain-startup.service
-  sudo systemctl start continuonbrain-startup.service
+  sudo systemctl enable --now continuonbrain-startup.service
   ```
-- The unit runs `python -m continuonbrain.startup_manager` on boot, which performs health checks and launches the Robot API in real-hardware mode. Check logs with `sudo journalctl -u continuonbrain-startup.service -f`.
+- The unit runs `python -m continuonbrain.startup_manager` on boot, which performs health checks and launches the Robot API in real-hardware mode.
+- Logs:
+  ```bash
+  sudo journalctl -u continuonbrain-startup.service -f
+  ```
 
 ### Boot safety + system instructions
 - Add non-negotiable instructions in `system_instructions.json` under your `CONFIG_DIR`.

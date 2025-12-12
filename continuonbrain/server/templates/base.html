@@ -265,6 +265,71 @@
                             <div class="stack-list" id="training-memory-list"></div>
                         </div>
                         <div class="panel-ghost">
+                            <div class="panel-eyebrow">Cloud training (TPU) handoff</div>
+                            <div class="panel-subtitle">Offline-first readiness + packaging + re-acquire (manual/opt-in).</div>
+                            <div class="rail-actions" style="margin-top:10px;">
+                                <button class="rail-btn primary" type="button" onclick="window.refreshCloudReadiness()">Check readiness</button>
+                                <button class="rail-btn" type="button" onclick="window.listCloudExports()">List exports</button>
+                            </div>
+                            <div class="stack-list" id="cloud-readiness-list" style="margin-top:10px;"></div>
+
+                            <div class="panel-subtitle" style="margin-top:14px;">Build export zip</div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include episodes</div>
+                                <div class="metric-value"><input id="cloud-export-episodes" type="checkbox" checked></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include TFRecords</div>
+                                <div class="metric-value"><input id="cloud-export-tfrecord" type="checkbox"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include seed export</div>
+                                <div class="metric-value"><input id="cloud-export-seed" type="checkbox" checked></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include checkpoints</div>
+                                <div class="metric-value"><input id="cloud-export-checkpoints" type="checkbox" checked></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Episode limit (newest)</div>
+                                <div class="metric-value"><input id="cloud-export-episode-limit" class="input-compact" type="number" step="1" min="0" placeholder="(all)" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label"> </div>
+                                <div class="metric-value">
+                                    <button class="rail-btn" type="button" onclick="window.buildCloudExportZip()">Build zip</button>
+                                </div>
+                            </div>
+                            <div class="panel-subtitle" id="cloud-export-status" style="margin-top:6px;">—</div>
+
+                            <div class="panel-subtitle" style="margin-top:14px;">Re-acquire / install</div>
+                            <div class="metric-row">
+                                <div class="metric-label">Kind</div>
+                                <div class="metric-value">
+                                    <select id="cloud-install-kind" class="input-compact" style="width:220px;">
+                                        <option value="jax_seed_manifest">Install as JAX seed (candidate)</option>
+                                        <option value="edge_bundle">Stage OTA edge bundle</option>
+                                        <option value="vertex_edge">Vertex AI Edge (auto-detect zip type)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Source URL</div>
+                                <div class="metric-value"><input id="cloud-install-url" class="input-compact" type="text" placeholder="https://.../bundle.zip" style="width:260px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">OR source path</div>
+                                <div class="metric-value"><input id="cloud-install-path" class="input-compact" type="text" placeholder="/abs/path/to/bundle.zip" style="width:260px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label"> </div>
+                                <div class="metric-value">
+                                    <button class="rail-btn" type="button" onclick="window.installCloudBundle()">Install</button>
+                                </div>
+                            </div>
+                            <div class="panel-subtitle" id="cloud-install-status" style="margin-top:6px;">—</div>
+                        </div>
+                        <div class="panel-ghost">
                             <div class="panel-eyebrow">Robot Mode Self-Learning</div>
                             <div class="milestone-list" id="learning-milestones"></div>
                         </div>

@@ -141,6 +141,52 @@ window.runArmPlanner = async function () {
   }
 };
 
+function describeConnectivityHint(err) {
+  const href = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : '(unknown)';
+  const host = (typeof window !== 'undefined' && window.location && window.location.host) ? window.location.host : '';
+  const msg = err && err.message ? err.message : String(err || 'fetch failed');
+  const nameNotResolved = /ERR_NAME_NOT_RESOLVED/i.test(msg);
+  if (!host || nameNotResolved) {
+    return `Cannot resolve the robot host from this page (${href}). Open the UI using the robot IP or a resolvable hostname, e.g. http://<robot-ip>:8080/ui`;
+  }
+  return `Cannot reach robot API from ${href} (${msg}).`;
+}
+
+window.updateStatus = async function () {
+  const badge = document.getElementById('connection-status');
+  const sys = document.getElementById('system-info-content');
+  if (badge) badge.textContent = 'Connecting…';
+
+  try {
+    const data = await window.StudioClient.fetchJson('/api/status', { timeoutMs: 4000 });
+    const status = data && (data.status || data);
+    if (badge) badge.textContent = 'Connected';
+    if (sys && status && typeof status === 'object') {
+      const hw = status.hardware_mode || status.hardwareMode || 'unknown';
+      const mode = status.mode || status.robot_mode || 'unknown';
+      sys.innerHTML = `
+        <div class="metric-row"><div class="metric-label">Mode</div><div class="metric-value">${mode}</div></div>
+        <div class="metric-row"><div class="metric-label">Hardware</div><div class="metric-value">${hw}</div></div>
+      `;
+    }
+    return data;
+  } catch (err) {
+    if (badge) badge.textContent = 'Disconnected';
+    if (sys) {
+      sys.innerHTML = `<div class="panel-subtitle" style="color:#ffb3c0">${describeConnectivityHint(err)}</div>`;
+    }
+    return null;
+  }
+};
+
+// Initialize status quickly so users immediately see the agent/server connection state.
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof window.updateStatus === 'function') {
+    window.updateStatus();
+    setInterval(() => window.updateStatus(), 12000);
+  }
+});
+
 window.clearPlan = function () {
   window.__lastArmPlan = null;
   window.__lastArmPlanIdx = 0;
@@ -532,6 +578,174 @@ window.updateTrainingRail = async function () {
   }
 };
 
+function renderCloudReadiness(payload) {
+  if (!payload || payload.status !== 'ok') {
+    return '<div class="stack-item"><span class="stack-meta">Cloud readiness unavailable</span></div>';
+  }
+  const ready = !!payload.ready_for_cloud_handoff;
+  const chip = `<span class="status-chip ${ready ? 'active' : 'warning'}">${ready ? 'READY' : 'NOT READY'}</span>`;
+
+  function row(label, value, copyable = false) {
+    const safeVal = escapeHtml(value);
+    const copyBtn = copyable
+      ? `<button class="rail-btn" data-copy="${escapeHtml(value)}" style="padding:6px 10px; font-size:12px;">Copy</button>`
+      : '';
+    return `<div class="metric-row">` +
+      `<div class="metric-label">${escapeHtml(label)}</div>` +
+      `<div class="metric-value" style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">` +
+        `<span style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeVal}</span>` +
+        `${copyBtn}` +
+      `</div>` +
+    `</div>`;
+  }
+
+  const gates = Array.isArray(payload.gates) ? payload.gates : [];
+  const gateHtml = gates.map((g) => {
+    const ok = g && g.ok === true;
+    return (
+      `<div class="stack-item">` +
+        `<div>` +
+          `<h4>${escapeHtml(g?.name || 'gate')}</h4>` +
+          `<div class="stack-meta">${escapeHtml(g?.detail || '')}</div>` +
+        `</div>` +
+        `<div><span class="status-chip ${ok ? 'active' : 'warning'}">${ok ? 'OK' : 'BLOCKED'}</span></div>` +
+      `</div>`
+    );
+  }).join('');
+
+  const rlds = payload.rlds || {};
+  const seed = payload.seed || {};
+  const cmds = payload.commands || {};
+  const dist = payload.distribution || {};
+  const vertex = dist.vertex_templates || {};
+
+  return [
+    `<div class="stack-item">` +
+      `<div>` +
+        `<h4>Cloud handoff</h4>` +
+        `<div class="stack-meta">Seed + episodes → TPU v1 training</div>` +
+      `</div>` +
+      `<div>${chip}</div>` +
+    `</div>`,
+    row('RLDS dir', rlds.dir || '—', true),
+    row('Episodes', String(rlds.episodes_total ?? '—'), false),
+    row('Seed export', seed.export_dir || '—', true),
+    row('Seed manifest', seed.manifest_path || '—', true),
+    row('Checkpoint dir', seed.checkpoint_dir || '—', true),
+    row('TFRecord dir', payload.optional?.tfrecord_dir?.path || '—', true),
+    `<div class="panel-subtitle" style="margin-top:8px;">Gates</div>`,
+    gateHtml || '<div class="stack-item"><span class="stack-meta">No gates reported</span></div>',
+    `<div class="panel-subtitle" style="margin-top:8px;">Copyable commands</div>`,
+    row('Zip episodes', cmds.zip_episodes || '—', true),
+    row('TFRecord convert', cmds.tfrecord_convert || '—', true),
+    row('Cloud train template', cmds.cloud_tpu_train_template || '—', true),
+    `<div class="panel-subtitle" style="margin-top:8px;">Vertex / Edge distribution (templates)</div>`,
+    row('Upload to GCS', vertex.upload_to_gcs || '—', true),
+    row('Signed URL (gcloud)', vertex.sign_url_gcloud || '—', true),
+    row('Signed URL (gsutil)', vertex.sign_url_gsutil_legacy || '—', true),
+  ].join('');
+}
+
+async function wireCopyButtons(container) {
+  if (!container) return;
+  const buttons = container.querySelectorAll('[data-copy]');
+  buttons.forEach((btn) => {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', async () => {
+      const ok = await copyToClipboard(btn.getAttribute('data-copy'));
+      const old = btn.textContent;
+      btn.textContent = ok ? 'Copied' : 'Copy failed';
+      setTimeout(() => (btn.textContent = old), 900);
+    });
+  });
+}
+
+window.refreshCloudReadiness = async function () {
+  const list = document.getElementById('cloud-readiness-list');
+  if (list) list.innerHTML = '<div class="stack-item"><span class="stack-meta">Checking readiness…</span></div>';
+  try {
+    const res = await fetch('/api/training/cloud_readiness');
+    const data = await res.json();
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (list) list.innerHTML = renderCloudReadiness(data);
+    await wireCopyButtons(list);
+  } catch (err) {
+    console.warn('refreshCloudReadiness failed', err);
+    if (list) list.innerHTML = '<div class="stack-item"><span class="stack-meta">Readiness check failed</span></div>';
+  }
+};
+
+window.buildCloudExportZip = async function () {
+  const statusEl = document.getElementById('cloud-export-status');
+  if (statusEl) statusEl.textContent = 'Building zip…';
+  const include = {
+    episodes: !!document.getElementById('cloud-export-episodes')?.checked,
+    tfrecord: !!document.getElementById('cloud-export-tfrecord')?.checked,
+    seed_export: !!document.getElementById('cloud-export-seed')?.checked,
+    checkpoints: !!document.getElementById('cloud-export-checkpoints')?.checked,
+    trainer_status: true,
+  };
+  const limitRaw = document.getElementById('cloud-export-episode-limit')?.value;
+  const episode_limit = limitRaw ? Number(limitRaw) : null;
+  try {
+    const res = await fetch('/api/training/export_zip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ include, episode_limit }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'export failed');
+    if (statusEl) statusEl.innerHTML = `Built <strong>${escapeHtml(data.zip_name)}</strong> (${escapeHtml(String(data.size_bytes))} bytes) <button class="rail-btn" style="padding:6px 10px; font-size:12px;" onclick="window.open('${escapeHtml(data.download_url)}','_blank')">Download</button>`;
+  } catch (err) {
+    console.warn('buildCloudExportZip failed', err);
+    if (statusEl) statusEl.textContent = 'Export failed: ' + (err?.message || err);
+  }
+};
+
+window.listCloudExports = async function () {
+  const statusEl = document.getElementById('cloud-export-status');
+  if (statusEl) statusEl.textContent = 'Listing exports…';
+  try {
+    const res = await fetch('/api/training/exports');
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'list failed');
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (!items.length) {
+      if (statusEl) statusEl.textContent = 'No exports yet.';
+      return;
+    }
+    const first = items[0];
+    if (statusEl) statusEl.innerHTML = `Latest: <strong>${escapeHtml(first.name)}</strong> <button class="rail-btn" style="padding:6px 10px; font-size:12px;" onclick="window.open('${escapeHtml(first.download_url)}','_blank')">Download</button>`;
+  } catch (err) {
+    console.warn('listCloudExports failed', err);
+    if (statusEl) statusEl.textContent = 'List failed: ' + (err?.message || err);
+  }
+};
+
+window.installCloudBundle = async function () {
+  const statusEl = document.getElementById('cloud-install-status');
+  if (statusEl) statusEl.textContent = 'Installing…';
+  const kind = document.getElementById('cloud-install-kind')?.value || 'jax_seed_manifest';
+  const source_url = document.getElementById('cloud-install-url')?.value?.trim();
+  const source_path = document.getElementById('cloud-install-path')?.value?.trim();
+  try {
+    const res = await fetch('/api/training/install_bundle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, source_url: source_url || null, source_path: source_path || null }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'install failed');
+    if (statusEl) statusEl.textContent = `Installed: ${data.installed_to || data.edge_manifest || 'ok'}`;
+    // Refresh readiness after install.
+    if (typeof window.refreshCloudReadiness === 'function') window.refreshCloudReadiness();
+  } catch (err) {
+    console.warn('installCloudBundle failed', err);
+    if (statusEl) statusEl.textContent = 'Install failed: ' + (err?.message || err);
+  }
+};
+
 // Initialize view mode from storage on load (requires setViewMode in page)
 (function initViewModeClient() {
   try {
@@ -549,6 +763,9 @@ window.updateTrainingRail = async function () {
   function tick() {
     if (typeof window.updateTrainingRail === 'function') {
       window.updateTrainingRail();
+    }
+    if (typeof window.refreshCloudReadiness === 'function') {
+      window.refreshCloudReadiness();
     }
   }
   if (document.readyState === 'loading') {

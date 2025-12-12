@@ -31,5 +31,6 @@ TODO (offline Wikipedia context)
 - Model presets: `pi5` (default), `columnar_small`, `wave_only`, `hybrid`; optional `sparsity_lambda` (L1) per loop; JIT off by default.
 - HOPE eval: graded Q&A logged as RLDS; endpoint `POST /api/training/hope_eval` or set `run_hope_eval` in wavecore payload. Default questions file `continuonbrain/eval/hope_eval_questions.json`; episodes land in `/opt/continuonos/brain/rlds/episodes/hope_eval_<ts>.json`.
 - Fallback model order for eval: prefer `google/gemma-370m`, then `google/gemma-3n-2b`; primary chat runs HOPE agent manager first.
+- Cloud TPU handoff + re-acquire endpoints (UI-backed, offline-first): `GET /api/training/cloud_readiness`, `POST /api/training/export_zip`, `GET /api/training/exports`, `POST /api/training/install_bundle` (`kind`: `jax_seed_manifest` | `edge_bundle` | `vertex_edge`).
 
 Note: Conversation on 2025-12-10 about Pi5 startup/training is logged at `docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

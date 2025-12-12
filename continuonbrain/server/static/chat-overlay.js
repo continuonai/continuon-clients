@@ -250,7 +250,15 @@
       appendMessage(reply, 'assistant');
       renderStructured(data);
     } catch (err) {
-      appendMessage('Error: ' + (err?.message || 'chat failed'), 'system');
+      const href = (window.location && window.location.href) ? window.location.href : '';
+      const host = (window.location && window.location.host) ? window.location.host : '';
+      const msg = err?.message || 'chat failed';
+      const nameNotResolved = /ERR_NAME_NOT_RESOLVED/i.test(msg);
+      if (!host || nameNotResolved) {
+        appendMessage(`Error: cannot resolve robot host from this page. Open the UI using the robot IP, e.g. http://<robot-ip>:8080/ui (current: ${href})`, 'system');
+      } else {
+        appendMessage('Error: ' + msg, 'system');
+      }
     }
   }
 

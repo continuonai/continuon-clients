@@ -5,6 +5,12 @@ Simple JSON/HTTP server extracted from robot_api_server.
 import asyncio
 import json
 import mimetypes
+import os
+import re
+import shutil
+import time
+import zipfile
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
@@ -188,6 +194,45 @@ class SimpleJSONServer:
             else:
                 response_body = json.dumps({"status": "unknown", "message": "training status file not found"})
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/cloud_readiness":
+            payload = self._build_cloud_readiness()
+            return self._json_response(payload)
+        elif path == "/api/training/export_zip" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = self._build_cloud_export_zip(payload or {})
+                return self._json_response({"status": "ok", **result})
+            except Exception as exc:  # noqa: BLE001
+                return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
+        elif path == "/api/training/exports":
+            exports_dir = Path("/opt/continuonos/brain/exports")
+            exports_dir.mkdir(parents=True, exist_ok=True)
+            zips = sorted(exports_dir.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)[:40]
+            items = []
+            for p in zips:
+                try:
+                    items.append(
+                        {
+                            "name": p.name,
+                            "path": str(p),
+                            "size_bytes": p.stat().st_size,
+                            "mtime": p.stat().st_mtime,
+                            "download_url": f"/api/training/exports/download/{p.name}",
+                        }
+                    )
+                except Exception:
+                    continue
+            return self._json_response({"status": "ok", "exports_dir": str(exports_dir), "items": items})
+        elif path.startswith("/api/training/exports/download/") and method == "GET":
+            name = path.split("/")[-1]
+            return self._download_export_zip(name)
+        elif path == "/api/training/install_bundle" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = self._install_model_bundle(payload or {})
+                return self._json_response({"status": "ok", **result})
+            except Exception as exc:  # noqa: BLE001
+                return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
         elif path == "/api/training/logs":
             log_dir = Path("/opt/continuonos/brain/trainer/logs")
             logs = sorted(log_dir.glob("trainer_*.log"), key=lambda p: p.stat().st_mtime, reverse=True)[:5]
@@ -358,6 +403,348 @@ class SimpleJSONServer:
 
         # Fallback
         return "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+
+    def _build_cloud_readiness(self) -> Dict[str, Any]:
+        """
+        Lightweight, file-based readiness report for "cloud TPU v1 training" handoff.
+        Intentionally offline-first: no uploads are performed here.
+        """
+        rlds_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        tfrecord_dir = Path("/opt/continuonos/brain/rlds/tfrecord")
+        seed_export_dir = Path("/opt/continuonos/brain/model/adapters/candidate/core_model_seed")
+        seed_manifest = seed_export_dir / "model_manifest.json"
+        ckpt_dir = Path("/opt/continuonos/brain/trainer/checkpoints/core_model_seed")
+        trainer_status = Path("/opt/continuonos/brain/trainer/status.json")
+        proof = Path("/opt/continuonos/brain/proof_of_learning.json")
+
+        def _count_json(prefix: Optional[str] = None) -> int:
+            if not rlds_dir.exists():
+                return 0
+            if prefix:
+                return sum(1 for p in rlds_dir.glob(f"{prefix}*.json") if p.is_file())
+            return sum(1 for p in rlds_dir.glob("*.json") if p.is_file())
+
+        episodes_total = _count_json()
+        hope_eval = _count_json("hope_eval_")
+        facts_eval = _count_json("facts_eval_")
+
+        latest_episode = None
+        if rlds_dir.exists():
+            eps = sorted([p for p in rlds_dir.glob("*.json") if p.is_file()], key=lambda p: p.stat().st_mtime, reverse=True)
+            if eps:
+                latest_episode = {"path": str(eps[0]), "mtime": eps[0].stat().st_mtime}
+
+        tfrecord_files = []
+        if tfrecord_dir.exists():
+            tfrecord_files = [p for p in tfrecord_dir.rglob("*") if p.is_file()]
+
+        ckpts = []
+        if ckpt_dir.exists():
+            ckpts = [p for p in ckpt_dir.rglob("*") if p.is_file()]
+        ckpts_sorted = sorted(ckpts, key=lambda p: p.stat().st_mtime, reverse=True)
+        latest_ckpt = None
+        if ckpts_sorted:
+            latest_ckpt = {"path": str(ckpts_sorted[0]), "mtime": ckpts_sorted[0].stat().st_mtime, "size_bytes": ckpts_sorted[0].stat().st_size}
+
+        ready = True
+        gates = []
+
+        def gate(name: str, ok: bool, detail: str) -> None:
+            nonlocal ready
+            gates.append({"name": name, "ok": ok, "detail": detail})
+            if not ok:
+                ready = False
+
+        gate("episodes_present", episodes_total > 0, f"{episodes_total} episode(s) in {rlds_dir}")
+        gate("seed_manifest_present", seed_manifest.exists(), f"manifest at {seed_manifest}" if seed_manifest.exists() else f"missing {seed_manifest}")
+        gate("seed_checkpoints_present", len(ckpts) > 0, f"{len(ckpts)} file(s) in {ckpt_dir}" if ckpts else f"missing checkpoints in {ckpt_dir}")
+
+        # Optional-but-helpful evidence signals
+        optional = {
+            "tfrecord_dir": {"path": str(tfrecord_dir), "exists": tfrecord_dir.exists(), "file_count": len(tfrecord_files)},
+            "trainer_status": {"path": str(trainer_status), "exists": trainer_status.exists(), "mtime": trainer_status.stat().st_mtime if trainer_status.exists() else None},
+            "proof_of_learning": {"path": str(proof), "exists": proof.exists(), "mtime": proof.stat().st_mtime if proof.exists() else None},
+        }
+
+        # High-signal, copyable command suggestions (not executed by the server).
+        commands = {
+            "zip_episodes": "cd /opt/continuonos/brain && zip -r episodes.zip rlds/episodes",
+            "tfrecord_convert": "python -m continuonbrain.jax_models.data.tfrecord_converter --input-dir /opt/continuonos/brain/rlds/episodes --output-dir /opt/continuonos/brain/rlds/tfrecord --compress",
+            "cloud_tpu_train_template": "python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000",
+        }
+
+        return {
+            "status": "ok",
+            "ready_for_cloud_handoff": ready,
+            "gates": gates,
+            "rlds": {
+                "dir": str(rlds_dir),
+                "episodes_total": episodes_total,
+                "hope_eval_episodes": hope_eval,
+                "facts_eval_episodes": facts_eval,
+                "latest_episode": latest_episode,
+            },
+            "seed": {
+                "export_dir": str(seed_export_dir),
+                "manifest_path": str(seed_manifest),
+                "manifest_exists": seed_manifest.exists(),
+                "checkpoint_dir": str(ckpt_dir),
+                "checkpoint_file_count": len(ckpts),
+                "latest_checkpoint": latest_ckpt,
+            },
+            "optional": optional,
+            "commands": commands,
+            "distribution": {
+                "options": [
+                    {
+                        "id": "manual_zip",
+                        "label": "Manual zip (download/upload yourself)",
+                        "notes": "Build an export zip on-device, copy it to cloud/workstation, then paste the returned bundle URL or path into Install.",
+                    },
+                    {
+                        "id": "signed_edge_bundle",
+                        "label": "Signed OTA edge bundle (edge_manifest.json)",
+                        "notes": "Preferred for production OTA: signature/checksum gating happens in Continuon AI app + device verifier.",
+                    },
+                    {
+                        "id": "vertex_edge",
+                        "label": "Google Vertex AI + Edge distribution (transport)",
+                        "notes": "Use Vertex/GCS as the distribution channel; generate a signed URL to a .zip, then install it here (auto-detects bundle type).",
+                    },
+                ],
+                "vertex_templates": {
+                    "upload_to_gcs": "gcloud storage cp /opt/continuonos/brain/exports/<EXPORT_ZIP>.zip gs://<BUCKET>/<PREFIX>/<EXPORT_ZIP>.zip",
+                    "sign_url_gcloud": "gcloud storage sign-url --duration=1h --private-key-file=<SERVICE_ACCOUNT_KEY.json> gs://<BUCKET>/<PREFIX>/<EXPORT_ZIP>.zip",
+                    "sign_url_gsutil_legacy": "gsutil signurl -d 1h <SERVICE_ACCOUNT_KEY.json> gs://<BUCKET>/<PREFIX>/<EXPORT_ZIP>.zip",
+                    "vertex_model_registry_hint": "Optional: register the trained bundle metadata in Vertex AI Model Registry for tracking; distribution to devices still uses signed URLs or your OTA pipeline.",
+                },
+            },
+        }
+
+    def _sha256_file(self, path: Path) -> str:
+        h = hashlib.sha256()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def _build_cloud_export_zip(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        exports_dir = Path("/opt/continuonos/brain/exports")
+        exports_dir.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        name = payload.get("name") or f"cloud_handoff_{ts}.zip"
+        # Sanitize: keep it simple and safe.
+        name = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(name))
+        if not name.endswith(".zip"):
+            name += ".zip"
+        out_path = (exports_dir / name).resolve()
+        if not str(out_path).startswith(str(exports_dir.resolve())):
+            raise ValueError("Invalid export name")
+
+        include = payload.get("include") if isinstance(payload.get("include"), dict) else {}
+        include_episodes = bool(include.get("episodes", True))
+        include_tfrecord = bool(include.get("tfrecord", False))
+        include_seed = bool(include.get("seed_export", True))
+        include_checkpoints = bool(include.get("checkpoints", True))
+        include_status = bool(include.get("trainer_status", True))
+        episode_limit = payload.get("episode_limit")
+        try:
+            episode_limit = int(episode_limit) if episode_limit is not None else None
+        except Exception:
+            episode_limit = None
+
+        roots = []
+        if include_episodes:
+            roots.append(("rlds/episodes", Path("/opt/continuonos/brain/rlds/episodes")))
+        if include_tfrecord:
+            roots.append(("rlds/tfrecord", Path("/opt/continuonos/brain/rlds/tfrecord")))
+        if include_seed:
+            roots.append(("model/adapters/candidate/core_model_seed", Path("/opt/continuonos/brain/model/adapters/candidate/core_model_seed")))
+        if include_checkpoints:
+            roots.append(("trainer/checkpoints/core_model_seed", Path("/opt/continuonos/brain/trainer/checkpoints/core_model_seed")))
+        if include_status:
+            roots.append(("trainer/status.json", Path("/opt/continuonos/brain/trainer/status.json")))
+
+        with zipfile.ZipFile(out_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            # Always include a small metadata record for provenance.
+            meta = {
+                "created_at_unix_s": int(time.time()),
+                "created_at": ts,
+                "includes": {
+                    "episodes": include_episodes,
+                    "tfrecord": include_tfrecord,
+                    "seed_export": include_seed,
+                    "checkpoints": include_checkpoints,
+                    "trainer_status": include_status,
+                },
+            }
+            zf.writestr("handoff_manifest.json", json.dumps(meta, indent=2))
+
+            for arc_root, src in roots:
+                if not src.exists():
+                    continue
+                if src.is_file():
+                    zf.write(src, arcname=arc_root)
+                    continue
+
+                files = [p for p in src.rglob("*") if p.is_file()]
+                if arc_root == "rlds/episodes" and episode_limit and episode_limit > 0:
+                    files = sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)[:episode_limit]
+                for f in files:
+                    rel = f.relative_to(src)
+                    zf.write(f, arcname=str(Path(arc_root) / rel))
+
+        sha256 = self._sha256_file(out_path)
+        return {
+            "exports_dir": str(exports_dir),
+            "zip_name": out_path.name,
+            "zip_path": str(out_path),
+            "size_bytes": out_path.stat().st_size,
+            "sha256": sha256,
+            "download_url": f"/api/training/exports/download/{out_path.name}",
+        }
+
+    def _download_export_zip(self, name: str) -> bytes:
+        exports_dir = Path("/opt/continuonos/brain/exports").resolve()
+        exports_dir.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(name))
+        if safe != name or not safe.endswith(".zip"):
+            return b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n"
+        path = (exports_dir / safe).resolve()
+        if not str(path).startswith(str(exports_dir)) or not path.exists() or not path.is_file():
+            return b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+        content = path.read_bytes()
+        header = (
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: application/zip\r\n"
+            "Access-Control-Allow-Origin: *\r\n"
+            f"Content-Length: {len(content)}\r\n"
+            f"Content-Disposition: attachment; filename=\"{safe}\"\r\n\r\n"
+        )
+        return header.encode("utf-8") + content
+
+    def _install_model_bundle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Install a returned artifact from "distribution" (manual URL/path).
+
+        Supported kinds:
+        - jax_seed_manifest: expects a zip/folder containing model_manifest.json + checkpoint; installs to candidate/core_model_seed
+        - edge_bundle: expects a zip/folder containing edge_manifest.json; unpacks into model/bundles/<version or timestamp>
+        """
+        kind = payload.get("kind") or "jax_seed_manifest"
+        source_url = payload.get("source_url")
+        source_path = payload.get("source_path")
+        if not source_url and not source_path:
+            raise ValueError("Provide source_url or source_path")
+
+        incoming_root = Path("/opt/continuonos/brain/model/_incoming")
+        incoming_root.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        staging = incoming_root / f"incoming_{ts}"
+        staging.mkdir(parents=True, exist_ok=True)
+
+        # Fetch/copy into staging as either a file (zip) or a directory.
+        local_in = None
+        if source_path:
+            p = Path(str(source_path)).expanduser()
+            if not p.is_absolute():
+                raise ValueError("source_path must be absolute")
+            if not p.exists():
+                raise FileNotFoundError(str(p))
+            if p.is_dir():
+                local_in = staging / "payload_dir"
+                shutil.copytree(p, local_in)
+            else:
+                local_in = staging / p.name
+                shutil.copy2(p, local_in)
+        else:
+            # URL download (best-effort; keep minimal deps)
+            import urllib.request
+
+            dest = staging / "download.bin"
+            req = urllib.request.Request(str(source_url), headers={"User-Agent": "continuonbrain-ui/1.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+                with dest.open("wb") as f:
+                    shutil.copyfileobj(resp, f)
+            local_in = dest
+
+        extracted = staging / "extracted"
+        extracted.mkdir(parents=True, exist_ok=True)
+
+        if local_in.is_dir():
+            extracted = local_in
+        else:
+            # If it's a zip, extract; else treat as error.
+            if local_in.suffix.lower() != ".zip":
+                raise ValueError("Expected a .zip file (or a directory) for install")
+            with zipfile.ZipFile(local_in, "r") as zf:
+                zf.extractall(extracted)
+
+        # Vertex AI Edge is treated as a *distribution transport*; we auto-detect payload type.
+        if kind in {"vertex_edge", "auto"}:
+            if list(extracted.rglob("edge_manifest.json")):
+                kind = "edge_bundle"
+            elif list(extracted.rglob("model_manifest.json")):
+                kind = "jax_seed_manifest"
+            else:
+                raise ValueError("Unable to auto-detect bundle type (expected edge_manifest.json or model_manifest.json)")
+
+        if kind == "jax_seed_manifest":
+            manifest_candidates = list(extracted.rglob("model_manifest.json"))
+            if not manifest_candidates:
+                raise ValueError("model_manifest.json not found in bundle")
+            manifest_path = manifest_candidates[0]
+            manifest = json.loads(manifest_path.read_text())
+
+            target_dir = Path("/opt/continuonos/brain/model/adapters/candidate/core_model_seed")
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+            backup_dir = None
+            if target_dir.exists():
+                backup_dir = target_dir.parent / f"{target_dir.name}_backup_{ts}"
+                shutil.move(str(target_dir), str(backup_dir))
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            # Copy entire extracted bundle contents (flatten to target_dir root).
+            # Keep it simple: copy files adjacent to manifest and its tree.
+            src_root = manifest_path.parent
+            for p in src_root.rglob("*"):
+                if p.is_dir():
+                    continue
+                rel = p.relative_to(src_root)
+                dest = target_dir / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(p, dest)
+
+            return {
+                "kind": kind,
+                "installed_to": str(target_dir),
+                "backup_dir": str(backup_dir) if backup_dir else None,
+                "manifest_path": str(target_dir / "model_manifest.json"),
+                "notes": "Installed as candidate JAX seed; model selector should now detect it. (If this came from Vertex AI, it was treated as transport-only.)",
+            }
+
+        if kind == "edge_bundle":
+            edge_candidates = list(extracted.rglob("edge_manifest.json"))
+            if not edge_candidates:
+                raise ValueError("edge_manifest.json not found in bundle")
+            edge_path = edge_candidates[0]
+            edge = json.loads(edge_path.read_text())
+            version = str(edge.get("version") or ts)
+            version_safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", version)
+            bundles_dir = Path("/opt/continuonos/brain/model/bundles")
+            bundles_dir.mkdir(parents=True, exist_ok=True)
+            bundle_dir = bundles_dir / version_safe
+            if bundle_dir.exists():
+                bundle_dir = bundles_dir / f"{version_safe}_{ts}"
+            shutil.copytree(edge_path.parent, bundle_dir)
+            return {
+                "kind": kind,
+                "installed_to": str(bundle_dir),
+                "edge_manifest": str(bundle_dir / "edge_manifest.json"),
+                "notes": "Bundle staged; apply/switch is handled by the runtime/app OTA flow (signature/checksum gating).",
+            }
+
+        raise ValueError(f"Unknown install kind: {kind}")
 
     async def _serve_static(self, path: str, writer: asyncio.StreamWriter) -> None:
         """Serve static assets from server/static."""
