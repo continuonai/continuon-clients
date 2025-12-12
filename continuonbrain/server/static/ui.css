@@ -875,6 +875,66 @@ body {
     text-align: center;
 }
 
+/* Mobile-first quick actions */
+.mobile-top-actions {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin: 8px 0 4px 0;
+}
+
+.mobile-action-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.mobile-chip {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(122, 215, 255, 0.08), rgba(79, 157, 255, 0.06));
+    color: var(--text);
+    font-weight: 600;
+    min-width: 220px;
+}
+
+.mobile-chip.ghost {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+#mobile-health-chip[data-state="warning"] {
+    border-color: rgba(255, 149, 0, 0.6);
+    background: rgba(255, 149, 0, 0.12);
+    color: #ffd699;
+}
+
+.mobile-action-btn {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.mobile-action-btn.ghost {
+    border-style: dashed;
+}
+
+.mobile-action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.mobile-action-hint {
+    color: var(--muted);
+    font-size: 13px;
+}
+
 @media (max-width: calc(var(--bp-desktop))) {
     .ide-shell {
         padding: 24px 18px 32px 18px;
@@ -940,6 +1000,19 @@ body {
     }
 }
 
+@media (max-width: 640px) {
+    .mobile-action-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .mobile-action-btn,
+    .mobile-chip,
+    .mobile-action-hint {
+        width: 100%;
+    }
+}
+
 @media (max-width: 1024px) {
     .task-panel-grid {
         grid-template-columns: 1fr;
@@ -951,10 +1024,24 @@ body {
 
     .workspace-grid {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
 
     .col-resizer {
         display: none;
+    }
+
+    .mobile-top-actions {
+        display: flex;
+    }
+
+    .column {
+        width: 100%;
+    }
+
+    body.mobile-rail-hidden .right-column,
+    body.mobile-rail-hidden [data-resize="right"] {
+        display: none !important;
     }
 }
 

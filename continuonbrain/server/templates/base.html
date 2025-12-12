@@ -4,6 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0c111b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/static/icons/brain-icon.svg">
+    <link rel="manifest" href="/static/manifest.webmanifest">
     <title>ContinuonBrain New UI</title>
     <link rel="stylesheet" href="/static/ui.css">
     <style>
@@ -95,6 +99,17 @@
             <div class="logo">ContinuonBrain</div>
             <div class="status-indicator" id="connection-status">Connected</div>
         </header>
+        <div class="mobile-top-actions" id="mobile-actions" aria-live="polite">
+            <div class="mobile-action-row">
+                <div class="mobile-chip" id="mobile-status-chip">Loading robot status…</div>
+                <div class="mobile-chip ghost" id="mobile-health-chip">Health checks pending</div>
+            </div>
+            <div class="mobile-action-row">
+                <button class="mobile-action-btn" id="mobile-refresh" type="button">Refresh status</button>
+                <button class="mobile-action-btn ghost" id="mobile-rail-toggle" type="button">Hide agent rail</button>
+                <span class="mobile-action-hint">Prefer the Continuon AI app? Point it at this robot to use the mobile summary endpoint.</span>
+            </div>
+        </div>
         <div class="workspace-grid" id="workspace-grid">
             <!-- LEFT COLUMN: Navigation -->
             <section class="column left-column resizable" data-column="left">
@@ -198,6 +213,7 @@
         </div>
     </div>
     <script src="/static/client.js"></script>
+    <script src="/static/mobile-shell.js"></script>
     <script src="/static/chat-overlay.js"></script>
     <script>
         // Initialize UI components
