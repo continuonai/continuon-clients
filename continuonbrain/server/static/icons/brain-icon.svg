@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Continuon Brain runtime icon">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#7cf3ff"/>
+      <stop offset="1" stop-color="#5b8dff"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" ry="28" fill="#0c111b"/>
+  <path fill="url(#g)" d="M64 18c-20.4 0-37 16.6-37 37v18c0 20.4 16.6 37 37 37s37-16.6 37-37V55c0-20.4-16.6-37-37-37zm-25 37c0-13.8 11.2-25 25-25s25 11.2 25 25v18c0 13.8-11.2 25-25 25s-25-11.2-25-25z"/>
+  <circle cx="64" cy="50" r="10" fill="#e7f3ff"/>
+  <path d="M64 64c-10 0-18 8-18 18a3 3 0 1 0 6 0c0-6.6 5.4-12 12-12s12 5.4 12 12a3 3 0 1 0 6 0c0-10-8-18-18-18z" fill="#e7f3ff"/>
+</svg>

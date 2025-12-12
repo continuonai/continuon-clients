@@ -144,6 +144,32 @@ class SimpleJSONServer:
             status = await self.service.GetRobotStatus()
             response_body = json.dumps(status)
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/mobile/summary":
+            status = await self.service.GetRobotStatus()
+            loops = await self.service.GetLoopHealth()
+            tasks = await self.service.ListTasks(include_ineligible=False)
+
+            status_block = status.get("status") if isinstance(status, dict) else {}
+            battery = (status_block or {}).get("battery", {}) if isinstance(status_block, dict) else {}
+            task_list = tasks.get("tasks") if isinstance(tasks, dict) else None
+
+            payload = {
+                "status": status,
+                "loops": loops,
+                "tasks": {
+                    "success": tasks.get("success") if isinstance(tasks, dict) else None,
+                    "tasks": (task_list or [])[:5],
+                    "selected_task_id": tasks.get("selected_task_id") if isinstance(tasks, dict) else None,
+                },
+                "mobile": {
+                    "mode": (status_block or {}).get("mode") or (status_block or {}).get("robot_mode"),
+                    "battery_percent": battery.get("percent"),
+                    "selected_task_id": tasks.get("selected_task_id") if isinstance(tasks, dict) else None,
+                },
+            }
+
+            response_body = json.dumps(payload)
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/wiring":
             response_body = json.dumps(self._get_wiring_stats())
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"

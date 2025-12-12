@@ -26,6 +26,12 @@ GET http://192.168.68.90:8080/api/status
 ```
 Returns the current robot status and mode.
 
+#### 1b. Mobile Summary (optimized for quick status cards)
+```
+GET http://192.168.68.90:8080/api/mobile/summary
+```
+Returns a small JSON payload that combines the robot status, most recent safety gate snapshot, and the first few eligible tasks. The Continuon AI app can poll this endpoint to populate a lightweight mobile dashboard without loading the web UI.
+
 #### 2. Chat with AI
 ```
 POST http://192.168.68.90:8080/api/chat
