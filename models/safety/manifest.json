@@ -1,0 +1,44 @@
+{
+  "version": "0.1.0",
+  "draft": false,
+  "description": "Base safety manifest placeholder for Pi5 seed/edge bundles. Update before OTA with final rule sets and signatures.",
+  "rules": [
+    {
+      "id": "base_shutdown_on_fault",
+      "severity": "critical",
+      "action": "halt_and_fallback",
+      "conditions": [
+        "servo_fault",
+        "thermal_critical",
+        "imu_outlier",
+        "camera_lost",
+        "power_critical"
+      ],
+      "notes": "Immutable base rule; keep last-known-good bundle available."
+    },
+    {
+      "id": "vision_privacy",
+      "severity": "high",
+      "action": "halt_and_log",
+      "conditions": [
+        "pii_detected",
+        "unsafe_scene"
+      ],
+      "notes": "Honor PII/safety scans before public listing; prefer redacted assets when pii_redacted=true."
+    }
+  ],
+  "telemetry": {
+    "log_level": "info",
+    "rlds_tags": [
+      "safety_check"
+    ]
+  },
+  "fallback": {
+    "last_known_good": true,
+    "require_signature": true
+  },
+  "provenance": {
+    "source": "continuon.brain_runtime",
+    "created_at_unix_ms": 1733961936000
+  }
+}

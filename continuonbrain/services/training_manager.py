@@ -38,22 +38,28 @@ class TrainingManager:
         trainer_config: Path,
         episodes_dir: Path,
         export_dir: Path,
+        tfrecord_dir: Path,
         wiki_manifest: Optional[Path] = None,
         run_health: bool = False,
         run_local_trainer: bool = False,
         run_export: bool = False,
         run_post_validate: bool = False,
         real_hardware: bool = False,
+        run_tfrecord_convert: bool = False,
+        trainer_data_path: Optional[Path] = None,
     ):
         self.trainer_config = trainer_config
         self.episodes_dir = episodes_dir
         self.export_dir = export_dir
+        self.tfrecord_dir = tfrecord_dir
         self.wiki_manifest = wiki_manifest
         self.run_health = run_health
         self.run_local_trainer = run_local_trainer
         self.run_export = run_export
         self.run_post_validate = run_post_validate
         self.real_hardware = real_hardware
+        self.run_tfrecord_convert = run_tfrecord_convert
+        self.trainer_data_path = trainer_data_path
 
         self.config_payload = self._load_trainer_config(trainer_config)
 
@@ -63,6 +69,7 @@ class TrainingManager:
         reports.append(self._step_health())
         reports.append(self._step_wiki_manifest())
         reports.append(self._step_episode_inventory())
+        reports.append(self._step_tfrecord_convert())
         reports.append(self._step_local_training())
         reports.append(self._step_export())
         reports.append(self._step_post_validate())
@@ -104,6 +111,38 @@ class TrainingManager:
                 "min_required": min_eps,
                 "episodes_dir": str(self.episodes_dir),
             },
+        )
+
+    def _step_tfrecord_convert(self) -> StepReport:
+        """Convert JSON/JSONL episodes to TFRecord for JAX/TF trainers."""
+        # If user opted in, run conversion; otherwise warn if tfrecord_dir is empty.
+        tfrecord_files = list(self.tfrecord_dir.glob("*.tfrecord*"))
+        if not self.run_tfrecord_convert:
+            status: StepStatus = "ok" if tfrecord_files else "warn"
+            return StepReport(
+                name="tfrecord_convert",
+                status=status,
+                details={
+                    "reason": "run with --convert-tfrecord to generate TFRecords" if not tfrecord_files else "existing TFRecords found",
+                    "tfrecord_dir": str(self.tfrecord_dir),
+                    "tfrecord_count": len(tfrecord_files),
+                },
+                commands=[self._tfrecord_cmd()],
+            )
+
+        cmd = self._tfrecord_cmd()
+        proc = self._run_cmd(cmd)
+        status: StepStatus = "ok" if proc.returncode == 0 else "fail"
+        return StepReport(
+            name="tfrecord_convert",
+            status=status,
+            details={
+                "returncode": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "tfrecord_dir": str(self.tfrecord_dir),
+            },
+            commands=[cmd],
         )
 
     def _step_wiki_manifest(self) -> StepReport:
@@ -201,7 +240,7 @@ class TrainingManager:
         )
 
     def _trainer_cmd(self) -> List[str]:
-        return [
+        cmd = [
             sys.executable,
             "-m",
             "continuonbrain.run_trainer",
@@ -211,6 +250,20 @@ class TrainingManager:
             "local",
             "--config",
             str(self.trainer_config),
+        ]
+        if self.trainer_data_path:
+            cmd.extend(["--data-path", str(self.trainer_data_path)])
+        return cmd
+
+    def _tfrecord_cmd(self) -> List[str]:
+        return [
+            sys.executable,
+            "-m",
+            "continuonbrain.jax_models.data.tfrecord_converter",
+            "--input-dir",
+            str(self.episodes_dir),
+            "--output-dir",
+            str(self.tfrecord_dir),
         ]
 
     def _export_cmd(self) -> List[str]:
@@ -284,6 +337,12 @@ def _parse_args() -> argparse.Namespace:
         help="RLDS episodes directory",
     )
     parser.add_argument(
+        "--tfrecord-dir",
+        type=Path,
+        default=Path("/opt/continuonos/brain/rlds/tfrecord"),
+        help="Output directory for TFRecord episodes (for JAX/TF trainers)",
+    )
+    parser.add_argument(
         "--export-dir",
         type=Path,
         default=Path("/opt/continuonos/brain/rlds/export"),
@@ -294,6 +353,13 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Optional wiki/episodic manifest path for RAG readiness reporting",
+    )
+    parser.add_argument("--convert-tfrecord", action="store_true", help="Convert JSON/JSONL episodes to TFRecord")
+    parser.add_argument(
+        "--trainer-data-path",
+        type=Path,
+        default=None,
+        help="Optional data path passed to run_trainer (e.g., TFRecord directory)",
     )
     parser.add_argument("--health", action="store_true", help="Run quick system health check")
     parser.add_argument("--train-local", action="store_true", help="Run local trainer")
@@ -309,12 +375,15 @@ def main() -> int:
         trainer_config=args.trainer_config,
         episodes_dir=args.episodes_dir,
         export_dir=args.export_dir,
+        tfrecord_dir=args.tfrecord_dir,
         wiki_manifest=args.wiki_manifest,
         run_health=args.health,
         run_local_trainer=args.train_local,
         run_export=args.export,
         run_post_validate=args.post_validate,
         real_hardware=args.real_hardware,
+        run_tfrecord_convert=args.convert_tfrecord,
+        trainer_data_path=args.trainer_data_path,
     )
     reports = manager.run()
     for report in reports:

@@ -1,6 +1,6 @@
 # End-to-End Training Plan (Pi5 → Cloud → Pi OTA)
 
-Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, promoting adapters to Continuon Cloud for TPU training, and returning a signed Hope Model v1 edge bundle that replaces the seed. See `docs/seed-model-plan.md` for the detailed Fast/Mid/Slow seed playbook (Pi capture + GCP TPU export) that this plan references.
+Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, promoting adapters to Continuon Cloud for TPU training, and returning a signed Hope Model v1 edge bundle that replaces the seed. See `docs/seed-model-plan.md` for the detailed Fast/Mid/Slow seed playbook (Pi capture + GCP TPU export) that this plan references. The on-device path is now JAX-first (CoreModel + HOPE states); the PyTorch LoRA trainer remains an optional fallback.
 
 ## Phases & Gates
 
@@ -16,38 +16,46 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
 3) **Data capture (seed → RLDS)**
    - Collect ≥16 episodes (pi5-donkey config) using XR/companion/manual teleop.
    - Target: 20–50 Hz action/state, depth RGB-D at stable 640x480@30; sync within ≤5 ms.
-   - Storage: `/opt/continuonos/brain/rlds/episodes/…`
+   - Storage: `/opt/continuonos/brain/rlds/episodes/…` (JSON/JSONL or TFRecord accepted).
 
-4) **On-device adapter training (Pi)**
-   - Config: `continuonbrain/configs/pi5-donkey.json` (batch 8, max_steps 300, shuffle 2).
-   - Run: `python -m continuonbrain.trainer.local_lora_trainer --config continuonbrain/configs/pi5-donkey.json --use-stub-hooks` (replace hooks when real model ready).
-   - Output: `/opt/continuonos/brain/model/adapters/candidate/lora_adapters.pt`
-   - Gate: loss converges, resource monitor not CRITICAL/EMERGENCY, checkpoints saved.
+4) **On-device JAX sanity check (Pi)**
+   - Config: JAX `arch_preset=pi5` (fast/mid HOPE state sizes). Optional `--sparsity-lambda` to mirror cloud regularization.
+   - Run: `python -m continuonbrain.jax_models.train.local_sanity_check --rlds-dir /opt/continuonos/brain/rlds/episodes --arch-preset pi5 --max-steps 8 --batch-size 4 --metrics-path /tmp/jax_sanity.csv --checkpoint-dir /tmp/jax_ckpts`
+   - Notes: Automatically falls back to JSON episode loading when TensorFlow is unavailable; writes lightweight pickle checkpoints if requested.
+   - Gate: loss finite and decreasing; state shapes match config; no CRITICAL resource alerts.
 
-5) **RLDS prep for cloud**
-   - Anonymize/validate: `python -m continuonbrain.rlds.export_pipeline --help` (or call `prepare_cloud_export` in code).
+5) **Proof-of-learning (artifact)**
+   - Run: `python prove_learning_capability.py` (background learner with mocked resource headroom).
+   - Output: `proof_of_learning.json` + console verdict showing parameter deltas and novelty.
+   - Gate: non-zero learning updates and parameter change >1e-9; stash artifact for bundle audit.
+
+6) **RLDS prep for cloud (TFRecord)**
+   - Convert/validate: `python -m continuonbrain.jax_models.data.tfrecord_converter --input-dir /opt/continuonos/brain/rlds/episodes --output-dir /opt/continuonos/brain/rlds/tfrecord --compress`
+   - Optional: `python -m continuonbrain.rlds.export_pipeline --episodes-dir ... --output-dir ...` to produce anonymized manifests.
    - Env tag: `CONTINUON_EXPORT_ORIGIN=pi5` (default) to stamp manifest.
    - Gate: validation reports OK; manifest written under export dir.
 
-6) **Cloud training (Continuon Cloud / TPU)**
-   - Upload RLDS + candidate adapters to cloud bucket (per cloud ingest docs).
+7) **Cloud training (Continuon Cloud / TPU)**
+   - Upload RLDS TFRecords + any candidate adapters to cloud bucket (per cloud ingest docs).
    - Run JAX/TPU trainer: `python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000` (matches the seed playbook’s TPU step).
    - Output: Hope Model v1 artifacts (TFLite/ONNX/Hailo-HEF placeholders) + safety manifest.
    - Gate: eval metrics pass (set project-specific thresholds), bundle passes integrity/signature.
 
-7) **Edge bundle assembly**
+8) **Edge bundle assembly**
    - Follow `docs/bundle_manifest.md`; include:
      - Base/adapter weights (TFLite or ONNX), optional `.hef` if compiled.
      - `edge_manifest.json` with version, compat, signatures, preferred backends, safety manifest.
+     - Training evidence: `proof_of_learning.json`, JAX sanity metrics, cloud eval summaries.
    - Sign bundle; store last-known-good for rollback.
 
-8) **OTA back to Pi**
+9) **OTA back to Pi**
    - Deliver via companion app OTA flow (ownership + subscription gated).
    - On Pi: download → verify signature/checksum → stage A/B → hot-swap.
    - Gate: startup manager passes health with new model; control loop latency within budget; fallback preserved.
 
-9) **Post-deploy validation**
+10) **Post-deploy validation**
    - Run: `PYTHONPATH=$PWD python3 continuonbrain/tests/integration_test.py --real-hardware`
+   - Smoke inference: `python -m continuonbrain.jax_models.export.infer_cpu --model-path ./models/core_model_inference --obs-dim 128 --action-dim 32`
    - Spot-check RLDS logging still aligned; run short teleop and autonomous demos.
    - If regressions: rollback to prior bundle, keep failing bundle + logs for cloud triage.
 
@@ -83,16 +91,30 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
 - Cloud training: meets target metrics; bundle signed; size within Pi limits.
 - Deployment: OTA apply succeeds; control loop ≤100 ms mid-loop; rollback path intact.
 
-## Training manager helper
+## Training manager helper (TFRecord-ready)
 
-- Dry-run the plan and optionally execute steps with the orchestrator:
+- Dry-run + episode inventory + TFRecord check:
 
   ```bash
   python -m continuonbrain.services.training_manager \
-    --health \
-    --train-local \
-    --export \
-    --post-validate
+    --episodes-dir /opt/continuonos/brain/rlds/episodes \
+    --tfrecord-dir /opt/continuonos/brain/rlds/tfrecord
   ```
 
-  Flags are opt-in; without them the manager only reports status and suggested commands.
+- Full edge-side flow (health + convert TFRecord + local train + export):
+
+  ```bash
+  python -m continuonbrain.services.training_manager \
+    --episodes-dir /opt/continuonos/brain/rlds/episodes \
+    --tfrecord-dir /opt/continuonos/brain/rlds/tfrecord \
+    --health \
+    --convert-tfrecord \
+    --train-local \
+    --trainer-data-path /opt/continuonos/brain/rlds/tfrecord \
+    --export
+  ```
+
+  Notes:
+  - `--convert-tfrecord` runs the JAX TFRecord converter before training.
+  - `--trainer-data-path` points the trainer at the TFRecord directory (JAX/TF path).
+  - Flags are opt-in; without them the manager reports status and suggested commands.

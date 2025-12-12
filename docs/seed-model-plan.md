@@ -16,6 +16,8 @@ Quick validation hooks (keep docs and code aligned):
 
 - Import check: `python -m continuonbrain.trainer.local_lora_trainer --help`
 - Orchestrator dry-run: `python -m continuonbrain.services.training_manager --health --export --post-validate` (flags opt-in; no execution without them)
+- TFRecord conversion (JAX/TF path): `python -m continuonbrain.jax_models.data.tfrecord_converter --input-dir /opt/continuonos/brain/rlds/episodes --output-dir /opt/continuonos/brain/rlds/tfrecord --compress`
+- Orchestrator end-to-end (edge path): `python -m continuonbrain.services.training_manager --convert-tfrecord --train-local --trainer-data-path /opt/continuonos/brain/rlds/tfrecord --export`
 
 ## 4-Week Timeline (starting now)
 

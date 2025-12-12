@@ -5,11 +5,14 @@ Convert JSON/JSONL episodes to TFRecord format optimized for TPU ingestion.
 Validates schema against proto definitions.
 """
 
+from __future__ import annotations
+
 import json
 import gzip
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Iterator
 import numpy as np
+import argparse
 
 try:
     import tensorflow as tf
@@ -219,13 +222,13 @@ def convert_directory_to_tfrecord(
     pattern: str = "*.{json,jsonl}",
 ) -> List[Path]:
     """
-    Convert all episodes in a directory to TFRecord format.
+    Convert all episodes in a directory (or a single episode file) to TFRecord.
     
     Args:
-        input_dir: Input directory containing episode files
+        input_dir: Directory containing episodes or a single .json/.jsonl file
         output_dir: Output directory (defaults to input_dir / "tfrecord")
         compress: Whether to use GZIP compression
-        pattern: Glob pattern for episode files
+        pattern: Glob pattern for episode files (directory mode only)
     
     Returns:
         List of output TFRecord file paths
@@ -235,14 +238,19 @@ def convert_directory_to_tfrecord(
     
     input_dir = Path(input_dir)
     if output_dir is None:
-        output_dir = input_dir / "tfrecord"
+        output_dir = input_dir.parent / "tfrecord" if input_dir.is_file() else input_dir / "tfrecord"
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Find episode files
-    json_files = list(input_dir.glob("*.json"))
-    jsonl_files = list(input_dir.glob("*.jsonl"))
-    episode_files = sorted(json_files + jsonl_files)
+    # Resolve episode files (single file or directory glob)
+    if input_dir.is_file():
+        if input_dir.suffix not in {".json", ".jsonl"}:
+            raise ValueError(f"Unsupported file format: {input_dir}")
+        episode_files = [input_dir]
+    else:
+        json_files = list(input_dir.glob("*.json"))
+        jsonl_files = list(input_dir.glob("*.jsonl"))
+        episode_files = sorted(json_files + jsonl_files)
     
     if not episode_files:
         print(f"No episode files found in {input_dir}", flush=True)
@@ -271,6 +279,43 @@ def convert_directory_to_tfrecord(
             continue
     
     return output_paths
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Convert JSON/JSONL episodes to TFRecord")
+    parser.add_argument(
+        "--input-dir",
+        required=True,
+        help="Directory containing episodes or a single .json/.jsonl file",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory for TFRecords (defaults to <input>/tfrecord or sibling when input is a file)",
+    )
+    parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Disable GZIP compression (default: compress)",
+    )
+    args = parser.parse_args()
+
+    compress = not args.no_compress
+    input_path = Path(args.input_dir)
+    output_dir = Path(args.output_dir) if args.output_dir else None
+
+    outputs = convert_directory_to_tfrecord(
+        input_path,
+        output_dir=output_dir,
+        compress=compress,
+    )
+    if not outputs:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 
 
 def validate_tfrecord_schema(tfrecord_path: Path) -> bool:

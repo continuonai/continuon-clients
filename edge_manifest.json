@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1-seed",
+  "model_name": "core-seed-pi5",
+  "artifacts": {
+    "cpu_bundle": "models/core_model_inference/",
+    "hailo_bundle": "models/core_model_hailo/",
+    "safety_manifest": "models/safety/manifest.json"
+  },
+  "checksums": {
+    "cpu_bundle_sha256": "<fill-after-export>",
+    "hailo_bundle_sha256": "<fill-after-export>",
+    "safety_manifest_sha256": "b668af23025a8b35b2663295e70e958052670f3badedde9c8a67268a12dce242"
+  },
+  "signature": "<detached-signature-base64>",
+  "created_at_unix_ms": 1733961936000,
+  "source": "continuon.cloud"
+}

@@ -124,6 +124,37 @@ def _build_status_payload() -> dict:
     }
 
 
+def _training_pipeline_overview() -> dict:
+    """
+    Latest training pipeline summary for UI/API consumers.
+    Mirrors docs/training-plan.md and /ui/training-plan.
+    """
+    return {
+        "pipeline": "jax_pi5_seed",
+        "purpose": "Pi RLDS → JAX sanity check → TFRecord → TPU train → OTA bundle with proof.",
+        "on_device": {
+            "rlds_path": "/opt/continuonos/brain/rlds/episodes",
+            "tfrecord_path": "/opt/continuonos/brain/rlds/tfrecord",
+            "sanity_check_cmd": "python -m continuonbrain.jax_models.train.local_sanity_check --rlds-dir /opt/continuonos/brain/rlds/episodes --arch-preset pi5 --max-steps 8 --batch-size 4 --metrics-path /tmp/jax_sanity.csv --checkpoint-dir /tmp/jax_ckpts",
+            "proof_cmd": "python prove_learning_capability.py",
+            "proof_artifact": "proof_of_learning.json",
+            "tfrecord_cmd": "python -m continuonbrain.jax_models.data.tfrecord_converter --input-dir /opt/continuonos/brain/rlds/episodes --output-dir /opt/continuonos/brain/rlds/tfrecord --compress",
+        },
+        "cloud": {
+            "train_cmd": "python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000",
+            "export_cmd": "python -m continuonbrain.jax_models.export.export_jax --checkpoint-path gs://... --output-path ./models/core_model_inference --quantization fp16",
+            "hailo_cmd": "python -m continuonbrain.jax_models.export.export_hailo --checkpoint-path ./models/core_model_inference --output-dir ./models/core_model_hailo",
+            "bundle_manifest": "docs/bundle_manifest.md",
+        },
+        "evidence": {
+            "metrics_csv": "/tmp/jax_sanity.csv",
+            "checkpoints_dir": "/tmp/jax_ckpts",
+            "proof_json": "proof_of_learning.json",
+            "edge_manifest": "edge_manifest.json",
+        },
+    }
+
+
 def _skill_eligibility_for(skill) -> SkillEligibility:
     """Lightweight skill eligibility using current capabilities."""
     caps = getattr(brain_service, "capabilities", {}) if brain_service else {}
@@ -427,6 +458,10 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_brain_map_html().encode("utf-8"))
+
+            elif self.path == "/api/training/pipeline":
+                # JSON mirror of /ui/training-plan for automation/tests
+                self.send_json(_training_pipeline_overview())
 
             elif self.path == "/api/hope/structure":
                 data = brain_service.get_brain_structure()

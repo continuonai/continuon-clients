@@ -10,6 +10,7 @@ import time
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Iterable, Sequence
+from dataclasses import dataclass
 import jax
 import jax.numpy as jnp
 import optax
@@ -26,6 +27,36 @@ from ..data.rlds_dataset import (
 import csv
 import json
 import pickle
+
+
+@dataclass
+class JsonEpisodeStep:
+    obs: np.ndarray
+    action: np.ndarray
+    reward: float
+    done: bool
+
+
+def _load_json_episodes(
+    episodes_dir: Path,
+    obs_dim: int,
+    action_dim: int,
+) -> list[JsonEpisodeStep]:
+    """Lightweight loader for JSON episodes when TF is unavailable."""
+    steps_out: list[JsonEpisodeStep] = []
+    for episode_path in sorted(episodes_dir.glob("*.json")):
+        try:
+            data = json.loads(episode_path.read_text())
+        except Exception:
+            continue
+        steps = data.get("steps", [])
+        for step in steps:
+            obs_vec = _extract_obs_vector(step.get("observation", {}), obs_dim)
+            act_vec = _extract_action_vector(step.get("action", {}), action_dim)
+            reward = float(step.get("reward", 0.0))
+            done = bool(step.get("is_terminal", False))
+            steps_out.append(JsonEpisodeStep(obs_vec, act_vec, reward, done))
+    return steps_out
 
 
 def create_initial_state(
@@ -250,56 +281,35 @@ def run_sanity_check(
         else:
             print(f"TensorFlow not available; loading JSON episodes from {rlds_dir}")
 
-            def _iter_json_batches() -> Iterable[Dict[str, jnp.ndarray]]:
-                files = sorted(Path(rlds_dir).glob("*.json"))
-                if not files:
-                    raise RuntimeError(f"No JSON episodes found in {rlds_dir}")
+            steps = _load_json_episodes(Path(rlds_dir), obs_dim, action_dim)
+            if not steps:
+                raise RuntimeError(f"No JSON episodes found in {rlds_dir}")
 
-                buffer: list[Dict[str, Any]] = []
+            def _iter_json_batches() -> Iterable[Dict[str, jnp.ndarray]]:
+                buffer: list[JsonEpisodeStep] = []
                 steps_emitted = 0
 
                 def flush():
                     nonlocal buffer, steps_emitted
                     while len(buffer) >= batch_size and steps_emitted < max_steps:
                         batch = buffer[:batch_size]
-                        buffer = buffer[batch_size:]
+                        buffer[:] = buffer[batch_size:]
                         steps_emitted += 1
                         yield {
-                            "obs": jnp.stack([s["obs"] for s in batch]),
-                            "action": jnp.stack([s["action"] for s in batch]),
-                            "reward": jnp.stack([s["reward"] for s in batch]),
-                            "done": jnp.stack([s["done"] for s in batch]),
+                            "obs": jnp.stack([s.obs for s in batch]),
+                            "action": jnp.stack([s.action for s in batch]),
+                            "reward": jnp.stack([np.asarray([s.reward], dtype=np.float32) for s in batch]),
+                            "done": jnp.stack([np.asarray([s.done], dtype=np.bool_) for s in batch]),
                         }
 
-                for path in files:
-                    payload = json.loads(path.read_text())
-                    for step in payload.get("steps", []):
-                        obs_vec = _extract_obs_vector(step.get("obs", {}), obs_dim)
-                        act_vec = _extract_action_vector(step.get("action", {}), action_dim)
-                        buffer.append(
-                            {
-                                "obs": jnp.asarray(obs_vec),
-                                "action": jnp.asarray(act_vec),
-                                "reward": jnp.asarray([float(step.get("reward", 0.0))]),
-                                "done": jnp.asarray([bool(step.get("done", False))]),
-                            }
-                        )
-                        if len(buffer) >= batch_size:
-                            yield from flush()
-                        if steps_emitted >= max_steps:
-                            return
+                for step in steps:
+                    buffer.append(step)
+                    if len(buffer) >= batch_size:
+                        yield from flush()
+                    if steps_emitted >= max_steps:
+                        break
 
-                # Flush any remainder if we still need steps
-                while buffer and steps_emitted < max_steps:
-                    take = buffer[:batch_size]
-                    buffer = buffer[batch_size:]
-                    steps_emitted += 1
-                    yield {
-                        "obs": jnp.stack([s["obs"] for s in take]),
-                        "action": jnp.stack([s["action"] for s in take]),
-                        "reward": jnp.stack([s["reward"] for s in take]),
-                        "done": jnp.stack([s["done"] for s in take]),
-                    }
+                yield from flush()
 
             data_iter = _iter_json_batches()
     
