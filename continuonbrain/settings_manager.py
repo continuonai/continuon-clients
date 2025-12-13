@@ -28,6 +28,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "chat": {
         "persona": "operator",
         "temperature": 0.35,
+        # Opt-in: log chat turns to RLDS episodes for later training/eval replay.
+        "log_rlds": False,
     },
     "training": {
         "enable_sidecar_trainer": False,  # Disabled by default to save resources
@@ -136,6 +138,8 @@ class SettingsStore:
                 normalized["chat"]["temperature"] = round(temperature_value, 2)
         except (TypeError, ValueError):
             errors.append("Chat temperature must be a number")
+
+        normalized["chat"]["log_rlds"] = bool(chat.get("log_rlds", normalized["chat"]["log_rlds"]))
 
         if errors:
             raise SettingsValidationError("; ".join(errors))

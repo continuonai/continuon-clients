@@ -305,7 +305,16 @@ class ChatAdapter:
           CONTINUON_LOG_CHAT_RLDS=1
         """
         try:
-            enabled = os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0").lower() in ("1", "true", "yes", "on")
+            enabled_env = os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0").lower() in ("1", "true", "yes", "on")
+            enabled_settings = False
+            try:
+                from continuonbrain.settings_manager import SettingsStore
+
+                settings = SettingsStore(Path(self.config_dir)).load()
+                enabled_settings = bool(((settings or {}).get("chat") or {}).get("log_rlds", False))
+            except Exception:
+                enabled_settings = False
+            enabled = bool(enabled_env or enabled_settings)
             if not enabled:
                 return
             from continuonbrain.rlds.chat_rlds_logger import ChatRldsLogConfig, log_chat_turn

@@ -45,6 +45,7 @@ from continuonbrain.services.wavecore_trainer import WavecoreTrainer
 from continuonbrain.services.tool_router_trainer import ToolRouterTrainer, ToolRouterTrainRequest
 from continuonbrain.services.tool_router_evaluator import ToolRouterEvaluator, ToolRouterEvalRequest
 import subprocess
+import time
 from continuonbrain.services.audio_io import record_wav, speak_text
 from continuonbrain.services.pairing_manager import PairingManager
 from continuonbrain.services.video_stream import VideoStreamHelper
@@ -313,6 +314,45 @@ class RobotService:
             "account_id": None,
         }
         return {"status": "ok", "ownership": ownership, **flat}
+
+    async def RunChatLearn(self, payload: Optional[dict] = None) -> dict:
+        """Run a bounded multi-turn learning conversation using Gemma 3n and log via chat->RLDS when enabled."""
+        payload = payload or {}
+        turns = int(payload.get("turns", 10) or 10)
+        turns = max(1, min(turns, 50))
+        session_id = str(payload.get("session_id") or f"chat_learn_{int(time.time())}")
+        model_hint = str(payload.get("model_hint") or "google/gemma-3n-2b")
+        delegate_model_hint = payload.get("delegate_model_hint")
+        topic = str(payload.get("topic") or "tool use + planning + safety")
+
+        # Seed prompt: ask the model to propose improvements and learning tasks.
+        message = (
+            "We are training the HOPE Agent Manager via conversation. "
+            f"Topic focus: {topic}. "
+            "Give concise, technical answers. Propose a small plan. "
+            "If you mention tools, include suggested tool names. "
+            "End each turn with the structured JSON line as required."
+        )
+        history: list = []
+        outputs = []
+        for i in range(turns):
+            resp = await self.ChatWithGemma(
+                message,
+                history,
+                session_id=session_id,
+                model_hint=model_hint,
+                delegate_model_hint=delegate_model_hint,
+            )
+            outputs.append(resp)
+            # Feed response back as next message to create a self-play style refinement loop.
+            assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": assistant_text})
+            message = (
+                f"Continue. Improve the previous plan, add one new testable skill, and one data-collection action. "
+                f"Turn {i+2}/{turns}."
+            )
+        return {"status": "ok", "session_id": session_id, "turns": turns, "model_hint": model_hint, "results": outputs[-3:]}
 
     async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
         """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
