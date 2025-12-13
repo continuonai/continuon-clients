@@ -68,6 +68,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
             "facts_eval_every_s": 3600,
             "wavecore_every_s": 1800,
             "tool_router_every_s": 3600,
+            # Skip tasks when headroom drops below reserve+X MB (prevents compaction/evals from thrashing on low-memory Pi).
+            "min_memory_headroom_mb": 512,
             # Bounded workloads (keep small on Pi)
             "wavecore_steps_fast": 60,
             "wavecore_steps_mid": 120,
