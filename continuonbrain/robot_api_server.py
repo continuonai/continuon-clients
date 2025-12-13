@@ -42,11 +42,16 @@ from continuonbrain.services.chat_adapter import ChatAdapter
 from continuonbrain.services.training_runner import TrainingRunner
 from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest
 from continuonbrain.services.wavecore_trainer import WavecoreTrainer
+from continuonbrain.services.tool_router_trainer import ToolRouterTrainer, ToolRouterTrainRequest
 from continuonbrain.services.video_stream import VideoStreamHelper
 from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
+from continuonbrain.jax_models.infer.tool_router_infer import load_tool_router_bundle, predict_topk
 
 # Use extracted SimpleJSONServer implementation
 SimpleJSONServer = server_routes.SimpleJSONServer
+
+# Repo root for resolving bundled question files when running from source.
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Backward-compatible chat factory for tests and mocks.
 def create_gemma_chat(use_mock: bool = False):
@@ -92,7 +97,9 @@ class RobotService:
         self.training_runner = TrainingRunner()
         self.wavecore_trainer = WavecoreTrainer()
         self.manual_trainer = ManualTrainer()
+        self.tool_router_trainer = ToolRouterTrainer()
         self.stream_helper = VideoStreamHelper(self)
+        self._tool_router_bundle = None
 
         # Prefer JAX-based models by default to avoid heavyweight transformers init on boot.
         self.prefer_jax_models = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes")
@@ -176,6 +183,35 @@ class RobotService:
         # Ensure service is available to downstream eval runner
         payload.setdefault("service", self)
         return await self.wavecore_trainer.run_loops(payload)
+
+    async def RunToolRouterTrain(self, payload: Optional[dict] = None) -> dict:
+        """Train a lightweight JAX tool-router model from imported toolchat_hf_* RLDS episodes."""
+        payload = payload or {}
+        req = ToolRouterTrainRequest(
+            episodes_root=Path(payload["episodes_root"]) if payload.get("episodes_root") else None,
+            include_dirs_prefix=str(payload.get("include_dirs_prefix", "toolchat_hf")),
+            max_episodes_scan=int(payload.get("max_episodes_scan", 20000)),
+            top_k_tools=int(payload.get("top_k_tools", 128)),
+            features_dim=int(payload.get("features_dim", 4096)),
+            batch_size=int(payload.get("batch_size", 64)),
+            max_steps=int(payload.get("max_steps", 600)),
+            learning_rate=float(payload.get("learning_rate", 3e-3)),
+            seed=int(payload.get("seed", 0)),
+        )
+        return await self.tool_router_trainer.run(req)
+
+    async def ToolRouterPredict(self, payload: Optional[dict] = None) -> dict:
+        """Suggest top-k tool names for a prompt using the latest exported tool-router bundle."""
+        payload = payload or {}
+        prompt = str(payload.get("prompt") or "")
+        k = int(payload.get("k") or 5)
+        export_dir = Path(payload.get("export_dir") or "/opt/continuonos/brain/model/adapters/candidate/tool_router_seed")
+
+        # Lazy-load; keep cached for repeated calls.
+        if self._tool_router_bundle is None or getattr(self._tool_router_bundle, "manifest_path", None) != (export_dir / "tool_router_manifest.json"):
+            self._tool_router_bundle = load_tool_router_bundle(export_dir)
+        preds = predict_topk(self._tool_router_bundle, prompt, k=k)
+        return {"status": "ok", "export_dir": str(export_dir), "k": k, "predictions": preds}
 
     async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
         """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""

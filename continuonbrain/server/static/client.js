@@ -746,6 +746,277 @@ window.installCloudBundle = async function () {
   }
 };
 
+function sparklineSvg(points, { width = 220, height = 46 } = {}) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><path d="" fill="none" stroke="rgba(255,255,255,0.35)" /></svg>`;
+  }
+  const xs = points.map((p, i) => i);
+  const ys = points.map((p) => Number(p));
+  const yMin = Math.min(...ys);
+  const yMax = Math.max(...ys);
+  const ySpan = (yMax - yMin) || 1;
+  const xSpan = (points.length - 1) || 1;
+  const pad = 2;
+  const mapX = (i) => pad + (i / xSpan) * (width - pad * 2);
+  const mapY = (v) => {
+    const t = (v - yMin) / ySpan;
+    return pad + (1 - t) * (height - pad * 2);
+  };
+  const d = points.map((v, i) => `${i === 0 ? 'M' : 'L'} ${mapX(i).toFixed(2)} ${mapY(Number(v)).toFixed(2)}`).join(' ');
+  return (
+    `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">` +
+      `<path d="${d}" fill="none" stroke="rgba(124, 196, 255, 0.95)" stroke-width="2" stroke-linecap="round" />` +
+      `<text x="${width - 6}" y="${height - 8}" text-anchor="end" fill="rgba(255,255,255,0.55)" font-size="10">${escapeHtml(yMin.toExponential(2))}–${escapeHtml(yMax.toExponential(2))}</text>` +
+    `</svg>`
+  );
+}
+
+function pct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return (n * 100).toFixed(0) + '%';
+}
+
+function fmtNum(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  if (Math.abs(n) >= 1000) return n.toFixed(0);
+  if (Math.abs(n) >= 1) return n.toFixed(3);
+  return n.toExponential(2);
+}
+
+function renderTrainingDashboard({ status, metrics, evals, tasks, skills }) {
+  const wavecore = metrics?.wavecore || {};
+  const fastPts = (wavecore.fast?.points || []).map((p) => p.loss);
+  const midPts = (wavecore.mid?.points || []).map((p) => p.loss);
+  const slowPts = (wavecore.slow?.points || []).map((p) => p.loss);
+
+  const latestHope = evals?.hope_eval?.latest || null;
+  const latestFacts = evals?.facts_eval?.latest || null;
+  const latestWiki = evals?.wiki_learn?.latest || null;
+
+  const tasksCount = Array.isArray(tasks?.tasks) ? tasks.tasks.length : null;
+  const skillsCount = Array.isArray(skills?.skills) ? skills.skills.length : null;
+
+  function chip(label, kind) {
+    const cls = kind === 'good' ? 'active' : (kind === 'warn' ? 'warning' : 'info');
+    return `<span class="status-chip ${cls}">${escapeHtml(label)}</span>`;
+  }
+
+  function card(title, subtitle, rightHtml, bodyHtml) {
+    return (
+      `<div class="stack-item">` +
+        `<div style="min-width:0;">` +
+          `<h4>${escapeHtml(title)}</h4>` +
+          `<div class="stack-meta">${escapeHtml(subtitle || '')}</div>` +
+        `</div>` +
+        `<div>${rightHtml || ''}</div>` +
+      `</div>` +
+      (bodyHtml ? `<div class="panel-ghost" style="margin-top:10px;">${bodyHtml}</div>` : '')
+    );
+  }
+
+  const loopSummary = (loopName) => {
+    const block = status?.[loopName] || {};
+    const res = block?.result || {};
+    const steps = res?.steps;
+    const avg = res?.avg_loss;
+    const fin = res?.final_loss;
+    const wall = res?.wall_time_s;
+    return `steps:${escapeHtml(String(steps ?? '—'))} avg:${escapeHtml(fmtNum(avg))} final:${escapeHtml(fmtNum(fin))} time:${escapeHtml(fmtNum(wall))}s`;
+  };
+
+  const lossGrid = (
+    `<div style="display:grid; grid-template-columns: 1fr; gap:10px;">` +
+      `<div class="metric-row"><div class="metric-label">Fast</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(fastPts)}<span class="stack-meta">${escapeHtml(loopSummary('fast'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Mid</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(midPts)}<span class="stack-meta">${escapeHtml(loopSummary('mid'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Slow</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(slowPts)}<span class="stack-meta">${escapeHtml(loopSummary('slow'))}</span></div></div>` +
+    `</div>`
+  );
+
+  const toolRouter = metrics?.tool_router || {};
+  const toolRouterLossPts = (toolRouter.loss?.points || []).map((p) => p.loss);
+  const toolRouterAccPts = (toolRouter.acc?.points || []).map((p) => p.acc);
+  const toolRouterStatus = status?.tool_router || null;
+  const toolRouterRes = toolRouterStatus?.status === 'ok' ? toolRouterStatus?.tool_router : toolRouterStatus;
+  const toolRouterManifest = toolRouterRes?.manifest || toolRouterRes?.tool_router?.manifest || null;
+  const toolRouterChip = (() => {
+    if (toolRouterStatus?.status === 'running') return chip('RUNNING', 'warn');
+    if (toolRouterStatus?.status === 'error') return chip('ERROR', 'warn');
+    if (toolRouterRes?.status === 'ok' || toolRouterRes?.export_dir) return chip('READY', 'good');
+    return chip('—', 'info');
+  })();
+
+  const toolRouterBody = (
+    `<div class="metric-row"><div class="metric-label">Loss</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolRouterLossPts)}<span class="stack-meta">latest:${escapeHtml(fmtNum(toolRouterLossPts.at(-1)))}</span></div></div>` +
+    `<div class="metric-row"><div class="metric-label">Accuracy</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolRouterAccPts)}<span class="stack-meta">latest:${escapeHtml(pct(toolRouterAccPts.at(-1)))}</span></div></div>` +
+    `<div class="metric-row"><div class="metric-label">Manifest</div><div class="metric-value" style="display:flex; gap:8px; align-items:center; justify-content:flex-end;"><span style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(toolRouterManifest || '—')}</span>${toolRouterManifest ? `<button class="rail-btn" data-copy="${escapeHtml(toolRouterManifest)}" style="padding:6px 10px; font-size:12px;">Copy</button>` : ''}</div></div>` +
+    `<div class="metric-row"><div class="metric-label"></div><div class="metric-value"><button class="rail-btn" type="button" onclick="window.trainToolRouter()">Train tool-router</button></div></div>` +
+    `<div class="panel-subtitle" style="margin-top:8px;">Try a prompt</div>` +
+    `<div class="metric-row"><div class="metric-label">Prompt</div><div class="metric-value"><input id="tool-router-prompt" class="input-compact" type="text" placeholder="e.g. Find instagram user info for nike" style="width:260px;"></div></div>` +
+    `<div class="metric-row"><div class="metric-label"></div><div class="metric-value"><button class="rail-btn" type="button" onclick="window.predictToolRouter()">Suggest tools</button></div></div>` +
+    `<div class="stack-list" id="tool-router-predictions" style="margin-top:8px;"></div>`
+  );
+
+  const evalCardBody = (() => {
+    const rows = [];
+    if (latestHope) {
+      rows.push(`<div class="metric-row"><div class="metric-label">HOPE eval</div><div class="metric-value">${chip(pct(latestHope.success_rate), (latestHope.success_rate ?? 0) > 0.9 ? 'good' : 'warn')} ${chip('fallback ' + pct(latestHope.fallback_rate), (latestHope.fallback_rate ?? 1) < 0.05 ? 'good' : 'warn')}</div></div>`);
+      rows.push(`<div class="metric-row"><div class="metric-label">Latest episode</div><div class="metric-value"><span style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(latestHope.path || '')}</span></div></div>`);
+    } else {
+      rows.push(`<div class="stack-item"><span class="stack-meta">No hope_eval episodes found</span></div>`);
+    }
+    if (latestFacts) {
+      rows.push(`<div class="metric-row"><div class="metric-label">FACTS eval</div><div class="metric-value">${chip(pct(latestFacts.success_rate), (latestFacts.success_rate ?? 0) > 0.9 ? 'good' : 'warn')} ${chip('fallback ' + pct(latestFacts.fallback_rate), (latestFacts.fallback_rate ?? 1) < 0.05 ? 'good' : 'warn')}</div></div>`);
+    }
+    if (latestWiki) {
+      rows.push(`<div class="metric-row"><div class="metric-label">Wiki learn</div><div class="metric-value">${chip(pct(latestWiki.success_rate), (latestWiki.success_rate ?? 0) > 0.9 ? 'good' : 'warn')} ${chip('fallback ' + pct(latestWiki.fallback_rate), (latestWiki.fallback_rate ?? 1) < 0.05 ? 'good' : 'warn')}</div></div>`);
+      rows.push(`<div class="metric-row"><div class="metric-label">Latest wiki episode</div><div class="metric-value"><span style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(latestWiki.path || '')}</span></div></div>`);
+    }
+    return rows.join('');
+  })();
+
+  const capabilityBody = (
+    `<div class="metric-row"><div class="metric-label">Tasks (eligible)</div><div class="metric-value">${escapeHtml(tasksCount == null ? '—' : String(tasksCount))}</div></div>` +
+    `<div class="metric-row"><div class="metric-label">Skills (eligible)</div><div class="metric-value">${escapeHtml(skillsCount == null ? '—' : String(skillsCount))}</div></div>` +
+    `<div class="stack-item"><span class="stack-meta">This is “capability coverage” (what the runtime thinks it can do). We can add richer “can-do” probes next (e.g., driving, planning, tool use) as logged RLDS tests.</span></div>`
+  );
+
+  const toolSum = metrics?.tool_dataset_summary || null;
+  const toolBody = (() => {
+    if (!toolSum || toolSum.status !== 'ok') {
+      return '<div class="stack-item"><span class="stack-meta">Tool dataset summary unavailable</span></div>';
+    }
+    const sources = Array.isArray(toolSum.sources) ? toolSum.sources : [];
+    if (!sources.length) {
+      return '<div class="stack-item"><span class="stack-meta">No toolchat_hf_* folders found under RLDS episodes.</span></div>';
+    }
+    const rows = [];
+    for (const src of sources) {
+      const topTools = Array.isArray(src.top_tools) ? src.top_tools : [];
+      const topLine = topTools.slice(0, 6).map((t) => `${t.name}:${t.count}`).join('  ');
+      const name = (src.dir || '').split('/').slice(-1)[0] || 'tool dataset';
+      rows.push(
+        `<div class="stack-item">` +
+          `<div style="min-width:0;">` +
+            `<h4>${escapeHtml(name)}</h4>` +
+            `<div class="stack-meta">episodes:${escapeHtml(String(src.episodes ?? '—'))} steps:${escapeHtml(String(src.steps_total ?? '—'))} tool-call rate:${escapeHtml(pct(src.tool_call_rate))}</div>` +
+          `</div>` +
+          `<div>${chip(pct(src.tool_call_rate), (src.tool_call_rate ?? 0) > 0.12 ? 'good' : 'warn')}</div>` +
+        `</div>` +
+        `<div class="metric-row"><div class="metric-label">Top tools</div><div class="metric-value"><span class="stack-meta">${escapeHtml(topLine || '—')}</span></div></div>`
+      );
+    }
+    return rows.join('');
+  })();
+
+  const exportInfo = status?.export || null;
+  const exportChip = exportInfo?.manifest ? chip('seed exported', 'good') : chip('no export', 'warn');
+
+  const dq = metrics?.data_quality || null;
+  const dqBody = (() => {
+    if (!dq || dq.status !== 'ok') {
+      return '<div class="stack-item"><span class="stack-meta">Data quality unavailable</span></div>';
+    }
+    const warn = Array.isArray(dq.warnings) ? dq.warnings : [];
+    const act = dq.action || {};
+    const obs = dq.observation || {};
+    const topKeys = Array.isArray(obs.top_keys) ? obs.top_keys : [];
+    const keysLine = topKeys.slice(0, 6).map((k) => `${k.key}:${k.count}`).join('  ');
+    return (
+      `<div class="metric-row"><div class="metric-label">Steps scanned</div><div class="metric-value">${escapeHtml(String(dq.steps_scanned ?? '—'))}</div></div>` +
+      `<div class="metric-row"><div class="metric-label">Action present</div><div class="metric-value">${chip(pct(act.present_rate), (act.present_rate ?? 0) > 0.8 ? 'good' : 'warn')}</div></div>` +
+      `<div class="metric-row"><div class="metric-label">Action non-zero</div><div class="metric-value">${chip(pct(act.nonzero_rate), (act.nonzero_rate ?? 0) > 0.5 ? 'good' : 'warn')} <span class="stack-meta">mean|a|:${escapeHtml(fmtNum(act.mean_abs_sum))} σ:${escapeHtml(fmtNum(act.std_abs_sum))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Obs present</div><div class="metric-value">${chip(pct(obs.present_rate), (obs.present_rate ?? 0) > 0.8 ? 'good' : 'warn')}</div></div>` +
+      `<div class="metric-row"><div class="metric-label">Obs numeric</div><div class="metric-value">${chip(pct(obs.numeric_rate), (obs.numeric_rate ?? 0) > 0.5 ? 'good' : 'warn')} <span class="stack-meta">avg scalars:${escapeHtml(fmtNum(obs.avg_numeric_scalars))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Top obs keys</div><div class="metric-value"><span class="stack-meta">${escapeHtml(keysLine || '—')}</span></div></div>` +
+      (warn.length ? `<div class="stack-item"><span class="stack-meta">${escapeHtml(warn.join(' '))}</span></div>` : '')
+    );
+  })();
+
+  return [
+    card('WaveCore training', 'Loss curves (lower is better) from fast/mid/slow loops', exportChip, lossGrid),
+    card('Intelligence signals', 'HOPE/FACTS eval health (heuristic: non-error answers + fallback usage)', '', evalCardBody),
+    card('Data quality', 'Does the dataset contain non-trivial actions/observations?', '', dqBody),
+    card('Tool-router (JAX)', 'Text → tool-name classifier trained from toolchat_hf_* RLDS episodes', toolRouterChip, toolRouterBody),
+    card('Tool-use dataset coverage', 'Imported tool-calling corpora (ToolBench/Glaive/xLAM): tool-call density + top tools', '', toolBody),
+    card('Capabilities', 'Eligibility counts from Task/Skill libraries', '', capabilityBody),
+  ].join('');
+}
+
+window.trainToolRouter = async function () {
+  try {
+    await fetch('/api/training/tool_router_train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ max_steps: 300, batch_size: 64, learning_rate: 0.003, max_episodes_scan: 20000, top_k_tools: 128, include_dirs_prefix: 'toolchat_hf' }),
+    });
+  } catch (err) {
+    console.warn('trainToolRouter failed', err);
+  } finally {
+    if (typeof window.updateTrainingDashboard === 'function') window.updateTrainingDashboard();
+  }
+};
+
+window.predictToolRouter = async function () {
+  const prompt = document.getElementById('tool-router-prompt')?.value || '';
+  const out = document.getElementById('tool-router-predictions');
+  if (out) out.innerHTML = '<div class="stack-item"><span class="stack-meta">Predicting…</span></div>';
+  try {
+    const res = await fetch('/api/training/tool_router_predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, k: 6 }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === 'error') throw new Error(data.message || 'predict failed');
+    const preds = Array.isArray(data.predictions) ? data.predictions : [];
+    if (!preds.length) {
+      if (out) out.innerHTML = '<div class="stack-item"><span class="stack-meta">No predictions</span></div>';
+      return;
+    }
+    if (out) out.innerHTML = preds.map((p) => (
+      `<div class="stack-item">` +
+        `<div><h4>${escapeHtml(p.tool || 'tool')}</h4><div class="stack-meta">score ${escapeHtml(fmtNum(p.score))}</div></div>` +
+        `<div>${chip(pct(p.score), (p.score ?? 0) > 0.35 ? 'good' : 'info')}</div>` +
+      `</div>`
+    )).join('');
+  } catch (err) {
+    console.warn('predictToolRouter failed', err);
+    if (out) out.innerHTML = '<div class="stack-item"><span class="stack-meta">Predict failed</span></div>';
+  }
+};
+
+window.updateTrainingDashboard = async function () {
+  const container = document.getElementById('training-dashboard-list');
+  if (!container) return;
+  container.innerHTML = '<div class="stack-item"><span class="stack-meta">Loading training dashboard…</span></div>';
+  try {
+    const [statusRes, metricsRes, evalRes, dqRes, toolRes, tasksRes, skillsRes] = await Promise.all([
+      fetch('/api/training/status'),
+      fetch('/api/training/metrics?limit=140'),
+      fetch('/api/training/eval_summary?limit=6'),
+      fetch('/api/training/data_quality?limit=40&step_cap=2500'),
+      fetch('/api/training/tool_dataset_summary?limit=2000'),
+      fetch('/api/tasks?include_ineligible=false'),
+      fetch('/api/skills?include_ineligible=false'),
+    ]);
+    const status = await statusRes.json();
+    const metrics = await metricsRes.json();
+    const evals = await evalRes.json();
+    const data_quality = await dqRes.json();
+    const tool_dataset_summary = await toolRes.json();
+    const tasks = await tasksRes.json();
+    const skills = await skillsRes.json();
+    const mergedMetrics = { ...(metrics || {}), data_quality, tool_dataset_summary };
+    container.innerHTML = renderTrainingDashboard({ status, metrics: mergedMetrics, evals, tasks: tasks?.tasks || tasks, skills: skills?.skills || skills });
+    await wireCopyButtons(container);
+  } catch (err) {
+    console.warn('updateTrainingDashboard failed', err);
+    container.innerHTML = '<div class="stack-item"><span class="stack-meta">Training dashboard unavailable</span></div>';
+  }
+};
+
 // Initialize view mode from storage on load (requires setViewMode in page)
 (function initViewModeClient() {
   try {
@@ -763,6 +1034,9 @@ window.installCloudBundle = async function () {
   function tick() {
     if (typeof window.updateTrainingRail === 'function') {
       window.updateTrainingRail();
+    }
+    if (typeof window.updateTrainingDashboard === 'function') {
+      window.updateTrainingDashboard();
     }
     if (typeof window.refreshCloudReadiness === 'function') {
       window.refreshCloudReadiness();

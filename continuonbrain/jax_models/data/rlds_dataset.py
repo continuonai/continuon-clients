@@ -8,6 +8,7 @@ Supports batching, shuffling, and prefetching for efficient TPU training.
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 import numpy as np
@@ -357,18 +358,145 @@ def load_rlds_dataset(
     Yields:
         Batches as dictionaries of JAX arrays
     """
-    tf_dataset = create_tfrecord_dataset(
-        tfrecord_paths=tfrecord_paths,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        shuffle_buffer_size=shuffle_buffer_size,
-        repeat=repeat,
-        prefetch=prefetch,
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        compression_type=compression_type,
-        feature_spec=feature_spec,
-    )
-    
-    return tf_dataset_to_jax_iterator(tf_dataset)
+    if not JAX_AVAILABLE:
+        raise ImportError("JAX is required for dataset loading")
+
+    # Normalize to a list of Paths for detection.
+    if isinstance(tfrecord_paths, (str, Path)):
+        paths = [Path(tfrecord_paths)]
+    else:
+        paths = [Path(p) for p in tfrecord_paths]
+
+    # Detect TFRecord files if present.
+    tfrecord_files: list[Path] = []
+    for p in paths:
+        if p.is_dir():
+            tfrecord_files.extend(sorted(p.glob("*.tfrecord*")))
+        elif p.exists():
+            tfrecord_files.append(p)
+
+    if TF_AVAILABLE and tfrecord_files:
+        tf_dataset = create_tfrecord_dataset(
+            tfrecord_paths=tfrecord_files,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            shuffle_buffer_size=shuffle_buffer_size,
+            repeat=repeat,
+            prefetch=prefetch,
+            obs_dim=obs_dim,
+            action_dim=action_dim,
+            compression_type=compression_type,
+            feature_spec=feature_spec,
+        )
+        return tf_dataset_to_jax_iterator(tf_dataset)
+
+    # JSON fallback: when TFRecord conversion hasn't been run, use RLDS JSON episodes directly.
+    episode_dirs = [p for p in paths if p.is_dir()]
+    if not episode_dirs:
+        raise ValueError("No TFRecord files found and no directory provided for JSON RLDS episodes")
+
+    episodes_dir = episode_dirs[0]
+    json_files = [p for p in episodes_dir.glob("*.json") if p.is_file()]
+    if not json_files:
+        raise ValueError("No TFRecord files found and no JSON episode files found")
+
+    def _is_trainable_json_episode(path: Path, max_steps_scan: int = 40) -> bool:
+        """
+        Heuristic filter: only include episodes that have at least one step containing
+        a proper policy training tuple:
+          - step["observation"] is a dict
+          - step["action"]["command"] is a numeric list/tuple
+        This excludes eval-only episodes like hope_eval_* that use different schema keys.
+        """
+        try:
+            payload = json.loads(path.read_text())
+        except Exception:
+            return False
+        steps = payload.get("steps", [])
+        if not isinstance(steps, list) or not steps:
+            return False
+        for s in steps[:max_steps_scan]:
+            if not isinstance(s, dict):
+                continue
+            obs = s.get("observation")
+            if not isinstance(obs, dict):
+                continue
+            action = s.get("action")
+            if not isinstance(action, dict):
+                continue
+            cmd = action.get("command")
+            if not isinstance(cmd, (list, tuple)) or not cmd:
+                continue
+            try:
+                _ = [float(v) for v in cmd]
+            except Exception:
+                continue
+            return True
+        return False
+
+    # Filter out non-trainable episodes up-front so the iterator doesn't silently yield all-zeros.
+    trainable_files = [p for p in json_files if _is_trainable_json_episode(p)]
+    if not trainable_files:
+        raise ValueError(
+            f"No trainable RLDS JSON episodes found in {episodes_dir}. "
+            "Expected steps with observation dict and action.command vector. "
+            "If you only have eval episodes (hope_eval/facts_eval/compare_eval), record teleop episodes or convert to TFRecords."
+        )
+
+    def _iter_json_steps() -> Iterator[Dict[str, np.ndarray]]:
+        files = list(trainable_files)
+        while True:
+            if shuffle:
+                random.shuffle(files)
+            for episode_path in files:
+                try:
+                    data = json.loads(episode_path.read_text())
+                except Exception:
+                    continue
+                steps = data.get("steps", [])
+                if shuffle and isinstance(steps, list):
+                    random.shuffle(steps)
+                for step in steps:
+                    obs_raw = step.get("observation")
+                    action_raw = step.get("action")
+                    if not isinstance(obs_raw, dict) or not isinstance(action_raw, dict):
+                        continue
+                    if not isinstance(action_raw.get("command"), (list, tuple)):
+                        continue
+                    obs_vec = _extract_obs_vector(obs_raw, obs_dim, feature_spec)
+                    act_vec = _extract_action_vector(action_raw, action_dim)
+                    reward = float(step.get("reward", 0.0))
+                    done = bool(step.get("is_terminal", False))
+                    yield {
+                        "obs": obs_vec,
+                        "action": act_vec,
+                        "reward": np.array([reward], dtype=np.float32),
+                        "done": np.array(done, dtype=np.bool_),
+                    }
+            if not repeat:
+                break
+
+    def _json_batches() -> Iterator[Dict[str, jnp.ndarray]]:
+        buf_obs: list[np.ndarray] = []
+        buf_act: list[np.ndarray] = []
+        buf_reward: list[np.ndarray] = []
+        buf_done: list[np.ndarray] = []
+        for item in _iter_json_steps():
+            buf_obs.append(item["obs"])
+            buf_act.append(item["action"])
+            buf_reward.append(item["reward"])
+            buf_done.append(item["done"])
+            if len(buf_obs) >= batch_size:
+                yield {
+                    "obs": jnp.array(np.stack(buf_obs[:batch_size], axis=0)),
+                    "action": jnp.array(np.stack(buf_act[:batch_size], axis=0)),
+                    "reward": jnp.array(np.stack(buf_reward[:batch_size], axis=0)),
+                    "done": jnp.array(np.stack(buf_done[:batch_size], axis=0)),
+                }
+                buf_obs.clear()
+                buf_act.clear()
+                buf_reward.clear()
+                buf_done.clear()
+
+    return _json_batches()
 

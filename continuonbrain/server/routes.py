@@ -11,6 +11,7 @@ import shutil
 import time
 import zipfile
 import hashlib
+import random
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
@@ -233,6 +234,18 @@ class SimpleJSONServer:
                 return self._json_response({"status": "ok", **result})
             except Exception as exc:  # noqa: BLE001
                 return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
+        elif path == "/api/training/metrics":
+            payload = self._read_training_metrics(query_params)
+            return self._json_response(payload)
+        elif path == "/api/training/eval_summary":
+            payload = self._read_eval_summary(query_params)
+            return self._json_response(payload)
+        elif path == "/api/training/data_quality":
+            payload = self._read_data_quality(query_params)
+            return self._json_response(payload)
+        elif path == "/api/training/tool_dataset_summary":
+            payload = self._read_tool_dataset_summary(query_params)
+            return self._json_response(payload)
         elif path == "/api/training/logs":
             log_dir = Path("/opt/continuonos/brain/trainer/logs")
             logs = sorted(log_dir.glob("trainer_*.log"), key=lambda p: p.stat().st_mtime, reverse=True)[:5]
@@ -261,7 +274,8 @@ class SimpleJSONServer:
             payload = await self._read_json_body(reader, headers)
             try:
                 result = await self.service.RunWavecoreLoops(payload or {})
-                response_body = json.dumps({"status": "completed", "result": result})
+                # Wavecore results may include dataclasses/config objects; serialize defensively.
+                response_body = json.dumps({"status": "completed", "result": result}, default=str)
                 return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
@@ -270,7 +284,7 @@ class SimpleJSONServer:
             payload = await self._read_json_body(reader, headers)
             try:
                 result = await self.service.RunHopeEval(payload or {})
-                response_body = json.dumps({"status": "completed", "result": result})
+                response_body = json.dumps({"status": "completed", "result": result}, default=str)
                 return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
@@ -279,7 +293,25 @@ class SimpleJSONServer:
             payload = await self._read_json_body(reader, headers)
             try:
                 result = await self.service.RunFactsEval(payload or {})
-                response_body = json.dumps({"status": "completed", "result": result})
+                response_body = json.dumps({"status": "completed", "result": result}, default=str)
+                return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
+                return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/tool_router_train" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = await self.service.RunToolRouterTrain(payload or {})
+                response_body = json.dumps({"status": "completed", "result": result}, default=str)
+                return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
+                return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/tool_router_predict" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = await self.service.ToolRouterPredict(payload or {})
+                response_body = json.dumps(result, default=str)
                 return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
@@ -622,6 +654,372 @@ class SimpleJSONServer:
             f"Content-Disposition: attachment; filename=\"{safe}\"\r\n\r\n"
         )
         return header.encode("utf-8") + content
+
+    def _read_training_metrics(self, query_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Read lightweight training metrics for UI visualization (sparklines).
+
+        Sources:
+        - /opt/continuonos/brain/trainer/logs/wavecore_{fast,mid,slow}_metrics.json
+        """
+        log_dir = Path("/opt/continuonos/brain/trainer/logs")
+        limit_raw = (query_params.get("limit", ["120"]) or ["120"])[0]
+        try:
+            limit = max(10, min(2000, int(limit_raw)))
+        except Exception:
+            limit = 120
+
+        def read_series(path: Path, *, y_key: str = "loss") -> Dict[str, Any]:
+            if not path.exists():
+                return {"path": str(path), "exists": False, "points": []}
+            try:
+                data = json.loads(path.read_text())
+                if not isinstance(data, list):
+                    return {"path": str(path), "exists": True, "points": []}
+                pts = []
+                for item in data[-limit:]:
+                    if not isinstance(item, dict):
+                        continue
+                    step = item.get("step")
+                    y = item.get(y_key)
+                    try:
+                        pts.append({"step": int(step), y_key: float(y)})
+                    except Exception:
+                        continue
+                return {"path": str(path), "exists": True, "points": pts, "mtime": path.stat().st_mtime}
+            except Exception:
+                return {"path": str(path), "exists": True, "points": []}
+
+        return {
+            "status": "ok",
+            "limit": limit,
+            "wavecore": {
+                "fast": read_series(log_dir / "wavecore_fast_metrics.json", y_key="loss"),
+                "mid": read_series(log_dir / "wavecore_mid_metrics.json", y_key="loss"),
+                "slow": read_series(log_dir / "wavecore_slow_metrics.json", y_key="loss"),
+            },
+            "tool_router": {
+                "loss": read_series(log_dir / "tool_router_metrics.json", y_key="loss"),
+                "acc": read_series(log_dir / "tool_router_metrics.json", y_key="acc"),
+            },
+        }
+
+    def _read_eval_summary(self, query_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Summarize recent eval RLDS episodes so the UI can render "intelligence" indicators.
+
+        Until a formal grader exists, we use defensible heuristics:
+        - success_rate: fraction of steps whose answer is non-empty and not an [error:...] stub
+        - fallback_rate: fraction of steps with used_fallback=true
+        - tier_coverage: distribution of obs.tier
+        """
+        rlds_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        limit_raw = (query_params.get("limit", ["6"]) or ["6"])[0]
+        try:
+            limit = max(1, min(30, int(limit_raw)))
+        except Exception:
+            limit = 6
+
+        def summarize_prefix(prefix: str) -> Dict[str, Any]:
+            if not rlds_dir.exists():
+                return {"prefix": prefix, "episodes": [], "latest": None}
+            files = sorted(rlds_dir.glob(f"{prefix}_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+            episodes = []
+            for p in files:
+                try:
+                    payload = json.loads(p.read_text())
+                except Exception:
+                    continue
+                steps = payload.get("steps", [])
+                if not isinstance(steps, list):
+                    steps = []
+                total = 0
+                ok = 0
+                fallback = 0
+                tiers: Dict[str, int] = {}
+                for s in steps:
+                    if not isinstance(s, dict):
+                        continue
+                    total += 1
+                    obs = s.get("obs") or s.get("observation") or {}
+                    action = s.get("action") or {}
+                    tier = (obs.get("tier") if isinstance(obs, dict) else None) or "unknown"
+                    tiers[str(tier)] = tiers.get(str(tier), 0) + 1
+                    ans = action.get("answer") if isinstance(action, dict) else None
+                    used_fb = bool(action.get("used_fallback")) if isinstance(action, dict) else False
+                    if used_fb:
+                        fallback += 1
+                    ans_s = str(ans or "")
+                    if ans_s and not ans_s.startswith("[error:"):
+                        ok += 1
+                episodes.append(
+                    {
+                        "path": str(p),
+                        "mtime": p.stat().st_mtime,
+                        "steps": total,
+                        "ok_steps": ok,
+                        "fallback_steps": fallback,
+                        "success_rate": (ok / total) if total else None,
+                        "fallback_rate": (fallback / total) if total else None,
+                        "tiers": tiers,
+                    }
+                )
+            latest = episodes[0] if episodes else None
+            return {"prefix": prefix, "episodes": episodes, "latest": latest}
+
+        return {
+            "status": "ok",
+            "rlds_dir": str(rlds_dir),
+            "limit": limit,
+            "hope_eval": summarize_prefix("hope_eval"),
+            "facts_eval": summarize_prefix("facts_eval"),
+            "compare_eval": summarize_prefix("compare_eval"),
+            "wiki_learn": summarize_prefix("wiki_learn"),
+        }
+
+    def _read_data_quality(self, query_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Quick RLDS JSON "learnability" stats for UI:
+        - Are actions present and non-zero?
+        - Are observations present with numeric content?
+        This helps explain flat loss curves (e.g., constant zeros).
+        """
+        rlds_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        limit_raw = (query_params.get("limit", ["30"]) or ["30"])[0]
+        step_cap_raw = (query_params.get("step_cap", ["2500"]) or ["2500"])[0]
+        try:
+            limit = max(1, min(200, int(limit_raw)))
+        except Exception:
+            limit = 30
+        try:
+            step_cap = max(200, min(20000, int(step_cap_raw)))
+        except Exception:
+            step_cap = 2500
+
+        if not rlds_dir.exists():
+            return {"status": "ok", "rlds_dir": str(rlds_dir), "episodes_scanned": 0, "steps_scanned": 0}
+
+        files = sorted(rlds_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+
+        steps_scanned = 0
+        action_present = 0
+        action_nonzero = 0
+        action_abs_sum = 0.0
+        action_abs_sum_sq = 0.0
+        action_len_total = 0
+
+        obs_present = 0
+        obs_numeric_fields = 0
+        obs_numeric_scalars = 0
+
+        # Track most common top-level observation keys (coverage)
+        obs_key_counts: Dict[str, int] = {}
+        episode_kind_counts: Dict[str, int] = {}
+
+        def _flatten_numeric(x: Any) -> list[float]:
+            out: list[float] = []
+            if isinstance(x, (int, float)) and not isinstance(x, bool):
+                out.append(float(x))
+                return out
+            if isinstance(x, (list, tuple)):
+                for v in x:
+                    out.extend(_flatten_numeric(v))
+            if isinstance(x, dict):
+                for v in x.values():
+                    out.extend(_flatten_numeric(v))
+            return out
+
+        def _action_vec(step: Dict[str, Any]) -> Optional[list[float]]:
+            action = step.get("action")
+            if not isinstance(action, dict):
+                return None
+            cmd = action.get("command")
+            if isinstance(cmd, (list, tuple)) and cmd:
+                try:
+                    return [float(v) for v in cmd]
+                except Exception:
+                    return None
+            # Some episodes might use nested action fields; treat as absent for now.
+            return None
+
+        for p in files:
+            if steps_scanned >= step_cap:
+                break
+            try:
+                payload = json.loads(p.read_text())
+            except Exception:
+                continue
+            steps = payload.get("steps", [])
+            if not isinstance(steps, list):
+                continue
+            # Episode kind heuristic
+            kind = "unknown"
+            base = p.name
+            if base.startswith("hope_eval_") or base.startswith("hope_eval_followup_"):
+                kind = "hope_eval"
+            elif base.startswith("facts_eval_"):
+                kind = "facts_eval"
+            elif base.startswith("compare_eval_"):
+                kind = "compare_eval"
+            elif base.startswith("test_"):
+                kind = "test"
+            episode_kind_counts[kind] = episode_kind_counts.get(kind, 0) + 1
+            for s in steps:
+                if steps_scanned >= step_cap:
+                    break
+                if not isinstance(s, dict):
+                    continue
+                steps_scanned += 1
+
+                # Action stats
+                vec = _action_vec(s)
+                if vec is not None:
+                    action_present += 1
+                    action_len_total += len(vec)
+                    abs_sum = sum(abs(v) for v in vec)
+                    action_abs_sum += abs_sum
+                    action_abs_sum_sq += abs_sum * abs_sum
+                    if abs_sum > 1e-9:
+                        action_nonzero += 1
+
+                # Observation stats
+                obs = s.get("observation")
+                if isinstance(obs, dict):
+                    obs_present += 1
+                    for k in obs.keys():
+                        obs_key_counts[k] = obs_key_counts.get(k, 0) + 1
+                    # Count numeric payload density (rough)
+                    nums = _flatten_numeric(obs)
+                    if nums:
+                        obs_numeric_fields += 1
+                        obs_numeric_scalars += len(nums)
+
+        action_present_rate = (action_present / steps_scanned) if steps_scanned else None
+        action_nonzero_rate = (action_nonzero / action_present) if action_present else None
+        action_mean_abs_sum = (action_abs_sum / action_present) if action_present else None
+        action_std_abs_sum = None
+        if action_present and action_mean_abs_sum is not None:
+            mean = action_mean_abs_sum
+            var = (action_abs_sum_sq / action_present) - (mean * mean)
+            if var < 0:
+                var = 0.0
+            action_std_abs_sum = var ** 0.5
+
+        obs_present_rate = (obs_present / steps_scanned) if steps_scanned else None
+        obs_numeric_rate = (obs_numeric_fields / obs_present) if obs_present else None
+        obs_avg_numeric_scalars = (obs_numeric_scalars / obs_numeric_fields) if obs_numeric_fields else None
+
+        top_obs_keys = sorted(obs_key_counts.items(), key=lambda kv: kv[1], reverse=True)[:12]
+
+        warnings = []
+        if steps_scanned and (action_present == 0):
+            warnings.append("No action.command vectors found in sampled steps. WaveCore training will see zero actions (flat loss) unless you filter to trainable episodes.")
+        if action_nonzero_rate is not None and action_nonzero_rate < 0.1:
+            warnings.append("Most action vectors are near-zero; training signal may be degenerate.")
+        if obs_present == 0:
+            warnings.append("No observation dicts found in sampled steps. WaveCore training will see empty observations (flat loss) unless you filter to trainable episodes.")
+        if obs_numeric_rate is not None and obs_numeric_rate < 0.2:
+            warnings.append("Most observations contain little/no numeric content; obs vector may be empty/zero-padded.")
+
+        return {
+            "status": "ok",
+            "rlds_dir": str(rlds_dir),
+            "episodes_scanned": len(files),
+            "steps_scanned": steps_scanned,
+            "episode_kinds": episode_kind_counts,
+            "action": {
+                "present_rate": action_present_rate,
+                "nonzero_rate": action_nonzero_rate,
+                "avg_len": (action_len_total / action_present) if action_present else None,
+                "mean_abs_sum": action_mean_abs_sum,
+                "std_abs_sum": action_std_abs_sum,
+            },
+            "observation": {
+                "present_rate": obs_present_rate,
+                "numeric_rate": obs_numeric_rate,
+                "avg_numeric_scalars": obs_avg_numeric_scalars,
+                "top_keys": [{"key": k, "count": c} for k, c in top_obs_keys],
+            },
+            "warnings": warnings,
+        }
+
+    def _read_tool_dataset_summary(self, query_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Summarize imported tool-use RLDS episodes (e.g., toolchat_hf_toolbench, toolchat_hf_glaive, toolchat_hf).
+
+        Returns counts + tool-call rate + top tool names to help visualize tool-use coverage in the UI.
+        """
+        base_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        limit_raw = (query_params.get("limit", ["2000"]) or ["2000"])[0]
+        try:
+            limit = max(50, min(200000, int(limit_raw)))
+        except Exception:
+            limit = 2000
+
+        subdirs = []
+        if base_dir.exists():
+            for p in sorted(base_dir.glob("toolchat_hf*")):
+                if p.is_dir():
+                    subdirs.append(p)
+
+        def summarize_dir(d: Path) -> Dict[str, Any]:
+            files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+            episodes = 0
+            steps_total = 0
+            tool_call_steps = 0
+            dataset_ids: Dict[str, int] = {}
+            tool_names: Dict[str, int] = {}
+
+            for fp in files:
+                try:
+                    payload = json.loads(fp.read_text())
+                except Exception:
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                episodes += 1
+                meta = payload.get("metadata") or {}
+                dsid = meta.get("dataset_id")
+                if isinstance(dsid, str) and dsid:
+                    dataset_ids[dsid] = dataset_ids.get(dsid, 0) + 1
+                steps = payload.get("steps", [])
+                if not isinstance(steps, list):
+                    continue
+                steps_total += len(steps)
+                for s in steps:
+                    if not isinstance(s, dict):
+                        continue
+                    action = s.get("action") or {}
+                    if not isinstance(action, dict):
+                        continue
+                    if action.get("type") == "tool_call":
+                        tool_call_steps += 1
+                        nm = action.get("name")
+                        if isinstance(nm, str) and nm:
+                            tool_names[nm] = tool_names.get(nm, 0) + 1
+
+            top_tools = sorted(tool_names.items(), key=lambda kv: kv[1], reverse=True)[:20]
+            tool_call_rate = (tool_call_steps / steps_total) if steps_total else None
+            avg_steps = (steps_total / episodes) if episodes else None
+            top_dataset_ids = sorted(dataset_ids.items(), key=lambda kv: kv[1], reverse=True)[:8]
+
+            return {
+                "dir": str(d),
+                "episodes": episodes,
+                "steps_total": steps_total,
+                "avg_steps_per_episode": avg_steps,
+                "tool_call_steps": tool_call_steps,
+                "tool_call_rate": tool_call_rate,
+                "top_tools": [{"name": n, "count": c} for n, c in top_tools],
+                "dataset_ids": [{"id": i, "episodes": c} for i, c in top_dataset_ids],
+            }
+
+        return {
+            "status": "ok",
+            "base_dir": str(base_dir),
+            "limit": limit,
+            "sources": [summarize_dir(d) for d in subdirs],
+        }
 
     def _install_model_bundle(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """

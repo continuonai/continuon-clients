@@ -265,6 +265,14 @@
                             <div class="stack-list" id="training-memory-list"></div>
                         </div>
                         <div class="panel-ghost">
+                            <div class="panel-eyebrow">Training Progress</div>
+                            <div class="panel-subtitle">Loss curves, eval signals, and capability coverage.</div>
+                            <div class="rail-actions" style="margin-top:10px;">
+                                <button class="rail-btn" type="button" onclick="window.updateTrainingDashboard()">Refresh</button>
+                            </div>
+                            <div class="stack-list" id="training-dashboard-list" style="margin-top:10px;"></div>
+                        </div>
+                        <div class="panel-ghost">
                             <div class="panel-eyebrow">Cloud training (TPU) handoff</div>
                             <div class="panel-subtitle">Offline-first readiness + packaging + re-acquire (manual/opt-in).</div>
                             <div class="rail-actions" style="margin-top:10px;">

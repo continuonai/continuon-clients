@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
@@ -82,6 +83,14 @@ class ChatAdapter:
             raw_response = self._call_model(message, prompt, history, model_hint=model_hint)
             response, structured = _extract_structured_block(raw_response)
             self._log_chat(message, response, status)
+            self._maybe_log_chat_rlds(
+                message=message,
+                response=response,
+                structured=structured,
+                status=status,
+                session_id=session_id,
+                model_hint=model_hint,
+            )
             status_updates = [
                 f"Mode={mode}",
                 f"Hardware={hardware}",
@@ -175,6 +184,46 @@ class ChatAdapter:
                 handle.write(json.dumps(log_entry) + "\n")
         except Exception as exc:  # noqa: BLE001
             print(f"Failed to log chat: {exc}")
+
+    def _maybe_log_chat_rlds(
+        self,
+        *,
+        message: str,
+        response: str,
+        structured: Dict[str, Any],
+        status: Dict[str, Any],
+        session_id: Optional[str],
+        model_hint: Optional[str],
+    ) -> None:
+        """
+        Optional: log chat turns as RLDS episodes for training/eval replay.
+
+        This is OFF by default (offline-first + explicit consent).
+        Enable with:
+          CONTINUON_LOG_CHAT_RLDS=1
+        """
+        try:
+            enabled = os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0").lower() in ("1", "true", "yes", "on")
+            if not enabled:
+                return
+            from continuonbrain.rlds.chat_rlds_logger import ChatRldsLogConfig, log_chat_turn
+
+            cfg_dir = Path(self.config_dir)
+            episodes_dir = Path(os.environ.get("CONTINUON_CHAT_RLDS_DIR") or (cfg_dir / "rlds" / "episodes"))
+            cfg = ChatRldsLogConfig(episodes_dir=episodes_dir, group_by_session=True)
+            log_chat_turn(
+                cfg,
+                user_message=message,
+                assistant_response=response,
+                structured=structured if isinstance(structured, dict) else {},
+                status_context=status if isinstance(status, dict) else {},
+                session_id=session_id,
+                model_hint=model_hint,
+                agent_label=model_hint or "agent_manager",
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Never block chat on logging failures.
+            print(f"Failed to log chat to RLDS: {exc}")
 
     def _generate_response(self, message: str, context: str, model_hint: Optional[str] = None) -> str:
         """Generate a lightweight fallback response when Gemma is unavailable."""

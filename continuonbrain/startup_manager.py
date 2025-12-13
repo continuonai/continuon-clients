@@ -56,6 +56,14 @@ class StartupManager:
             "CONTINUON_ENABLE_BACKGROUND_TRAINER",
             default=not self._default_headless(),
         )
+
+        # Optional "curiosity" learning: run small offline Wikipedia sessions at boot if corpus is present.
+        # Default is OFF unless a corpus path is explicitly configured.
+        self.enable_wiki_curiosity = self._env_flag(
+            "CONTINUON_ENABLE_WIKI_CURIOSITY",
+            default=bool(os.environ.get("CONTINUON_WIKI_JSONL")),
+        )
+        self.wiki_jsonl = os.environ.get("CONTINUON_WIKI_JSONL")
         
         # Services
         self.discovery_service: Optional[LANDiscoveryService] = None
@@ -369,6 +377,25 @@ class StartupManager:
                         print(f"   ⚠️ Trainer script not found: {trainer_path}")
                 else:
                     print("🧠 Background trainer disabled (CONTINUON_ENABLE_BACKGROUND_TRAINER=0)")
+
+                # Optional wiki curiosity sidecar (offline-first; bounded; non-fatal)
+                if self.enable_wiki_curiosity and self.wiki_jsonl:
+                    try:
+                        logs_dir = self.config_dir / "logs"
+                        logs_dir.mkdir(parents=True, exist_ok=True)
+                        wiki_log = (logs_dir / "wiki_curiosity.log").open("a", encoding="utf-8")
+                        print("📚 Starting Wiki Curiosity (offline) sidecar...")
+                        self.wiki_curiosity_process = subprocess.Popen(
+                            [sys.executable, "-m", "continuonbrain.eval.wiki_curiosity_boot", "--config-dir", str(self.config_dir)],
+                            env=env,
+                            stdout=wiki_log,
+                            stderr=wiki_log,
+                        )
+                        print(f"   Wiki curiosity started (PID: {self.wiki_curiosity_process.pid})")
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"   ⚠️ Wiki curiosity sidecar failed to start: {exc}")
+                else:
+                    print("📚 Wiki curiosity disabled (set CONTINUON_WIKI_JSONL and CONTINUON_ENABLE_WIKI_CURIOSITY=1 to enable)")
 
             else:
                 print(f"   ⚠️  Robot API module not found: {server_path}")

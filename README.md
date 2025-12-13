@@ -33,13 +33,21 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 - **Presets & sparsity:** per-loop `arch_preset` (`pi5` default, `columnar_small`, `wave_only`, `hybrid`), `sparsity_lambda` (L1), optional `quantization`; JIT off by default for stability.
 - **HOPE graded eval:** `POST /api/training/hope_eval` (or `run_hope_eval` inside the wavecore payload) asks increasing-difficulty questions from `continuonbrain/eval/hope_eval_questions.json`, logs RLDS episodes to `/opt/continuonos/brain/rlds/episodes/hope_eval_<ts>.json`.
 - **Fallback order for eval:** HOPE agent first; if low confidence, fall back to `google/gemma-370m`, then `google/gemma-3n-2b`.
+- **Training Progress (UI):** the Robot UI shows visual progress (loss sparklines + eval/coverage signals):
+  - Metrics: `GET /api/training/metrics`
+  - Eval summaries: `GET /api/training/eval_summary` (includes `hope_eval`, `facts_eval`, `compare_eval`, and `wiki_learn`)
+  - Data quality / learnability: `GET /api/training/data_quality` (flags when episodes are eval-only or missing `observation` / `action.command`)
 - **Cloud handoff + re-acquire (Robot UI):**
   - Readiness report: `GET /api/training/cloud_readiness`
   - Build an export zip: `POST /api/training/export_zip` (writes to `/opt/continuonos/brain/exports/`)
   - List/download export zips: `GET /api/training/exports`, `GET /api/training/exports/download/<name>.zip`
   - Install returned artifacts (manual URL/path): `POST /api/training/install_bundle` with `kind` in `{jax_seed_manifest, edge_bundle, vertex_edge}`
     - `vertex_edge` treats Vertex AI / Edge distribution as **transport** and auto-detects whether the zip contains `edge_manifest.json` (OTA bundle) or `model_manifest.json` (seed manifest).
-- **Optional Wikipedia context (offline-ready):** `continuonbrain/eval/wiki_retriever.py` can consume a local HuggingFace `wikimedia/wikipedia` dataset or JSONL corpus and feed snippets into HOPE eval prompts. It no-ops if no corpus is present. Wire it by passing a retriever into `run_hope_eval_and_log`; plan to enable once an offline dump is available.
+- **Chat → RLDS (opt-in):** the Agent Manager can optionally log chat turns as RLDS episodes (for seed training / replay). Disabled by default; enable only with explicit consent via `CONTINUON_LOG_CHAT_RLDS=1` (writes under `${CONFIG_DIR}/rlds/episodes/`).
+- **Offline Wikipedia learning (opt-in):**
+  - Retriever: `continuonbrain/eval/wiki_retriever.py` consumes a local JSONL corpus (no-op when absent).
+  - Boot curiosity sidecar (bounded): `CONTINUON_WIKI_JSONL=/opt/continuonos/brain/wikipedia/wikipedia.jsonl` + `CONTINUON_ENABLE_WIKI_CURIOSITY=1` runs a small offline learning session at boot and logs RLDS `wiki_learn_<ts>.json`.
+  - Convert HF Parquet shards → JSONL once (then run offline): `python -m continuonbrain.tools.convert_wikipedia_parquet_to_jsonl --input <parquet_dir> --output /opt/continuonos/brain/wikipedia/wikipedia.jsonl --max-rows 20000`
 
 ### Pi5 world-model + RAG (VQ-VAE on HAT, predictor on Pi)
 - **Latent tokenization on HAT:** OAK-D RGB/depth is compressed by a VQ-VAE running on the AI HAT, yielding small discrete token grids instead of pixels. Tokens and codebook IDs are logged into RLDS for replay and grounding.
