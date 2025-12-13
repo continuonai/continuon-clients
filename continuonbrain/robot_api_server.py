@@ -536,6 +536,8 @@ class RobotService:
                 enable = bool(agent_mgr.get("enable_autonomous_learning", True))
                 steps_per_cycle = int(agent_mgr.get("autonomous_learning_steps_per_cycle", 100) or 100)
                 checkpoint_interval = int(agent_mgr.get("autonomous_learning_checkpoint_interval", 1000) or 1000)
+                orch_cfg = (agent_mgr.get("autonomy_orchestrator") or {}) if isinstance(agent_mgr, dict) else {}
+                headroom_mb = int(orch_cfg.get("min_memory_headroom_mb", 512) or 512)
 
                 mode = "unknown"
                 try:
@@ -546,6 +548,23 @@ class RobotService:
                 mode = str(mode).lower()
 
                 want_running = enable and (mode == "autonomous") and (not self.is_recording)
+                res_status = self.resource_monitor.check_resources() if self.resource_monitor else None
+                low_headroom = False
+                if res_status and self.resource_monitor:
+                    reserve_plus_headroom = self.resource_monitor.limits.system_reserve_mb + headroom_mb
+                    low_headroom = res_status.available_memory_mb < reserve_plus_headroom
+
+                if want_running and low_headroom:
+                    if self.background_learner is not None and self.background_learner.running and not self.background_learner.paused:
+                        self.background_learner.pause()
+                    self._last_autonomous_learner_action = {
+                        "action": "pause_low_memory",
+                        "ts": time.time(),
+                        "available_mb": res_status.available_memory_mb if res_status else None,
+                        "headroom_mb": headroom_mb,
+                    }
+                    time.sleep(5)
+                    continue
 
                 if want_running:
                     ok = self._ensure_hope_brain()
@@ -560,7 +579,7 @@ class RobotService:
                                 "checkpoint_dir": f"{self.config_dir}/checkpoints/autonomous",
                                 "rlds_log_dir": f"{self.config_dir}/rlds/autonomous_learning",
                             },
-                            resource_monitor=None,
+                            resource_monitor=self.resource_monitor,
                         )
                         self.background_learner.start()
                         self._last_autonomous_learner_action = {"action": "start", "ts": time.time()}
@@ -637,6 +656,19 @@ class RobotService:
 
                 # Resource gate
                 res = self.resource_monitor.check_resources()
+                headroom_mb = int(orch.get("min_memory_headroom_mb", 512) or 512)
+                reserve_plus_headroom = self.resource_monitor.limits.system_reserve_mb + headroom_mb
+                if res.available_memory_mb < reserve_plus_headroom:
+                    if self.background_learner is not None and getattr(self.background_learner, "running", False) and not getattr(self.background_learner, "paused", False):
+                        self.background_learner.pause()
+                    self._last_orchestrator = {
+                        "last_run_ts": now,
+                        "skipped": "low_memory_headroom",
+                        "resource": res.to_dict(),
+                        "headroom_mb": headroom_mb,
+                    }
+                    time.sleep(5)
+                    continue
                 if res.level in (ResourceLevel.EMERGENCY,):
                     self._last_orchestrator = {"last_run_ts": now, "skipped": "resource_emergency", "resource": res.to_dict()}
                     time.sleep(10)
