@@ -9,6 +9,7 @@ import os
 import json
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 import logging
 
@@ -103,11 +104,42 @@ class GemmaChat:
                     if AutoModelForImageTextToText is None:
                         raise ImportError("AutoModelForImageTextToText not available in installed transformers version")
                         
-                    self.processor = AutoProcessor.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True
-                    )
+                    # Check if model is cached locally
+                    from huggingface_hub import snapshot_download
+                    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+                    model_cache_key = f"models--{self.model_name.replace('/', '--')}"
+                    model_cache_path = cache_dir / model_cache_key
+                    
+                    use_local = model_cache_path.exists() and (model_cache_path / "snapshots").exists()
+                    snapshot_path = None
+                    if use_local:
+                        snapshots = list((model_cache_path / "snapshots").iterdir())
+                        if snapshots:
+                            snapshot_path = snapshots[0]
+                    
+                    # Load processor
+                    try:
+                        if use_local and snapshot_path:
+                            logger.info(f"Loading processor from local cache: {snapshot_path}")
+                            self.processor = AutoProcessor.from_pretrained(
+                                str(snapshot_path),
+                                local_files_only=True,
+                                trust_remote_code=True
+                            )
+                        else:
+                            self.processor = AutoProcessor.from_pretrained(
+                                self.model_name,
+                                token=self.hf_token,
+                                trust_remote_code=True
+                            )
+                    except Exception as e:
+                        logger.warning(f"Failed to load processor locally, trying remote: {e}")
+                        self.processor = AutoProcessor.from_pretrained(
+                            self.model_name,
+                            token=self.hf_token,
+                            trust_remote_code=True,
+                            local_files_only=False
+                        )
                     
                     # Determine dtype and device map
                     # For Pi 5 (CPU), we found that device_map="cpu" + bfloat16 works best
@@ -115,14 +147,38 @@ class GemmaChat:
                     dtype = torch.bfloat16
                     device_map = "cpu"
                     
-                    self.model = AutoModelForImageTextToText.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True,
-                        device_map=device_map,
-                        torch_dtype=dtype,
-                        low_cpu_mem_usage=True
-                    )
+                    # Load model
+                    try:
+                        if use_local and snapshot_path:
+                            logger.info(f"Loading VLM model from local cache: {snapshot_path}")
+                            self.model = AutoModelForImageTextToText.from_pretrained(
+                                str(snapshot_path),
+                                local_files_only=True,
+                                trust_remote_code=True,
+                                device_map=device_map,
+                                torch_dtype=dtype,
+                                low_cpu_mem_usage=True
+                            )
+                        else:
+                            self.model = AutoModelForImageTextToText.from_pretrained(
+                                self.model_name,
+                                token=self.hf_token,
+                                trust_remote_code=True,
+                                device_map=device_map,
+                                torch_dtype=dtype,
+                                low_cpu_mem_usage=True
+                            )
+                    except Exception as e:
+                        logger.warning(f"Failed to load VLM model locally, trying remote: {e}")
+                        self.model = AutoModelForImageTextToText.from_pretrained(
+                            self.model_name,
+                            token=self.hf_token,
+                            trust_remote_code=True,
+                            device_map=device_map,
+                            torch_dtype=dtype,
+                            low_cpu_mem_usage=True,
+                            local_files_only=False
+                        )
                     
                     self.is_vlm = True
                     logger.info(" Gemma 3N VLM loaded successfully!")
@@ -135,12 +191,44 @@ class GemmaChat:
                     self.processor = None
 
             # --- CausalLM Loading Logic (Text Only / Fallback) ---
-            # Load tokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                token=self.hf_token,
-                trust_remote_code=True
-            )
+            # Check if model is cached locally
+            from huggingface_hub import snapshot_download
+            cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+            model_cache_key = f"models--{self.model_name.replace('/', '--')}"
+            model_cache_path = cache_dir / model_cache_key
+            
+            use_local = model_cache_path.exists() and (model_cache_path / "snapshots").exists()
+            
+            # Load tokenizer (prefer local if available)
+            try:
+                if use_local:
+                    # Find the snapshot directory
+                    snapshots = list((model_cache_path / "snapshots").iterdir())
+                    if snapshots:
+                        snapshot_path = snapshots[0]
+                        logger.info(f"Loading tokenizer from local cache: {snapshot_path}")
+                        self.tokenizer = AutoTokenizer.from_pretrained(
+                            str(snapshot_path),
+                            local_files_only=True,
+                            trust_remote_code=True
+                        )
+                    else:
+                        raise FileNotFoundError("No snapshots in cache")
+                else:
+                    self.tokenizer = AutoTokenizer.from_pretrained(
+                        self.model_name,
+                        token=self.hf_token,
+                        trust_remote_code=True
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to load tokenizer locally, trying remote: {e}")
+                # Fallback to remote (may fail if token expired, but model files are local)
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    token=self.hf_token,
+                    trust_remote_code=True,
+                    local_files_only=False
+                )
             
             # Load model with conservative defaults to avoid disk_offload errors on CPU
             use_device_map = None
@@ -163,17 +251,55 @@ class GemmaChat:
                     logger.warning("Accelerate not found. Disabling device_map='auto'")
                     use_device_map = None
 
+            # Try loading from local cache first
             try:
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    self.model_name,
-                    token=self.hf_token,
-                    trust_remote_code=True,
-                    device_map=use_device_map,
-                    low_cpu_mem_usage=low_cpu_mem,
-                    torch_dtype=torch_dtype,
-                )
+                if use_local and snapshot_path:
+                    logger.info(f"Loading CausalLM model from local cache: {snapshot_path}")
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        str(snapshot_path),
+                        local_files_only=True,
+                        trust_remote_code=True,
+                        device_map=use_device_map,
+                        low_cpu_mem_usage=low_cpu_mem,
+                        torch_dtype=torch_dtype,
+                    )
+                else:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_name,
+                        token=self.hf_token,
+                        trust_remote_code=True,
+                        device_map=use_device_map,
+                        low_cpu_mem_usage=low_cpu_mem,
+                        torch_dtype=torch_dtype,
+                    )
             except Exception as e:
-                if use_device_map == "auto":
+                if use_local and snapshot_path:
+                    # If local load failed, try remote as fallback
+                    logger.warning(f"Local load failed, trying remote: {e}")
+                    try:
+                        self.model = AutoModelForCausalLM.from_pretrained(
+                            self.model_name,
+                            token=self.hf_token,
+                            trust_remote_code=True,
+                            device_map=use_device_map,
+                            low_cpu_mem_usage=low_cpu_mem,
+                            torch_dtype=torch_dtype,
+                            local_files_only=False
+                        )
+                    except Exception as e2:
+                        if use_device_map == "auto":
+                            logger.warning(f"Failed with device_map='auto': {e2}. Retrying on CPU without offload...")
+                            self.model = AutoModelForCausalLM.from_pretrained(
+                                self.model_name,
+                                token=self.hf_token,
+                                trust_remote_code=True,
+                                device_map=None,
+                                low_cpu_mem_usage=True,
+                                local_files_only=False
+                            )
+                        else:
+                            raise e2
+                elif use_device_map == "auto":
                     logger.warning(f"Failed with device_map='auto': {e}. Retrying on CPU without offload...")
                     self.model = AutoModelForCausalLM.from_pretrained(
                         self.model_name,

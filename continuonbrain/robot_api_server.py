@@ -121,6 +121,17 @@ class RobotService:
         selection = select_model()
         self.selected_model = selection.get("selected")
 
+        # Detect Hailo accelerator for offloading
+        accelerator_device = None
+        try:
+            from pathlib import Path
+            hailo_devices = list(Path("/dev").glob("hailo*"))
+            if hailo_devices:
+                accelerator_device = "hailo8l"
+                print(f"  Detected Hailo AI HAT+ ({len(hailo_devices)} device(s)) - enabling offloading")
+        except Exception:
+            pass
+
         if self.prefer_jax_models and self.selected_model and self.selected_model.get("backend") == "jax":
             print("  CONTINUON_PREFER_JAX=1 and JAX detected -> skipping transformers chat init; use inference_router for JAX.")
             self.gemma_chat = None
@@ -128,6 +139,11 @@ class RobotService:
             # Transformers path (fallback)
             try:
                 self.gemma_chat = build_chat_service()
+                # If build_chat_service didn't detect Hailo, try to set it here
+                if accelerator_device and self.gemma_chat and hasattr(self.gemma_chat, 'accelerator_device'):
+                    if not self.gemma_chat.accelerator_device:
+                        self.gemma_chat.accelerator_device = accelerator_device
+                        print(f"  Set accelerator_device={accelerator_device} on GemmaChat")
             except Exception as e:  # noqa: BLE001
                 print(f"  Chat initialization failed ({e}); continuing without chat service.")
                 self.gemma_chat = None
@@ -595,7 +611,7 @@ class RobotService:
                 # Alternate between agent manager questions and subagent synthesis
                 if i % 2 == 0:
                     # Agent Manager asks a new question about HOPE learning
-                    message = (
+            message = (
                         f"As the Agent Manager, identify another area where HOPE should learn to be more helpful. "
                         f"Formulate a specific question about: {topic}. "
                         f"Turn {i+2}/{turns}."
@@ -612,8 +628,8 @@ class RobotService:
                 message = (
                     f"Final turn: As the Agent Manager, summarize the top 3 things HOPE should learn "
                     f"based on our conversation, and explain how each would make HOPE more helpful. "
-                    f"Turn {i+2}/{turns}."
-                )
+                f"Turn {i+2}/{turns}."
+            )
         return {"status": "ok", "session_id": session_id, "turns": turns, "model_hint": model_hint, "results": outputs[-3:]}
 
     def _chat_learn_loop(self) -> None:
