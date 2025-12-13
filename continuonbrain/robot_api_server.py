@@ -611,7 +611,7 @@ class RobotService:
                 # Alternate between agent manager questions and subagent synthesis
                 if i % 2 == 0:
                     # Agent Manager asks a new question about HOPE learning
-            message = (
+                    message = (
                         f"As the Agent Manager, identify another area where HOPE should learn to be more helpful. "
                         f"Formulate a specific question about: {topic}. "
                         f"Turn {i+2}/{turns}."
@@ -628,8 +628,8 @@ class RobotService:
                 message = (
                     f"Final turn: As the Agent Manager, summarize the top 3 things HOPE should learn "
                     f"based on our conversation, and explain how each would make HOPE more helpful. "
-                f"Turn {i+2}/{turns}."
-            )
+                    f"Turn {i+2}/{turns}."
+                )
         return {"status": "ok", "session_id": session_id, "turns": turns, "model_hint": model_hint, "results": outputs[-3:]}
 
     def _chat_learn_loop(self) -> None:
@@ -1091,7 +1091,10 @@ class RobotService:
         print(" Mode manager ready")
 
         # Start background chat-learn scheduler (thread; controlled via settings).
-        if self._chat_learn_thread is None or not self._chat_learn_thread.is_alive():
+        disable_chat_learn = os.environ.get("CONTINUON_DISABLE_CHAT_LEARN", "0").lower() in ("1", "true", "yes", "on")
+        if disable_chat_learn:
+            print(" Chat-learn scheduler disabled via CONTINUON_DISABLE_CHAT_LEARN=1")
+        elif self._chat_learn_thread is None or not self._chat_learn_thread.is_alive():
             try:
                 self._chat_learn_thread = threading.Thread(target=self._chat_learn_loop, daemon=True)
                 self._chat_learn_thread.start()
@@ -1099,7 +1102,10 @@ class RobotService:
             except Exception as exc:  # noqa: BLE001
                 print(f"  Chat-learn scheduler failed to start: {exc}")
 
-        if self._autonomous_learner_thread is None or not self._autonomous_learner_thread.is_alive():
+        disable_autonomous_learner = os.environ.get("CONTINUON_DISABLE_AUTONOMOUS_LEARNER", "0").lower() in ("1", "true", "yes", "on")
+        if disable_autonomous_learner:
+            print(" HOPE autonomous learner supervisor disabled via CONTINUON_DISABLE_AUTONOMOUS_LEARNER=1")
+        elif self._autonomous_learner_thread is None or not self._autonomous_learner_thread.is_alive():
             try:
                 self._autonomous_learner_thread = threading.Thread(target=self._autonomous_learning_loop, daemon=True)
                 self._autonomous_learner_thread.start()
@@ -1107,7 +1113,10 @@ class RobotService:
             except Exception as exc:  # noqa: BLE001
                 print(f"  HOPE autonomous learner supervisor failed to start: {exc}")
 
-        if self._orchestrator_thread is None or not self._orchestrator_thread.is_alive():
+        disable_orchestrator = os.environ.get("CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR", "0").lower() in ("1", "true", "yes", "on")
+        if disable_orchestrator:
+            print(" Autonomy orchestrator disabled via CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR=1")
+        elif self._orchestrator_thread is None or not self._orchestrator_thread.is_alive():
             try:
                 self._orchestrator_thread = threading.Thread(target=self._autonomy_orchestrator_loop, daemon=True)
                 self._orchestrator_thread.start()

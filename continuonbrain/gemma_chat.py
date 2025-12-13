@@ -15,6 +15,43 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def _resolve_hf_hub_dir() -> Path:
+    """
+    Resolve the HuggingFace Hub cache directory.
+
+    Priority:
+    - HUGGINGFACE_HUB_CACHE (explicit)
+    - HF_HOME/hub
+    - ~/.cache/huggingface/hub
+    - fallback to /home/craigm26/.cache/huggingface/hub (common on this device)
+      so root-run services can still use the pre-populated cache without downloading.
+    """
+    env_hub = os.environ.get("HUGGINGFACE_HUB_CACHE")
+    if env_hub:
+        return Path(env_hub)
+    hf_home = os.environ.get("HF_HOME")
+    if hf_home:
+        return Path(hf_home) / "hub"
+    default = Path.home() / ".cache" / "huggingface" / "hub"
+    if default.exists():
+        return default
+    shared = Path("/home/craigm26/.cache/huggingface/hub")
+    return shared
+
+def _allow_model_downloads() -> bool:
+    return os.environ.get("CONTINUON_ALLOW_MODEL_DOWNLOADS", "0").lower() in ("1", "true", "yes", "on")
+
+def _model_in_local_hf_cache(model_id: str) -> bool:
+    hub_dir = _resolve_hf_hub_dir()
+    model_cache_key = f"models--{model_id.replace('/', '--')}"
+    snapshots_dir = hub_dir / model_cache_key / "snapshots"
+    try:
+        if not snapshots_dir.exists():
+            return False
+        return any(snapshots_dir.iterdir())
+    except Exception:
+        return False
+
 
 class GemmaChat:
     """
@@ -23,7 +60,7 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-370m"  # prefer smallest first
+    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"  # Use model that's actually in cache
     # Fallbacks (retain prior defaults for larger variants):
     # "google/gemma-3n-E2B-it"
 
@@ -105,7 +142,7 @@ class GemmaChat:
                         raise ImportError("AutoModelForImageTextToText not available in installed transformers version")
                         
                     # ALWAYS check local cache first - never download if files exist
-                    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+                    cache_dir = _resolve_hf_hub_dir()
                     model_cache_key = f"models--{self.model_name.replace('/', '--')}"
                     model_cache_path = cache_dir / model_cache_key
                     
@@ -128,8 +165,12 @@ class GemmaChat:
                             )
                             logger.info("✅ Processor loaded from cache")
                         else:
-                            # Only try remote if NOT in cache
-                            logger.warning(f"Processor not in local cache, attempting download")
+                            if not _allow_model_downloads():
+                                raise RuntimeError(
+                                    f"Processor for {self.model_name} not found in local cache at {model_cache_path}; "
+                                    "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
+                                )
+                            logger.warning("Processor not in local cache; attempting download (allowed)")
                             self.processor = AutoProcessor.from_pretrained(
                                 self.model_name,
                                 token=self.hf_token,
@@ -155,11 +196,12 @@ class GemmaChat:
                                 logger.error(f"Remote load also failed: {e2}")
                                 raise
                     
-                    # Determine dtype and device map
-                    # For Pi 5 (CPU), we found that device_map="cpu" + bfloat16 works best
-                    # device_map="auto" failed with offloading errors
+                    # Determine dtype and device placement.
+                    # NOTE: Some transformer configs + low_cpu_mem_usage can leave parameters on the "meta" device
+                    # and crash with "Cannot copy out of meta tensor". For CPU, prefer a plain load without device_map.
                     dtype = torch.bfloat16
-                    device_map = "cpu"
+                    device_map = None
+                    low_cpu_mem_usage = False
                     
                     # Load model - ALWAYS use local cache if available
                     try:
@@ -172,19 +214,23 @@ class GemmaChat:
                                 trust_remote_code=True,
                                 device_map=device_map,
                                 torch_dtype=dtype,
-                                low_cpu_mem_usage=True
+                                low_cpu_mem_usage=low_cpu_mem_usage,
                             )
                             logger.info("✅ VLM model loaded from cache")
                         else:
-                            # Only try remote if NOT in cache
-                            logger.warning(f"VLM model not in local cache, attempting download")
+                            if not _allow_model_downloads():
+                                raise RuntimeError(
+                                    f"Model {self.model_name} not found in local cache at {model_cache_path}; "
+                                    "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
+                                )
+                            logger.warning("VLM model not in local cache; attempting download (allowed)")
                             self.model = AutoModelForImageTextToText.from_pretrained(
                                 self.model_name,
                                 token=self.hf_token,
                                 trust_remote_code=True,
                                 device_map=device_map,
                                 torch_dtype=dtype,
-                                low_cpu_mem_usage=True,
+                                low_cpu_mem_usage=low_cpu_mem_usage,
                                 local_files_only=False  # Only allow download if not cached
                             )
                     except Exception as e:
@@ -196,9 +242,9 @@ class GemmaChat:
                                     str(snapshot_path),
                                     local_files_only=True,  # Still use local cache
                                     trust_remote_code=True,
-                                    device_map="cpu",  # Force CPU
+                                    device_map=None,  # Force plain CPU load
                                     torch_dtype=dtype,
-                                    low_cpu_mem_usage=True
+                                    low_cpu_mem_usage=False,
                                 )
                                 logger.info("✅ VLM model loaded from cache on CPU")
                             except Exception as e2:
@@ -214,7 +260,7 @@ class GemmaChat:
                                     trust_remote_code=True,
                                     device_map=device_map,
                                     torch_dtype=dtype,
-                                    low_cpu_mem_usage=True,
+                                    low_cpu_mem_usage=low_cpu_mem_usage,
                                     local_files_only=False
                                 )
                             except Exception as e2:
@@ -233,7 +279,7 @@ class GemmaChat:
 
             # --- CausalLM Loading Logic (Text Only / Fallback) ---
             # ALWAYS check local cache first - never download if files exist
-            cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+            cache_dir = _resolve_hf_hub_dir()
             model_cache_key = f"models--{self.model_name.replace('/', '--')}"
             model_cache_path = cache_dir / model_cache_key
             
@@ -258,8 +304,12 @@ class GemmaChat:
                     )
                     logger.info("✅ Tokenizer loaded from cache")
                 else:
-                    # Only try remote if NOT in cache
-                    logger.warning(f"Model not in local cache, attempting download (may fail if token expired)")
+                    if not _allow_model_downloads():
+                        raise RuntimeError(
+                            f"Tokenizer for {self.model_name} not found in local cache at {model_cache_path}; "
+                            "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
+                        )
+                    logger.warning("Tokenizer not in local cache; attempting download (allowed)")
                     self.tokenizer = AutoTokenizer.from_pretrained(
                         self.model_name,
                         token=self.hf_token,
@@ -321,8 +371,12 @@ class GemmaChat:
                     )
                     logger.info("✅ Model loaded from cache")
                 else:
-                    # Only try remote if NOT in cache
-                    logger.warning(f"Model not in local cache, attempting download")
+                    if not _allow_model_downloads():
+                        raise RuntimeError(
+                            f"Model {self.model_name} not found in local cache at {model_cache_path}; "
+                            "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
+                        )
+                    logger.warning("Model not in local cache; attempting download (allowed)")
                     self.model = AutoModelForCausalLM.from_pretrained(
                         self.model_name,
                         token=self.hf_token,
@@ -426,12 +480,18 @@ class GemmaChat:
         
         # --- PATH 2: Local Transformers ---
         if model_hint and model_hint != self.model_name:
-            # Attempt to switch models if available
-            self.model_name = model_hint
-            self.model = None
-            self.tokenizer = None
-            self.processor = None
-            self.is_vlm = False
+            # Attempt to switch models ONLY if available locally (or downloads explicitly allowed).
+            if _model_in_local_hf_cache(model_hint) or _allow_model_downloads():
+                self.model_name = model_hint
+                self.model = None
+                self.tokenizer = None
+                self.processor = None
+                self.is_vlm = False
+            else:
+                logger.warning(
+                    f"Ignoring model_hint={model_hint} because it is not present in local HF cache "
+                    f"({_resolve_hf_hub_dir()}) and downloads are disabled."
+                )
 
         if self.model is None:
             # Pass return_error=True (we need to update load_model signature slightly or just capture it)
