@@ -12,6 +12,7 @@ import time
 import zipfile
 import hashlib
 import random
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
@@ -141,6 +142,19 @@ class SimpleJSONServer:
         elif path == "/control":
             await self.service.SetRobotMode("manual_control")
             response_body = self.get_control_interface_html()
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/pair":
+            token = (query_params.get("token") or "")
+            creator = ""
+            try:
+                creator = (
+                    (SettingsStore(Path(self.service.config_dir)).load().get("identity", {}) or {}).get("creator_display_name")
+                    or ""
+                )
+            except Exception:
+                creator = ""
+            response_body = self.render_template("pair.html", {"active_page": "", "token": token, "creator": creator})
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
         elif path == "/status":
@@ -316,6 +330,15 @@ class SimpleJSONServer:
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
                 return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/tool_router_eval" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = await self.service.RunToolRouterEval(payload or {})
+                response_body = json.dumps({"status": "completed", "result": result}, default=str)
+                return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
+                return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/settings" and method == "GET":
             store = SettingsStore(Path(self.service.config_dir))
             settings = store.load()
@@ -396,12 +419,91 @@ class SimpleJSONServer:
             message = ""
             history = []
             session_id = None
+            model_hint = None
+            delegate_model_hint = None
+            attach_camera_frame = False
+            vision_requested = False
             if isinstance(payload, dict):
                 message = payload.get("message", "") or payload.get("msg", "")
                 history = payload.get("history", []) or []
                 session_id = payload.get("session_id")
-            result = await self.service.ChatWithGemma(message, history, session_id=session_id)
+                model_hint = payload.get("model_hint")
+                delegate_model_hint = payload.get("delegate_model_hint")
+                attach_camera_frame = bool(payload.get("attach_camera_frame") or payload.get("use_vision"))
+                vision_requested = attach_camera_frame
+            image_jpeg = None
+            if attach_camera_frame:
+                try:
+                    image_jpeg = await self.service.GetCameraFrameJPEG()
+                except Exception:
+                    image_jpeg = None
+            result = await self.service.ChatWithGemma(
+                message,
+                history,
+                session_id=session_id,
+                model_hint=model_hint,
+                delegate_model_hint=delegate_model_hint,
+                image_jpeg=image_jpeg,
+                image_source="camera" if attach_camera_frame else None,
+                vision_requested=vision_requested,
+            )
             return self._json_response(result)
+
+        elif path == "/api/audio/tts" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            result = await self.service.SpeakText(payload or {})
+            return self._json_response(result)
+
+        elif path == "/api/audio/record" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            result = await self.service.RecordMicrophone(payload or {})
+            return self._json_response(result)
+
+        elif path == "/api/audio/devices" and method == "GET":
+            result = await self.service.ListAudioDevices()
+            return self._json_response(result)
+
+        elif path == "/api/ownership/status" and method == "GET":
+            result = await self.service.GetOwnershipStatus()
+            return self._json_response(result)
+
+        elif path == "/api/ownership/pair/start" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            result = await self.service.StartPairing(payload or {})
+            return self._json_response(result)
+
+        elif path == "/api/ownership/pair/confirm" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            result = await self.service.ConfirmPairing(payload or {})
+            return self._json_response(result)
+
+        elif path == "/api/ownership/pair/qr" and method == "GET":
+            session = None
+            try:
+                session = self.service.pairing.get_pending()
+            except Exception:
+                session = None
+            if not session:
+                return self._json_response({"status": "error", "message": "No pending pairing session"}, status_code=404)
+            try:
+                proc = subprocess.run(
+                    ["qrencode", "-o", "-", "-t", "PNG", "-s", "6", session.url],
+                    capture_output=True,
+                    timeout=3,
+                    check=True,
+                )
+                png = proc.stdout or b""
+                if not png:
+                    raise RuntimeError("qrencode produced empty output")
+                header = (
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: image/png\r\n"
+                    f"Content-Length: {len(png)}\r\n"
+                    "Cache-Control: no-cache\r\n\r\n"
+                )
+                return header.encode("utf-8") + png
+            except Exception as exc:  # noqa: BLE001
+                return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
 
         elif path == "/api/planning/arm_search" and method == "POST":
             payload = await self._read_json_body(reader, headers)
@@ -701,6 +803,10 @@ class SimpleJSONServer:
             "tool_router": {
                 "loss": read_series(log_dir / "tool_router_metrics.json", y_key="loss"),
                 "acc": read_series(log_dir / "tool_router_metrics.json", y_key="acc"),
+            },
+            "tool_router_eval": {
+                "top1": read_series(log_dir / "tool_router_eval_metrics.json", y_key="top1"),
+                "top5": read_series(log_dir / "tool_router_eval_metrics.json", y_key="top5"),
             },
         }
 

@@ -1,4 +1,5 @@
 import datetime
+import io
 import json
 import os
 from pathlib import Path
@@ -60,6 +61,10 @@ class ChatAdapter:
         model_hint: Optional[str] = None,
         *,
         session_id: Optional[str] = None,
+        delegate_model_hint: Optional[str] = None,
+        image_jpeg: Optional[bytes] = None,
+        image_source: Optional[str] = None,
+        vision_requested: bool = False,
     ) -> dict:
         """
         Chat with Gemma (or a local fallback) using live status for context.
@@ -80,8 +85,83 @@ class ChatAdapter:
             allow_motion = status.get("allow_motion", False)
 
             prompt = self._build_prompt(mode, hardware, allow_motion)
-            raw_response = self._call_model(message, prompt, history, model_hint=model_hint)
+            image_obj: Any = None
+            if image_jpeg:
+                # Best-effort decode for VLMs (Gemma 3n VLM expects PIL or numpy-like image).
+                try:
+                    from PIL import Image  # type: ignore
+
+                    image_obj = Image.open(io.BytesIO(image_jpeg)).convert("RGB")
+                except Exception:
+                    image_obj = None
+                prompt = (
+                    prompt
+                    + "\n\nVision:\n"
+                    + f"- attached: true\n- source: {image_source or 'unknown'}\n"
+                    + "- instruction: Use the image to ground your answer. If uncertain, ask a follow-up.\n"
+                )
+            elif vision_requested:
+                prompt = (
+                    prompt
+                    + "\n\nVision:\n"
+                    + f"- attached: false\n- source: {image_source or 'unknown'}\n"
+                    + "- note: Vision was requested but no frame was available.\n"
+                )
+
+            # Optional: consult a sub-agent (e.g., Gemma 3n) and feed its answer back into the Agent Manager.
+            # This is purely advisory: no auto-execution.
+            subagent_info: Dict[str, Any] = {}
+            if delegate_model_hint:
+                try:
+                    sub_raw = self._call_model(message, prompt, history, model_hint=delegate_model_hint, image=image_obj)
+                    sub_text, _sub_structured = _extract_structured_block(sub_raw)
+                    subagent_info = {
+                        "model_hint": delegate_model_hint,
+                        "response": sub_text[:2000],
+                    }
+                    # Feed the subagent answer into the system prompt so the Agent Manager can learn/incorporate.
+                    prompt = (
+                        prompt
+                        + "\n\nSub-agent consult (advisory):\n"
+                        + f"- model_hint: {delegate_model_hint}\n"
+                        + f"- response: {sub_text[:2000]}\n"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    # Non-fatal.
+                    subagent_info = {"model_hint": delegate_model_hint, "error": str(exc)}
+
+            raw_response = self._call_model(message, prompt, history, model_hint=model_hint, image=image_obj)
             response, structured = _extract_structured_block(raw_response)
+            if delegate_model_hint:
+                if not isinstance(structured, dict):
+                    structured = {}
+                structured["subagent"] = subagent_info
+            if image_jpeg or vision_requested:
+                if not isinstance(structured, dict):
+                    structured = {}
+                structured["vision"] = {
+                    "attached": bool(image_jpeg),
+                    "source": image_source or "unknown",
+                    "bytes": int(len(image_jpeg)) if image_jpeg else 0,
+                    "requested": bool(vision_requested),
+                }
+                # Also surface this in RLDS logs via structured payload (no raw pixels).
+                # If you later want pixel provenance, use /api/camera/frame URIs + timestamps.
+            # Optional: attach tool-router suggestions for learning (no auto-exec).
+            try:
+                enable_suggest = os.environ.get("CONTINUON_ENABLE_TOOL_ROUTER_SUGGEST", "1").lower() in ("1", "true", "yes", "on")
+                if enable_suggest:
+                    from continuonbrain.jax_models.infer.tool_router_infer import load_tool_router_bundle, predict_topk
+
+                    export_dir = Path("/opt/continuonos/brain/model/adapters/candidate/tool_router_seed")
+                    if export_dir.exists():
+                        bundle = load_tool_router_bundle(export_dir)
+                        preds = predict_topk(bundle, message, k=5)
+                        if not isinstance(structured, dict):
+                            structured = {}
+                        structured["suggested_tools"] = preds
+            except Exception:
+                pass
             self._log_chat(message, response, status)
             self._maybe_log_chat_rlds(
                 message=message,
@@ -98,6 +178,12 @@ class ChatAdapter:
             ]
             if model_hint:
                 status_updates.append(f"ModelHint={model_hint}")
+            if delegate_model_hint:
+                status_updates.append(f"SubagentHint={delegate_model_hint}")
+            if image_jpeg:
+                status_updates.append(f"Vision={image_source or 'attached'}")
+            elif vision_requested:
+                status_updates.append("Vision=unavailable")
             if session_id:
                 status_updates.append(f"SessionId={session_id}")
             if structured:
@@ -124,6 +210,20 @@ class ChatAdapter:
             return {"error": str(exc), "response": "", "status_updates": ["ChatAdapterError"]}
 
     def _build_prompt(self, mode: str, hardware: str, allow_motion: bool) -> str:
+        creator_line = ""
+        try:
+            from continuonbrain.settings_manager import SettingsStore
+
+            settings = SettingsStore(Path(self.config_dir)).load()
+            creator = (
+                ((settings or {}).get("identity") or {}).get("creator_display_name")  # type: ignore[union-attr]
+                or ""
+            )
+            creator = str(creator).strip()
+            if creator:
+                creator_line = f"\nCreator alignment:\n- creator_display_name: {creator}\n"
+        except Exception:
+            creator_line = ""
         return (
             "You are the Agent Manager for the Continuon Brain Studio (Gemma 3n on-device orchestrator).\n"
             "Responsibilities:\n"
@@ -142,13 +242,15 @@ class ChatAdapter:
             '"plan":{"steps":[{"id":"s1","text":"...","requires_approval":false}],"requires_human_approval":false},'
             '"approvals":[{"id":"a1","question":"...","options":["approve","deny"]}]}\n'
             "- If you have no probes/goals/plan, return empty arrays and requires_human_approval=false.\n"
-            f"Current Status:\n- Mode: {mode}\n- Hardware: {hardware}\n- Motion Allowed: {allow_motion}\n\n"
+            f"Current Status:\n- Mode: {mode}\n- Hardware: {hardware}\n- Motion Allowed: {allow_motion}\n"
+            + creator_line
+            + "\n"
             "Always answer as the Agent Manager. State when you are using the primary model, a fallback, or a sub-agent/tool. Be concise, technical, and action-oriented."
         )
 
-    def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None) -> str:
+    def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None, image: Any = None) -> str:
         if self.gemma_chat:
-            return self.gemma_chat.chat(message, system_context=prompt, model_hint=model_hint)
+            return self.gemma_chat.chat(message, system_context=prompt, image=image, model_hint=model_hint)
 
         # Robustly extract mode/hardware even if prompt structure changes
         lines = prompt.splitlines()

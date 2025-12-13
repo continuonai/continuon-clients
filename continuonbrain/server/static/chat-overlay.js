@@ -7,6 +7,7 @@
   const positionKey = storageKeyPrefix + '_position';
   const sizeKey = storageKeyPrefix + '_size';
   const expandedKey = storageKeyPrefix + '_expanded';
+  const speechKey = storageKeyPrefix + '_speak_replies';
   const MAX_HISTORY = 50;
 
   let state = {
@@ -31,6 +32,62 @@
 
   function qs(id) {
     return document.getElementById(id);
+  }
+
+  function getSpeakEnabled() {
+    try {
+      return localStorage.getItem(speechKey) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setSpeakEnabled(v) {
+    try {
+      localStorage.setItem(speechKey, v ? '1' : '0');
+    } catch (e) {}
+  }
+
+  async function speakOnRobot(text) {
+    const msg = String(text || '').trim();
+    if (!msg) return;
+    try {
+      await fetch('/api/audio/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg.slice(0, 500), rate_wpm: 175, voice: 'en' }),
+      });
+    } catch (e) {}
+  }
+
+  function startBrowserSTT() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      appendMessage('Speech recognition unavailable in this browser. Tip: use Chrome, or add a server-side STT backend later.', 'system');
+      return;
+    }
+    const rec = new SpeechRecognition();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (ev) => {
+      try {
+        const text = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : '';
+        const input = qs('chat-input');
+        if (input && text) {
+          input.value = String(text).trim();
+          input.focus();
+        }
+      } catch (e) {}
+    };
+    rec.onerror = (ev) => {
+      appendMessage('Mic error: ' + (ev && ev.error ? ev.error : 'unknown'), 'system');
+    };
+    try {
+      rec.start();
+    } catch (e) {
+      appendMessage('Mic start failed: ' + (e && e.message ? e.message : String(e)), 'system');
+    }
   }
 
   function loadState() {
@@ -236,6 +293,28 @@
     appendMessage('Thinking...', 'assistant', false);
 
     try {
+      const sel = qs('chat-agent-select');
+      const choice = sel ? String(sel.value || 'agent_manager') : 'agent_manager';
+      let model_hint = null;
+      let delegate_model_hint = null;
+      if (choice.startsWith('direct:')) {
+        model_hint = choice.replace('direct:', '').trim() || null;
+      } else if (choice.startsWith('consult:')) {
+        delegate_model_hint = choice.replace('consult:', '').trim() || null;
+      }
+      const attachEl = qs('chat-attach-camera');
+      const attach_camera_frame = !!(attachEl && attachEl.checked);
+      const thumb = qs('chat-camera-thumb');
+      if (thumb) {
+        if (attach_camera_frame) {
+          thumb.style.display = '';
+          thumb.src = `/api/camera/frame?t=${Date.now()}`;
+        } else {
+          thumb.style.display = 'none';
+          thumb.removeAttribute('src');
+        }
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -243,12 +322,19 @@
           message: text,
           history: state.history.slice(-10),
           session_id: state.sessionId,
+          model_hint,
+          delegate_model_hint,
+          attach_camera_frame,
         }),
       });
       const data = await res.json();
       const reply = data?.response || data?.message || JSON.stringify(data);
       appendMessage(reply, 'assistant');
       renderStructured(data);
+      const speakEl = qs('chat-speak-replies');
+      if (speakEl && speakEl.checked) {
+        speakOnRobot(reply);
+      }
     } catch (err) {
       const href = (window.location && window.location.href) ? window.location.href : '';
       const host = (window.location && window.location.host) ? window.location.host : '';
@@ -307,6 +393,19 @@
       input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendChatMessage();
       });
+    }
+
+    const micBtn = qs('chat-mic');
+    if (micBtn && !micBtn.dataset.wired) {
+      micBtn.dataset.wired = '1';
+      micBtn.addEventListener('click', startBrowserSTT);
+    }
+
+    const speakToggle = qs('chat-speak-replies');
+    if (speakToggle && !speakToggle.dataset.wired) {
+      speakToggle.dataset.wired = '1';
+      speakToggle.checked = getSpeakEnabled();
+      speakToggle.addEventListener('change', () => setSpeakEnabled(!!speakToggle.checked));
     }
   }
 

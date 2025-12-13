@@ -393,6 +393,23 @@
                         <div class="chat-rail">
                             <div class="chat-messages inline" id="chat-messages"></div>
                             <div class="chat-input-area inline">
+                                <select id="chat-agent-select" class="input-compact" style="width:220px; margin-right:8px;">
+                                    <option value="agent_manager" selected>Agent Manager</option>
+                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)</option>
+                                    <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)</option>
+                                    <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
+                                    <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
+                                </select>
+                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                    <input id="chat-attach-camera" type="checkbox">
+                                    Vision
+                                </label>
+                                <img id="chat-camera-thumb" alt="camera frame" style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
+                                <button class="rail-btn" id="chat-mic" type="button" title="Push-to-talk">🎙️</button>
+                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                    <input id="chat-speak-replies" type="checkbox">
+                                    Speak
+                                </label>
                                 <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
                                 <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
                             </div>

@@ -837,6 +837,9 @@ function renderTrainingDashboard({ status, metrics, evals, tasks, skills }) {
   const toolRouter = metrics?.tool_router || {};
   const toolRouterLossPts = (toolRouter.loss?.points || []).map((p) => p.loss);
   const toolRouterAccPts = (toolRouter.acc?.points || []).map((p) => p.acc);
+  const toolRouterEval = metrics?.tool_router_eval || {};
+  const toolRouterTop1Pts = (toolRouterEval.top1?.points || []).map((p) => p.top1);
+  const toolRouterTop5Pts = (toolRouterEval.top5?.points || []).map((p) => p.top5);
   const toolRouterStatus = status?.tool_router || null;
   const toolRouterRes = toolRouterStatus?.status === 'ok' ? toolRouterStatus?.tool_router : toolRouterStatus;
   const toolRouterManifest = toolRouterRes?.manifest || toolRouterRes?.tool_router?.manifest || null;
@@ -850,8 +853,10 @@ function renderTrainingDashboard({ status, metrics, evals, tasks, skills }) {
   const toolRouterBody = (
     `<div class="metric-row"><div class="metric-label">Loss</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolRouterLossPts)}<span class="stack-meta">latest:${escapeHtml(fmtNum(toolRouterLossPts.at(-1)))}</span></div></div>` +
     `<div class="metric-row"><div class="metric-label">Accuracy</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolRouterAccPts)}<span class="stack-meta">latest:${escapeHtml(pct(toolRouterAccPts.at(-1)))}</span></div></div>` +
+    `<div class="metric-row"><div class="metric-label">Eval top-1</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolRouterTop1Pts)}<span class="stack-meta">latest:${escapeHtml(pct(toolRouterTop1Pts.at(-1)))}</span></div></div>` +
+    `<div class="metric-row"><div class="metric-label">Eval top-5</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolRouterTop5Pts)}<span class="stack-meta">latest:${escapeHtml(pct(toolRouterTop5Pts.at(-1)))}</span></div></div>` +
     `<div class="metric-row"><div class="metric-label">Manifest</div><div class="metric-value" style="display:flex; gap:8px; align-items:center; justify-content:flex-end;"><span style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(toolRouterManifest || '—')}</span>${toolRouterManifest ? `<button class="rail-btn" data-copy="${escapeHtml(toolRouterManifest)}" style="padding:6px 10px; font-size:12px;">Copy</button>` : ''}</div></div>` +
-    `<div class="metric-row"><div class="metric-label"></div><div class="metric-value"><button class="rail-btn" type="button" onclick="window.trainToolRouter()">Train tool-router</button></div></div>` +
+    `<div class="metric-row"><div class="metric-label"></div><div class="metric-value" style="display:flex; gap:8px; justify-content:flex-end;"><button class="rail-btn" type="button" onclick="window.trainToolRouter()">Train tool-router</button><button class="rail-btn" type="button" onclick="window.evalToolRouter()">Run heldout eval</button></div></div>` +
     `<div class="panel-subtitle" style="margin-top:8px;">Try a prompt</div>` +
     `<div class="metric-row"><div class="metric-label">Prompt</div><div class="metric-value"><input id="tool-router-prompt" class="input-compact" type="text" placeholder="e.g. Find instagram user info for nike" style="width:260px;"></div></div>` +
     `<div class="metric-row"><div class="metric-label"></div><div class="metric-value"><button class="rail-btn" type="button" onclick="window.predictToolRouter()">Suggest tools</button></div></div>` +
@@ -955,6 +960,64 @@ window.trainToolRouter = async function () {
     console.warn('trainToolRouter failed', err);
   } finally {
     if (typeof window.updateTrainingDashboard === 'function') window.updateTrainingDashboard();
+  }
+};
+
+window.evalToolRouter = async function () {
+  try {
+    await fetch('/api/training/tool_router_eval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eval_mod: 10, eval_bucket: 0, k: 5, max_episodes_scan: 30000, include_dirs_prefix: 'toolchat_hf' }),
+    });
+  } catch (err) {
+    console.warn('evalToolRouter failed', err);
+  } finally {
+    if (typeof window.updateTrainingDashboard === 'function') window.updateTrainingDashboard();
+  }
+};
+
+window.refreshOwnershipStatus = async function () {
+  const list = document.getElementById('pairing-status-list');
+  try {
+    const res = await fetch('/api/ownership/status');
+    const data = await res.json();
+    const own = data?.ownership || {};
+    if (list) {
+      list.innerHTML =
+        `<div class="stack-item"><div class="stack-title">Owned</div><div class="stack-meta">${escapeHtml(String(!!own.owned))}</div></div>` +
+        `<div class="stack-item"><div class="stack-title">Owner</div><div class="stack-meta">${escapeHtml(own.owner_id || '—')}</div></div>` +
+        `<div class="stack-item"><div class="stack-title">Account type</div><div class="stack-meta">${escapeHtml(own.account_type || '—')}</div></div>`;
+    }
+  } catch (e) {
+    if (list) list.innerHTML = `<div class="stack-item"><span class="stack-meta">Ownership status unavailable</span></div>`;
+  }
+};
+
+window.startPhonePairing = async function () {
+  const codeEl = document.getElementById('pairing-confirm-code');
+  const img = document.getElementById('pairing-qr');
+  const urlEl = document.getElementById('pairing-url');
+  try {
+    const base_url = window.location && window.location.origin ? window.location.origin : '';
+    const res = await fetch('/api/ownership/pair/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_url, ttl_s: 300 }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'pair start failed');
+    if (codeEl) codeEl.textContent = data.confirm_code || '—';
+    if (urlEl) urlEl.textContent = data.url || '(no url)';
+    if (img) {
+      img.style.display = '';
+      img.src = `/api/ownership/pair/qr?t=${Date.now()}`;
+    }
+    if (typeof window.refreshOwnershipStatus === 'function') window.refreshOwnershipStatus();
+  } catch (e) {
+    if (codeEl) codeEl.textContent = '—';
+    if (urlEl) urlEl.textContent = 'Error: ' + (e && e.message ? e.message : String(e));
+    if (img) img.style.display = 'none';
   }
 };
 

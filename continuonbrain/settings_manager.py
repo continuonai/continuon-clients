@@ -14,6 +14,11 @@ from typing import Any, Dict
 
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
+    "identity": {
+        # Human-readable, non-biometric label used for creator alignment in prompts and UI.
+        # Example: "Craig Merry"
+        "creator_display_name": "",
+    },
     "safety": {
         "allow_motion": True,
         "record_episodes": True,
@@ -81,6 +86,14 @@ class SettingsStore:
     def _validate(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         errors = []
         normalized = self._defaults()
+
+        identity = payload.get("identity", {}) if isinstance(payload, dict) else {}
+        creator = identity.get("creator_display_name", normalized["identity"]["creator_display_name"])
+        creator_str = str(creator or "").strip()
+        if len(creator_str) > 80:
+            errors.append("Creator display name must be <= 80 characters")
+        else:
+            normalized["identity"]["creator_display_name"] = creator_str
 
         safety = payload.get("safety", {}) if isinstance(payload, dict) else {}
         normalized["safety"]["allow_motion"] = bool(

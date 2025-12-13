@@ -43,6 +43,10 @@ from continuonbrain.services.training_runner import TrainingRunner
 from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest
 from continuonbrain.services.wavecore_trainer import WavecoreTrainer
 from continuonbrain.services.tool_router_trainer import ToolRouterTrainer, ToolRouterTrainRequest
+from continuonbrain.services.tool_router_evaluator import ToolRouterEvaluator, ToolRouterEvalRequest
+import subprocess
+from continuonbrain.services.audio_io import record_wav, speak_text
+from continuonbrain.services.pairing_manager import PairingManager
 from continuonbrain.services.video_stream import VideoStreamHelper
 from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
 from continuonbrain.jax_models.infer.tool_router_infer import load_tool_router_bundle, predict_topk
@@ -98,8 +102,10 @@ class RobotService:
         self.wavecore_trainer = WavecoreTrainer()
         self.manual_trainer = ManualTrainer()
         self.tool_router_trainer = ToolRouterTrainer()
+        self.tool_router_evaluator = ToolRouterEvaluator()
         self.stream_helper = VideoStreamHelper(self)
         self._tool_router_bundle = None
+        self.pairing = PairingManager(config_dir)
 
         # Prefer JAX-based models by default to avoid heavyweight transformers init on boot.
         self.prefer_jax_models = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes")
@@ -212,6 +218,89 @@ class RobotService:
             self._tool_router_bundle = load_tool_router_bundle(export_dir)
         preds = predict_topk(self._tool_router_bundle, prompt, k=k)
         return {"status": "ok", "export_dir": str(export_dir), "k": k, "predictions": preds}
+
+    async def RunToolRouterEval(self, payload: Optional[dict] = None) -> dict:
+        """Run heldout eval for tool-router (top1/top5 on deterministic split)."""
+        payload = payload or {}
+        req = ToolRouterEvalRequest(
+            episodes_root=Path(payload["episodes_root"]) if payload.get("episodes_root") else None,
+            include_dirs_prefix=str(payload.get("include_dirs_prefix", "toolchat_hf")),
+            export_dir=Path(payload["export_dir"]) if payload.get("export_dir") else None,
+            max_episodes_scan=int(payload.get("max_episodes_scan", 30000)),
+            eval_mod=int(payload.get("eval_mod", 10)),
+            eval_bucket=int(payload.get("eval_bucket", 0)),
+            k=int(payload.get("k", 5)),
+        )
+        return await self.tool_router_evaluator.run(req)
+
+    async def SpeakText(self, payload: Optional[dict] = None) -> dict:
+        """Robot-side TTS (offline-first)."""
+        payload = payload or {}
+        text = str(payload.get("text", "") or payload.get("message", ""))
+        voice = str(payload.get("voice", "en") or "en")
+        rate_wpm = payload.get("rate_wpm", 175)
+        return speak_text(text, voice=voice, rate_wpm=rate_wpm)
+
+    async def RecordMicrophone(self, payload: Optional[dict] = None) -> dict:
+        """Robot-side microphone capture (offline-first)."""
+        payload = payload or {}
+        seconds = payload.get("seconds", 4)
+        sample_rate_hz = payload.get("sample_rate_hz", 16000)
+        num_channels = payload.get("num_channels", 1)
+        device = payload.get("device")
+        res, status = record_wav(seconds=seconds, sample_rate_hz=sample_rate_hz, num_channels=num_channels, device=device)
+        if not res:
+            return status
+        return {
+            "status": "ok",
+            "path": str(res.path),
+            "sample_rate_hz": res.sample_rate_hz,
+            "num_channels": res.num_channels,
+            "duration_s": res.duration_s,
+            "backend": res.backend,
+        }
+
+    async def ListAudioDevices(self) -> dict:
+        """List ALSA capture devices (best-effort)."""
+        out = {"status": "ok", "arecord_l": "", "arecord_L": ""}
+        try:
+            proc = subprocess.run(["arecord", "-l"], capture_output=True, text=True, timeout=3)
+            out["arecord_l"] = (proc.stdout or proc.stderr or "").strip()
+        except Exception as exc:  # noqa: BLE001
+            out["arecord_l"] = f"error: {exc}"
+        try:
+            proc = subprocess.run(["arecord", "-L"], capture_output=True, text=True, timeout=3)
+            out["arecord_L"] = (proc.stdout or proc.stderr or "").strip()
+        except Exception as exc:  # noqa: BLE001
+            out["arecord_L"] = f"error: {exc}"
+        return out
+
+    async def StartPairing(self, payload: Optional[dict] = None) -> dict:
+        payload = payload or {}
+        base_url = str(payload.get("base_url") or "").strip()
+        ttl_s = int(payload.get("ttl_s") or 300)
+        session = self.pairing.start(base_url=base_url, ttl_s=ttl_s)
+        return {
+            "status": "ok",
+            "token": session.token,
+            "confirm_code": session.confirm_code,
+            "expires_unix_s": session.expires_unix_s,
+            "url": session.url,
+        }
+
+    async def ConfirmPairing(self, payload: Optional[dict] = None) -> dict:
+        payload = payload or {}
+        ok, msg, ownership = self.pairing.confirm(
+            token=str(payload.get("token") or ""),
+            confirm_code=str(payload.get("confirm_code") or payload.get("code") or ""),
+            owner_id=str(payload.get("owner_id") or payload.get("owner") or ""),
+        )
+        if not ok:
+            return {"status": "error", "message": msg}
+        return {"status": "ok", "ownership": ownership}
+
+    async def GetOwnershipStatus(self) -> dict:
+        return {"status": "ok", "ownership": self.pairing.ownership_status()}
 
     async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
         """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
@@ -1000,7 +1089,18 @@ class RobotService:
         """Get latest RGB camera frame as JPEG bytes."""
         return await self.stream_helper.get_camera_frame_jpeg()
     
-    async def ChatWithGemma(self, message: str, history: list, session_id: str = None) -> dict:
+    async def ChatWithGemma(
+        self,
+        message: str,
+        history: list,
+        session_id: str = None,
+        *,
+        model_hint: str = None,
+        delegate_model_hint: str = None,
+        image_jpeg: bytes = None,
+        image_source: str = None,
+        vision_requested: bool = False,
+    ) -> dict:
         """
         Chat with Gemma 3n model acting as the Agent Manager.
         
@@ -1012,7 +1112,16 @@ class RobotService:
         Returns:
             dict with 'response' or 'error'
         """
-        return await self.chat_adapter.chat(message, history, session_id=session_id)
+        return await self.chat_adapter.chat(
+            message,
+            history,
+            model_hint=model_hint,
+            session_id=session_id,
+            delegate_model_hint=delegate_model_hint,
+            image_jpeg=image_jpeg,
+            image_source=image_source,
+            vision_requested=vision_requested,
+        )
 
     async def PlanArmSearch(self, payload: Optional[dict] = None) -> dict:
         """

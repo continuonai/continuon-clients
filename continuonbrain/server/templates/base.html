@@ -190,6 +190,23 @@
                                 <pre id="chat-structured" style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:260px; overflow:auto;">(no structured plan yet)</pre>
                             </div>
                             <div class="chat-input-area inline">
+                                <select id="chat-agent-select" class="input-compact" style="width:220px; margin-right:8px;">
+                                    <option value="agent_manager" selected>Agent Manager</option>
+                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)</option>
+                                    <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)</option>
+                                    <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
+                                    <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
+                                </select>
+                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                    <input id="chat-attach-camera" type="checkbox">
+                                    Vision
+                                </label>
+                                <img id="chat-camera-thumb" alt="camera frame" style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
+                                <button class="rail-btn" id="chat-mic" type="button" title="Push-to-talk">🎙️</button>
+                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                    <input id="chat-speak-replies" type="checkbox">
+                                    Speak
+                                </label>
                                 <input type="text" class="chat-input" id="chat-input"
                                     placeholder="Ask about robot status, control tips..."
                                     aria-label="Chat message input"
@@ -344,6 +361,23 @@
                         <div class="panel-ghost">
                             <div class="panel-eyebrow">Recent Learning Events</div>
                             <div class="learning-list" id="learning-events"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Pair phone (Continuon AI app / browser)</div>
+                            <div class="panel-subtitle">Scan QR on your iPhone (local network) and enter the 6‑digit confirm code shown here.</div>
+                            <div class="rail-actions" style="margin-top:10px;">
+                                <button class="rail-btn primary" type="button" onclick="window.startPhonePairing()">Start pairing</button>
+                                <button class="rail-btn" type="button" onclick="window.refreshOwnershipStatus()">Refresh status</button>
+                            </div>
+                            <div class="stack-list" id="pairing-status-list" style="margin-top:10px;"></div>
+                            <div class="metric-row" style="margin-top:10px;">
+                                <div class="metric-label">Confirm code</div>
+                                <div class="metric-value"><span class="status-chip info" id="pairing-confirm-code">—</span></div>
+                            </div>
+                            <div class="panel-subtitle" style="margin-top:10px;">Scan this QR</div>
+                            <img id="pairing-qr" alt="pair QR" style="display:none; width:220px; height:220px; border-radius:16px; border:1px solid rgba(255,255,255,0.12); background:#fff;">
+                            <div class="panel-subtitle" style="margin-top:10px;">Or open URL</div>
+                            <pre id="pairing-url" style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);">(not started)</pre>
                         </div>
                     </div>
                 </div>
