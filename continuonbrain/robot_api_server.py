@@ -867,7 +867,14 @@ class RobotService:
             config_dir=self.config_dir,
             system_instructions=self.system_instructions,
         )
-        self.mode_manager.return_to_idle()  # Start in idle mode
+        # Load persisted mode (set by startup manager) or default to idle
+        persisted_mode = self.mode_manager.load_state()
+        if persisted_mode and persisted_mode != RobotMode.IDLE:
+            # Restore the persisted mode (e.g., AUTONOMOUS set by startup manager)
+            self.mode_manager.set_mode(persisted_mode, metadata={"restored_from_persisted": True})
+        else:
+            # No persisted mode, start in idle
+            self.mode_manager.return_to_idle()
         print(" Mode manager ready")
 
         # Start background chat-learn scheduler (thread; controlled via settings).
