@@ -46,11 +46,11 @@ class VideoStreamHelper:
 
     async def get_depth_frame(self) -> Optional[dict]:
         """Get latest depth camera frame metadata."""
-        if not self.service.camera or cv2 is None:
+        if not self.service.camera:
             return None
 
         frame = self.service.camera.capture_frame()
-        if not frame:
+        if not frame or frame.get("rgb") is None or frame.get("depth") is None:
             return None
 
         return {
@@ -67,16 +67,30 @@ class VideoStreamHelper:
 
         try:
             frame = self.service.camera.capture_frame()
-            if not frame or "rgb" not in frame:
+            if not frame or frame.get("rgb") is None:
                 return None
 
-            rgb_frame = frame["rgb"]
-            rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
+            img = frame["rgb"]  # OAKDepthCapture requests BGR888p
 
-            success, jpeg_bytes = cv2.imencode(".jpg", rgb_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            if success:
-                return jpeg_bytes.tobytes()
-            return None
+            # Fast path: OpenCV available
+            if cv2 is not None:
+                ok, jpeg_bytes = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                return jpeg_bytes.tobytes() if ok else None
+
+            # Fallback: Pillow (no OpenCV on minimal installs)
+            try:
+                from PIL import Image  # type: ignore
+                import io
+
+                # Convert BGR -> RGB
+                rgb = img[..., ::-1]
+                pil = Image.fromarray(rgb)
+                buf = io.BytesIO()
+                pil.save(buf, format="JPEG", quality=85)
+                return buf.getvalue()
+            except Exception as exc:  # noqa: BLE001
+                print(f"Error encoding camera frame (no cv2): {exc}")
+                return None
         except Exception as exc:  # noqa: BLE001
             print(f"Error encoding camera frame: {exc}")
             return None

@@ -358,6 +358,11 @@ class ArmEpisodeRecorder:
         if use_mock:
             print("Using MOCK hardware mode")
         else:
+            # When motion hardware is intentionally skipped, allow camera-only real mode.
+            skip_motion_hw = str(
+                (importlib.import_module("os").environ.get("CONTINUON_SKIP_MOTION_HW", "0"))
+            ).lower() in ("1", "true", "yes", "on")
+
             # Auto-detect hardware if requested
             detected_config = {}
             if auto_detect and HardwareDetector:
@@ -397,7 +402,11 @@ class ArmEpisodeRecorder:
                 else:
                     print("  Arm initialization failed (continuing without arm)")
                     self.arm = None
-                    success = False
+                    # If motion is intentionally skipped, keep camera-only real mode.
+                    if not (skip_motion_hw and self.camera is not None):
+                        success = False
+                    else:
+                        print("  Motion skipped (CONTINUON_SKIP_MOTION_HW=1); keeping camera-only REAL mode")
 
         # Initialize microphone capture
         self.microphone = MicrophoneCapture(use_mock=use_mock)
