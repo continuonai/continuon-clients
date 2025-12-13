@@ -329,14 +329,16 @@ class StartupManager:
                     ]
                     + (["--skip-motion-hw"] if self._env_flag("CONTINUON_SKIP_MOTION_HW", default=False) else [])
                     # Hardware mode policy:
-                    # - Default to real-hardware mode on boot for production alignment.
-                    # - Allow overrides via env flags for dev/testing.
+                    # - DEFAULT: Real hardware mode on boot for production alignment.
+                    # - CONTINUON_FORCE_REAL_HARDWARE defaults to True (real hardware by default).
+                    # - Only use mock hardware if CONTINUON_FORCE_MOCK_HARDWARE is explicitly set.
+                    # - This ensures production systems always start with real hardware unless explicitly overridden.
                     + (["--mock-hardware"] if self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False) else [])
                     + (
                         ["--real-hardware"]
                         if (
                             not self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False)
-                            and self._env_flag("CONTINUON_FORCE_REAL_HARDWARE", default=True)
+                            and self._env_flag("CONTINUON_FORCE_REAL_HARDWARE", default=True)  # DEFAULT: True (real hardware)
                         )
                         else []
                     )
