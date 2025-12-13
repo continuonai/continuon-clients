@@ -697,10 +697,14 @@ class RobotService:
                     if self.hope_brain is not None and (now - last["cms"] >= cms_every):
                         try:
                             _pause_bg()
-                            self.hope_brain.compact_memory()
-                            actions["cms_compact"] = {"ok": True}
+                            result = self.hope_brain.compact_memory()
+                            actions["cms_compact"] = {"ok": True, "result": result, "timestamp": now}
+                            import logging
+                            logging.getLogger(__name__).info(f"CMS compaction completed: {result}")
                         except Exception as exc:  # noqa: BLE001
-                            actions["cms_compact"] = {"ok": False, "error": str(exc)}
+                            actions["cms_compact"] = {"ok": False, "error": str(exc), "timestamp": now}
+                            import logging
+                            logging.getLogger(__name__).warning(f"CMS compaction failed: {exc}")
                         finally:
                             _resume_bg()
                         last["cms"] = now
@@ -780,6 +784,9 @@ class RobotService:
                         "resource": res.to_dict(),
                         "last_actions": actions,
                         "last_markers": last,
+                        "last_cms_compact": last.get("cms", 0.0),
+                        "last_hope_eval": last.get("hope_eval", 0.0),
+                        "last_wavecore": last.get("wavecore", 0.0),
                     }
             except Exception as exc:  # noqa: BLE001
                 # Never crash the runtime due to orchestrator issues, but surface the error for visibility.

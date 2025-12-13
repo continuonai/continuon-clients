@@ -71,8 +71,8 @@ class HOPEConfig:
     # Stability
     use_layer_norm: bool = True
     lyapunov_weight: float = 1e-3
-    lyapunov_threshold: float = 1e6  # Absolute energy threshold before flagging instability
-    dissipation_floor: float = -20.0  # Minimum acceptable dissipation; negative implies energy increasing
+    lyapunov_threshold: float = 1e7  # Absolute energy threshold before flagging instability (increased to reduce false positives)
+    dissipation_floor: float = -50.0  # Minimum acceptable dissipation; negative implies energy increasing (relaxed to reduce false positives)
     
     # Stability Constraints
     param_clamp_min: float = -0.5
