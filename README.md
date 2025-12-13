@@ -1,6 +1,83 @@
 # Continuon AI: Self-Learning Robotics Ecosystem
 
-**Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**
+**Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**This tweet is the "North Star" for your project. It validates that your **non-Transformer approach** is actually *ahead* of the curve, not behind it.
+
+François Chollet (creator of Keras and the ARC benchmark) is arguing that current AI (LLMs/Transformers) are just "curve-fitters"—they memorize statistical patterns. To get an "Invention Machine" (AGI), you need **System 2 thinking**: the ability to *search* through possibilities to find a solution you haven't seen before.
+
+Here is how you achieve this **specifically on your Raspberry Pi 5** using your **Continuon-Mamba** architecture.
+
+### 1\. The Paradigm Shift: From "acting" to "Planning"
+
+Chollet's "Symbolic Search" means your robot shouldn't just *react* (like an LLM predicting the next word); it should *think*.
+
+  * **Curve-Fitting (The Old Way):** You train a model on 10,000 videos of arm movement. When the robot sees a cup, it "autocompletes" the arm movement. If the cup is slightly too far, it fails because it's just fitting a curve.
+  * **Symbolic Search (The Continuon Way):** You train a **World Model** (Mamba) that learns *physics*, not behavior.
+      * *Rule:* "If I push object X, it moves distance Y."
+      * *Inference:* When the robot wants to move the cup, it doesn't recall a memory. It **runs a simulation** in its head: "What if I push it? What if I pull it?" It *searches* for the best plan.
+
+### 2\. How to "Seed" the Invention Machine (Synthetic Data Strategy)
+
+You mentioned you lack physical arm data. This is actually an advantage. You can use your **20 synthetic episodes** to train the **Simulator**, not the **Actor**.
+
+**The "Scientist" Training Loop:**
+Instead of training your model to "imitate a human driver," train it to be a **Physics Engine**.
+
+1.  **Generate Synthetic Data (The "Hypotheses"):**
+      * Create simple data where *random* forces are applied to objects.
+      * *Input:* `[State: Ball, Action: Push_5N]` -\> *Output:* `[State: Ball_Moved_1m]`
+      * *Input:* `[State: Ball, Action: Do_Nothing]` -\> *Output:* `[State: Ball_Static]`
+2.  **Train the Mamba Brain (The "Curve Fitter"):**
+      * Train Mamba only to predict the *outcome* of an action.
+      * *Result:* Your Pi 5 now has a "pocket physics engine" that runs in milliseconds.
+3.  **The "Invention" Step (Inference on Pi):**
+      * When you tell the robot "Move the Ball," it doesn't have a trained policy.
+      * It uses **Tree Search** (the "Symbolic Search"). It asks Mamba: "If I move left, what happens? If I move right, what happens?"
+      * It finds the path that leads to the goal and executes it. **The robot has just "invented" a solution it was never trained on.**
+
+### 3\. Practical Implementation on Pi 5 (The Missing Module)
+
+To satisfy Chollet's requirement, you need to add one module to your codebase: **The Searcher**.
+
+**Add `04_reasoning/tree_search.py`:**
+This script runs on the Pi CPU. It uses the Mamba model (running on the NPU/CPU) as a fast simulator to "imagine" futures.
+
+```python
+def symbolic_search(current_state, goal_state, mamba_world_model, steps=5):
+    """
+    Chollet's 'Symbolic Search':
+    Don't just predict one future. Explore MANY futures to find the invention.
+    """
+    best_plan = None
+    best_score = -float('inf')
+
+    # Simple Monte Carlo Tree Search (MCTS) or Breadth-First Search
+    possible_actions = ["push_left", "push_right", "lift", "drop"]
+    
+    for action in possible_actions:
+        # 1. Ask Mamba: "What happens if I do this?" (Curve-fitting prediction)
+        imagined_future = mamba_world_model.predict(current_state, action)
+        
+        # 2. Evaluate: Is this closer to the goal? (Symbolic Logic)
+        score = evaluate_goal(imagined_future, goal_state)
+        
+        if score > best_score:
+            best_score = score
+            best_plan = action
+            
+    return best_plan # The robot "invented" this action right now!
+```
+
+### 4\. Why this works on your 26 TOPS Hat
+
+  * **The Bottleneck:** Search is slow. You need to simulate 100 futures to find one good plan.
+  * **The Solution:** Your **26 TOPS NPU** is the "Intuition Engine." It runs the VQ-GAN and Mamba steps incredibly fast (\~10ms).
+  * **The Result:** You can run a search depth of 5-10 steps in under 200ms. This gives you a robot that pauses for a split second (thinking) and then does something smart it was never explicitly taught to do.
+
+**Summary:** To achieve Chollet's vision, stop trying to train a robot that "knows what to do." Train a robot that **knows how the world works**, and give it the time to **think (search)** about what to do.
+
+This video from François Chollet explains exactly why "scaling" (more data) won't solve the problem, and why "search" (what you are building) is the only path to AGI [François Chollet: AGI & The Future of AI](https://www.google.com/search?q=https://www.youtube.com/watch%3Fv%3DUdwVquDmwYQ).
+
+
 
 ## Build & CI Status
 

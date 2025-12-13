@@ -376,19 +376,19 @@ def load_rlds_dataset(
             tfrecord_files.append(p)
 
     if TF_AVAILABLE and tfrecord_files:
-        tf_dataset = create_tfrecord_dataset(
+    tf_dataset = create_tfrecord_dataset(
             tfrecord_paths=tfrecord_files,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            shuffle_buffer_size=shuffle_buffer_size,
-            repeat=repeat,
-            prefetch=prefetch,
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            compression_type=compression_type,
-            feature_spec=feature_spec,
-        )
-        return tf_dataset_to_jax_iterator(tf_dataset)
+        batch_size=batch_size,
+        shuffle=shuffle,
+        shuffle_buffer_size=shuffle_buffer_size,
+        repeat=repeat,
+        prefetch=prefetch,
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        compression_type=compression_type,
+        feature_spec=feature_spec,
+    )
+    return tf_dataset_to_jax_iterator(tf_dataset)
 
     # JSON fallback: when TFRecord conversion hasn't been run, use RLDS JSON episodes directly.
     episode_dirs = [p for p in paths if p.is_dir()]

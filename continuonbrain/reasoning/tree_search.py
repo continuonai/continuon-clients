@@ -122,3 +122,38 @@ def beam_search_plan(
     )
 
 
+
+def symbolic_search(
+    current_state: WorldModelState,
+    goal_state: ArmGoal,
+    mamba_world_model: BaseWorldModel,
+    steps: int = 5,
+) -> Optional[List[float]]:
+    """
+    Chollet's 'Symbolic Search' (compatible alias):
+    Don't just predict one future. Explore MANY futures to find the invention.
+
+    Args:
+        current_state: The starting WorldModelState.
+        goal_state: The target ArmGoal.
+        mamba_world_model: The world model to use for simulation.
+        steps: Horizon depth (defaults to 5 per README).
+
+    Returns:
+        The best action (joint_delta list) or None if no plan found.
+    """
+    # Map the simplified API to the robust beam search implementation
+    result = beam_search_plan(
+        world_model=mamba_world_model,
+        start_state=current_state,
+        goal=goal_state,
+        horizon=steps,
+        beam_width=10,  # Slightly wider beam for "searching many futures"
+        time_budget_ms=200,  # "under 200ms" per README
+    )
+
+    if not result.ok or not result.steps:
+        return None
+
+    # Return the first action of the best plan
+    return result.steps[0].action.joint_delta
