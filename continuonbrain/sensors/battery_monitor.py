@@ -14,7 +14,8 @@ try:
     INA219_AVAILABLE = True
 except ImportError:
     INA219_AVAILABLE = False
-    logger.warning("ina219 library not available - install with: pip install pi-ina219")
+    # Don't log warning - this is optional hardware, not a critical error
+    # logger.warning("ina219 library not available - install with: pip install pi-ina219")
 
 
 @dataclass
