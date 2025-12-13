@@ -36,4 +36,10 @@ TODO (offline Wikipedia context)
 - Training visualization endpoints (UI): `GET /api/training/metrics`, `GET /api/training/eval_summary`, `GET /api/training/data_quality`.
 - Chat → RLDS logging is supported but **opt-in** (privacy): enable only with explicit consent via `CONTINUON_LOG_CHAT_RLDS=1`.
 
+## Ownership / pairing (LAN-only, non-biometric)
+- Prefer **QR pairing + 6-digit confirm code** for local ownership claim; do **not** implement face recognition / biometric identification.
+- Endpoints (robot runtime):
+  - `POST /api/ownership/pair/start`, `POST /api/ownership/pair/confirm`, `GET /api/ownership/status`, `GET /api/ownership/pair/qr`, `GET /pair?token=...`.
+  - Keep `/api/ownership/status` backward-compatible for existing clients that expect flat keys.
+
 Note: Conversation on 2025-12-10 about Pi5 startup/training is logged at `docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

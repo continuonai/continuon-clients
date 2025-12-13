@@ -28,6 +28,8 @@ Recent updates:
 - UI templates: the router auto-materializes UI/control HTML into `server/templates/` from the existing providers; once generated, templates can be edited without touching `robot_api_server.py`.
 - Cloud TPU handoff + re-acquire (UI-backed, offline-first): readiness/export/install endpoints live in `continuonbrain/server/routes.py` (`/api/training/cloud_readiness`, `/api/training/export_zip`, `/api/training/exports`, `/api/training/install_bundle`). Vertex AI Edge distribution is supported as a transport option (`kind=vertex_edge` auto-detects `edge_manifest.json` vs `model_manifest.json` zips).
 - Chat + subagent training data (opt-in): the Agent Manager chat can optionally be logged into RLDS for training/eval replay. This is **disabled by default**; enable only with explicit operator consent via `CONTINUON_LOG_CHAT_RLDS=1` (writes RLDS JSON episodes under `${CONFIG_DIR}/rlds/episodes/` by default). Keep privacy/PII constraints in mind when enabling.
+- Ownership pairing (LAN-only): prefer QR pairing + confirm-code (`/api/ownership/pair/*`, `/pair`) and keep `/api/ownership/status` backward-compatible.
+- Speech endpoints (offline-first): `POST /api/audio/tts`, `POST /api/audio/record`, `GET /api/audio/devices` (avoid heavy STT deps by default).
 - Offline Wikipedia context (preferred): keep retrieval offline using a local corpus (e.g., `wikimedia/wikipedia` dump or JSONL) and wire it through `continuonbrain/eval/wiki_retriever.py`. Default behavior should remain a no-op when the corpus is absent.
 - YouTube / web learning (future, opt-in): treat any web/video learning as **manual/opt-in**, and run PII/safety scans before using content for training or public listing (see repo-level upload readiness + PII rules).
 

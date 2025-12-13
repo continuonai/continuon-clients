@@ -263,13 +263,47 @@ class BrainClient {
     try {
       final response = await http.get(uri, headers: _headers());
       if (response.statusCode == 200) {
-        return Map<String, dynamic>.from(jsonDecode(response.body));
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          final map = Map<String, dynamic>.from(decoded);
+          // Back-compat: new servers may return {status, ownership:{...}, owned:..., ...}
+          // Normalize to a flat map containing the expected keys.
+          final ownership = map['ownership'];
+          if (ownership is Map) {
+            map.addAll(Map<String, dynamic>.from(ownership));
+          }
+          return map;
+        }
+        return {};
       }
       debugPrint('Status failed: HTTP ${response.statusCode} body=${response.body}');
     } catch (e) {
       debugPrint('Status failed: $e');
     }
     return {};
+  }
+
+  /// Pairing confirm using the robot QR URL (http://<robot>:8080/pair?token=...).
+  Future<Map<String, dynamic>> confirmPairingFromQr({
+    required Uri pairUrl,
+    required String ownerId,
+    required String confirmCode,
+  }) async {
+    final token = pairUrl.queryParameters['token'] ?? '';
+    final scheme = pairUrl.scheme.isNotEmpty ? pairUrl.scheme : 'http';
+    final host = pairUrl.host;
+    final port = pairUrl.hasPort ? pairUrl.port : 8080;
+    final uri = Uri(scheme: scheme, host: host, port: port, path: '/api/ownership/pair/confirm');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json', ..._headers()},
+      body: jsonEncode({'token': token, 'confirm_code': confirmCode, 'owner_id': ownerId}),
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+    }
+    return {'status': 'error', 'message': 'HTTP ${response.statusCode}', 'body': response.body};
   }
 
   /// Ping endpoint to check reachability and get device id.

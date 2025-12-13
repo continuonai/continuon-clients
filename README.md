@@ -44,6 +44,15 @@ Authoritative sources (update these first when adjusting status/roadmaps):
   - Install returned artifacts (manual URL/path): `POST /api/training/install_bundle` with `kind` in `{jax_seed_manifest, edge_bundle, vertex_edge}`
     - `vertex_edge` treats Vertex AI / Edge distribution as **transport** and auto-detects whether the zip contains `edge_manifest.json` (OTA bundle) or `model_manifest.json` (seed manifest).
 - **Chat → RLDS (opt-in):** the Agent Manager can optionally log chat turns as RLDS episodes (for seed training / replay). Disabled by default; enable only with explicit consent via `CONTINUON_LOG_CHAT_RLDS=1` (writes under `${CONFIG_DIR}/rlds/episodes/`).
+- **Local pairing / ownership claim (QR, LAN-only):**
+  - Robot UI: open `http://<robot-ip>:8080/ui`, expand **Agent Details → Pair phone**, click **Start pairing**. The UI shows a **6-digit confirm code** + QR.
+  - Phone/app: scan the QR (it points at `GET /pair?token=...`), then enter the confirm code to claim.
+  - APIs (offline-first):
+    - `POST /api/ownership/pair/start` → returns `{url, confirm_code, expires_unix_s}`
+    - `POST /api/ownership/pair/confirm` → writes `/opt/continuonos/brain/ownership.json`
+    - `GET /api/ownership/status` → returns ownership status (also includes legacy flat keys for older clients)
+    - `GET /api/ownership/pair/qr` → PNG QR code for the pending pairing URL
+    - `GET /pair?token=...` → mobile-friendly confirm page (works in Safari or inside the Continuon AI app)
 - **Offline Wikipedia learning (opt-in):**
   - Retriever: `continuonbrain/eval/wiki_retriever.py` consumes a local JSONL corpus (no-op when absent).
   - Boot curiosity sidecar (bounded): `CONTINUON_WIKI_JSONL=/opt/continuonos/brain/wikipedia/wikipedia.jsonl` + `CONTINUON_ENABLE_WIKI_CURIOSITY=1` runs a small offline learning session at boot and logs RLDS `wiki_learn_<ts>.json`.

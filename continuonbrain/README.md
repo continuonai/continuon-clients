@@ -118,6 +118,26 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 - Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).
 - OTA apply is gated in the ContinuonAI app by robot ownership + paid subscription; device verifies checksums/signature before swap.
 
+## Local pairing / ownership claim (QR, LAN-only)
+This runtime supports a **non-biometric**, offline-first ownership claim flow intended for local-network setup with the Continuon AI app (iPhone) or a phone browser.
+
+- **Robot UI path**: open `http://<robot-ip>:8080/ui`, expand **Agent Details → Pair phone**, click **Start pairing**.
+  - The UI shows a **6-digit confirm code** and a QR code.
+- **Phone path**: scan QR → open `GET /pair?token=...` → enter the confirm code → claim.
+- **Artifacts**: successful claim writes `/opt/continuonos/brain/ownership.json`.
+- **APIs**:
+  - `POST /api/ownership/pair/start`
+  - `GET /api/ownership/pair/qr` (PNG)
+  - `POST /api/ownership/pair/confirm`
+  - `GET /api/ownership/status` (includes both nested `ownership` and legacy flat keys)
+
+## Speech I/O (offline-first)
+- **TTS**: `POST /api/audio/tts` uses `espeak-ng`/`espeak` (install `espeak-ng` on Pi).
+- **Mic record**: `POST /api/audio/record` uses `sounddevice` or `arecord` (install `alsa-utils`); `GET /api/audio/devices` helps debug ALSA capture devices.
+
+## Multimodal chat (vision)
+- **Attach camera frame**: `POST /api/chat` supports `attach_camera_frame=true` to attach the latest `/api/camera/frame` JPEG to the Agent Manager (best-effort; structured metadata includes whether vision was requested/attached).
+
 Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
 
 ## Autostart on boot (systemd template)

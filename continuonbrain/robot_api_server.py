@@ -300,7 +300,19 @@ class RobotService:
         return {"status": "ok", "ownership": ownership}
 
     async def GetOwnershipStatus(self) -> dict:
-        return {"status": "ok", "ownership": self.pairing.ownership_status()}
+        # Back-compat: older clients expect flat keys (owned/subscription_active/seed_installed/etc).
+        ownership = self.pairing.ownership_status()
+        flat = {
+            "owned": bool(ownership.get("owned", False)),
+            "owner_id": ownership.get("owner_id"),
+            "account_type": ownership.get("account_type"),
+            "paired_unix_s": ownership.get("paired_unix_s"),
+            # Default placeholders (local pairing doesn't set these yet)
+            "subscription_active": False,
+            "seed_installed": False,
+            "account_id": None,
+        }
+        return {"status": "ok", "ownership": ownership, **flat}
 
     async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
         """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
