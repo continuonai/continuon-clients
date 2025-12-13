@@ -374,6 +374,25 @@ class RobotService:
         except Exception:
             thread_meta = {}
 
+        # Hailo status (best-effort, never fatal). Hailo is used as an accelerator
+        # for vision/core-model inference, not as a text model id.
+        hailo_state = None
+        try:
+            if getattr(self, "chat_adapter", None) is not None:
+                hailo_state = self.chat_adapter.get_hailo_state()
+        except Exception:
+            hailo_state = None
+        hailo_hw = None
+        try:
+            hef_path = "/opt/continuonos/brain/model/base_model/model.hef"
+            hailo_hw = {
+                "dev_nodes": [p.name for p in Path("/dev").glob("hailo*")],
+                "hef_present": Path(hef_path).exists(),
+                "hef_path": hef_path,
+            }
+        except Exception:
+            hailo_hw = None
+
         return {
             "status": "ok",
             "mode": mode,
@@ -387,6 +406,7 @@ class RobotService:
             "orchestrator_state": self._last_orchestrator,
             "tasks": thread_meta,
             "resources": res,
+            "hailo": {"vision": hailo_state, "hardware": hailo_hw},
             "wavecore_metrics": {
                 "fast": "/opt/continuonos/brain/trainer/logs/wavecore_fast_metrics.json",
                 "mid": "/opt/continuonos/brain/trainer/logs/wavecore_mid_metrics.json",
@@ -744,7 +764,8 @@ class RobotService:
         questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "hope_eval_questions.json"))
         rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
         use_fallback = bool(payload.get("use_fallback", True))
-        fallback_order = payload.get("fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
+        # Hailo is an accelerator, not a text model id.
+        fallback_order = payload.get("fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"]
         return await run_hope_eval_and_log(
             service=self,
             questions_path=questions_path,
@@ -759,7 +780,7 @@ class RobotService:
         questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "facts_eval_questions.json"))
         rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
         use_fallback = bool(payload.get("use_fallback", True))
-        fallback_order = payload.get("fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
+        fallback_order = payload.get("fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"]
         return await run_hope_eval_and_log(
             service=self,
             questions_path=questions_path,

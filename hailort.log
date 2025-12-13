@@ -132,3 +132,349 @@
 [2025-12-10 18:13:44.633] [3897] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
 [2025-12-10 18:14:50.090] [4191] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
 [2025-12-10 18:14:50.090] [4191] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:29:33.817] [3696] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:29:33.829] [3696] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:29:33.829] [3696] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:29:33.829] [3696] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:29:33.868] [3696] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:29:33.868] [3696] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:29:33.874] [3696] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:29:33.874] [3696] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:29:33.890] [3696] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 22.122592 milliseconds
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 22.411529 milliseconds
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [infer_model.cpp:417] [configure] Configuring network group 'resnet_v1_18' with params: batch size: 0, power mode: PERFORMANCE, latency: NONE
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [multi_io_elements.cpp:754] [create] Created (AsyncHwEl)
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [queue_elements.cpp:450] [create] Created (EntryPushQEl0resnet_v1_18/input_layer1 | timeout: 10s)
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [edge_elements.cpp:187] [create] Created (LastAsyncEl0AsyncHwEl)
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [pipeline.cpp:891] [print_deep_description] EntryPushQEl0resnet_v1_18/input_layer1 | inputs: user | outputs: AsyncHwEl(running in thread_id: 3705)
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [pipeline.cpp:891] [print_deep_description] AsyncHwEl | inputs: EntryPushQEl0resnet_v1_18/input_layer1[0] | outputs: LastAsyncEl0AsyncHwEl
+[2025-12-12 21:29:33.891] [3696] [HailoRT] [info] [pipeline.cpp:891] [print_deep_description] LastAsyncEl0AsyncHwEl | inputs: AsyncHwEl[0] | outputs: user
+[2025-12-12 21:29:33.933] [3696] [HailoRT] [error] [infer_model.cpp:881] [validate_bindings] CHECK failed - Input buffer size 602112 is different than expected 150528 for input 'resnet_v1_18/input_layer1'
+[2025-12-12 21:29:33.940] [3696] [HailoRT] [error] [infer_model.cpp:945] [run_async] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:29:33.940] [3696] [HailoRT] [info] [async_infer_runner.cpp:86] [shutdown] Pipeline was aborted. Shutting it down
+[2025-12-12 21:29:33.940] [3696] [HailoRT] [error] [infer_model.cpp:651] [run_async] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:29:33.985] [3696] [HailoRT] [info] [async_infer_runner.cpp:86] [shutdown] Pipeline was aborted. Shutting it down
+[2025-12-12 21:29:33.985] [3696] [HailoRT] [info] [async_infer_runner.cpp:86] [shutdown] Pipeline was aborted. Shutting it down
+[2025-12-12 21:29:33.985] [3696] [HailoRT] [info] [queue_elements.cpp:570] [execute_deactivate] enqueue() in element EntryPushQEl0resnet_v1_18/input_layer1 was aborted, got status = HAILO_SHUTDOWN_EVENT_SIGNALED(57)
+[2025-12-12 21:29:33.985] [3696] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element EntryPushQEl0resnet_v1_18/input_layer1 has 0 frames in his Queue on destruction
+[2025-12-12 21:29:33.985] [3696] [HailoRT] [error] [driver_os_specific.cpp:175] [convert_errno_to_hailo_status] Ioctl HAILO_DESC_LIST_RELEASE failed with 9. Read dmesg log for more info
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [hailort_driver.cpp:947] [descriptors_list_release] CHECK_SUCCESS failed with status=HAILO_DRIVER_OPERATION_FAILED(36) - Failed release desc list
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [descriptor_list.cpp:67] [~DescriptorList] Failed to release descriptor list 49152 with status HAILO_DRIVER_OPERATION_FAILED(36)
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [hailort_driver.cpp:576] [vdma_buffer_unmap] CHECK failed - Mapped buffer 140734346018816 5648384 not found
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [driver_os_specific.cpp:175] [convert_errno_to_hailo_status] Ioctl HAILO_DESC_LIST_RELEASE failed with 9. Read dmesg log for more info
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [hailort_driver.cpp:947] [descriptors_list_release] CHECK_SUCCESS failed with status=HAILO_DRIVER_OPERATION_FAILED(36) - Failed release desc list
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [descriptor_list.cpp:67] [~DescriptorList] Failed to release descriptor list 65536 with status HAILO_DRIVER_OPERATION_FAILED(36)
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [hailort_driver.cpp:576] [vdma_buffer_unmap] CHECK failed - Mapped buffer 140734341349376 4655616 not found
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [driver_os_specific.cpp:175] [convert_errno_to_hailo_status] Ioctl HAILO_DESC_LIST_RELEASE failed with 9. Read dmesg log for more info
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [hailort_driver.cpp:947] [descriptors_list_release] CHECK_SUCCESS failed with status=HAILO_DRIVER_OPERATION_FAILED(36) - Failed release desc list
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [descriptor_list.cpp:67] [~DescriptorList] Failed to release descriptor list 32768 with status HAILO_DRIVER_OPERATION_FAILED(36)
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [driver_os_specific.cpp:175] [convert_errno_to_hailo_status] Ioctl HAILO_DESC_LIST_RELEASE failed with 9. Read dmesg log for more info
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [hailort_driver.cpp:947] [descriptors_list_release] CHECK_SUCCESS failed with status=HAILO_DRIVER_OPERATION_FAILED(36) - Failed release desc list
+[2025-12-12 21:29:33.986] [3696] [HailoRT] [error] [descriptor_list.cpp:67] [~DescriptorList] Failed to release descriptor list 16384 with status HAILO_DRIVER_OPERATION_FAILED(36)
+[2025-12-12 21:32:08.029] [3878] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:32:08.041] [3878] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:32:08.042] [3878] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:32:08.042] [3878] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:32:08.088] [3878] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:32:08.088] [3878] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:32:17.904] [3895] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:32:17.917] [3895] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:32:17.921] [3895] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:32:17.921] [3895] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:32:17.968] [3895] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:32:17.968] [3895] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:32:24.142] [3911] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:32:24.153] [3911] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:32:24.153] [3911] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:32:24.153] [3911] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:32:24.195] [3911] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:32:24.195] [3911] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:33:27.107] [3951] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:33:27.120] [3951] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:33:27.121] [3951] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:33:27.121] [3951] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:33:27.178] [3951] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:33:27.178] [3951] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:33:27.185] [3951] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:33:27.185] [3951] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:33:27.208] [3951] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 29.871179 milliseconds
+[2025-12-12 21:33:27.208] [3951] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 30.211173 milliseconds
+[2025-12-12 21:33:27.208] [3951] [HailoRT] [info] [infer_model.cpp:417] [configure] Configuring network group 'resnet_v1_18' with params: batch size: 0, power mode: PERFORMANCE, latency: NONE
+[2025-12-12 21:33:27.209] [3951] [HailoRT] [info] [multi_io_elements.cpp:754] [create] Created (AsyncHwEl)
+[2025-12-12 21:33:27.209] [3951] [HailoRT] [info] [queue_elements.cpp:450] [create] Created (EntryPushQEl0resnet_v1_18/input_layer1 | timeout: 10s)
+[2025-12-12 21:33:27.209] [3951] [HailoRT] [info] [edge_elements.cpp:187] [create] Created (LastAsyncEl0AsyncHwEl)
+[2025-12-12 21:33:27.209] [3951] [HailoRT] [info] [pipeline.cpp:891] [print_deep_description] EntryPushQEl0resnet_v1_18/input_layer1 | inputs: user | outputs: AsyncHwEl(running in thread_id: 3960)
+[2025-12-12 21:33:27.209] [3951] [HailoRT] [info] [pipeline.cpp:891] [print_deep_description] AsyncHwEl | inputs: EntryPushQEl0resnet_v1_18/input_layer1[0] | outputs: LastAsyncEl0AsyncHwEl
+[2025-12-12 21:33:27.209] [3951] [HailoRT] [info] [pipeline.cpp:891] [print_deep_description] LastAsyncEl0AsyncHwEl | inputs: AsyncHwEl[0] | outputs: user
+[2025-12-12 21:33:27.258] [3960] [HailoRT] [error] [core_op.cpp:517] [infer_async_impl] CHECK_SUCCESS failed with status=HAILO_STREAM_NOT_ACTIVATED(72)
+[2025-12-12 21:33:27.258] [3960] [HailoRT] [error] [network_group.cpp:806] [operator()] Infer request callback failed with status = HAILO_STREAM_NOT_ACTIVATED(72)
+[2025-12-12 21:34:13.460] [4010] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:34:13.472] [4010] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:34:13.472] [4010] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:34:13.472] [4010] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:34:35.699] [4047] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:34:35.713] [4047] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:34:35.713] [4047] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:34:35.713] [4047] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:34:35.722] [4047] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:34:35.722] [4047] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:34:35.739] [4047] [HailoRT] [error] [core_op.cpp:581] [create_output_stream_from_config_params] CHECK failed - Device does not supports the given stream interface streams. Please update input_stream_params for stream resnet_v1_18/fc1.
+[2025-12-12 21:34:35.739] [4047] [HailoRT] [error] [core_op.cpp:657] [create_streams_from_config_params] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:35.739] [4047] [HailoRT] [error] [vdma_device.cpp:174] [create_configured_network_group] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:35.740] [4047] [HailoRT] [error] [vdma_device.cpp:382] [create_networks_group_vector] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:35.740] [4047] [HailoRT] [error] [vdma_device.cpp:144] [add_hef] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:35.740] [4047] [HailoRT] [error] [device_internal.cpp:54] [configure] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:35.740] [4047] [HailoRT] [error] [vdevice.cpp:939] [create_physical_core_op] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:35.740] [4047] [HailoRT] [error] [vdevice.cpp:967] [create_vdevice_core_op] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:35.740] [4047] [HailoRT] [error] [vdevice.cpp:749] [configure] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.332] [4075] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:34:59.344] [4075] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:34:59.344] [4075] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:34:59.344] [4075] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:34:59.354] [4075] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:34:59.354] [4075] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:34:59.370] [4075] [HailoRT] [error] [core_op.cpp:581] [create_output_stream_from_config_params] CHECK failed - Device does not supports the given stream interface streams. Please update input_stream_params for stream resnet_v1_18/fc1.
+[2025-12-12 21:34:59.370] [4075] [HailoRT] [error] [core_op.cpp:657] [create_streams_from_config_params] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.371] [4075] [HailoRT] [error] [vdma_device.cpp:174] [create_configured_network_group] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.371] [4075] [HailoRT] [error] [vdma_device.cpp:382] [create_networks_group_vector] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [vdma_device.cpp:144] [add_hef] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [device_internal.cpp:54] [configure] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [vdevice.cpp:939] [create_physical_core_op] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [vdevice.cpp:967] [create_vdevice_core_op] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [vdevice.cpp:749] [configure] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [hailort_defaults.cpp:285] [get_stream_parameters] Invalid stream interface
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [hef.cpp:4262] [create_stream_parameters_by_name] CHECK_SUCCESS failed with status=HAILO_INVALID_ARGUMENT(2)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [hef.cpp:4216] [create_configure_params] CHECK_SUCCESS failed with status=HAILO_INVALID_ARGUMENT(2)
+[2025-12-12 21:34:59.372] [4075] [HailoRT] [error] [hef.cpp:3882] [create_configure_params] CHECK_SUCCESS failed with status=HAILO_INVALID_ARGUMENT(2)
+[2025-12-12 21:34:59.373] [4075] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:34:59.373] [4075] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:34:59.389] [4075] [HailoRT] [error] [core_op.cpp:581] [create_output_stream_from_config_params] CHECK failed - Device does not supports the given stream interface streams. Please update input_stream_params for stream resnet_v1_18/fc1.
+[2025-12-12 21:34:59.390] [4075] [HailoRT] [error] [core_op.cpp:657] [create_streams_from_config_params] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.390] [4075] [HailoRT] [error] [vdma_device.cpp:174] [create_configured_network_group] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.390] [4075] [HailoRT] [error] [vdma_device.cpp:382] [create_networks_group_vector] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.391] [4075] [HailoRT] [error] [vdma_device.cpp:144] [add_hef] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.391] [4075] [HailoRT] [error] [device_internal.cpp:54] [configure] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.391] [4075] [HailoRT] [error] [vdevice.cpp:939] [create_physical_core_op] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.391] [4075] [HailoRT] [error] [vdevice.cpp:967] [create_vdevice_core_op] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:34:59.391] [4075] [HailoRT] [error] [vdevice.cpp:749] [configure] CHECK_SUCCESS failed with status=HAILO_INVALID_OPERATION(6)
+[2025-12-12 21:35:56.015] [4142] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:35:56.028] [4142] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:35:56.028] [4142] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:35:56.028] [4142] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:35:56.066] [4142] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:35:56.066] [4142] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:36:43.372] [4216] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:36:43.384] [4216] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:36:43.385] [4216] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:36:43.385] [4216] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:36:43.397] [4216] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:36:43.397] [4216] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:36:43.415] [4216] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 29.643485 milliseconds
+[2025-12-12 21:36:43.415] [4216] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 30.09991 milliseconds
+[2025-12-12 21:37:22.965] [4265] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:37:22.977] [4265] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:37:22.978] [4265] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:37:22.978] [4265] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:37:22.989] [4265] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:37:22.989] [4265] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:37:23.005] [4265] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 26.943417 milliseconds
+[2025-12-12 21:37:23.005] [4265] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 27.486067 milliseconds
+[2025-12-12 21:37:23.006] [4265] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:37:23.006] [4265] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:37:36.751] [4297] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:37:36.765] [4297] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:37:36.765] [4297] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:37:36.765] [4297] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:37:36.776] [4297] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:37:36.776] [4297] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:37:36.795] [4297] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 25.81741 milliseconds
+[2025-12-12 21:37:36.795] [4297] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 29.145873 milliseconds
+[2025-12-12 21:37:36.795] [4297] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:37:36.795] [4297] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:37:36.802] [4297] [HailoRT] [error] [inference_pipeline.cpp:274] [verify_memory_view_size] CHECK failed - Memory size of vstream resnet_v1_18/input_layer1 does not match the frame count! (Expected 33718272, got 150528)
+[2025-12-12 21:37:36.803] [4297] [HailoRT] [error] [inference_pipeline.cpp:201] [infer] CHECK_SUCCESS failed with status=HAILO_INVALID_ARGUMENT(2)
+[2025-12-12 21:37:36.803] [4306] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-12 21:37:36.803] [4306] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-12 21:37:36.803] [4297] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-12 21:37:50.824] [4316] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:37:50.837] [4316] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:37:50.837] [4316] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:37:50.837] [4316] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:37:50.843] [4316] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:37:50.843] [4316] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:37:50.861] [4316] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 23.547711 milliseconds
+[2025-12-12 21:37:50.861] [4316] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 23.850296 milliseconds
+[2025-12-12 21:37:50.861] [4316] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:37:50.862] [4316] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-12 21:37:50.862] [4316] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-12 21:37:50.862] [4316] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-12 21:37:50.862] [4316] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-12 21:37:50.862] [4316] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:37:50.862] [4316] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-12 21:37:50.862] [4316] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:37:50.863] [4327] [HailoRT] [info] [vstream.cpp:1128] [read] Trying to read from vstream resnet_v1_18/fc1 before its network_group is activated
+[2025-12-12 21:37:50.863] [4326] [HailoRT] [error] [vstream.cpp:767] [write] CHECK failed - Trying to write to vstream resnet_v1_18/input_layer1 before its network group is activated
+[2025-12-12 21:37:50.863] [4326] [HailoRT] [error] [inference_pipeline.cpp:225] [operator()] CHECK_SUCCESS failed with status=HAILO_NETWORK_GROUP_NOT_ACTIVATED(69)
+[2025-12-12 21:37:50.863] [4316] [HailoRT] [error] [inference_pipeline.cpp:257] [infer] Failed waiting for threads with status HAILO_NETWORK_GROUP_NOT_ACTIVATED(69)
+[2025-12-12 21:37:50.863] [4316] [HailoRT] [error] [inference_pipeline.cpp:257] [infer] Failed waiting for threads with status HAILO_NETWORK_GROUP_NOT_ACTIVATED(69)
+[2025-12-12 21:37:50.864] [4325] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-12 21:37:50.864] [4325] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-12 21:37:50.864] [4316] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-12 21:37:59.721] [4337] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:37:59.733] [4337] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:37:59.733] [4337] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:37:59.733] [4337] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:37:59.739] [4337] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:37:59.739] [4337] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:37:59.757] [4337] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 22.835961 milliseconds
+[2025-12-12 21:37:59.757] [4337] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 23.142936 milliseconds
+[2025-12-12 21:38:05.769] [4356] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:38:05.781] [4356] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:38:05.782] [4356] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:38:05.782] [4356] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:38:05.788] [4356] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:38:05.788] [4356] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:38:05.810] [4356] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 27.617461 milliseconds
+[2025-12-12 21:38:05.810] [4356] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 27.914343 milliseconds
+[2025-12-12 21:38:11.180] [4374] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:38:11.191] [4374] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:38:11.191] [4374] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:38:11.191] [4374] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:38:11.197] [4374] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:38:11.197] [4374] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:38:11.213] [4374] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 20.992722 milliseconds
+[2025-12-12 21:38:11.213] [4374] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 21.261456 milliseconds
+[2025-12-12 21:38:18.311] [4393] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:38:18.324] [4393] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:38:18.324] [4393] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:38:18.324] [4393] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:38:18.330] [4393] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:38:18.330] [4393] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:38:18.347] [4393] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 22.539431 milliseconds
+[2025-12-12 21:38:18.347] [4393] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 22.830461 milliseconds
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-12 21:38:18.348] [4393] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:38:18.349] [4403] [HailoRT] [error] [vstream.cpp:767] [write] CHECK failed - Trying to write to vstream resnet_v1_18/input_layer1 before its network group is activated
+[2025-12-12 21:38:18.349] [4404] [HailoRT] [info] [vstream.cpp:1128] [read] Trying to read from vstream resnet_v1_18/fc1 before its network_group is activated
+[2025-12-12 21:38:18.349] [4403] [HailoRT] [error] [inference_pipeline.cpp:225] [operator()] CHECK_SUCCESS failed with status=HAILO_NETWORK_GROUP_NOT_ACTIVATED(69)
+[2025-12-12 21:38:18.349] [4393] [HailoRT] [error] [inference_pipeline.cpp:257] [infer] Failed waiting for threads with status HAILO_NETWORK_GROUP_NOT_ACTIVATED(69)
+[2025-12-12 21:38:18.349] [4393] [HailoRT] [error] [inference_pipeline.cpp:257] [infer] Failed waiting for threads with status HAILO_NETWORK_GROUP_NOT_ACTIVATED(69)
+[2025-12-12 21:38:18.350] [4402] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-12 21:38:18.350] [4402] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-12 21:38:18.350] [4393] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-12 21:38:26.158] [4414] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:38:26.171] [4414] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:38:26.173] [4414] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:38:26.173] [4414] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:38:26.181] [4414] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:38:26.181] [4414] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:38:26.200] [4414] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 26.214685 milliseconds
+[2025-12-12 21:38:26.200] [4414] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 26.511141 milliseconds
+[2025-12-12 21:38:36.606] [4432] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:38:36.617] [4432] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:38:36.619] [4432] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:38:36.619] [4432] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:38:36.627] [4432] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:38:36.627] [4432] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:38:36.652] [4432] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 32.89487 milliseconds
+[2025-12-12 21:38:36.652] [4432] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 33.220938 milliseconds
+[2025-12-12 21:38:36.652] [4432] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:38:36.653] [4432] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.235398 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:38:36.653] [4432] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.250028 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:38:36.653] [4432] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-12 21:38:36.653] [4432] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-12 21:38:36.653] [4432] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-12 21:38:36.653] [4432] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-12 21:38:36.657] [4432] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:38:36.657] [4432] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-12 21:38:36.657] [4432] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:38:36.666] [4441] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-12 21:38:36.666] [4441] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-12 21:38:36.666] [4432] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-12 21:38:36.667] [4432] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.381311 ms
+[2025-12-12 21:38:36.667] [4432] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.393793 ms
+[2025-12-12 21:39:22.349] [4465] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:39:22.361] [4465] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:39:22.361] [4465] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:39:22.361] [4465] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:39:22.367] [4465] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:39:22.367] [4465] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:39:22.384] [4465] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 22.756458 milliseconds
+[2025-12-12 21:39:22.385] [4465] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 23.036673 milliseconds
+[2025-12-12 21:39:22.385] [4465] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:39:22.385] [4465] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:39:22.419] [4465] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.255436 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:39:22.419] [4465] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.29979 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:39:22.420] [4465] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-12 21:39:22.420] [4465] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-12 21:39:22.420] [4465] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-12 21:39:22.420] [4465] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-12 21:39:22.420] [4465] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:39:22.420] [4465] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-12 21:39:22.420] [4465] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:39:22.433] [4474] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-12 21:39:22.433] [4474] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-12 21:39:22.433] [4465] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-12 21:39:22.434] [4465] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.386034 ms
+[2025-12-12 21:39:22.434] [4465] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.400664 ms
+[2025-12-12 21:40:50.691] [4695] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:40:50.703] [4695] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:40:50.704] [4695] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:40:50.704] [4695] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:40:50.709] [4695] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:40:50.709] [4695] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:40:50.726] [4695] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 22.070598 milliseconds
+[2025-12-12 21:40:50.726] [4695] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 22.396296 milliseconds
+[2025-12-12 21:40:50.726] [4695] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:40:50.726] [4695] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:40:50.766] [4695] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.278177 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.320828 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-12 21:40:50.767] [4695] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:40:50.780] [4706] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-12 21:40:50.780] [4706] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-12 21:40:50.780] [4695] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-12 21:40:50.781] [4695] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.391256 ms
+[2025-12-12 21:40:50.781] [4695] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.403738 ms
+[2025-12-12 21:42:36.823] [5136] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-12 21:42:36.836] [5136] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-12 21:42:36.836] [5136] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-12 21:42:36.836] [5136] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-12 21:42:36.845] [5136] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-12 21:42:36.845] [5136] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-12 21:42:36.863] [5136] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 26.831172 milliseconds
+[2025-12-12 21:42:36.863] [5136] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 27.117646 milliseconds
+[2025-12-12 21:42:36.863] [5136] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:42:36.863] [5136] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-12 21:42:36.904] [5136] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.270269 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.314697 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-12 21:42:36.905] [5136] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-12 21:42:36.918] [5145] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-12 21:42:36.918] [5145] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-12 21:42:36.918] [5136] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-12 21:42:36.919] [5136] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.391811 ms
+[2025-12-12 21:42:36.919] [5136] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.405868 ms

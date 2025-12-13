@@ -445,9 +445,26 @@ class SimpleJSONServer:
                 model_hint = payload.get("model_hint")
                 delegate_model_hint = payload.get("delegate_model_hint")
                 attach_camera_frame = bool(payload.get("attach_camera_frame") or payload.get("use_vision"))
-                vision_requested = attach_camera_frame
+                # Allow requesting vision without forcing camera capture (e.g., client-provided image).
+                vision_requested = bool(payload.get("vision_requested", attach_camera_frame))
             image_jpeg = None
-            if attach_camera_frame:
+            image_source = None
+            # Prefer a client-provided image (base64) when present.
+            if isinstance(payload, dict) and payload.get("image_jpeg"):
+                try:
+                    import base64
+
+                    raw = payload.get("image_jpeg")
+                    if isinstance(raw, str):
+                        image_jpeg = base64.b64decode(raw.encode("utf-8"), validate=False)
+                    elif isinstance(raw, (bytes, bytearray)):
+                        image_jpeg = bytes(raw)
+                    image_source = payload.get("image_source") or "client"
+                except Exception:
+                    image_jpeg = None
+                    image_source = None
+
+            if image_jpeg is None and attach_camera_frame:
                 try:
                     image_jpeg = await self.service.GetCameraFrameJPEG()
                 except Exception:
@@ -459,7 +476,7 @@ class SimpleJSONServer:
                 model_hint=model_hint,
                 delegate_model_hint=delegate_model_hint,
                 image_jpeg=image_jpeg,
-                image_source="camera" if attach_camera_frame else None,
+                image_source=image_source or ("camera" if attach_camera_frame else payload.get("image_source") if isinstance(payload, dict) else None),
                 vision_requested=vision_requested,
             )
             return self._json_response(result)

@@ -33,8 +33,9 @@ async def run_hope_eval_and_log(
     Ask HOPE a graded set of questions, fallback to on-device LLM if needed,
     and log as an RLDS JSON episode.
     """
-    # Preferred order: smallest first, then 3n-2b
-    fallback_order = fallback_order or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"]
+    # Preferred order: smallest first, then 3n-2b.
+    # Note: Hailo is an inference accelerator (vision/core-model), not an LLM model id.
+    fallback_order = fallback_order or ["google/gemma-370m", "google/gemma-3n-2b"]
     questions = load_questions(questions_path)
     history: List[Dict[str, str]] = []
     steps: List[Dict[str, Any]] = []

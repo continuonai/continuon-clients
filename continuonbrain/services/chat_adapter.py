@@ -53,6 +53,21 @@ class ChatAdapter:
         self.config_dir = config_dir
         self.status_provider = status_provider
         self.gemma_chat = gemma_chat
+        # Optional Hailo vision offload (subprocess-safe). Used only when an image is attached.
+        self._hailo_vision = None
+        self._hailo_vision_state_cache: Optional[dict] = None
+
+    def get_hailo_state(self) -> Optional[dict]:
+        """Expose current Hailo vision status for architecture/status endpoints."""
+        try:
+            if self._hailo_vision is None:
+                from continuonbrain.services.hailo_vision import HailoVision
+
+                self._hailo_vision = HailoVision()
+            self._hailo_vision_state_cache = self._hailo_vision.get_state()
+            return self._hailo_vision_state_cache
+        except Exception:
+            return self._hailo_vision_state_cache
 
     async def chat(
         self,
@@ -94,12 +109,34 @@ class ChatAdapter:
                     image_obj = Image.open(io.BytesIO(image_jpeg)).convert("RGB")
                 except Exception:
                     image_obj = None
+                # Optional Hailo vision summary (never fatal).
+                hailo_summary = None
+                hailo_payload: Dict[str, Any] = {}
+                try:
+                    if self._hailo_vision is None:
+                        from continuonbrain.services.hailo_vision import HailoVision
+
+                        self._hailo_vision = HailoVision()
+                    res = self._hailo_vision.infer_jpeg(image_jpeg)
+                    self._hailo_vision_state_cache = self._hailo_vision.get_state()
+                    hailo_payload = res if isinstance(res, dict) else {}
+                    if hailo_payload.get("ok") and isinstance(hailo_payload.get("topk"), list):
+                        tops = hailo_payload["topk"][:5]
+                        idxs = ",".join(str(t.get("index")) for t in tops)
+                        hailo_summary = f"hailo_topk_indices=[{idxs}]"
+                    elif hailo_payload.get("error"):
+                        hailo_summary = f"hailo_error={str(hailo_payload.get('error'))[:160]}"
+                except Exception as exc:  # noqa: BLE001
+                    hailo_summary = f"hailo_error={str(exc)[:160]}"
+
                 prompt = (
                     prompt
                     + "\n\nVision:\n"
                     + f"- attached: true\n- source: {image_source or 'unknown'}\n"
                     + "- instruction: Use the image to ground your answer. If uncertain, ask a follow-up.\n"
                 )
+                if hailo_summary:
+                    prompt = prompt + f"- hailo: {hailo_summary}\n"
             elif vision_requested:
                 prompt = (
                     prompt
@@ -145,6 +182,19 @@ class ChatAdapter:
                     "bytes": int(len(image_jpeg)) if image_jpeg else 0,
                     "requested": bool(vision_requested),
                 }
+                # Attach hailo vision metadata when available (no raw pixels, bounded payload).
+                try:
+                    if image_jpeg and self._hailo_vision is not None:
+                        hs = self._hailo_vision.get_state()
+                        structured["vision"]["hailo"] = {
+                            "enabled": bool(hs.get("enabled")) if isinstance(hs, dict) else None,
+                            "available": bool(hs.get("available")) if isinstance(hs, dict) else None,
+                            "hef_path": hs.get("hef_path") if isinstance(hs, dict) else None,
+                            "last_ok": hs.get("last_ok") if isinstance(hs, dict) else None,
+                            "last_error": hs.get("last_error") if isinstance(hs, dict) else None,
+                        }
+                except Exception:
+                    pass
                 # Also surface this in RLDS logs via structured payload (no raw pixels).
                 # If you later want pixel provenance, use /api/camera/frame URIs + timestamps.
             # Optional: attach tool-router suggestions for learning (no auto-exec).
