@@ -462,13 +462,22 @@ class StartupManager:
                     
                     cmd = [
                         browser_cmd, 
+                        "--kiosk",
                         "--password-store=basic", 
                         "--no-default-browser-check",
                         "--no-first-run",
+                        "--noerrdialogs",
+                        "--disable-infobars",
+                        "--check-for-update-interval=31536000",
+                        "--simulated-keyring",
                         # "--user-data-dir=" + user_data_dir, # Optional: isolate session
                         url
                     ]
                     
+                    # Check for kiosk override from env
+                    if not self._env_flag("CONTINUON_BROWSER_KIOSK", default=True):
+                         cmd.remove("--kiosk")
+
                     subprocess.Popen(
                         cmd,
                         stdout=subprocess.DEVNULL, 

@@ -21,6 +21,10 @@ class TestStartupUI(unittest.TestCase):
         # Mock discovery service
         self.manager.discovery_service = MagicMock()
         self.manager.discovery_service.get_robot_info.return_value = {'ip_address': '127.0.0.1'}
+        
+        # Force UI launch in config
+        with open(self.config_dir / "ui_config.json", "w") as f:
+            json.dump({"auto_launch": True}, f)
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
@@ -46,6 +50,9 @@ class TestStartupUI(unittest.TestCase):
         mock_popen.assert_called()
         args = mock_popen.call_args[0][0]
         self.assertIn("--password-store=basic", args)
+        self.assertIn("--kiosk", args)
+        self.assertIn("--noerrdialogs", args)
+        self.assertIn("--disable-infobars", args)
         self.assertIn("http://127.0.0.1:8080/ui", args)
         # Verify fallback wasn't called
         mock_webbrowser.assert_not_called()

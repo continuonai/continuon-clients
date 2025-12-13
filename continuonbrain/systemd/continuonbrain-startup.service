@@ -45,6 +45,7 @@ Environment=CONTINUON_ENABLE_BACKGROUND_TRAINER=0
 ExecStartPre=/usr/bin/test -d $CONTINUON_REPO
 ExecStart=/usr/bin/env bash -lc 'cd "$CONTINUON_REPO" && export PYTHONPATH="${PYTHONPATH:-$CONTINUON_REPO}" && exec "$CONTINUON_PYTHON" -m continuonbrain.startup_manager --config-dir "$CONFIG_DIR"'
 
+
 # Make "restart" robust (covers crashes and stop/start cycles).
 Restart=always
 RestartSec=2
