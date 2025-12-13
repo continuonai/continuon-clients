@@ -162,6 +162,42 @@ class RobotService:
         self.resource_monitor = ResourceMonitor(config_dir=Path(config_dir))
         self._last_orchestrator: dict = {"last_run_ts": 0.0, "last_actions": {}}
 
+    def _check_safety_protocol(self, action: str, context: dict = None) -> tuple[bool, str]:
+        """Check if an action complies with safety protocol.
+        
+        Args:
+            action: Description of the action to be taken
+            context: Additional context for the decision
+            
+        Returns:
+            (is_safe, reason) tuple
+        """
+        if not self.system_instructions:
+            return False, "Safety protocol not loaded"
+        
+        if context is None:
+            context = {}
+        
+        # Add current system state to context
+        if self.mode_manager:
+            context['current_mode'] = self.mode_manager.current_mode.value
+            context['gates'] = self.mode_manager.get_gate_snapshot()
+        
+        # Validate action against safety protocol
+        is_safe, reason, violated_rules = self.system_instructions.safety_protocol.validate_action(
+            action, context
+        )
+        
+        # Log the safety decision (if logging is available)
+        if violated_rules:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Safety check failed for action '{action}': {reason}. "
+                f"Violated rules: {len(violated_rules)}"
+            )
+        
+        return is_safe, reason
+
     def _ensure_system_instructions(self) -> None:
         """Guarantee that merged system instructions are available."""
 
@@ -1200,6 +1236,24 @@ class RobotService:
                 safety_violations = command.get("safety_violations")
                 step_metadata = command.get("step_metadata")
 
+                # Safety check: Validate action against safety protocol
+                action_description = f"Arm control command: {control_mode} from {client_id}"
+                if hasattr(self, '_check_safety_protocol'):
+                    is_safe, safety_reason = self._check_safety_protocol(
+                        action_description,
+                        context={
+                            "current_mode": self.mode_manager.current_mode.value if self.mode_manager else "unknown",
+                            "client_id": client_id,
+                            "control_mode": control_mode,
+                        }
+                    )
+                    if not is_safe:
+                        return {
+                            "success": False,
+                            "message": f"Safety check failed: {safety_reason}",
+                            "safety_blocked": True,
+                        }
+
                 # Execute on arm
                 if self.arm:
                     self.arm.set_normalized_action(action)
@@ -1300,6 +1354,24 @@ class RobotService:
                         "throttle": throttle_value,
                     }
                 )
+
+            # Safety check: Validate action against safety protocol
+            action_description = f"Drive with steering={steering_value:.2f}, throttle={throttle_value:.2f}"
+            if hasattr(self, '_check_safety_protocol'):
+                is_safe, safety_reason = self._check_safety_protocol(
+                    action_description,
+                    context={
+                        "current_mode": current_mode.value,
+                        "requires_human_approval": abs(throttle_value) > 0.8,  # High throttle requires approval
+                        "human_approved": context.get("human_approved", False) if hasattr(self, 'context') else False,
+                    }
+                )
+                if not is_safe:
+                    return _record_result({
+                        "success": False,
+                        "message": f"Safety check failed: {safety_reason}",
+                        "safety_blocked": True,
+                    })
 
             drive_result = self.drivetrain.apply_drive(steering_value, throttle_value)
             if "mode" not in drive_result:
