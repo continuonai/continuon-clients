@@ -348,6 +348,12 @@ class SimpleJSONServer:
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
                 return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/architecture_status" and method == "GET":
+            try:
+                result = await self.service.GetArchitectureStatus()
+                return self._json_response(result)
+            except Exception as exc:
+                return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
         elif path == "/api/settings" and method == "GET":
             store = SettingsStore(Path(self.service.config_dir))
             settings = store.load()

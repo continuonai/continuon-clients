@@ -137,12 +137,31 @@ class NestedLearning(nn.Module):
         Returns:
             Updated parameters
         """
-        # Ensure reward is 1D
+        # Normalize shapes:
+        # - fast.s should be [B, d_s]
+        # - r_t should be [B, 1]
+        fast_s = fast.s
+        if fast_s.dim() == 1:
+            fast_s = fast_s.unsqueeze(0)
+
         if r_t.dim() == 0:
-            r_t = r_t.unsqueeze(0)
+            r_t = r_t.view(1, 1)
+        elif r_t.dim() == 1:
+            # If provided as [B] or [1], reshape to [B, 1]
+            if r_t.numel() == fast_s.size(0):
+                r_t = r_t.view(fast_s.size(0), 1)
+            else:
+                r_t = r_t.view(1, 1)
+        elif r_t.dim() == 2:
+            # Accept [B, 1] or coerce to [B, 1] by reducing extras
+            if r_t.size(-1) != 1:
+                r_t = r_t.mean(dim=-1, keepdim=True)
+        else:
+            # Collapse weird shapes
+            r_t = r_t.reshape(-1).mean().view(1, 1)
         
         # 1. Compute update signal (should we update?)
-        signal_input = torch.cat([fast.s, r_t], dim=-1)
+        signal_input = torch.cat([fast_s, r_t], dim=-1)
         update_signal = self.update_signal_net(signal_input).squeeze(-1)  # scalar
         
         # 2. Sparse update: only update if signal > threshold (reduced from 0.1 to 0.01)
@@ -156,11 +175,11 @@ class NestedLearning(nn.Module):
         
         # Ensure mem_stats has batch dimension matching fast.s
         if mem_stats.dim() == 1:
-            batch_size = fast.s.size(0)
+            batch_size = fast_s.size(0)
             mem_stats = mem_stats.unsqueeze(0).expand(batch_size, -1) # [B, d_mem]
         
         # 4. Compute update direction
-        direction_input = torch.cat([fast.s, mem_stats, r_t], dim=-1)
+        direction_input = torch.cat([fast_s, mem_stats, r_t], dim=-1)
         update_direction = self.update_direction_net(direction_input)  # [B, rank]
         
         # Average over batch if needed
@@ -255,7 +274,11 @@ class AdaptiveLearningRate(nn.Module):
             eta_t: Adaptive learning rate
         """
         # Compute features
-        reward_feat = r_t.unsqueeze(0) if r_t.dim() == 0 else r_t
+        # Collapse reward to scalar feature
+        if r_t.dim() == 0:
+            reward_feat = r_t.view(1)
+        else:
+            reward_feat = r_t.reshape(-1).mean().view(1)
         state_norm = torch.norm(fast.s).unsqueeze(0)
         
         # Memory norm (average across levels)

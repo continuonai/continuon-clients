@@ -4,6 +4,7 @@ Runs against real hardware by default with optional mock fallback for dev.
 """
 
 import asyncio
+import threading
 import os
 from pathlib import Path
 from typing import AsyncIterator, Dict, Optional
@@ -48,9 +49,15 @@ import subprocess
 import time
 from continuonbrain.services.audio_io import record_wav, speak_text
 from continuonbrain.services.pairing_manager import PairingManager
+try:
+    # Optional; requires torch.
+    from continuonbrain.services.background_learner import BackgroundLearner
+except Exception:  # noqa: BLE001
+    BackgroundLearner = None  # type: ignore
 from continuonbrain.services.video_stream import VideoStreamHelper
 from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
 from continuonbrain.jax_models.infer.tool_router_infer import load_tool_router_bundle, predict_topk
+from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
 
 # Use extracted SimpleJSONServer implementation
 SimpleJSONServer = server_routes.SimpleJSONServer
@@ -143,6 +150,17 @@ class RobotService:
             status_provider=self.GetRobotStatus,
             gemma_chat=self.gemma_chat,
         )
+        # Background supervisors (threads; keep working even if no asyncio loop is kept alive).
+        self._bg_stop_event = threading.Event()
+        self._chat_learn_thread: Optional[threading.Thread] = None
+        self._autonomous_learner_thread: Optional[threading.Thread] = None
+        self._orchestrator_thread: Optional[threading.Thread] = None
+        self._orchestrator_lock = threading.Lock()
+        self.hope_brain = None
+        self.background_learner = None
+        self._last_autonomous_learner_action: Optional[dict] = None
+        self.resource_monitor = ResourceMonitor(config_dir=Path(config_dir))
+        self._last_orchestrator: dict = {"last_run_ts": 0.0, "last_actions": {}}
 
     def _ensure_system_instructions(self) -> None:
         """Guarantee that merged system instructions are available."""
@@ -315,6 +333,72 @@ class RobotService:
         }
         return {"status": "ok", "ownership": ownership, **flat}
 
+    async def GetArchitectureStatus(self) -> dict:
+        """Report which learning subsystems are active so we can verify 'whole architecture' participation."""
+        status = await self.GetRobotStatus()
+        block = status.get("status", {}) if isinstance(status, dict) else {}
+        mode = (block.get("mode") or "unknown") if isinstance(block, dict) else "unknown"
+        chat_settings = {}
+        agent_mgr_settings = {}
+        try:
+            from continuonbrain.settings_manager import SettingsStore
+
+            settings = SettingsStore(Path(self.config_dir)).load()
+            chat_settings = (settings or {}).get("chat") or {}
+            agent_mgr_settings = (settings or {}).get("agent_manager") or {}
+        except Exception:
+            pass
+        learner_status = None
+        try:
+            if self.background_learner is not None:
+                learner_status = self.background_learner.get_status()
+        except Exception:
+            learner_status = {"enabled": True, "running": getattr(self.background_learner, "running", None)}
+        res = None
+        try:
+            res = self.resource_monitor.check_resources().to_dict()
+        except Exception:
+            res = None
+        thread_meta = {}
+        try:
+            def _tmeta(t: Optional[threading.Thread]) -> dict:
+                if t is None:
+                    return {"present": False}
+                return {"present": True, "alive": t.is_alive(), "name": t.name}
+
+            thread_meta = {
+                "chat_learn_thread": _tmeta(self._chat_learn_thread),
+                "autonomous_learner_thread": _tmeta(self._autonomous_learner_thread),
+                "orchestrator_thread": _tmeta(self._orchestrator_thread),
+            }
+        except Exception:
+            thread_meta = {}
+
+        return {
+            "status": "ok",
+            "mode": mode,
+            "recording": bool(self.is_recording),
+            "chat_rlds_enabled": bool(chat_settings.get("log_rlds", False)),
+            "chat_learn": (agent_mgr_settings.get("chat_learn") or {}) if isinstance(agent_mgr_settings, dict) else {},
+            "autonomy_orchestrator": (agent_mgr_settings.get("autonomy_orchestrator") or {}) if isinstance(agent_mgr_settings, dict) else {},
+            "hope_brain_loaded": bool(self.hope_brain is not None),
+            "background_learner": learner_status,
+            "last_autonomous_learner_action": self._last_autonomous_learner_action,
+            "orchestrator_state": self._last_orchestrator,
+            "tasks": thread_meta,
+            "resources": res,
+            "wavecore_metrics": {
+                "fast": "/opt/continuonos/brain/trainer/logs/wavecore_fast_metrics.json",
+                "mid": "/opt/continuonos/brain/trainer/logs/wavecore_mid_metrics.json",
+                "slow": "/opt/continuonos/brain/trainer/logs/wavecore_slow_metrics.json",
+            },
+            "tool_router": {
+                "export_dir": "/opt/continuonos/brain/model/adapters/candidate/tool_router_seed",
+                "metrics_path": "/opt/continuonos/brain/trainer/logs/tool_router_metrics.json",
+                "eval_metrics_path": "/opt/continuonos/brain/trainer/logs/tool_router_eval_metrics.json",
+            },
+        }
+
     async def RunChatLearn(self, payload: Optional[dict] = None) -> dict:
         """Run a bounded multi-turn learning conversation using Gemma 3n and log via chat->RLDS when enabled."""
         payload = payload or {}
@@ -325,13 +409,15 @@ class RobotService:
         delegate_model_hint = payload.get("delegate_model_hint")
         topic = str(payload.get("topic") or "tool use + planning + safety")
 
-        # Seed prompt: ask the model to propose improvements and learning tasks.
+        # Seed prompt: "internet-search style" questions about coding this repo (offline-first; no actual browsing).
         message = (
-            "We are training the HOPE Agent Manager via conversation. "
-            f"Topic focus: {topic}. "
-            "Give concise, technical answers. Propose a small plan. "
-            "If you mention tools, include suggested tool names. "
-            "End each turn with the structured JSON line as required."
+            "We are training the HOPE Agent Manager via conversation with Gemma 3n.\n"
+            "For each turn, do this:\n"
+            "1) Write an *internet-search style* query a developer might type to understand or change THIS repository.\n"
+            "2) Then answer as if you inspected the repo: name likely files/functions to check, and propose a concrete next edit/test.\n"
+            "Constraints: do NOT claim you actually browsed the internet. Stay offline-first.\n"
+            f"Topic focus: {topic}.\n"
+            "End each turn with the required structured JSON line.\n"
         )
         history: list = []
         outputs = []
@@ -353,6 +439,304 @@ class RobotService:
                 f"Turn {i+2}/{turns}."
             )
         return {"status": "ok", "session_id": session_id, "turns": turns, "model_hint": model_hint, "results": outputs[-3:]}
+
+    def _chat_learn_loop(self) -> None:
+        """Background periodic chat learning loop (offline-first)."""
+        last_run = 0.0
+        while not self._bg_stop_event.is_set():
+            try:
+                from continuonbrain.settings_manager import SettingsStore
+
+                settings = SettingsStore(Path(self.config_dir)).load()
+                chat = (settings or {}).get("chat") or {}
+                agent_mgr = (settings or {}).get("agent_manager") or {}
+                cfg = (agent_mgr.get("chat_learn") or {}) if isinstance(agent_mgr, dict) else {}
+                enabled = bool(cfg.get("enabled", False)) and bool(chat.get("log_rlds", False))
+                interval_s = int(cfg.get("interval_s", 600) or 600)
+                turns = int(cfg.get("turns_per_cycle", 10) or 10)
+                model_hint = str(cfg.get("model_hint") or "google/gemma-3n-2b")
+                topic = str(cfg.get("topic") or "coding this repository")
+                modes_allowed = cfg.get("modes") if isinstance(cfg, dict) else None
+                if not isinstance(modes_allowed, list) or not modes_allowed:
+                    modes_allowed = ["idle"]
+
+                now = time.time()
+                due = (now - last_run) >= float(max(30, interval_s))
+                # Only run when robot is idle (and skip if recording is active).
+                mode = "unknown"
+                try:
+                    if self.mode_manager is not None:
+                        mode = self.mode_manager.current_mode.value
+                except Exception:
+                    mode = "unknown"
+
+                mode_ok = str(mode).lower() in {str(m).lower() for m in modes_allowed}
+                if enabled and due and mode_ok and not self.is_recording:
+                    asyncio.run(
+                        self.RunChatLearn(
+                            {
+                                "turns": turns,
+                                "model_hint": model_hint,
+                                "topic": topic,
+                                "session_id": f"chat_learn_sched_{int(time.time())}",
+                            }
+                        )
+                    )
+                    last_run = now
+            except Exception:
+                # Never crash the runtime due to the background learner.
+                pass
+            time.sleep(5)
+
+    def _ensure_hope_brain(self) -> bool:
+        """Best-effort HOPE brain initialization (torch/hope_impl are required)."""
+        if self.hope_brain is not None:
+            return True
+        try:
+            from continuonbrain.hope_impl.config import HOPEConfig
+            from continuonbrain.hope_impl.brain import HOPEBrain
+
+            cfg = HOPEConfig.pi5_optimized()
+            # Keep dims modest; this is currently used for background curiosity learning + monitoring.
+            self.hope_brain = HOPEBrain(config=cfg, obs_dim=10, action_dim=4, output_dim=4)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            print(f"  HOPE brain init unavailable: {exc}")
+            self.hope_brain = None
+            return False
+
+    def _autonomous_learning_loop(self) -> None:
+        """Start/pause/stop HOPE BackgroundLearner based on robot mode + settings."""
+        while not self._bg_stop_event.is_set():
+            try:
+                from continuonbrain.settings_manager import SettingsStore
+
+                settings = SettingsStore(Path(self.config_dir)).load()
+                agent_mgr = (settings or {}).get("agent_manager") or {}
+                enable = bool(agent_mgr.get("enable_autonomous_learning", True))
+                steps_per_cycle = int(agent_mgr.get("autonomous_learning_steps_per_cycle", 100) or 100)
+                checkpoint_interval = int(agent_mgr.get("autonomous_learning_checkpoint_interval", 1000) or 1000)
+
+                mode = "unknown"
+                try:
+                    if self.mode_manager is not None:
+                        mode = self.mode_manager.current_mode.value
+                except Exception:
+                    mode = "unknown"
+                mode = str(mode).lower()
+
+                want_running = enable and (mode == "autonomous") and (not self.is_recording)
+
+                if want_running:
+                    ok = self._ensure_hope_brain()
+                    if ok and self.background_learner is None and BackgroundLearner is not None:
+                        # Enable RLDS-ish logging under config_dir (doesn't affect WaveCore datasets).
+                        self.background_learner = BackgroundLearner(
+                            brain=self.hope_brain,
+                            config={
+                                "steps_per_cycle": steps_per_cycle,
+                                "cycle_interval_sec": 0.5,
+                                "checkpoint_interval": checkpoint_interval,
+                                "checkpoint_dir": f"{self.config_dir}/checkpoints/autonomous",
+                                "rlds_log_dir": f"{self.config_dir}/rlds/autonomous_learning",
+                            },
+                            resource_monitor=None,
+                        )
+                        self.background_learner.start()
+                        self._last_autonomous_learner_action = {"action": "start", "ts": time.time()}
+                    elif self.background_learner is not None and self.background_learner.paused:
+                        self.background_learner.resume()
+                        self._last_autonomous_learner_action = {"action": "resume", "ts": time.time()}
+
+                    # Stability guard: if HOPE is unstable, reduce learning rate and compact CMS.
+                    try:
+                        if self.hope_brain is not None and not self.hope_brain.stability_monitor.is_stable():
+                            state = self.hope_brain.get_state()
+                            cur_eta = float(getattr(state.params, "eta", 0.05))
+                            new_eta = max(0.005, min(cur_eta * 0.5, cur_eta))
+                            state.params.eta = new_eta
+                            self.hope_brain.set_state(state)
+                            try:
+                                self.hope_brain.compact_memory()
+                            except Exception:
+                                pass
+                            self._last_autonomous_learner_action = {"action": "stability_guard", "ts": time.time(), "eta": new_eta}
+                    except Exception:
+                        pass
+                else:
+                    if self.background_learner is not None and self.background_learner.running and not self.background_learner.paused:
+                        self.background_learner.pause()
+                        self._last_autonomous_learner_action = {"action": "pause", "ts": time.time(), "mode": mode}
+            except Exception:
+                pass
+            time.sleep(5)
+
+    def _autonomy_orchestrator_loop(self) -> None:
+        """Resource-aware orchestrator to ensure the whole architecture participates without breaking constraints."""
+        last: dict = {
+            "cms": 0.0,
+            "hope_eval": 0.0,
+            "facts_eval": 0.0,
+            "wavecore": 0.0,
+            "tool_router": 0.0,
+        }
+        while not self._bg_stop_event.is_set():
+            try:
+                from continuonbrain.settings_manager import SettingsStore
+
+                settings = SettingsStore(Path(self.config_dir)).load()
+                chat = (settings or {}).get("chat") or {}
+                agent_mgr = (settings or {}).get("agent_manager") or {}
+                orch = (agent_mgr.get("autonomy_orchestrator") or {}) if isinstance(agent_mgr, dict) else {}
+                enabled = bool(orch.get("enabled", False))
+                modes_allowed = orch.get("modes") if isinstance(orch, dict) else None
+                if not isinstance(modes_allowed, list) or not modes_allowed:
+                    modes_allowed = ["autonomous"]
+
+                # Determine current mode (avoid calling GetRobotStatus from background tasks).
+                mode = "unknown"
+                try:
+                    if self.mode_manager is not None:
+                        mode = self.mode_manager.current_mode.value
+                except Exception:
+                    mode = "unknown"
+                mode = str(mode).lower()
+                mode_ok = mode in {str(m).lower() for m in modes_allowed}
+
+                # Enforce min interval guard
+                min_interval_s = int(orch.get("min_interval_s", 30) or 30)
+                now = time.time()
+                if (now - float(self._last_orchestrator.get("last_run_ts", 0.0))) < float(min_interval_s):
+                    time.sleep(5)
+                    continue
+
+                # Only orchestrate when allowed, and never during recording.
+                if (not enabled) or (not mode_ok) or self.is_recording:
+                    time.sleep(5)
+                    continue
+
+                # Resource gate
+                res = self.resource_monitor.check_resources()
+                if res.level in (ResourceLevel.EMERGENCY,):
+                    self._last_orchestrator = {"last_run_ts": now, "skipped": "resource_emergency", "resource": res.to_dict()}
+                    time.sleep(10)
+                    continue
+
+                # Pause continuous learner during heavy jobs to avoid thrashing.
+                def _pause_bg():
+                    try:
+                        if self.background_learner is not None and getattr(self.background_learner, "running", False) and not getattr(self.background_learner, "paused", False):
+                            self.background_learner.pause()
+                    except Exception:
+                        pass
+
+                def _resume_bg():
+                    try:
+                        if self.background_learner is not None and getattr(self.background_learner, "running", False) and getattr(self.background_learner, "paused", False):
+                            self.background_learner.resume()
+                    except Exception:
+                        pass
+
+                with self._orchestrator_lock:
+                    actions = {}
+
+                    # 1) HOPE CMS compaction (cheap, helps stability/memory).
+                    cms_every = int(orch.get("cms_compact_every_s", 600) or 600)
+                    if self.hope_brain is not None and (now - last["cms"] >= cms_every):
+                        try:
+                            _pause_bg()
+                            self.hope_brain.compact_memory()
+                            actions["cms_compact"] = {"ok": True}
+                        except Exception as exc:  # noqa: BLE001
+                            actions["cms_compact"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["cms"] = now
+
+                    # 2) Evals (bounded; offline-first).
+                    hope_every = int(orch.get("hope_eval_every_s", 1800) or 1800)
+                    if (now - last["hope_eval"] >= hope_every):
+                        try:
+                            _pause_bg()
+                            asyncio.run(self.RunHopeEval({"rlds_dir": "/opt/continuonos/brain/rlds/episodes", "use_fallback": True}))
+                            actions["hope_eval"] = {"ok": True}
+                        except Exception as exc:  # noqa: BLE001
+                            actions["hope_eval"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["hope_eval"] = now
+
+                    facts_every = int(orch.get("facts_eval_every_s", 3600) or 3600)
+                    if (now - last["facts_eval"] >= facts_every):
+                        try:
+                            _pause_bg()
+                            asyncio.run(self.RunFactsEval({"rlds_dir": "/opt/continuonos/brain/rlds/episodes", "use_fallback": True}))
+                            actions["facts_eval"] = {"ok": True}
+                        except Exception as exc:  # noqa: BLE001
+                            actions["facts_eval"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["facts_eval"] = now
+
+                    # 3) WaveCore (SSM-ish/JAX seed loops): only if resources are OK.
+                    wave_every = int(orch.get("wavecore_every_s", 1800) or 1800)
+                    if res.level not in (ResourceLevel.CRITICAL,) and (now - last["wavecore"] >= wave_every):
+                        try:
+                            _pause_bg()
+                            fast_steps = int(orch.get("wavecore_steps_fast", 60) or 60)
+                            mid_steps = int(orch.get("wavecore_steps_mid", 120) or 120)
+                            slow_steps = int(orch.get("wavecore_steps_slow", 180) or 180)
+                            # If RLDS is mostly eval-only, fall back to synthetic so we still train the SSM/loop machinery.
+                            use_synth = not bool(chat.get("log_rlds", False))  # weak heuristic; keep cheap
+                            asyncio.run(
+                                self.RunWavecoreLoops(
+                                    {
+                                        "fast": {"arch_preset": "pi5", "max_steps": fast_steps, "batch_size": 8, "learning_rate": 1e-3, "disable_jit": True, "use_synthetic": use_synth},
+                                        "mid": {"arch_preset": "pi5", "max_steps": mid_steps, "batch_size": 8, "learning_rate": 5e-4, "disable_jit": True, "use_synthetic": use_synth},
+                                        "slow": {"arch_preset": "pi5", "max_steps": slow_steps, "batch_size": 8, "learning_rate": 2e-4, "disable_jit": True, "use_synthetic": use_synth},
+                                        "compact_export": True,
+                                        "run_hope_eval": False,
+                                        "run_facts_eval": False,
+                                    }
+                                )
+                            )
+                            actions["wavecore"] = {"ok": True, "use_synthetic": use_synth}
+                        except Exception as exc:  # noqa: BLE001
+                            actions["wavecore"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["wavecore"] = now
+
+                    # 4) Tool-router refresh (heavy).
+                    tool_every = int(orch.get("tool_router_every_s", 3600) or 3600)
+                    if res.level == ResourceLevel.NORMAL and (now - last["tool_router"] >= tool_every):
+                        try:
+                            _pause_bg()
+                            steps = int(orch.get("tool_router_steps", 200) or 200)
+                            asyncio.run(self.RunToolRouterTrain({"max_steps": steps, "batch_size": 64, "learning_rate": 3e-3, "max_episodes_scan": 20000, "top_k_tools": 128, "include_dirs_prefix": "toolchat_hf"}))
+                            asyncio.run(self.RunToolRouterEval({"eval_mod": 10, "eval_bucket": 0, "k": 5, "max_episodes_scan": 20000, "include_dirs_prefix": "toolchat_hf"}))
+                            actions["tool_router"] = {"ok": True, "steps": steps}
+                        except Exception as exc:  # noqa: BLE001
+                            actions["tool_router"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["tool_router"] = now
+
+                    self._last_orchestrator = {
+                        "last_run_ts": now,
+                        "mode": mode,
+                        "resource": res.to_dict(),
+                        "last_actions": actions,
+                        "last_markers": last,
+                    }
+            except Exception as exc:  # noqa: BLE001
+                # Never crash the runtime due to orchestrator issues, but surface the error for visibility.
+                try:
+                    self._last_orchestrator = {"last_run_ts": time.time(), "error": str(exc)}
+                except Exception:
+                    pass
+            time.sleep(5)
+
 
     async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
         """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
@@ -464,6 +848,31 @@ class RobotService:
         )
         self.mode_manager.return_to_idle()  # Start in idle mode
         print(" Mode manager ready")
+
+        # Start background chat-learn scheduler (thread; controlled via settings).
+        if self._chat_learn_thread is None or not self._chat_learn_thread.is_alive():
+            try:
+                self._chat_learn_thread = threading.Thread(target=self._chat_learn_loop, daemon=True)
+                self._chat_learn_thread.start()
+                print(" Chat-learn scheduler started (thread; settings-gated)")
+            except Exception as exc:  # noqa: BLE001
+                print(f"  Chat-learn scheduler failed to start: {exc}")
+
+        if self._autonomous_learner_thread is None or not self._autonomous_learner_thread.is_alive():
+            try:
+                self._autonomous_learner_thread = threading.Thread(target=self._autonomous_learning_loop, daemon=True)
+                self._autonomous_learner_thread.start()
+                print(" HOPE autonomous learner supervisor started (thread; mode-gated)")
+            except Exception as exc:  # noqa: BLE001
+                print(f"  HOPE autonomous learner supervisor failed to start: {exc}")
+
+        if self._orchestrator_thread is None or not self._orchestrator_thread.is_alive():
+            try:
+                self._orchestrator_thread = threading.Thread(target=self._autonomy_orchestrator_loop, daemon=True)
+                self._orchestrator_thread.start()
+                print(" Autonomy orchestrator started (thread; resource-aware)")
+            except Exception as exc:  # noqa: BLE001
+                print(f"  Autonomy orchestrator failed to start: {exc}")
 
         print()
         print("=" * 60)
@@ -1339,6 +1748,16 @@ class RobotService:
     def shutdown(self):
         """Graceful shutdown."""
         print("Shutting down Robot Service...")
+
+        try:
+            self._bg_stop_event.set()
+        except Exception:
+            pass
+        try:
+            if self.background_learner:
+                self.background_learner.stop()
+        except Exception:
+            pass
         
         if self.is_recording and self.recorder:
             self.recorder.end_episode(success=False)
