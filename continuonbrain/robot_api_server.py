@@ -515,6 +515,29 @@ class RobotService:
         )
         history: list = []
         outputs = []
+        
+        # Ensure chat learning logs to RLDS (enable if not already)
+        import os
+        original_log_setting = os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0")
+        os.environ["CONTINUON_LOG_CHAT_RLDS"] = "1"  # Force enable for chat learning
+        
+        # Also enable in settings
+        try:
+            from continuonbrain.settings_manager import SettingsStore
+            settings = SettingsStore(Path(self.config_dir)).load()
+            if not settings.get("chat", {}).get("log_rlds", False):
+                settings.setdefault("chat", {})["log_rlds"] = True
+                SettingsStore(Path(self.config_dir)).save(settings)
+        except Exception:
+            pass
+        
+        # Direct RLDS logging for chat learning (bypass chat adapter's logging)
+        from continuonbrain.rlds.chat_rlds_logger import ChatRldsLogConfig, log_chat_turn
+        rlds_cfg = ChatRldsLogConfig(
+            episodes_dir=Path("/opt/continuonos/brain/rlds/episodes"),
+            group_by_session=True
+        )
+        
         for i in range(turns):
             resp = await self.ChatWithGemma(
                 message,
@@ -526,6 +549,44 @@ class RobotService:
             outputs.append(resp)
             # Feed response back as next message to create a self-play style refinement loop.
             assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+            structured_data = resp.get("structured", {}) if isinstance(resp, dict) else {}
+            
+            # Check if we got a fallback response (generic status message)
+            is_fallback = (
+                assistant_text and (
+                    "Status snapshot" in assistant_text or
+                    "Robot status:" in assistant_text or
+                    "Ready for XR" in assistant_text or
+                    (assistant_text.startswith("[model=") and len(assistant_text) < 200 and "Status" in assistant_text)
+                )
+            )
+            
+            if is_fallback:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Chat learning turn {i+1}: Got fallback response instead of actual conversation. "
+                    f"Model may not be available. Skipping RLDS log for this turn."
+                )
+            else:
+                # Directly log to RLDS for chat learning (ensures we capture actual conversation)
+                try:
+                    status_data = await self.GetRobotStatus()
+                    status = status_data.get("status", {}) if isinstance(status_data, dict) else {}
+                    
+                    log_chat_turn(
+                        rlds_cfg,
+                        user_message=message,
+                        assistant_response=assistant_text,
+                        structured=structured_data if isinstance(structured_data, dict) else {},
+                        status_context=status,
+                        session_id=session_id,
+                        model_hint=model_hint,
+                        agent_label=model_hint or "agent_manager",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    import logging
+                    logging.getLogger(__name__).warning(f"Failed to log chat learning turn to RLDS: {exc}")
+            
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": assistant_text})
             

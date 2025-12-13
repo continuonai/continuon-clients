@@ -81,6 +81,8 @@ class ChatAdapter:
         image_source: Optional[str] = None,
         vision_requested: bool = False,
     ) -> dict:
+        # Track current session for fallback detection
+        self._current_session_id = session_id
         """
         Chat with Gemma (or a local fallback) using live status for context.
 
@@ -167,7 +169,33 @@ class ChatAdapter:
                     # Non-fatal.
                     subagent_info = {"model_hint": delegate_model_hint, "error": str(exc)}
 
+            # Call model and capture raw response
             raw_response = self._call_model(message, prompt, history, model_hint=model_hint, image=image_obj)
+            
+            # Check if we got a fallback response
+            is_fallback = (
+                raw_response and (
+                    "Status snapshot" in raw_response or
+                    "Robot status:" in raw_response or
+                    "Ready for XR" in raw_response or
+                    (raw_response.startswith("[model=") and len(raw_response) < 200 and "Status" in raw_response)
+                )
+            )
+            
+            # If fallback and this is chat learning, try to get actual model response
+            if is_fallback and session_id and "chat_learn" in str(session_id):
+                # Try to force model initialization if available
+                if not self.gemma_chat:
+                    try:
+                        from continuonbrain.gemma_chat import build_chat_service
+                        self.gemma_chat = build_chat_service()
+                        if self.gemma_chat and hasattr(self.gemma_chat, 'model') and self.gemma_chat.model is not None:
+                            # Retry with actual model
+                            raw_response = self._call_model(message, prompt, history, model_hint=model_hint, image=image_obj)
+                            is_fallback = False  # Reset if we got a real response
+                    except Exception:
+                        pass
+            
             response, structured = _extract_structured_block(raw_response)
             if delegate_model_hint:
                 if not isinstance(structured, dict):
@@ -299,9 +327,20 @@ class ChatAdapter:
         )
 
     def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None, image: Any = None) -> str:
+        # Try to use actual model first
         if self.gemma_chat:
-            return self.gemma_chat.chat(message, system_context=prompt, image=image, model_hint=model_hint)
+            try:
+                response = self.gemma_chat.chat(message, system_context=prompt, image=image, model_hint=model_hint)
+                # Verify we got a real response, not an error
+                if response and "Error" not in response and "failed" not in response.lower():
+                    return response
+                # If we got an error, fall through to fallback
+            except Exception as exc:  # noqa: BLE001
+                import logging
+                logging.getLogger(__name__).warning(f"Model call failed, using fallback: {exc}")
+                # Fall through to fallback
 
+        # Fallback: generate response when model unavailable
         # Robustly extract mode/hardware even if prompt structure changes
         lines = prompt.splitlines()
         def _extract(prefix: str, default: str = "unknown") -> str:
@@ -316,7 +355,17 @@ class ChatAdapter:
             f"Mode={_extract('- Mode', 'unknown')} "
             f"Hardware={_extract('- Hardware', 'unknown')}"
         )
-        return self._generate_response(message, context, model_hint=model_hint)
+        fallback_response = self._generate_response(message, context, model_hint=model_hint)
+        
+        # Log warning if we're using fallback for chat learning
+        if "chat_learn" in str(getattr(self, '_current_session_id', '')):
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Using fallback response for chat learning. Model unavailable. "
+                f"Response will not be logged to RLDS to avoid polluting training data."
+            )
+        
+        return fallback_response
 
     def _log_chat(self, message: str, response: str, status: Dict[str, object]) -> None:
         try:
@@ -367,6 +416,27 @@ class ChatAdapter:
             enabled = bool(enabled_env or enabled_settings)
             if not enabled:
                 return
+            
+            # Detect if this is a fallback response (generic status message)
+            is_fallback_response = (
+                response and (
+                    "Status snapshot" in response or
+                    "Robot status:" in response or
+                    "Ready for XR" in response or
+                    (response.startswith("[model=") and len(response) < 200 and "Status" in response)
+                )
+            )
+            
+            # For chat learning sessions, we want actual conversation, not fallback responses
+            # Skip logging fallback responses for chat learning to avoid polluting training data
+            if is_fallback_response and session_id and "chat_learn" in str(session_id):
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Skipping RLDS log for fallback response in chat learning session {session_id}. "
+                    f"Model may not be available. Enable model or fix chat adapter."
+                )
+                return
+            
             from continuonbrain.rlds.chat_rlds_logger import ChatRldsLogConfig, log_chat_turn
 
             cfg_dir = Path(self.config_dir)
