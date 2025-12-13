@@ -429,14 +429,23 @@ class RobotService:
         delegate_model_hint = payload.get("delegate_model_hint")
         topic = str(payload.get("topic") or "tool use + planning + safety")
 
-        # Seed prompt: "internet-search style" questions about coding this repo (offline-first; no actual browsing).
+        # Enhanced prompt for Agent Manager to Subagent conversations about HOPE learning
         message = (
-            "We are training the HOPE Agent Manager via conversation with Gemma 3n.\n"
-            "For each turn, do this:\n"
-            "1) Write an *internet-search style* query a developer might type to understand or change THIS repository.\n"
-            "2) Then answer as if you inspected the repo: name likely files/functions to check, and propose a concrete next edit/test.\n"
-            "Constraints: do NOT claim you actually browsed the internet. Stay offline-first.\n"
+            "We are training the HOPE Agent Manager through multi-agent conversations.\n"
+            "You are the Agent Manager (primary orchestrator). For each turn:\n"
+            "1) As the Agent Manager, identify something HOPE should learn to be more helpful.\n"
+            "2) Formulate a question or task that would benefit from consulting a subagent.\n"
+            "3) The subagent (Gemma 3n) will provide advisory input.\n"
+            "4) As Agent Manager, synthesize the subagent's advice and decide how HOPE should learn from it.\n"
+            "5) Discuss how this learning would improve HOPE's helpfulness (e.g., better tool use, safety, planning, memory management).\n"
+            "\n"
+            "Example conversation flow:\n"
+            "- Agent Manager: 'How should HOPE learn to better manage memory during long training sessions?'\n"
+            "- Subagent: 'Consider implementing adaptive CMS compaction thresholds based on memory pressure...'\n"
+            "- Agent Manager: 'Good point. HOPE should learn to trigger compaction proactively when memory exceeds 80%...'\n"
+            "\n"
             f"Topic focus: {topic}.\n"
+            "Keep conversations practical and focused on actionable learning for HOPE.\n"
             "End each turn with the required structured JSON line.\n"
         )
         history: list = []
@@ -454,10 +463,31 @@ class RobotService:
             assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": assistant_text})
-            message = (
-                f"Continue. Improve the previous plan, add one new testable skill, and one data-collection action. "
-                f"Turn {i+2}/{turns}."
-            )
+            
+            # Enhanced conversation flow for agent manager to subagent discussions
+            if i < turns - 1:  # Not the last turn
+                # Alternate between agent manager questions and subagent synthesis
+                if i % 2 == 0:
+                    # Agent Manager asks a new question about HOPE learning
+                    message = (
+                        f"As the Agent Manager, identify another area where HOPE should learn to be more helpful. "
+                        f"Formulate a specific question about: {topic}. "
+                        f"Turn {i+2}/{turns}."
+                    )
+                else:
+                    # Agent Manager synthesizes subagent advice and proposes learning
+                    message = (
+                        f"As the Agent Manager, synthesize the subagent's previous advice. "
+                        f"Explain how HOPE should learn from this and what concrete improvements it would enable. "
+                        f"Turn {i+2}/{turns}."
+                    )
+            else:
+                # Final turn: summarize key learnings
+                message = (
+                    f"Final turn: As the Agent Manager, summarize the top 3 things HOPE should learn "
+                    f"based on our conversation, and explain how each would make HOPE more helpful. "
+                    f"Turn {i+2}/{turns}."
+                )
         return {"status": "ok", "session_id": session_id, "turns": turns, "model_hint": model_hint, "results": outputs[-3:]}
 
     def _chat_learn_loop(self) -> None:
@@ -475,6 +505,7 @@ class RobotService:
                 interval_s = int(cfg.get("interval_s", 600) or 600)
                 turns = int(cfg.get("turns_per_cycle", 10) or 10)
                 model_hint = str(cfg.get("model_hint") or "google/gemma-3n-2b")
+                delegate_model_hint = cfg.get("delegate_model_hint")  # Support subagent conversations
                 topic = str(cfg.get("topic") or "coding this repository")
                 modes_allowed = cfg.get("modes") if isinstance(cfg, dict) else None
                 if not isinstance(modes_allowed, list) or not modes_allowed:
@@ -497,6 +528,7 @@ class RobotService:
                             {
                                 "turns": turns,
                                 "model_hint": model_hint,
+                                "delegate_model_hint": delegate_model_hint,  # Enable subagent conversations
                                 "topic": topic,
                                 "session_id": f"chat_learn_sched_{int(time.time())}",
                             }
