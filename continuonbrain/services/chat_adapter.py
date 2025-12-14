@@ -187,6 +187,7 @@ class ChatAdapter:
                 # Try to force model initialization if available
                 if not self.gemma_chat:
                     try:
+                        # Central chat backend builder (may return None when disabled).
                         from continuonbrain.gemma_chat import build_chat_service
                         self.gemma_chat = build_chat_service()
                         if self.gemma_chat and hasattr(self.gemma_chat, 'model') and self.gemma_chat.model is not None:

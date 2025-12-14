@@ -41,14 +41,57 @@ def _resolve_hf_hub_dir() -> Path:
 def _allow_model_downloads() -> bool:
     return os.environ.get("CONTINUON_ALLOW_MODEL_DOWNLOADS", "0").lower() in ("1", "true", "yes", "on")
 
-def _model_in_local_hf_cache(model_id: str) -> bool:
+def _ensure_hf_cache_env() -> Path:
+    """
+    Ensure HuggingFace cache env points at our resolved cache location.
+
+    This matters for services running under different users (e.g., systemd root/continuon)
+    that should still reuse a pre-populated shared cache.
+    """
     hub_dir = _resolve_hf_hub_dir()
-    model_cache_key = f"models--{model_id.replace('/', '--')}"
-    snapshots_dir = hub_dir / model_cache_key / "snapshots"
+    # HuggingFace hub honors HUGGINGFACE_HUB_CACHE directly.
+    os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(hub_dir))
+    return hub_dir
+
+def _snapshot_download_path(model_id: str, hf_token: Optional[str]) -> Path:
+    """
+    Return a local snapshot path for a model.
+
+    - Tries local cache only first (offline-first).
+    - If CONTINUON_ALLOW_MODEL_DOWNLOADS=1, allows downloading missing files.
+    """
+    _ensure_hf_cache_env()
     try:
-        if not snapshots_dir.exists():
-            return False
-        return any(snapshots_dir.iterdir())
+        from huggingface_hub import snapshot_download
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"huggingface_hub not available: {exc}") from exc
+
+    try:
+        return Path(
+            snapshot_download(
+                repo_id=model_id,
+                local_files_only=True,
+                token=hf_token,
+            )
+        )
+    except Exception as exc:
+        if not _allow_model_downloads():
+            raise RuntimeError(
+                f"Model {model_id} not available in local cache ({_resolve_hf_hub_dir()}); "
+                "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
+            ) from exc
+        return Path(
+            snapshot_download(
+                repo_id=model_id,
+                local_files_only=False,
+                token=hf_token,
+            )
+        )
+
+def _model_in_local_hf_cache(model_id: str) -> bool:
+    try:
+        _snapshot_download_path(model_id, hf_token=os.environ.get("HUGGINGFACE_TOKEN"))
+        return True
     except Exception:
         return False
 
@@ -132,6 +175,14 @@ class GemmaChat:
                     AutoModelForImageTextToText = None
             
             logger.info(f"Loading Gemma model: {self.model_name}")
+            # Resolve snapshot path (local cache first).
+            snapshot_path = None
+            try:
+                snapshot_path = _snapshot_download_path(self.model_name, self.hf_token)
+                logger.info(f"✅ Using HuggingFace snapshot: {snapshot_path}")
+            except Exception as exc:
+                logger.error(f"Failed to resolve local snapshot for {self.model_name}: {exc}")
+                return False
             
             # --- VLM Loading Logic (Gemma 3N / PaliGemma) ---
             if "gemma-3n" in self.model_name or "paligemma" in self.model_name:
@@ -141,60 +192,22 @@ class GemmaChat:
                     if AutoModelForImageTextToText is None:
                         raise ImportError("AutoModelForImageTextToText not available in installed transformers version")
                         
-                    # ALWAYS check local cache first - never download if files exist
-                    cache_dir = _resolve_hf_hub_dir()
-                    model_cache_key = f"models--{self.model_name.replace('/', '--')}"
-                    model_cache_path = cache_dir / model_cache_key
-                    
-                    use_local = model_cache_path.exists() and (model_cache_path / "snapshots").exists()
-                    snapshot_path = None
-                    if use_local:
-                        snapshots = list((model_cache_path / "snapshots").iterdir())
-                        if snapshots:
-                            snapshot_path = snapshots[0]
-                            logger.info(f"✅ Found VLM model in local cache: {snapshot_path}")
+                    # We already resolved snapshot_path above.
+                    if not snapshot_path:
+                        raise RuntimeError("No snapshot path available for VLM load")
                     
                     # Load processor - ALWAYS try local first
                     try:
-                        if use_local and snapshot_path:
-                            logger.info(f"Loading processor from local cache (local_files_only=True)")
-                            self.processor = AutoProcessor.from_pretrained(
-                                str(snapshot_path),
-                                local_files_only=True,  # CRITICAL: Never download if cached
-                                trust_remote_code=True
-                            )
-                            logger.info("✅ Processor loaded from cache")
-                        else:
-                            if not _allow_model_downloads():
-                                raise RuntimeError(
-                                    f"Processor for {self.model_name} not found in local cache at {model_cache_path}; "
-                                    "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
-                                )
-                            logger.warning("Processor not in local cache; attempting download (allowed)")
-                            self.processor = AutoProcessor.from_pretrained(
-                                self.model_name,
-                                token=self.hf_token,
-                                trust_remote_code=True,
-                                local_files_only=False  # Only allow download if not cached
-                            )
+                        logger.info("Loading processor from snapshot (local_files_only=True)")
+                        self.processor = AutoProcessor.from_pretrained(
+                            str(snapshot_path),
+                            local_files_only=True,
+                            trust_remote_code=True,
+                        )
+                        logger.info("✅ Processor loaded")
                     except Exception as e:
-                        if use_local and snapshot_path:
-                            # If local load failed, this is a real error
-                            logger.error(f"Failed to load processor from cache: {e}")
-                            raise RuntimeError(f"Cannot load processor from local cache: {e}")
-                        else:
-                            # Only try remote if we don't have local cache
-                            logger.warning(f"Local load failed, trying remote: {e}")
-                            try:
-                                self.processor = AutoProcessor.from_pretrained(
-                                    self.model_name,
-                                    token=self.hf_token,
-                                    trust_remote_code=True,
-                                    local_files_only=False
-                                )
-                            except Exception as e2:
-                                logger.error(f"Remote load also failed: {e2}")
-                                raise
+                        logger.error(f"Failed to load processor from snapshot: {e}")
+                        raise
                     
                     # Determine dtype and device placement.
                     # NOTE: Some transformer configs + low_cpu_mem_usage can leave parameters on the "meta" device
@@ -205,67 +218,28 @@ class GemmaChat:
                     
                     # Load model - ALWAYS use local cache if available
                     try:
-                        if use_local and snapshot_path:
-                            logger.info(f"Loading VLM model from local cache (local_files_only=True)")
-                            logger.info(f"  Snapshot: {snapshot_path}")
-                            self.model = AutoModelForImageTextToText.from_pretrained(
-                                str(snapshot_path),
-                                local_files_only=True,  # CRITICAL: Never download if cached
-                                trust_remote_code=True,
-                                device_map=device_map,
-                                torch_dtype=dtype,
-                                low_cpu_mem_usage=low_cpu_mem_usage,
-                            )
-                            logger.info("✅ VLM model loaded from cache")
-                        else:
-                            if not _allow_model_downloads():
-                                raise RuntimeError(
-                                    f"Model {self.model_name} not found in local cache at {model_cache_path}; "
-                                    "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
-                                )
-                            logger.warning("VLM model not in local cache; attempting download (allowed)")
-                            self.model = AutoModelForImageTextToText.from_pretrained(
-                                self.model_name,
-                                token=self.hf_token,
-                                trust_remote_code=True,
-                                device_map=device_map,
-                                torch_dtype=dtype,
-                                low_cpu_mem_usage=low_cpu_mem_usage,
-                                local_files_only=False  # Only allow download if not cached
-                            )
+                        logger.info("Loading VLM model from snapshot (local_files_only=True)")
+                        self.model = AutoModelForImageTextToText.from_pretrained(
+                            str(snapshot_path),
+                            local_files_only=True,
+                            trust_remote_code=True,
+                            device_map=device_map,
+                            torch_dtype=dtype,
+                            low_cpu_mem_usage=low_cpu_mem_usage,
+                        )
+                        logger.info("✅ VLM model loaded")
                     except Exception as e:
-                        if use_local and snapshot_path:
-                            # If local load failed, try CPU-only retry
-                            logger.warning(f"Local VLM load with device_map failed: {e}. Retrying on CPU...")
-                            try:
-                                self.model = AutoModelForImageTextToText.from_pretrained(
-                                    str(snapshot_path),
-                                    local_files_only=True,  # Still use local cache
-                                    trust_remote_code=True,
-                                    device_map=None,  # Force plain CPU load
-                                    torch_dtype=dtype,
-                                    low_cpu_mem_usage=False,
-                                )
-                                logger.info("✅ VLM model loaded from cache on CPU")
-                            except Exception as e2:
-                                logger.error(f"Failed to load VLM model from cache even on CPU: {e2}")
-                                raise RuntimeError(f"Cannot load VLM model from local cache: {e2}")
-                        else:
-                            # Only try remote if we don't have local cache
-                            logger.warning(f"Local load failed, trying remote: {e}")
-                            try:
-                                self.model = AutoModelForImageTextToText.from_pretrained(
-                                    self.model_name,
-                                    token=self.hf_token,
-                                    trust_remote_code=True,
-                                    device_map=device_map,
-                                    torch_dtype=dtype,
-                                    low_cpu_mem_usage=low_cpu_mem_usage,
-                                    local_files_only=False
-                                )
-                            except Exception as e2:
-                                logger.error(f"Remote load also failed: {e2}")
-                                raise
+                        # If local load failed, try CPU-only retry
+                        logger.warning(f"VLM load failed: {e}. Retrying on CPU...")
+                        self.model = AutoModelForImageTextToText.from_pretrained(
+                            str(snapshot_path),
+                            local_files_only=True,
+                            trust_remote_code=True,
+                            device_map=None,
+                            torch_dtype=dtype,
+                            low_cpu_mem_usage=False,
+                        )
+                        logger.info("✅ VLM model loaded on CPU")
                     
                     self.is_vlm = True
                     logger.info(" Gemma 3N VLM loaded successfully!")
@@ -278,62 +252,21 @@ class GemmaChat:
                     self.processor = None
 
             # --- CausalLM Loading Logic (Text Only / Fallback) ---
-            # ALWAYS check local cache first - never download if files exist
-            cache_dir = _resolve_hf_hub_dir()
-            model_cache_key = f"models--{self.model_name.replace('/', '--')}"
-            model_cache_path = cache_dir / model_cache_key
-            
-            use_local = model_cache_path.exists() and (model_cache_path / "snapshots").exists()
-            snapshot_path = None
-            
-            if use_local:
-                # Find the snapshot directory
-                snapshots = list((model_cache_path / "snapshots").iterdir())
-                if snapshots:
-                    snapshot_path = snapshots[0]
-                    logger.info(f"✅ Found model in local cache: {snapshot_path}")
+            if not snapshot_path:
+                raise RuntimeError("No snapshot path available for CausalLM load")
             
             # Load tokenizer - ALWAYS try local first, never download if cached
             try:
-                if use_local and snapshot_path:
-                    logger.info(f"Loading tokenizer from local cache (local_files_only=True)")
-                    self.tokenizer = AutoTokenizer.from_pretrained(
-                        str(snapshot_path),
-                        local_files_only=True,  # CRITICAL: Never download if cached
-                        trust_remote_code=True
-                    )
-                    logger.info("✅ Tokenizer loaded from cache")
-                else:
-                    if not _allow_model_downloads():
-                        raise RuntimeError(
-                            f"Tokenizer for {self.model_name} not found in local cache at {model_cache_path}; "
-                            "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
-                        )
-                    logger.warning("Tokenizer not in local cache; attempting download (allowed)")
-                    self.tokenizer = AutoTokenizer.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True,
-                        local_files_only=False  # Only allow download if not cached
-                    )
+                logger.info("Loading tokenizer from snapshot (local_files_only=True)")
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    str(snapshot_path),
+                    local_files_only=True,
+                    trust_remote_code=True,
+                )
+                logger.info("✅ Tokenizer loaded")
             except Exception as e:
-                if use_local and snapshot_path:
-                    # If local load failed, this is a real error - don't fallback to download
-                    logger.error(f"Failed to load tokenizer from cache: {e}")
-                    raise RuntimeError(f"Cannot load tokenizer from local cache: {e}")
-                else:
-                    # Only try remote if we don't have local cache
-                    logger.warning(f"Local load failed, trying remote: {e}")
-                    try:
-                        self.tokenizer = AutoTokenizer.from_pretrained(
-                            self.model_name,
-                            token=self.hf_token,
-                            trust_remote_code=True,
-                            local_files_only=False
-                        )
-                    except Exception as e2:
-                        logger.error(f"Remote load also failed: {e2}")
-                        raise
+                logger.error(f"Failed to load tokenizer from snapshot: {e}")
+                raise
             
             # Load model with conservative defaults to avoid disk_offload errors on CPU
             use_device_map = None
@@ -358,62 +291,29 @@ class GemmaChat:
 
             # ALWAYS use local cache if available - never download
             try:
-                if use_local and snapshot_path:
-                    logger.info(f"Loading CausalLM model from local cache (local_files_only=True)")
-                    logger.info(f"  Snapshot: {snapshot_path}")
-                    self.model = AutoModelForCausalLM.from_pretrained(
-                        str(snapshot_path),
-                        local_files_only=True,  # CRITICAL: Never download if cached
-                        trust_remote_code=True,
-                        device_map=use_device_map,
-                        low_cpu_mem_usage=low_cpu_mem,
-                        torch_dtype=torch_dtype,
-                    )
-                    logger.info("✅ Model loaded from cache")
-                else:
-                    if not _allow_model_downloads():
-                        raise RuntimeError(
-                            f"Model {self.model_name} not found in local cache at {model_cache_path}; "
-                            "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
-                        )
-                    logger.warning("Model not in local cache; attempting download (allowed)")
-                    self.model = AutoModelForCausalLM.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True,
-                        device_map=use_device_map,
-                        low_cpu_mem_usage=low_cpu_mem,
-                        torch_dtype=torch_dtype,
-                        local_files_only=False  # Only allow download if not cached
-                    )
+                logger.info("Loading CausalLM model from snapshot (local_files_only=True)")
+                logger.info(f"  Snapshot: {snapshot_path}")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    str(snapshot_path),
+                    local_files_only=True,
+                    trust_remote_code=True,
+                    device_map=use_device_map,
+                    low_cpu_mem_usage=low_cpu_mem,
+                    torch_dtype=torch_dtype,
+                )
+                logger.info("✅ Model loaded")
             except Exception as e:
-                if use_local and snapshot_path:
-                    # If local load failed, try CPU-only retry (no device_map)
-                    logger.warning(f"Local load with device_map failed: {e}. Retrying on CPU...")
-                    try:
-                        self.model = AutoModelForCausalLM.from_pretrained(
-                            str(snapshot_path),
-                            local_files_only=True,  # Still use local cache
-                            trust_remote_code=True,
-                            device_map=None,  # Force CPU
-                            low_cpu_mem_usage=True,
-                            torch_dtype=None,  # Use default dtype
-                        )
-                        logger.info("✅ Model loaded from cache on CPU")
-                    except Exception as e2:
-                        logger.error(f"Failed to load model from cache even on CPU: {e2}")
-                        raise RuntimeError(f"Cannot load model from local cache: {e2}")
-                elif use_device_map == "auto":
-                    logger.warning(f"Failed with device_map='auto': {e}. Retrying on CPU without offload...")
-                    self.model = AutoModelForCausalLM.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True,
-                        device_map=None,
-                        low_cpu_mem_usage=True,
-                    )
-                else:
-                    raise e
+                # If local load failed, try CPU-only retry (no device_map)
+                logger.warning(f"CausalLM load failed: {e}. Retrying on CPU...")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    str(snapshot_path),
+                    local_files_only=True,
+                    trust_remote_code=True,
+                    device_map=None,
+                    low_cpu_mem_usage=True,
+                    torch_dtype=None,
+                )
+                logger.info("✅ Model loaded on CPU")
             
             self.is_vlm = False
             logger.info("Gemma model loaded (CausalLM mode)")
@@ -695,6 +595,10 @@ class MockGemmaChat:
 # Factory function to create appropriate chat instance
 def _install_missing_deps():
     """Best-effort install of core deps to avoid mock fallback."""
+    # NOTE: Auto-installing dependencies at runtime can violate offline-first and
+    # boot-reliability goals (and is undesirable under systemd). Keep this OFF by default.
+    if os.environ.get("CONTINUON_AUTO_INSTALL_PY_DEPS", "0").lower() not in ("1", "true", "yes", "on"):
+        return False
     required = ["transformers", "accelerate", "timm"]
     missing = []
     for pkg in required:
@@ -747,7 +651,7 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
         import torch
         return GemmaChat(**kwargs)
     except ImportError as e:
-        logger.warning(f"transformers not available: {e}. Trying auto-install...")
+        logger.warning(f"transformers not available: {e}.")
         if _install_missing_deps():
             try:
                 import transformers
@@ -756,4 +660,54 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
             except Exception as exc:
                 logger.error(f"Deps installed but Gemma init still failed: {exc}")
         return MockGemmaChat(error_msg=str(e), **kwargs)
+
+
+def build_chat_service() -> Optional[Any]:
+    """
+    Public chat-service builder used by ChatAdapter and eval runners.
+
+    This is the canonical location for chat backend selection so call sites can do:
+      from continuonbrain.gemma_chat import build_chat_service
+
+    Policy:
+    - Prefer JAX/Flax Gemma when CONTINUON_PREFER_JAX=1 and the backend is available.
+    - Otherwise fall back to transformers-based Gemma (local-cache first).
+    - On headless targets, transformers fallback is disabled by default to keep boot light.
+      Override with CONTINUON_ALLOW_TRANSFORMERS_CHAT=1.
+    """
+    prefer_jax = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes", "on")
+    headless = os.environ.get("CONTINUON_HEADLESS", "0").lower() in ("1", "true", "yes", "on")
+    allow_transformers = os.environ.get("CONTINUON_ALLOW_TRANSFORMERS_CHAT", "0").lower() in ("1", "true", "yes", "on")
+
+    # Best-effort accelerator detection (non-fatal).
+    accelerator_device = None
+    try:
+        hailo_devices = list(Path("/dev").glob("hailo*"))
+        if hailo_devices:
+            accelerator_device = "hailo8l"
+    except Exception:
+        accelerator_device = None
+
+    enable_jax_chat = os.environ.get("CONTINUON_ENABLE_JAX_GEMMA_CHAT", "0").lower() in ("1", "true", "yes", "on")
+    if prefer_jax and enable_jax_chat:
+        try:
+            from continuonbrain.gemma_chat_jax import create_gemma_chat_jax
+
+            chat_jax = create_gemma_chat_jax(device="cpu", accelerator_device=accelerator_device)
+            if chat_jax:
+                logger.info("Using JAX/Flax Gemma chat backend")
+                return chat_jax
+        except Exception as exc:  # noqa: BLE001
+            logger.info(f"JAX/Flax Gemma chat unavailable ({exc}); falling back.")
+
+    # Transformers fallback (disabled by default on headless to keep boot fast).
+    if headless and not allow_transformers:
+        logger.info("Headless mode: transformers chat disabled (set CONTINUON_ALLOW_TRANSFORMERS_CHAT=1 to enable).")
+        return None
+
+    try:
+        return create_gemma_chat(use_mock=False, accelerator_device=accelerator_device)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Transformers Gemma init failed: {exc}")
+        return None
 

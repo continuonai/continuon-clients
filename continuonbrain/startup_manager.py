@@ -70,6 +70,8 @@ class StartupManager:
         self.mode_manager: Optional[RobotModeManager] = None
         self.robot_api_process: Optional[subprocess.Popen] = None
         self._robot_api_log_fh = None
+        self.wiki_curiosity_process: Optional[subprocess.Popen] = None
+        self._wiki_curiosity_log_fh = None
         self.system_instructions: Optional[SystemInstructions] = None
         self.event_logger = SystemEventLogger(config_dir=str(self.config_dir))
     
@@ -386,17 +388,30 @@ class StartupManager:
                     try:
                         logs_dir = self.config_dir / "logs"
                         logs_dir.mkdir(parents=True, exist_ok=True)
-                        wiki_log = (logs_dir / "wiki_curiosity.log").open("a", encoding="utf-8")
+                        wiki_log_path = logs_dir / "wiki_curiosity.log"
+                        self._wiki_curiosity_log_fh = wiki_log_path.open("a", encoding="utf-8", buffering=1)
+                        try:
+                            self._wiki_curiosity_log_fh.write(
+                                f"\n=== wiki_curiosity start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                            )
+                        except Exception:
+                            pass
                         print("📚 Starting Wiki Curiosity (offline) sidecar...")
                         self.wiki_curiosity_process = subprocess.Popen(
                             [python_exec, "-m", "continuonbrain.eval.wiki_curiosity_boot", "--config-dir", str(self.config_dir)],
                             env=env,
-                            stdout=wiki_log,
-                            stderr=wiki_log,
+                            stdout=self._wiki_curiosity_log_fh,
+                            stderr=self._wiki_curiosity_log_fh,
                         )
                         print(f"   Wiki curiosity started (PID: {self.wiki_curiosity_process.pid})")
                     except Exception as exc:  # noqa: BLE001
                         print(f"   ⚠️ Wiki curiosity sidecar failed to start: {exc}")
+                        try:
+                            if self._wiki_curiosity_log_fh:
+                                self._wiki_curiosity_log_fh.close()
+                        except Exception:
+                            pass
+                        self._wiki_curiosity_log_fh = None
                 else:
                     print("📚 Wiki curiosity disabled (set CONTINUON_WIKI_JSONL and CONTINUON_ENABLE_WIKI_CURIOSITY=1 to enable)")
 
@@ -527,6 +542,25 @@ class StartupManager:
                 self.trainer_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.trainer_process.kill()
+
+        # Stop Wiki curiosity sidecar (if started)
+        if getattr(self, "wiki_curiosity_process", None):
+            try:
+                self.wiki_curiosity_process.terminate()
+                self.wiki_curiosity_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    self.wiki_curiosity_process.kill()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        try:
+            if getattr(self, "_wiki_curiosity_log_fh", None):
+                self._wiki_curiosity_log_fh.close()
+        except Exception:
+            pass
+        self._wiki_curiosity_log_fh = None
         
         print("✅ Services stopped.")
     
