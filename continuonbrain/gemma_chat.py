@@ -229,15 +229,20 @@ class GemmaChat:
                         )
                         logger.info("✅ VLM model loaded")
                     except Exception as e:
-                        # If local load failed, try CPU-only retry
-                        logger.warning(f"VLM load failed: {e}. Retrying on CPU...")
+                        # If local load failed, try a more conservative CPU-only retry with
+                        # different settings than the initial attempt (mirrors CausalLM fallback).
+                        retry_dtype = None
+                        retry_low_cpu_mem_usage = True
+                        logger.warning(
+                            f"VLM load failed: {e}. Retrying on CPU with torch_dtype=None, low_cpu_mem_usage=True..."
+                        )
                         self.model = AutoModelForImageTextToText.from_pretrained(
                             str(snapshot_path),
                             local_files_only=True,
                             trust_remote_code=True,
                             device_map=None,
-                            torch_dtype=dtype,
-                            low_cpu_mem_usage=False,
+                            torch_dtype=retry_dtype,
+                            low_cpu_mem_usage=retry_low_cpu_mem_usage,
                         )
                         logger.info("✅ VLM model loaded on CPU")
                     

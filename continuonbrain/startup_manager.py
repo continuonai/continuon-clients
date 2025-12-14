@@ -389,11 +389,11 @@ class StartupManager:
                         logs_dir = self.config_dir / "logs"
                         logs_dir.mkdir(parents=True, exist_ok=True)
                         wiki_log_path = logs_dir / "wiki_curiosity.log"
-                        self._wiki_curiosity_log_fh = wiki_log_path.open("a", encoding="utf-8", buffering=1)
+                        # Subprocess stdout/stderr writes bytes to file descriptors; use binary mode.
+                        self._wiki_curiosity_log_fh = wiki_log_path.open("ab")
                         try:
-                            self._wiki_curiosity_log_fh.write(
-                                f"\n=== wiki_curiosity start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
-                            )
+                            header = f"\n=== wiki_curiosity start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                            self._wiki_curiosity_log_fh.write(header.encode("utf-8", errors="replace"))
                         except Exception:
                             pass
                         print("📚 Starting Wiki Curiosity (offline) sidecar...")
