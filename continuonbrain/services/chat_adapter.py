@@ -84,8 +84,14 @@ class ChatAdapter:
         image_source: Optional[str] = None,
         vision_requested: bool = False,
     ) -> dict:
+        print(f"[ChatAdapter] chat() called with model_hint={model_hint} delegate={delegate_model_hint}")
         # Track current session for fallback detection
         self._current_session_id = session_id
+
+        # Auto-detect delegate hint if passed in model_hint
+        if model_hint and "consult:" in model_hint and not delegate_model_hint:
+             delegate_model_hint = model_hint
+        
         """
         Chat with Gemma (or a local fallback) using live status for context.
 
@@ -152,8 +158,49 @@ class ChatAdapter:
 
             # Optional: consult a sub-agent (e.g., Gemma 3n) and feed its answer back into the Agent Manager.
             # This is purely advisory: no auto-execution.
+            # 2. If 'consult:' prefix, we do a sub-agent "thought" turn first
+            if delegate_model_hint and "consult:" in delegate_model_hint:
+                print(f"[ChatAdapter] Consulting subagent: {delegate_model_hint}")
+                if self.gemma_chat:
+                    try:
+                        # Parse out the sub-model name if needed, or just ask gemma
+                        # We'll just pass the user text to the sub-agent for now
+                        sub_text = self.gemma_chat.chat(
+                            message=message,
+                            system_context=prompt, # Pass the full prompt for context
+                            model_hint=delegate_model_hint.replace("consult:", "").strip() # Extract model hint
+                        )
+                        
+                        print(f"[ChatAdapter] Subagent response len: {len(sub_text)}")
+                        if self.on_chat_event:
+                            print(f"[ChatAdapter] Emitting subagent event")
+                            try:
+                                self.on_chat_event({
+                                    "role": "subagent",
+                                    "name": "Gemma 3n",  # UI label
+                                    "text": sub_text[:2000],
+                                    "model": delegate_model_hint,
+                                    "timestamp": datetime.datetime.now().isoformat(),
+                                })
+                            except Exception as e:
+                                print(f"[ChatAdapter] Error emitting event: {e}")
+                        
+                        # Feed the subagent answer into the system prompt so the Agent Manager can learn/incorporate.
+                        prompt = (
+                            prompt
+                            + "\n\nSub-agent consult (advisory):\n"
+                            + f"- model_hint: {delegate_model_hint}\n"
+                            + f"- response: {sub_text[:2000]}\n"
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        # Non-fatal.
+                        print(f"[ChatAdapter] Subagent consult failed: {exc}")
+                        pass # Continue without subagent info
+                else:
+                    print(f"[ChatAdapter] Subagent consult skipped: gemma_chat not available")
+
             subagent_info: Dict[str, Any] = {}
-            if delegate_model_hint:
+            if delegate_model_hint and "consult:" not in delegate_model_hint: # Only process if not already handled by "consult:"
                 try:
                     sub_raw = self._call_model(message, prompt, history, model_hint=delegate_model_hint, image=image_obj)
                     sub_text, _sub_structured = _extract_structured_block(sub_raw)
@@ -259,6 +306,7 @@ class ChatAdapter:
             self._log_chat(message, response, status)
             
             if self.on_chat_event:
+                print(f"[ChatAdapter] Emitting agent_manager event")
                 try:
                     self.on_chat_event({
                         "role": "agent_manager",
@@ -267,9 +315,9 @@ class ChatAdapter:
                         "model": model_hint or "primary",
                         "timestamp": datetime.datetime.now().isoformat(),
                     })
-                except Exception:
-                    pass
-
+                except Exception as e:
+                     print(f"[ChatAdapter] Error emitting agent_manager event: {e}")
+            
             self._maybe_log_chat_rlds(
                 message=message,
                 response=response,

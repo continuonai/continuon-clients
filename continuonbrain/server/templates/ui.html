@@ -410,11 +410,11 @@
                                 <select id="chat-agent-select" class="input-compact"
                                     style="width:220px; margin-right:8px;">
                                     <option value="agent_manager" selected>Agent Manager</option>
-                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)
+                                    <option value="consult:google/gemma-3n-E2B-it">Agent Manager + Gemma 3n (subagent)
                                     </option>
                                     <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)
                                     </option>
-                                    <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
+                                    <option value="direct:google/gemma-3n-E2B-it">Direct: Gemma 3n</option>
                                     <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
                                 </select>
                                 <label
@@ -2047,6 +2047,7 @@
         }
 
         window.renderIncomingChatMessage = function (evt) {
+            console.log("[StudioClient] Received chat event:", evt);
             // evt = { role: "subagent"|"agent_manager", name: "...", text: "...", ... }
             if (!evt || !evt.text) return;
             // Map the event role to our CSS class
