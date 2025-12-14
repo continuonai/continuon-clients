@@ -14,6 +14,7 @@ async function init() {
     columnar: document.getElementById('brain-layout-columnar'),
     hybrid: document.getElementById('brain-layout-hybrid'),
   };
+  const flowToggle = document.getElementById('brain-flow-toggle');
   if (!container || !fallback || !slider) return;
 
   fallback.textContent = 'Loading 3D brain…';
@@ -21,11 +22,11 @@ async function init() {
   let THREE;
   let OrbitControls;
   try {
-    THREE = await import('https://unpkg.com/three@0.160.0/build/three.module.js');
-    ({ OrbitControls } = await import('https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js'));
+    THREE = await import('/static/vendor/three/three.module.js');
+    ({ OrbitControls } = await import('/static/vendor/three/OrbitControls.js'));
   } catch (e) {
     fallback.textContent =
-      '3D brain view needs Three.js (CDN). Network offline or blocked — use the evidence cards above.';
+      '3D brain view needs Three.js. Local modules failed to load — check static caching and reload.';
     return;
   }
 
@@ -147,6 +148,152 @@ async function init() {
     scene.add(line);
     edgeLines.push({ a, b, line });
   }
+
+  // CMS Rings: Visualize the three timescale loops as toruses around CMS nodes
+  const cmsRings = new Map();
+  const ringGeo = new THREE.TorusGeometry(1.8, 0.08, 8, 32);
+  const ringMats = {
+    fast: new THREE.MeshStandardMaterial({ color: 0xff8c42, emissive: 0xff8c42, emissiveIntensity: 0.3, transparent: true, opacity: 0.6 }),
+    mid: new THREE.MeshStandardMaterial({ color: 0x8a52ff, emissive: 0x8a52ff, emissiveIntensity: 0.3, transparent: true, opacity: 0.6 }),
+    slow: new THREE.MeshStandardMaterial({ color: 0x67d3ff, emissive: 0x67d3ff, emissiveIntensity: 0.3, transparent: true, opacity: 0.6 }),
+  };
+  for (const [id, mat] of [['cms_fast', 'fast'], ['cms_mid', 'mid'], ['cms_slow', 'slow']]) {
+    const mesh = nodeMeshes.get(id);
+    if (!mesh) continue;
+    const ring = new THREE.Mesh(ringGeo, ringMats[mat]);
+    ring.position.copy(mesh.position);
+    ring.rotation.x = Math.PI / 2; // Horizontal ring
+    scene.add(ring);
+    cmsRings.set(id, ring);
+  }
+
+  // Gating visualization at Agent Manager: Show wave/particle mixing
+  // Create two interlocking rings (wave and particle) that rotate to show mixing
+  const agentMesh = nodeMeshes.get('agent_manager');
+  let gatingRings = null;
+  if (agentMesh) {
+    const gatingGroup = new THREE.Group();
+    // Wave ring (larger, more diffuse)
+    const waveRingGeo = new THREE.TorusGeometry(2.0, 0.12, 8, 32);
+    const waveRingMat = new THREE.MeshStandardMaterial({
+      color: 0x7ad7ff,
+      emissive: 0x7ad7ff,
+      emissiveIntensity: 0.4,
+      transparent: true,
+      opacity: 0.5,
+    });
+    const waveRing = new THREE.Mesh(waveRingGeo, waveRingMat);
+    waveRing.rotation.x = Math.PI / 2;
+    waveRing.rotation.z = Math.PI / 4;
+    gatingGroup.add(waveRing);
+    
+    // Particle ring (smaller, more compact)
+    const particleRingGeo = new THREE.TorusGeometry(1.6, 0.10, 6, 24);
+    const particleRingMat = new THREE.MeshStandardMaterial({
+      color: 0x4f9dff,
+      emissive: 0x4f9dff,
+      emissiveIntensity: 0.5,
+      transparent: true,
+      opacity: 0.6,
+    });
+    const particleRing = new THREE.Mesh(particleRingGeo, particleRingMat);
+    particleRing.rotation.x = Math.PI / 2;
+    particleRing.rotation.z = -Math.PI / 4;
+    gatingGroup.add(particleRing);
+    
+    gatingGroup.position.copy(agentMesh.position);
+    scene.add(gatingGroup);
+    gatingRings = { group: gatingGroup, waveRing, particleRing };
+  }
+
+  // Information flow particles: Animated drops that flow along edges
+  // 
+  // Particle/Wave Duality Visualization:
+  // - Wave drops: Larger, spherical, move with sinusoidal motion (SSM-style global dynamics)
+  // - Particle drops: Smaller, octahedral, move directly along edges (local nonlinear dynamics)
+  // - CMS loops: Size reflects timescale (fast=small, mid=medium, slow=large)
+  // - Gating at Agent Manager: Mixes wave and particle streams (visualized as interlocking rings)
+  //
+  // The three CMS rings (Fast/Mid/Slow) are visualized as rotating toruses around CMS nodes,
+  // showing the multi-timescale learning loops. Information flows through these rings,
+  // with drop size and speed reflecting the timescale domain.
+  const particles = [];
+  const particleGroup = new THREE.Group();
+  scene.add(particleGroup);
+  let flowEnabled = true; // Start with flow visible
+
+  // Drop types: wave (larger, wave-like motion), particle (smaller, direct), CMS loops (size by timescale)
+  function createDrop(type, color, size, isWave = false) {
+    const geo = isWave 
+      ? new THREE.SphereGeometry(size, 12, 12) // Wave: spherical, more diffuse
+      : new THREE.OctahedronGeometry(size, 0); // Particle: octahedral, more compact
+    const mat = new THREE.MeshStandardMaterial({
+      color: color,
+      emissive: color,
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.7,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    particleGroup.add(mesh);
+    return {
+      mesh,
+      type,
+      progress: Math.random(), // Random start position along edge
+      speed: isWave ? 0.3 + Math.random() * 0.2 : 0.5 + Math.random() * 0.3, // Wave slower, particle faster
+      wavePhase: Math.random() * Math.PI * 2, // For wave-like motion
+      edge: null, // Will be set when spawning
+      isWave,
+    };
+  }
+
+  // Spawn particles on edges based on information flow
+  function spawnParticleOnEdge(edgeId, dropType) {
+    const edge = edgeLines[edgeId];
+    if (!edge) return null;
+    
+    const [aId, bId] = [edge.a, edge.b];
+    let color, size, isWave;
+    
+    // Determine drop properties based on edge type and domain
+    if (aId.includes('sensor') || bId.includes('sensor')) {
+      // Sensor input: small particle drops
+      color = 0xa9c7ff;
+      size = 0.12;
+      isWave = false;
+    } else if (aId === 'agent_manager' || bId === 'agent_manager') {
+      // Agent Manager: mixed wave/particle (gating happens here)
+      isWave = Math.random() > 0.5; // 50/50 mix
+      color = isWave ? 0x7ad7ff : 0x4f9dff;
+      size = isWave ? 0.18 : 0.14;
+    } else if (aId.includes('cms_') || bId.includes('cms_')) {
+      // CMS loops: size by timescale
+      const loopType = aId.includes('fast') || bId.includes('fast') ? 'fast' :
+                       aId.includes('mid') || bId.includes('mid') ? 'mid' : 'slow';
+      color = loopType === 'fast' ? 0xff8c42 : loopType === 'mid' ? 0x8a52ff : 0x67d3ff;
+      size = loopType === 'fast' ? 0.10 : loopType === 'mid' ? 0.14 : 0.18;
+      isWave = loopType === 'slow'; // Slow loop is more wave-like
+    } else if (aId.includes('wavecore_') || bId.includes('wavecore_')) {
+      // WaveCore: wave-like (SSM-style)
+      color = 0xff4d6d;
+      size = 0.16;
+      isWave = true;
+    } else {
+      // Default: small particle
+      color = 0x7ad7ff;
+      size = 0.12;
+      isWave = false;
+    }
+    
+    const drop = createDrop(dropType || 'info', color, size, isWave);
+    drop.edge = edge;
+    particles.push(drop);
+    return drop;
+  }
+
+  // Spawn particles periodically
+  let particleSpawnTimer = 0;
+  const particleSpawnInterval = 0.8; // Spawn every 0.8s
 
   // "4D": we scrub recent metrics onto node intensities.
   // We keep a small cache of time series, plus a rolling history of snapshots.
@@ -344,6 +491,14 @@ async function init() {
   if (layoutBtns.graph) layoutBtns.graph.addEventListener('click', () => setLayout('graph'));
   if (layoutBtns.columnar) layoutBtns.columnar.addEventListener('click', () => setLayout('columnar'));
   if (layoutBtns.hybrid) layoutBtns.hybrid.addEventListener('click', () => setLayout('hybrid'));
+  if (flowToggle) {
+    flowToggle.addEventListener('click', () => {
+      flowEnabled = !flowEnabled;
+      particleGroup.visible = flowEnabled;
+      flowToggle.classList.toggle('current', flowEnabled);
+      flowToggle.textContent = flowEnabled ? 'Hide Flow' : 'Show Flow';
+    });
+  }
   setLayout('graph');
 
   // Resize handling
@@ -365,7 +520,9 @@ async function init() {
   let t = 0;
   function animate() {
     t += 0.01;
+    const deltaTime = 0.016; // ~60fps
     controls.update();
+    
     // A subtle breathing motion to imply "living" state.
     for (const [id, mesh] of nodeMeshes.entries()) {
       const halo = nodeGlow.get(id);
@@ -377,6 +534,25 @@ async function init() {
       }
       if (halo) halo.scale.set(halo.scale.x, halo.scale.y, 1);
     }
+    
+    // Update CMS rings (rotate slowly to show "active" loops)
+    for (const [id, ring] of cmsRings.entries()) {
+      const mesh = nodeMeshes.get(id);
+      if (mesh && ring) {
+        ring.position.copy(mesh.position);
+        ring.rotation.z += deltaTime * (id === 'cms_fast' ? 0.8 : id === 'cms_mid' ? 0.4 : 0.2); // Fast spins faster
+      }
+    }
+    
+    // Update gating rings at Agent Manager (show wave/particle mixing)
+    if (gatingRings && agentMesh) {
+      gatingRings.group.position.copy(agentMesh.position);
+      // Rotate in opposite directions to show mixing
+      gatingRings.waveRing.rotation.z += deltaTime * 0.5;
+      gatingRings.particleRing.rotation.z -= deltaTime * 0.7;
+    }
+    
+    // Update edge lines
     for (const e of edgeLines) {
       const a = nodeMeshes.get(e.a);
       const b = nodeMeshes.get(e.b);
@@ -384,6 +560,87 @@ async function init() {
       e.line.geometry.setFromPoints([a.position, b.position]);
       e.line.geometry.attributes.position.needsUpdate = true;
     }
+    
+    // Spawn new particles periodically (only if flow enabled)
+    if (flowEnabled) {
+      particleSpawnTimer += deltaTime;
+      if (particleSpawnTimer >= particleSpawnInterval) {
+        particleSpawnTimer = 0;
+        // Spawn on random edges, weighted by importance
+        // Edge indices match the edges array: [0] agent_manager->tool_router, [1] agent_manager->safety_head,
+        // [2] agent_manager->cms_mid, [3] cms_fast->cms_mid, [4] cms_mid->cms_slow, [5] wavecore_fast->wavecore_mid,
+        // [6] wavecore_mid->wavecore_slow, [7] wavecore_slow->cms_slow, [8] sensors->agent_manager,
+        // [9] agent_manager->actuators, [10] safety_head->actuators
+        const spawnEdges = [
+          [8, 'sensor'], // sensors -> agent_manager
+          [0, 'agent'], // agent_manager -> tool_router
+          [1, 'agent'], // agent_manager -> safety_head
+          [2, 'cms'], // agent_manager -> cms_mid
+          [3, 'cms'], // cms_fast -> cms_mid
+          [4, 'cms'], // cms_mid -> cms_slow
+          [5, 'wavecore'], // wavecore_fast -> wavecore_mid
+          [6, 'wavecore'], // wavecore_mid -> wavecore_slow
+          [7, 'wavecore'], // wavecore_slow -> cms_slow
+          [9, 'agent'], // agent_manager -> actuators
+          [10, 'agent'], // safety_head -> actuators
+        ];
+        const edgeIdx = Math.floor(Math.random() * spawnEdges.length);
+        spawnParticleOnEdge(spawnEdges[edgeIdx][0], spawnEdges[edgeIdx][1]);
+      }
+    }
+    
+    // Update particles: move along edges, apply wave/particle motion
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      if (!p.edge) {
+        particles.splice(i, 1);
+        particleGroup.remove(p.mesh);
+        continue;
+      }
+      
+      const a = nodeMeshes.get(p.edge.a);
+      const b = nodeMeshes.get(p.edge.b);
+      if (!a || !b) {
+        particles.splice(i, 1);
+        particleGroup.remove(p.mesh);
+        continue;
+      }
+      
+      // Move along edge
+      p.progress += deltaTime * p.speed;
+      
+      if (p.progress >= 1.0) {
+        // Reached destination, remove
+        particles.splice(i, 1);
+        particleGroup.remove(p.mesh);
+        continue;
+      }
+      
+      // Base position along edge
+      const start = new THREE.Vector3().copy(a.position);
+      const end = new THREE.Vector3().copy(b.position);
+      const dir = new THREE.Vector3().subVectors(end, start);
+      const basePos = new THREE.Vector3().addVectors(start, dir.multiplyScalar(p.progress));
+      
+      // Apply wave-like motion for wave drops (sinusoidal perpendicular to edge)
+      if (p.isWave) {
+        p.wavePhase += deltaTime * 3.0;
+        const perp = new THREE.Vector3().crossVectors(dir.normalize(), new THREE.Vector3(0, 1, 0)).normalize();
+        if (perp.length() < 0.1) {
+          perp.set(1, 0, 0); // Fallback if edge is vertical
+        }
+        const waveOffset = Math.sin(p.wavePhase) * 0.4;
+        basePos.add(perp.multiplyScalar(waveOffset));
+      }
+      
+      p.mesh.position.copy(basePos);
+      
+      // Scale based on progress (fade in/out)
+      const fade = p.progress < 0.1 ? p.progress / 0.1 : p.progress > 0.9 ? (1 - p.progress) / 0.1 : 1.0;
+      p.mesh.material.opacity = 0.7 * fade;
+      p.mesh.scale.setScalar(fade);
+    }
+    
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }

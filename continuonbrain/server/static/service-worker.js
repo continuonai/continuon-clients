@@ -1,4 +1,4 @@
-const CACHE_NAME = 'continuonbrain-mobile-shell-v2';
+const CACHE_NAME = 'continuonbrain-mobile-shell-v4';
 const OFFLINE_ASSETS = [
   '/',
   '/ui',
@@ -7,15 +7,10 @@ const OFFLINE_ASSETS = [
   '/static/client.js',
   '/static/mobile-shell.js',
   '/static/brain-viz.js',
+  '/static/vendor/three/three.module.js',
+  '/static/vendor/three/OrbitControls.js',
   '/static/manifest.webmanifest',
   '/static/icons/brain-icon.svg'
-];
-
-// External (CDN) modules for the 4D brain view. These will be cached best-effort.
-// Offline guarantee: works after the first successful load (service worker cache warmed).
-const EXTERNAL_MODULES = [
-  'https://unpkg.com/three@0.160.0/build/three.module.js',
-  'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js',
 ];
 
 self.addEventListener('install', (event) => {
@@ -25,17 +20,6 @@ self.addEventListener('install', (event) => {
         const cache = await caches.open(CACHE_NAME);
         // First cache local assets (same-origin).
         await cache.addAll(OFFLINE_ASSETS);
-
-        // Best-effort cache external module scripts (opaque responses allowed).
-        for (const url of EXTERNAL_MODULES) {
-          try {
-            const req = new Request(url, { mode: 'no-cors' });
-            const res = await fetch(req);
-            await cache.put(req, res);
-          } catch (_) {
-            // ignore; CDN caching is opportunistic
-          }
-        }
       } catch (_) {
         // ignore install cache failures; UI should still work online
       }

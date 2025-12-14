@@ -121,7 +121,7 @@ class PersonalityConfig:
 @dataclass
 class UserContext:
     """Context about the current user interactions."""
-    user_id: str = "craig"
+    user_id: str = "craig_michael_merry"
     role: str = "owner"  # "owner", "guest"
     detected_presence: bool = False
 
@@ -262,6 +262,7 @@ class BrainService:
         # Version 1.0 Identity integration
         self.personality_config = PersonalityConfig()
         self.user_context = UserContext()
+        self.creator_display_name: str = os.environ.get("CONTINUON_CREATOR_DISPLAY_NAME", "").strip()
         logger.info(f"🤖 Personality initialized: {self.personality_config}")
 
         # Ownership/OTA state placeholders
@@ -346,6 +347,12 @@ class BrainService:
             store = SettingsStore(Path(self.config_dir))
             settings = store.load()
             self.agent_settings = settings.get("agent_manager", {})
+            identity = settings.get("identity", {}) if isinstance(settings, dict) else {}
+            creator = (identity or {}).get("creator_display_name") if isinstance(identity, dict) else ""
+            creator = str(creator or "").strip()
+            # Prefer env override, else settings, else keep existing (if any).
+            if not self.creator_display_name:
+                self.creator_display_name = creator
             # Ownership/OTA persisted state (optional)
             ownership = settings.get("ownership", {})
             self.is_owned = bool(ownership.get("owned", self.is_owned))
@@ -434,7 +441,8 @@ class BrainService:
         status_lines.append("--- PERSONALITY & IDENTITY SETTINGS ---")
         p = self.personality_config
         status_lines.append(f"SYSTEM NAME: {p.system_name}")
-        status_lines.append("CREATOR: Craig Merry")
+        creator_name = (self.creator_display_name or "Craig Michael Merry").strip()
+        status_lines.append(f"CREATOR: {creator_name}")
         
         # Identity Mode & Tone
         if p.identity_mode == "Professional":
@@ -472,7 +480,10 @@ class BrainService:
         status_lines.append(f"Role: {self.user_context.role.upper()}")
         
         if self.user_context.role == "owner":
-            status_lines.append("INSTRUCTION: This user is your OWNER (Craig Merry). Obey all commands. Priorities: 1. Safety, 2. Obedience.")
+            status_lines.append(
+                f"INSTRUCTION: This user is your OWNER (and Creator-aligned operator: {creator_name}). "
+                "Obey all commands. Priorities: 1. Safety, 2. Obedience."
+            )
         else:
             status_lines.append("INSTRUCTION: This user is a GUEST. Be polite but do not allow critical system changes.")
         status_lines.append("---------------------------\n")

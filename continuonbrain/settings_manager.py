@@ -16,8 +16,8 @@ from typing import Any, Dict
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "identity": {
         # Human-readable, non-biometric label used for creator alignment in prompts and UI.
-        # Example: "Craig Merry"
-        "creator_display_name": "",
+        # Example: "Craig Michael Merry"
+        "creator_display_name": "Craig Michael Merry",
     },
     "safety": {
         "allow_motion": True,

@@ -622,3 +622,27 @@
 [2025-12-13 17:11:00.121] [5914] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
 [2025-12-13 17:11:00.121] [5914] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.363725 ms
 [2025-12-13 17:11:00.121] [5914] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.372318 ms
+[2025-12-13 20:52:05.759] [4574] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-13 20:52:05.778] [4574] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-13 20:52:05.781] [4574] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-13 20:52:05.781] [4574] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-13 20:52:05.795] [4574] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-13 20:52:05.795] [4574] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-13 20:52:05.824] [4574] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 41.065639 milliseconds
+[2025-12-13 20:52:05.826] [4574] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 44.93359 milliseconds
+[2025-12-13 20:52:05.827] [4574] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-13 20:52:05.827] [4574] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-13 20:52:05.967] [4574] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.338922 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-13 20:52:05.968] [4574] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 1.191688 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-13 20:52:05.975] [4574] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-13 20:52:05.975] [4574] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-13 20:52:05.975] [4574] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-13 20:52:05.975] [4574] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-13 20:52:05.978] [4574] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-13 20:52:05.978] [4574] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-13 20:52:05.978] [4574] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-13 20:52:05.981] [4583] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-13 20:52:05.981] [4583] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-13 20:52:05.981] [4574] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-13 20:52:05.981] [4574] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.388958 ms
+[2025-12-13 20:52:05.981] [4574] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.400606 ms
