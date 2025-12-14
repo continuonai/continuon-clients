@@ -1,7 +1,7 @@
 DEBUG: CMS MODULE LOADED FROM /home/craigm26/Downloads/ContinuonXR/continuonbrain/hope_impl/cms.py
   Detected Hailo AI HAT+ (1 device(s)) - enabling offloading
-HUGGINGFACE_TOKEN not set - gated models will not be accessible
- Model selected: Gemma/transformers (backend=transformers)
+  CONTINUON_PREFER_JAX=1 and JAX detected -> skipping transformers chat init; use inference_router for JAX.
+ Model selected: JAX CoreModel (backend=jax)
   Failed to start status endpoint: [Errno 98] Address already in use
 Initializing Robot Service (REAL HARDWARE MODE)...
 
@@ -45,7 +45,7 @@ Microphone capture initialized
 ============================================================
  Mode Change: idle -> idle
 ============================================================
-Time: 2025-12-14 10:34:28
+Time: 2025-12-14 13:44:08
 Motion: Disabled
 Recording: OFF
 Inference: OFF
@@ -55,7 +55,6 @@ Self-Training: OFF
  Mode manager ready
  Chat-learn scheduler started (thread; settings-gated)
  HOPE autonomous learner supervisor started (thread; mode-gated)
-Resource level changed: normal -> warning: WARNING: Memory at 79.2% - 1676MB available
  Autonomy orchestrator started (thread; resource-aware)
 
 ============================================================
@@ -84,10 +83,13 @@ Traceback (most recent call last):
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/usr/local/lib/python3.11/asyncio/streams.py", line 84, in start_server
     return await loop.create_server(factory, host, port, **kwds)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           ^^^^[ChatAdapter] chat() called with model_hint=google/gemma-3n-E2B-it delegate=google/gemma-3n-E2B-it^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1536, in create_server
     raise OSError(err.errno, msg) from None
-OSError: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8080): address already in use
+Using fallback response for chat learning. Model unavailable. Response will not be logged to RLDS to avoid polluting training data.
+OSErrorUsing fallback response for chat learning. Model unavailable. Response will not be logged to RLDS to avoid polluting training data.
+: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8080): address already in use
 profiling:/usr/src/Python-3.11.10/Modules/getpath.gcda:Cannot open
 profiling:/usr/src/Python-3.11.10/Python/deepfreeze/deepfreeze.gcda:Cannot open
 profiling:/usr/src/Python-3.11.10/Modules/xxsubtype.gcda:Cannot open

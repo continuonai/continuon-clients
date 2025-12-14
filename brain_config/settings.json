@@ -1,0 +1,61 @@
+{
+    "identity": {
+        "creator_display_name": ""
+    },
+    "safety": {
+        "allow_motion": true,
+        "record_episodes": true,
+        "require_supervision": false
+    },
+    "telemetry": {
+        "rate_hz": 2.0
+    },
+    "chat": {
+        "persona": "operator",
+        "temperature": 0.35,
+        "log_rlds": true
+    },
+    "training": {
+        "enable_sidecar_trainer": true,
+        "enable_sleep_learning": true
+    },
+    "agent_manager": {
+        "enable_thinking_indicator": true,
+        "enable_intervention_prompts": true,
+        "intervention_confidence_threshold": 0.5,
+        "chat_learn": {
+            "enabled": true,
+            "interval_s": 300,
+            "turns_per_cycle": 20,
+            "model_hint": "google/gemma-3n-E2B-it",
+            "delegate_model_hint": "google/gemma-3n-E2B-it",
+            "topic": "How HOPE can learn to be more helpful: memory management, tool selection, safety reasoning, planning efficiency, user assistance, and autonomous learning strategies",
+            "modes": [
+                "idle",
+                "autonomous"
+            ]
+        },
+        "autonomy_orchestrator": {
+            "enabled": true,
+            "modes": [
+                "autonomous"
+            ],
+            "min_interval_s": 30,
+            "cms_compact_every_s": 300,
+            "hope_eval_every_s": 1200,
+            "facts_eval_every_s": 1800,
+            "wavecore_every_s": 1200,
+            "tool_router_every_s": 1800,
+            "wavecore_steps_fast": 100,
+            "wavecore_steps_mid": 200,
+            "wavecore_steps_slow": 300,
+            "tool_router_steps": 300,
+            "min_memory_headroom_mb": 200
+        },
+        "enable_status_updates": true,
+        "enable_autonomous_learning": true,
+        "autonomous_learning_steps_per_cycle": 100,
+        "autonomous_learning_checkpoint_interval": 1000,
+        "agent_model": "hope-v1"
+    }
+}
