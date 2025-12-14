@@ -1,0 +1,232 @@
+DEBUG: CMS MODULE LOADED FROM /home/craigm26/Downloads/ContinuonXR/continuonbrain/hope_impl/cms.py
+  Detected Hailo AI HAT+ (1 device(s)) - enabling offloading
+HUGGINGFACE_TOKEN not set - gated models will not be accessible
+ Model selected: Gemma/transformers (backend=transformers)
+  Failed to start status endpoint: [Errno 98] Address already in use
+Initializing Robot Service (REAL HARDWARE MODE)...
+
+ Auto-detecting hardware...
+Scanning for hardware devices...
+
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
+✅ Found: Desktop Monitor
+ Detected devices: 4
+ - HardwareDevice(device_type='depth_camera', name='OAK Camera', vendor='Luxonis', interface='usb3', address='bus_002_dev_002', capabilities=['rgb', 'depth', 'stereo', 'ai'], config={'vendor_id': '03e7', 'product_id': 'f63b', 'driver': 'depthai', 'hailo_offload': True})
+ - HardwareDevice(device_type='ai_accelerator', name='Hailo AI HAT+', vendor='Hailo', interface='pcie', address=None, capabilities=['ai', 'inference', 'neural_network', 'hailo8'], config={'model': 'Hailo-8', 'tops': 26, 'driver': 'hailo_platform', 'hailo_offload': True})
+ - HardwareDevice(device_type='display', name='Desktop Monitor', vendor='Generic', interface='hdmi/dp', address=None, capabilities=['visual_output'], config={})
+ - HardwareDevice(device_type='human_interface', name='Keyboard', vendor='Generic', interface='usb/bt', address=None, capabilities=['text_input'], config={})
+
+ Initializing episode recorder...
+ Initializing hardware via ContinuonBrain...
+Auto-detecting hardware...
+Scanning for hardware devices...
+
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
+✅ Found: Desktop Monitor
+
+Using detected OAK Camera
+  No OAK devices found (DepthAI reported zero devices)
+  Camera initialization failed (continuing without camera)
+ERROR: Failed to initialize PCA9685: No I2C device at address: 0x40
+  Arm initialization failed (continuing without arm)
+  Using mock microphone capture
+Microphone capture initialized
+  Real hardware initialization incomplete
+  Falling back to mock mode
+Using MOCK hardware mode
+  Using mock microphone capture
+Microphone capture initialized
+ Episode recorder ready
+  Skipping arm/drivetrain init (skip-motion-hw). Motion will stay mock.
+ Initializing mode manager...
+  Returning to idle...
+============================================================
+ Mode Change: idle -> idle
+============================================================
+Time: 2025-12-14 10:34:28
+Motion: Disabled
+Recording: OFF
+Inference: OFF
+Self-Training: OFF
+============================================================
+
+ Mode manager ready
+ Chat-learn scheduler started (thread; settings-gated)
+ HOPE autonomous learner supervisor started (thread; mode-gated)
+Resource level changed: normal -> warning: WARNING: Memory at 79.2% - 1676MB available
+ Autonomy orchestrator started (thread; resource-aware)
+
+============================================================
+ Robot Service Ready (MOCK MODE)
+============================================================
+
+Shutting down Robot Service...
+Recorder shutdown complete
+✅ Shutdown complete
+Traceback (most recent call last):
+  File "/home/craigm26/Downloads/ContinuonXR/continuonbrain/robot_api_server.py", line 2636, in <module>
+    asyncio.run(main())
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/craigm26/Downloads/ContinuonXR/continuonbrain/robot_api_server.py", line 2628, in main
+    await server.start(host=args.host, port=args.port)
+  File "/home/craigm26/Downloads/ContinuonXR/continuonbrain/server/routes.py", line 1524, in start
+    self.server = await asyncio.start_server(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/streams.py", line 84, in start_server
+    return await loop.create_server(factory, host, port, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1536, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8080): address already in use
+profiling:/usr/src/Python-3.11.10/Modules/getpath.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/deepfreeze/deepfreeze.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/xxsubtype.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/pwdmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/symtablemodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_stat.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_operator.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_localemodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_functoolsmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_abc.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_weakref.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/timemodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_threadmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_sre/sre.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/itertoolsmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_io/stringio.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_io/textio.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_io/bufferedio.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_io/bytesio.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_io/fileio.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_io/iobase.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_io/_iomodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/errnomodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_collectionsmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_codecsmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/_tracemalloc.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/signalmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/posixmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/faulthandler.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/atexitmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/gcmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/main.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/dynload_shlib.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/suggestions.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/fileutils.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/formatter_unicode.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/dtoa.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pystrhex.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pystrtod.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pystrcmp.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/getopt.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/traceback.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/thread.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/sysmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/symtable.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/structmember.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/specialize.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/bootstrap_hash.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pytime.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pythonrun.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pystate.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pylifecycle.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pyhash.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pyfpe.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pyarena.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/preconfig.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/pathconfig.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/mystrtoul.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/mysnprintf.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/modsupport.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/marshal.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/initconfig.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/importdl.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/import.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/hashtable.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/hamt.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/getversion.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/getplatform.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/getcopyright.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/getcompiler.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/getargs.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/future.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/frozenmain.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/frame.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/errors.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/context.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/compile.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/codecs.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/ceval.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/bltinmodule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/ast_unparse.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/ast_opt.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/ast.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/asdl.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/Python-tokenize.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/Python-ast.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Python/_warnings.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/weakrefobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/unionobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/unicodectype.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/unicodeobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/typeobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/tupleobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/structseq.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/sliceobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/setobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/rangeobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/picklebufobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/obmalloc.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/object.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/namespaceobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/moduleobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/methodobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/memoryobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/odictobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/dictobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/longobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/listobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/iterobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/interpreteridobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/funcobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/frameobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/floatobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/fileobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/genobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/genericaliasobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/exceptions.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/enumobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/descrobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/complexobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/codeobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/classobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/cellobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/capsule.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/call.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/bytesobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/bytearrayobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/bytes_methods.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/boolobject.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/accu.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Objects/abstract.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/tokenizer.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/myreadline.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/peg_api.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/string_parser.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/parser.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/action_helpers.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/pegen_errors.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/pegen.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Parser/token.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Modules/getbuildinfo.gcda:Cannot open
+profiling:/usr/src/Python-3.11.10/Programs/python.gcda:Cannot open
