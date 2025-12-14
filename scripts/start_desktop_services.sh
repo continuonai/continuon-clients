@@ -63,8 +63,9 @@ export CONFIG_DIR="${CONFIG_DIR}"
 # Some Python builds are compiled with gcov; without these, they can spam stderr
 # with "profiling: ... .gcda: Cannot open". Redirect coverage outputs to /tmp.
 export GCOV_PREFIX="${GCOV_PREFIX:-/tmp/continuon_gcov}"
-export GCOV_PREFIX_STRIP="${GCOV_PREFIX_STRIP:-0}"
+export GCOV_PREFIX_STRIP="${GCOV_PREFIX_STRIP:-3}"
 mkdir -p "${GCOV_PREFIX}" 2>/dev/null || true
+chmod -R a+rwx "${GCOV_PREFIX}" 2>/dev/null || true
 
 # "Real hardware mode, but no arms/servos"
 export CONTINUON_FORCE_REAL_HARDWARE="${CONTINUON_FORCE_REAL_HARDWARE:-1}"
