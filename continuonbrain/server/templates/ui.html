@@ -350,6 +350,10 @@
                             <span>Human mode</span>
                             <strong id="human-toggle-state">Off</strong>
                         </div>
+                        <div class="human-toggle" id="teacher-toggle" onclick="toggleTeacherMode()" style="margin-top: 8px;">
+                            <span>Teacher Mode</span>
+                            <strong id="teacher-toggle-state">Off</strong>
+                        </div>
                     </div>
 
                     <div class="rail-actions">
@@ -2150,9 +2154,173 @@
             setInterval(window.fetchTaskLibrary, 8000);
             setInterval(window.fetchSkillLibrary, 8000);
         }
+
+        // --- Teacher Mode (HITL) Implementation ---
+        var teacherModeActive = false;
+        var pendingTeacherQuestion = null;
+        var teacherPollInterval = null;
+
+        window.toggleTeacherMode = async function() {
+            teacherModeActive = !teacherModeActive;
+            const stateLabel = document.getElementById('teacher-toggle-state');
+            const toggleBtn = document.getElementById('teacher-toggle');
+            
+            if (stateLabel) stateLabel.textContent = teacherModeActive ? 'On' : 'Off';
+            if (toggleBtn) {
+                if (teacherModeActive) toggleBtn.classList.add('active');
+                else toggleBtn.classList.remove('active');
+            }
+
+            try {
+                const response = await fetch('/api/training/teacher/mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active: teacherModeActive })
+                });
+                const res = await response.json();
+                window.showMessage(res.message || 'Teacher mode updated');
+                
+                if (teacherModeActive && !teacherPollInterval) {
+                     teacherPollInterval = setInterval(pollTeacherStatus, 2000);
+                } else if (!teacherModeActive && teacherPollInterval) {
+                     clearInterval(teacherPollInterval);
+                     teacherPollInterval = null;
+                     document.body.classList.remove('teacher-intervention-active');
+                }
+            } catch (err) {
+                console.error('Failed to toggle teacher mode', err);
+                window.showMessage('Failed to toggle teacher mode', true);
+                 // Revert UI state on error
+                teacherModeActive = !teacherModeActive;
+                 if (stateLabel) stateLabel.textContent = teacherModeActive ? 'On' : 'Off';
+            }
+        };
+
+        async function pollTeacherStatus() {
+            if (!teacherModeActive) return;
+            try {
+                const response = await fetch('/api/training/teacher/status');
+                if (!response.ok) return;
+                const status = await response.json();
+                
+                const wasPending = !!pendingTeacherQuestion;
+                pendingTeacherQuestion = status.pending_question;
+                
+                if (status.waiting_for_answer) {
+                    document.body.classList.add('teacher-intervention-active');
+                    // Ensure the UI shows the question if it's new
+                    if (!wasPending && pendingTeacherQuestion) {
+                         const chatMessages = document.getElementById('chat-messages');
+                         const questionHtml = `
+                            <div class="message-row assistant intervention">
+                                <div class="message-bubble system-alert">
+                                    <strong>👨‍🏫 Teacher Intervention Requested</strong><br/>
+                                    The Agent Manager is asking:<br/>
+                                    <em>"${pendingTeacherQuestion}"</em><br/>
+                                    <br/>
+                                    Please type your answer below to teach the agent.
+                                </div>
+                            </div>
+                         `;
+                         chatMessages.insertAdjacentHTML('beforeend', questionHtml);
+                         chatMessages.scrollTop = chatMessages.scrollHeight;
+                         
+                         // Focus input
+                         const input = document.getElementById('chat-input');
+                         if (input) {
+                            input.focus();
+                            input.placeholder = "Type your answer to teach the agent...";
+                            input.classList.add('highlight');
+                         }
+                    }
+                } else {
+                    document.body.classList.remove('teacher-intervention-active');
+                    const input = document.getElementById('chat-input');
+                    if (input && input.classList.contains('highlight')) {
+                        input.classList.remove('highlight');
+                        input.placeholder = "Ask about robot status, control tips...";
+                    }
+                }
+            } catch (err) {
+                console.warn('Teacher poll failed', err);
+            }
+        }
+
+        // Hook into sendChatMessage to intercept answers
+        const originalSendChatMessage = window.sendChatMessage;
+        window.sendChatMessage = async function() {
+            if (teacherModeActive && pendingTeacherQuestion) {
+                var input = document.getElementById('chat-input');
+                var message = input ? input.value.trim() : '';
+                if (!message) return;
+                
+                // Optimistic UI update
+                addChatMessage(message, 'user teacher-answer');
+                if (input) input.value = '';
+                
+                try {
+                    const response = await fetch('/api/training/teacher/answer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ answer: message })
+                    });
+                    const res = await response.json();
+                    if (res.success) {
+                        // Clear pending state locally until next poll confirms
+                        pendingTeacherQuestion = null;
+                        document.body.classList.remove('teacher-intervention-active');
+                         const msgDiv = document.getElementById('chat-messages');
+                         msgDiv.insertAdjacentHTML('beforeend', 
+                            `<div class="message-row system"><div class="message-bubble success">✅ Answer submitted to Agent Manager. Resuming training...</div></div>`
+                         );
+                         msgDiv.scrollTop = msgDiv.scrollHeight;
+                         
+                         const inputEl = document.getElementById('chat-input');
+                         if (inputEl) {
+                            inputEl.classList.remove('highlight');
+                            inputEl.placeholder = "Ask about robot status, control tips...";
+                         }
+                    } else {
+                        window.showMessage(res.message || 'Failed to submit answer', true);
+                    }
+                } catch (err) {
+                    console.error('Answer submission error', err);
+                    window.showMessage('Error submitting answer', true);
+                }
+                return;
+            }
+            // Fallback to original
+            if (originalSendChatMessage) originalSendChatMessage();
+        };
+
+        // Add some CSS for the teacher mode
+        const style = document.createElement('style');
+        style.textContent = `
+            .teacher-intervention-active .chat-input {
+                border: 2px solid #FFD700 !important;
+                background: rgba(255, 215, 0, 0.1);
+            }
+            .message-bubble.system-alert {
+                background: #4a3b00;
+                border: 1px solid #FFD700;
+                color: #fff;
+            }
+            .message-bubble.success {
+                background: rgba(50, 205, 50, 0.2);
+                color: #fff;
+                font-size: 0.9em;
+            }
+            #teacher-toggle.active {
+                background: rgba(255, 215, 0, 0.2);
+                border-color: #FFD700;
+            }
+            #teacher-toggle.active strong {
+                color: #FFD700;
+            }
+        `;
+        document.head.appendChild(style);
+
     </script>
-    <!-- Shared chat overlay enhancements -->
-    <script src="/static/chat-overlay.js"></script>
 </body>
 </html>
 

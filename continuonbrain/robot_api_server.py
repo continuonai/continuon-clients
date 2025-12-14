@@ -188,6 +188,12 @@ class RobotService:
         self._last_autonomous_learner_action: Optional[dict] = None
         self.resource_monitor = ResourceMonitor(config_dir=Path(config_dir))
         self._last_orchestrator: dict = {"last_run_ts": 0.0, "last_actions": {}}
+        
+        # Teacher Mode State (HITL)
+        self.teacher_mode_active = False
+        self.teacher_pending_question: Optional[str] = None
+        self.teacher_response_event = asyncio.Event()
+        self.teacher_response_text: Optional[str] = None
 
     def _check_safety_protocol(self, action: str, context: dict = None) -> tuple[bool, str]:
         """Check if an action complies with safety protocol.
@@ -632,6 +638,101 @@ class RobotService:
             )
         
         for i in range(turns):
+            # HITL Teacher Mode Intervention
+            # If enabled, pause and wait for user input instead of calling Gemma subagent.
+            teacher_response = None
+            if self.teacher_mode_active and i < turns - 1: # Intervention on specific turns
+                # Logic: Only intervene when Agent Manager asks a question (even turns in current logic logic? 
+                # Actually, RunChatLearn loop logic: 
+                # i=0 (AM asks), i=1 (Subagent answers?), wait.
+                # In current code:
+                # "Agent Manager asks a new question... Turn {i+2}/{turns}" happens at end of loop.
+                # The loop starts with `self.ChatWithGemma(message, ...)`
+                # The `message` variable holds the Agent Manager's prompt/question from previous iteration (or init).
+                # So every start of loop is "Agent Manager asking (or synthesizing)".
+                # The *response* from ChatWithGemma is the Subagent (or AM synthesis result? No, ChatWithGemma *is* the model acting as AM? 
+                # Wait. "As the Agent Manager... Consult the subagent". 
+                # The PROMPT says "You are the Agent Manager... Consult the subagent".
+                # So the MODEL generates the AM's question? Or the Subagent's answer?
+                # Line 561: "You are the Agent Manager... 3) Consult the subagent"
+                # The output of ChatWithGemma IS the Agent Manager talking.
+                # Then it says "Example curious conversation flow... - Agent Manager: ... - Subagent: ..."
+                # It seems `ChatWithGemma` generates the text.
+                # If we want the *User* to answer the Agent Manager's question, we need to intercept *after* the AM speaks?
+                # But the code says: `resp = await self.ChatWithGemma(message, ...)`
+                # `message` is the system instruction/context for the turn.
+                # If the AM asks a question, it's in the *response* from ChatWithGemma?
+                # Or is `ChatWithGemma` simulating the *Subagent*?
+                # "As the Agent Manager... identify another area... Formulate a specific question... Turn {i+2}"
+                # This suggests the PROMPT tells the model to ACT as Agent Manager.
+                # So `resp` contains the Agent Manager's question.
+                # If we want the *Teacher* (Craig) to answer the question, we need to provide the answer *to the Agent Manager* in the NEXT turn?
+                # BUT the loop appends `resp` to history as "assistant".
+                # Then it constructs `message` for the NEXT turn.
+                # If we want to replace the SUBAGENT'S role, we need to see where the Subagent speaks.
+                # The prompt structure implies the model generates the entire dialogue or just one side?
+                # "3) Consult the subagent (Gemma 3n) with your curious questions..."
+                # It seems `ChatWithGemma` is the Agent Manager.
+                # So who is the Subagent? 
+                # The prompt implies the AM *consults* the subagent.
+                # If the AM generates "I ask the subagent: X", then we want the *Teacher* to provide the answer to X.
+                # And then the AM should incorporate that answer.
+                # Currently, `RunChatLearn` seems to just be the AM talking to itself (or simulating both sides?).
+                # Line 644: `assistant_text = resp`
+                # Line 685: `history.append({"role": "assistant", "content": assistant_text})`
+                # If the AM is simulating the conversation, we might need to change how `message` is constructed or how we inject the answer.
+                # The Teacher Mode request is: "Craig Merry can directly teach physics... ensuring the agent receives real-world, instructive answers."
+                # So Craig acts as the Subagent (or the World).
+                # If the AM asks a question, we want to PAUSE, show Craig the question, get answer, and feed it back.
+                # BUT `RunChatLearn` is a loop of single model calls.
+                # If the AM asks "How does gravity work?", that text allows the model to continue?
+                # The prompt at line 559 is the *System Prompt* (or first user message?).
+                # Line 635 calls ChatWithGemma.
+                # If `self.teacher_mode_active` is True, we want to intercept the *Subagent's* turn?
+                # Wait, the current logic relies on one model (AM) doing everything? Or does it expect a second model?
+                # Param `delegate_model_hint` exists.
+                # But the loop calls `self.ChatWithGemma` (singular).
+                # AHH.
+                # If I want to intervene:
+                # 1. AM generates a question (Turn N).
+                # 2. We capture that question.
+                # 3. We STOP the loop.
+                # 4. We ask Craig (UI).
+                # 5. Craig answers.
+                # 6. We inject "Subagent says: <Craig's Answer>" into the history/context.
+                # 7. We let AM continue (synthesize).
+                
+                # In the current loop:
+                # Turn loop `range(turns)`.
+                # `message` is updated at end of loop (lines 692/699/706).
+                # i=0: Initial message (lines 559-605). AM generates output (Question).
+                # We need to see that output.
+                # `resp` = AM's output.
+                # We save `resp` to history.
+                # NOW, before the next turn, if Teacher Mode is on:
+                # The next `message` (line 699 or 692) tells the AM to "synthesize subagent's previous advice".
+                # BUT where does the subagent advice come from?
+                # The AM prompt says "Consult the subagent...".
+                # Does the AM output *include* the subagent response?
+                # If so, the AM is hallucinating the subagent.
+                # IF we want HITL, we need to prevent the AM from hallucinating the answer, OR overwrite it?
+                # Or, we insert a turn?
+                
+                # "As the Agent Manager... Formulate a specific question" (Turn N).
+                # Model output: "Here is my question: X".
+                # Next turn prompt (Turn N+1): "Synthesize the subagent's previous advice."
+                # The model will try to synthesize advice it *didn't get* (or it will hallucinate it).
+                # WE NEED TO INSERT THE TEACHER'S ANSWER.
+                
+                # So:
+                # 1. AM speaks (Question).
+                # 2. Log AM output via `teacher_pending_question`.
+                # 3. Wait for Teacher Answer.
+                # 4. Inject Teacher Answer into history as a "user" (or "system"?) message saying "Subagent Response: <Answer>".
+                # 5. Then proceed to AM's "Synthesize" turn.
+                
+                pass # Logic implementation below
+            
             resp = await self.ChatWithGemma(
                 message,
                 history,
@@ -639,9 +740,66 @@ class RobotService:
                 model_hint=model_hint,
                 delegate_model_hint=delegate_model_hint,
             )
+            
+            # --- START TEACHER INTERVENTION ---
+            # Capture the response text (Agent Manager's Question/Output)
+            assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+
+            # If Teacher Mode is active, and we are expecting a synthesis next (meaning this was a question turn),
+            # we should intervene to provide the "Subagent" answer.
+            # Look at logic below: if i % 2 == 0, next turn is "Synthesize" (else clause of if i%2==0 check in next iteration pre-calc? No, post-calc).
+            # Loop index i:
+            # i=0 (Turn 1): Prompt is Initial. Result is AM Question (likely).
+            # End of loop i=0: i < turns-1. i%2==0 is True. next message (Turn 2) is "Synthesize...".
+            # SO: After i=0, we need to provide the answer to the question asked in i=0.
+            
+            if self.teacher_mode_active and i < turns - 1 and (i % 2 == 0):
+                # This was a Question turn. We need to provide the Answer before the Synthesis turn.
+                self.teacher_pending_question = assistant_text
+                self.teacher_response_event.clear()
+                self.teacher_response_text = None
+                
+                print(f"Teacher Mode: Pausing for user input. Question: {assistant_text[:100]}...")
+                
+                # Wait for response (with timeout)
+                try:
+                    await asyncio.wait_for(self.teacher_response_event.wait(), timeout=300.0) # 5 min timeout
+                except asyncio.TimeoutError:
+                    print("Teacher Mode: Timeout waiting for user input. Proceeding without intervention.")
+                    self.teacher_pending_question = None
+                
+                if self.teacher_response_text:
+                    # Inject the teacher's response into the history/context
+                    # The next turn prompt (Synthesize) expects "Subagent's previous advice".
+                    # We can append it to history, or modify the next 'message'.
+                    # Appending to history as a "user" rule pretending to be Subagent seems best?
+                    # But `message` in next turn is the User prompt.
+                    # Let's append to `history` so it's in context.
+                    # "Subagent Response: {text}"
+                    teacher_msg = f"Subagent (User/Teacher) Response: {self.teacher_response_text}"
+                    history.append({"role": "user", "content": teacher_msg})
+                    # Note: The loop below appends `message` (the prompt) to history at START of next iteration?
+                    # No, `history` is passed to ChatWithGemma.
+                    # Inside loop: `history.append(user_msg)` happens at end (lines 684).
+                    # Wait, line 684: history.append({"role": "user", "content": message})
+                    # This appends the PROMPT from *this* turn.
+                    # Then line 685: history.append({"role": "assistant", "content": assistant_text})
+                    # This appends the MODEL output.
+                    
+                    # So current history state: [..., UserPrompt(i), AssistantResp(i)]
+                    # We want to insert the Answer before UserPrompt(i+1).
+                    # We can just append another User/System message?
+                    # Or we can modify the next `message`.
+                    # Let's modify the next `message` (which is constructed at end of loop).
+                    
+                    # But wait, `message` is constructed at lines 692-710.
+                    # If we simply set `self.teacher_response_text`, we can inject it into the `message`.
+                    pass # Handled in message construction logic?
+                    
+            # --- END INTERVENTION SETUP ---
+
             outputs.append(resp)
             # Feed response back as next message to create a self-play style refinement loop.
-            assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
             structured_data = resp.get("structured", {}) if isinstance(resp, dict) else {}
             
             # Check if we got a fallback response (generic status message)
@@ -708,6 +866,17 @@ class RobotService:
                     f"based on our conversation, and explain how each would make HOPE more helpful. "
                     f"Turn {i+2}/{turns}."
                 )
+            # HITL Injection
+            if self.teacher_mode_active and self.teacher_response_text and i % 2 == 0:
+                 # Check if we have a teacher response to inject for the Synthesis turn
+                message = (
+                    f"The Subagent (Teacher) provided this specific advice/answer:\n"
+                    f"\"{self.teacher_response_text}\"\n\n"
+                    f"{message}"
+                )
+                self.teacher_response_text = None # Consume it
+                self.teacher_pending_question = None
+
         return {
             "status": "ok",
             "session_id": session_id,
@@ -2303,6 +2472,77 @@ class _LegacySimpleJSONServer:
     pass
 
 
+    
+    async def SetTeacherMode(self, active: bool) -> dict:
+        """Enable or disable Human-in-the-Loop Teacher Mode."""
+        self.teacher_mode_active = active
+        # Clear any pending state if disabling
+        if not active:
+            self.teacher_pending_question = None
+            self.teacher_response_text = None
+            self.teacher_response_event.set() # Unblock any waiting loop
+        
+        mode_str = "enabled" if active else "disabled"
+        print(f"Teacher Mode {mode_str}")
+        return {"success": True, "teacher_mode": active, "message": f"Teacher mode {mode_str}"}
+
+    async def GetTeacherStatus(self) -> dict:
+        """Get current HITL status."""
+        return {
+            "active": self.teacher_mode_active,
+            "pending_question": self.teacher_pending_question,
+            "waiting_for_answer": self.teacher_pending_question is not None
+        }
+
+    async def SubmitTeacherAnswer(self, answer: str) -> dict:
+        """Submit an answer to a pending teacher question."""
+        if not self.teacher_mode_active:
+             return {"success": False, "message": "Teacher mode is not active"}
+        if self.teacher_pending_question is None:
+             return {"success": False, "message": "No pending question to answer"}
+        
+        self.teacher_response_text = answer
+        self.teacher_response_event.set() # Signal the loop to proceed
+        
+        return {"success": True, "message": "Answer submitted"}
+
+
+class TeacherEnhancedJSONServer(SimpleJSONServer):
+    """Extended JSON server with Teacher Mode routes."""
+    
+    async def _route(
+        self,
+        path: str,
+        method: str,
+        query_params: Dict[str, Any],
+        headers: Dict[str, Any],
+        reader: asyncio.StreamReader,
+        writer: Optional[asyncio.StreamWriter],
+    ) -> Any:
+        
+        # Teacher Mode Routes
+        if path == "/api/training/teacher/mode" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            active = bool(payload.get("active", False))
+            result = await self.service.SetTeacherMode(active)
+            return self._json_response(result)
+            
+        elif path == "/api/training/teacher/status" and method == "GET":
+            result = await self.service.GetTeacherStatus()
+            return self._json_response(result)
+            
+        elif path == "/api/training/teacher/answer" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            answer = payload.get("answer", "")
+            if not answer:
+                return self._json_response({"success": False, "message": "Answer is empty"}, status_code=400)
+            result = await self.service.SubmitTeacherAnswer(answer)
+            return self._json_response(result)
+
+        # Fallback to standard routes
+        return await super()._route(path, method, query_params, headers, reader, writer)
+
+
 async def main():
     """Run the mock service."""
     import argparse
@@ -2363,8 +2603,8 @@ async def main():
     )
     await service.initialize()
     
-    # Create simple JSON server
-    server = SimpleJSONServer(service)
+    # Create ENHANCED JSON server (with Teacher Mode)
+    server = TeacherEnhancedJSONServer(service)
     
     try:
         await server.start(host=args.host, port=args.port)
