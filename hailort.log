@@ -574,3 +574,51 @@
 [2025-12-13 15:14:00.163] [49379] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
 [2025-12-13 15:14:00.164] [49379] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.382108 ms
 [2025-12-13 15:14:00.164] [49379] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.394922 ms
+[2025-12-13 17:10:32.564] [5882] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-13 17:10:32.580] [5882] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-13 17:10:32.580] [5882] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-13 17:10:32.580] [5882] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-13 17:10:32.592] [5882] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-13 17:10:32.592] [5882] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-13 17:10:32.604] [5882] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 23.026958 milliseconds
+[2025-12-13 17:10:32.604] [5882] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 23.693502 milliseconds
+[2025-12-13 17:10:32.604] [5882] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-13 17:10:32.604] [5882] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-13 17:10:32.665] [5882] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.236003 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-13 17:10:32.665] [5882] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.2648 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-13 17:10:32.666] [5882] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-13 17:10:32.667] [5882] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-13 17:10:32.667] [5882] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-13 17:10:32.667] [5882] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-13 17:10:32.668] [5882] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-13 17:10:32.668] [5882] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-13 17:10:32.668] [5882] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-13 17:10:32.679] [5891] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-13 17:10:32.679] [5891] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-13 17:10:32.679] [5882] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-13 17:10:32.679] [5882] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.370486 ms
+[2025-12-13 17:10:32.679] [5882] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.379578 ms
+[2025-12-13 17:11:00.048] [5914] [HailoRT] [info] [vdevice.cpp:535] [create] Creating vdevice with params: device_count: 1, scheduling_algorithm: NONE, multi_process_service: false
+[2025-12-13 17:11:00.060] [5914] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-13 17:11:00.060] [5914] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-13 17:11:00.060] [5914] [HailoRT] [info] [vdevice.cpp:682] [create] VDevice Infos: 0001:01:00.0
+[2025-12-13 17:11:00.066] [5914] [HailoRT] [info] [internal_buffer_manager.cpp:75] [print_execution_results] Default Internal buffer planner failed to meet requirements
+[2025-12-13 17:11:00.066] [5914] [HailoRT] [info] [internal_buffer_manager.cpp:86] [print_execution_results] Default Internal buffer planner executed successfully
+[2025-12-13 17:11:00.078] [5914] [HailoRT] [info] [device_internal.cpp:57] [configure] Configuring HEF took 16.866934 milliseconds
+[2025-12-13 17:11:00.078] [5914] [HailoRT] [info] [vdevice.cpp:780] [configure] Configuring HEF on VDevice took 17.105417 milliseconds
+[2025-12-13 17:11:00.078] [5914] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-13 17:11:00.078] [5914] [HailoRT] [info] [hef.cpp:1994] [get_network_group_and_network_name] No name was given. Addressing all networks of default network_group: resnet_v1_18
+[2025-12-13 17:11:00.107] [5914] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.232705 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-13 17:11:00.107] [5914] [HailoRT] [info] [core_op.cpp:156] [activate] Activating resnet_v1_18 took 0.261094 milliseconds. Note that the function is asynchronous and thus the network is not fully activated yet.
+[2025-12-13 17:11:00.107] [5914] [HailoRT] [info] [edge_elements.cpp:52] [create] Created (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528)
+[2025-12-13 17:11:00.107] [5914] [HailoRT] [info] [vstream.cpp:754] [InputVStreamImpl] Creating resnet_v1_18/input_layer1...
+[2025-12-13 17:11:00.107] [5914] [HailoRT] [info] [vstream_builder.cpp:102] [create_inputs] Input pipeline 'resnet_v1_18/input_layer1': (HwWriteEl1resnet_v1_18/input_layer1 | hw_frame_size: 150528) >> HW
+[2025-12-13 17:11:00.107] [5914] [HailoRT] [info] [edge_elements.cpp:287] [create] Created (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000)
+[2025-12-13 17:11:00.108] [5914] [HailoRT] [info] [queue_elements.cpp:800] [create] Created (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-13 17:11:00.108] [5914] [HailoRT] [info] [vstream.cpp:1114] [OutputVStreamImpl] Creating resnet_v1_18/fc1...
+[2025-12-13 17:11:00.108] [5914] [HailoRT] [info] [vstream_builder.cpp:220] [create_outputs] Output pipeline 'resnet_v1_18/fc1': HW >> (HwReadEl0resnet_v1_18/fc1 | hw_frame_size: 1000) >> (UserBuffQEl0resnet_v1_18/fc1 | timeout: 10s)
+[2025-12-13 17:11:00.121] [5923] [HailoRT] [info] [queue_elements.cpp:855] [run_in_thread] Shutdown event was signaled in dequeue of UserBuffQEl0resnet_v1_18/fc1!
+[2025-12-13 17:11:00.121] [5923] [HailoRT] [info] [queue_elements.cpp:68] [operator()] Thread in element UserBuffQEl0resnet_v1_18/fc1 is not running anymore, exiting..
+[2025-12-13 17:11:00.121] [5914] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element UserBuffQEl0resnet_v1_18/fc1 has 0 frames in his Queue on destruction
+[2025-12-13 17:11:00.121] [5914] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.363725 ms
+[2025-12-13 17:11:00.121] [5914] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.372318 ms

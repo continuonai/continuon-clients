@@ -51,6 +51,10 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
             "interval_s": 600,  # 10 minutes
             "turns_per_cycle": 10,
             "model_hint": "google/gemma-3n-2b",
+            # Optional: run a second model as a subagent (agent manager ↔ subagent) and
+            # log the full dialogue to RLDS when chat.log_rlds=true.
+            # Empty/None disables subagent delegation.
+            "delegate_model_hint": "",
             "topic": "coding this repository (ContinuonXR/continuonbrain/continuonai)",
             # Which robot modes are allowed to run scheduled chat learning.
             # Default is idle-only; set to ["autonomous"] to learn while autonomous.
@@ -229,6 +233,15 @@ class SettingsStore:
         normalized["agent_manager"]["chat_learn"]["turns_per_cycle"] = turns
         model_hint = str(chat_learn.get("model_hint", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["model_hint"]) or "").strip()
         normalized["agent_manager"]["chat_learn"]["model_hint"] = model_hint or DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["model_hint"]
+        delegate_hint = str(
+            chat_learn.get(
+                "delegate_model_hint",
+                DEFAULT_SETTINGS["agent_manager"]["chat_learn"].get("delegate_model_hint", ""),
+            )
+            or ""
+        ).strip()
+        # Keep it short and safe; empty disables delegation.
+        normalized["agent_manager"]["chat_learn"]["delegate_model_hint"] = delegate_hint[:80]
         topic = str(chat_learn.get("topic", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["topic"]) or "").strip()
         normalized["agent_manager"]["chat_learn"]["topic"] = topic[:200] if topic else DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["topic"]
         allowed_modes = {"idle", "autonomous", "sleep_learning", "manual_training", "manual_control"}

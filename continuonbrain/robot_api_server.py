@@ -41,10 +41,6 @@ from continuonbrain.server.skills import (
 )
 from continuonbrain.services.chat_adapter import ChatAdapter
 from continuonbrain.services.training_runner import TrainingRunner
-from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest
-from continuonbrain.services.wavecore_trainer import WavecoreTrainer
-from continuonbrain.services.tool_router_trainer import ToolRouterTrainer, ToolRouterTrainRequest
-from continuonbrain.services.tool_router_evaluator import ToolRouterEvaluator, ToolRouterEvalRequest
 import subprocess
 import time
 from continuonbrain.services.audio_io import record_wav, speak_text
@@ -56,7 +52,6 @@ except Exception:  # noqa: BLE001
     BackgroundLearner = None  # type: ignore
 from continuonbrain.services.video_stream import VideoStreamHelper
 from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
-from continuonbrain.jax_models.infer.tool_router_infer import load_tool_router_bundle, predict_topk
 from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
 
 # Use extracted SimpleJSONServer implementation
@@ -107,10 +102,13 @@ class RobotService:
         self.skill_library = SkillLibrary()
         self.selected_task_id: Optional[str] = None
         self.training_runner = TrainingRunner()
-        self.wavecore_trainer = WavecoreTrainer()
-        self.manual_trainer = ManualTrainer()
-        self.tool_router_trainer = ToolRouterTrainer()
-        self.tool_router_evaluator = ToolRouterEvaluator()
+        # JAX-based trainers/tool-router are intentionally lazy-imported to keep the
+        # Robot API server robust on devices that don't have working JAX/tensorstore
+        # wheels (common on Pi images).
+        self.wavecore_trainer = None
+        self.manual_trainer = None
+        self.tool_router_trainer = None
+        self.tool_router_evaluator = None
         self.stream_helper = VideoStreamHelper(self)
         self._tool_router_bundle = None
         self.pairing = PairingManager(config_dir)
@@ -239,7 +237,21 @@ class RobotService:
 
     async def RunManualTraining(self, payload: Optional[dict] = None) -> dict:
         """Run manual JAX trainer with optional overrides from payload."""
+        # Lazy import: JAX stack can be absent/broken on embedded targets.
+        try:
+            from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest  # noqa: WPS433
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "error": "jax_unavailable",
+                "message": f"Manual JAX training is unavailable on this device ({exc}).",
+                "hint": "Install/repair JAX + tensorstore wheels, or run training elsewhere.",
+            }
+
         payload = payload or {}
+        if self.manual_trainer is None:
+            self.manual_trainer = ManualTrainer()
+
         request = ManualTrainerRequest(
             rlds_dir=Path(payload["rlds_dir"]) if payload.get("rlds_dir") else None,
             use_synthetic=bool(payload.get("use_synthetic", False)),
@@ -256,14 +268,38 @@ class RobotService:
 
     async def RunWavecoreLoops(self, payload: Optional[dict] = None) -> dict:
         """Run WaveCore fast/mid/slow loops using the JAX CoreModel seed."""
+        try:
+            from continuonbrain.services.wavecore_trainer import WavecoreTrainer  # noqa: WPS433
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "error": "jax_unavailable",
+                "message": f"WaveCore loops require JAX and are unavailable on this device ({exc}).",
+                "hint": "Install/repair JAX + tensorstore wheels, or run WaveCore loops on a machine with working JAX.",
+            }
+
         payload = payload or {}
+        if self.wavecore_trainer is None:
+            self.wavecore_trainer = WavecoreTrainer()
         # Ensure service is available to downstream eval runner
         payload.setdefault("service", self)
         return await self.wavecore_trainer.run_loops(payload)
 
     async def RunToolRouterTrain(self, payload: Optional[dict] = None) -> dict:
         """Train a lightweight JAX tool-router model from imported toolchat_hf_* RLDS episodes."""
+        try:
+            from continuonbrain.services.tool_router_trainer import ToolRouterTrainer, ToolRouterTrainRequest  # noqa: WPS433
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "error": "jax_unavailable",
+                "message": f"Tool-router training requires JAX and is unavailable on this device ({exc}).",
+                "hint": "Install/repair JAX + tensorstore wheels, or run tool-router training elsewhere.",
+            }
+
         payload = payload or {}
+        if self.tool_router_trainer is None:
+            self.tool_router_trainer = ToolRouterTrainer()
         req = ToolRouterTrainRequest(
             episodes_root=Path(payload["episodes_root"]) if payload.get("episodes_root") else None,
             include_dirs_prefix=str(payload.get("include_dirs_prefix", "toolchat_hf")),
@@ -279,6 +315,19 @@ class RobotService:
 
     async def ToolRouterPredict(self, payload: Optional[dict] = None) -> dict:
         """Suggest top-k tool names for a prompt using the latest exported tool-router bundle."""
+        try:
+            from continuonbrain.jax_models.infer.tool_router_infer import (  # noqa: WPS433
+                load_tool_router_bundle,
+                predict_topk,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "error": "jax_unavailable",
+                "message": f"Tool-router inference requires JAX and is unavailable on this device ({exc}).",
+                "hint": "Install/repair JAX + tensorstore wheels, or disable tool-router endpoints.",
+            }
+
         payload = payload or {}
         prompt = str(payload.get("prompt") or "")
         k = int(payload.get("k") or 5)
@@ -292,7 +341,19 @@ class RobotService:
 
     async def RunToolRouterEval(self, payload: Optional[dict] = None) -> dict:
         """Run heldout eval for tool-router (top1/top5 on deterministic split)."""
+        try:
+            from continuonbrain.services.tool_router_evaluator import ToolRouterEvaluator, ToolRouterEvalRequest  # noqa: WPS433
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "error": "jax_unavailable",
+                "message": f"Tool-router eval requires JAX and is unavailable on this device ({exc}).",
+                "hint": "Install/repair JAX + tensorstore wheels, or run tool-router eval elsewhere.",
+            }
+
         payload = payload or {}
+        if self.tool_router_evaluator is None:
+            self.tool_router_evaluator = ToolRouterEvaluator()
         req = ToolRouterEvalRequest(
             episodes_root=Path(payload["episodes_root"]) if payload.get("episodes_root") else None,
             include_dirs_prefix=str(payload.get("include_dirs_prefix", "toolchat_hf")),
@@ -532,27 +593,30 @@ class RobotService:
         history: list = []
         outputs = []
         
-        # Ensure chat learning logs to RLDS (enable if not already)
-        import os
-        original_log_setting = os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0")
-        os.environ["CONTINUON_LOG_CHAT_RLDS"] = "1"  # Force enable for chat learning
-        
-        # Also enable in settings
+        # Chat-learn RLDS logging is opt-in (privacy). Respect settings/env.
+        log_enabled = False
         try:
             from continuonbrain.settings_manager import SettingsStore
+
             settings = SettingsStore(Path(self.config_dir)).load()
-            if not settings.get("chat", {}).get("log_rlds", False):
-                settings.setdefault("chat", {})["log_rlds"] = True
-                SettingsStore(Path(self.config_dir)).save(settings)
+            log_enabled = bool((settings.get("chat", {}) or {}).get("log_rlds", False))
         except Exception:
-            pass
+            log_enabled = False
+        if os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0").lower() in ("1", "true", "yes", "on"):
+            log_enabled = True
         
-        # Direct RLDS logging for chat learning (bypass chat adapter's logging)
-        from continuonbrain.rlds.chat_rlds_logger import ChatRldsLogConfig, log_chat_turn
-        rlds_cfg = ChatRldsLogConfig(
-            episodes_dir=Path("/opt/continuonos/brain/rlds/episodes"),
-            group_by_session=True
-        )
+        # Direct RLDS logging for chat learning (bypass chat adapter's logging).
+        # Only active when explicitly enabled above.
+        rlds_cfg = None
+        log_chat_turn = None
+        if log_enabled:
+            from continuonbrain.rlds.chat_rlds_logger import ChatRldsLogConfig, log_chat_turn as _log_chat_turn
+
+            log_chat_turn = _log_chat_turn
+            rlds_cfg = ChatRldsLogConfig(
+                episodes_dir=Path("/opt/continuonos/brain/rlds/episodes"),
+                group_by_session=True,
+            )
         
         for i in range(turns):
             resp = await self.ChatWithGemma(
@@ -585,23 +649,24 @@ class RobotService:
                 )
             else:
                 # Directly log to RLDS for chat learning (ensures we capture actual conversation)
-                try:
-                    status_data = await self.GetRobotStatus()
-                    status = status_data.get("status", {}) if isinstance(status_data, dict) else {}
-                    
-                    log_chat_turn(
-                        rlds_cfg,
-                        user_message=message,
-                        assistant_response=assistant_text,
-                        structured=structured_data if isinstance(structured_data, dict) else {},
-                        status_context=status,
-                        session_id=session_id,
-                        model_hint=model_hint,
-                        agent_label=model_hint or "agent_manager",
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    import logging
-                    logging.getLogger(__name__).warning(f"Failed to log chat learning turn to RLDS: {exc}")
+                if log_enabled and rlds_cfg is not None and log_chat_turn is not None:
+                    try:
+                        status_data = await self.GetRobotStatus()
+                        status = status_data.get("status", {}) if isinstance(status_data, dict) else {}
+
+                        log_chat_turn(
+                            rlds_cfg,
+                            user_message=message,
+                            assistant_response=assistant_text,
+                            structured=structured_data if isinstance(structured_data, dict) else {},
+                            status_context=status,
+                            session_id=session_id,
+                            model_hint=model_hint,
+                            agent_label=model_hint or "agent_manager",
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        import logging
+                        logging.getLogger(__name__).warning(f"Failed to log chat learning turn to RLDS: {exc}")
             
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": assistant_text})
@@ -630,7 +695,15 @@ class RobotService:
                     f"based on our conversation, and explain how each would make HOPE more helpful. "
                     f"Turn {i+2}/{turns}."
                 )
-        return {"status": "ok", "session_id": session_id, "turns": turns, "model_hint": model_hint, "results": outputs[-3:]}
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "turns": turns,
+            "model_hint": model_hint,
+            "delegate_model_hint": delegate_model_hint,
+            "rlds_logging": bool(log_enabled),
+            "results": outputs[-3:],
+        }
 
     def _chat_learn_loop(self) -> None:
         """Background periodic chat learning loop (offline-first)."""

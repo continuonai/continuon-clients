@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Enable self-training across Agent Manager / subagents using existing runtime scripts.
+#
+# What this does:
+# - Updates CONFIG_DIR/settings.json (via SettingsStore) to:
+#   - chat.log_rlds = true (explicit opt-in for chat→RLDS)
+#   - training.enable_sidecar_trainer = true
+#   - agent_manager.chat_learn.enabled = true (scheduled)
+#   - agent_manager.chat_learn.modes = ["idle","autonomous"]
+#   - agent_manager.chat_learn.delegate_model_hint = "google/gemma-370m" (lightweight subagent)
+#   - agent_manager.autonomy_orchestrator.enabled = true
+#
+# It does NOT upload anything to cloud; it stays local/offline-first.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+PY="${REPO_ROOT}/.venv/bin/python3"
+if [[ ! -x "${PY}" ]]; then
+  PY="$(command -v python3 || true)"
+fi
+if [[ -z "${PY}" ]]; then
+  echo "ERROR: python3 not found" >&2
+  exit 1
+fi
+
+DEFAULT_CONFIG_DIR="/opt/continuonos/brain"
+if [[ -d "${DEFAULT_CONFIG_DIR}" ]]; then
+  CONFIG_DIR="${CONFIG_DIR:-${DEFAULT_CONFIG_DIR}}"
+else
+  CONFIG_DIR="${CONFIG_DIR:-${HOME}/.continuonbrain}"
+fi
+
+export PYTHONPATH="${PYTHONPATH:-${REPO_ROOT}}"
+export CONFIG_DIR="${CONFIG_DIR}"
+
+echo "Enabling self-training settings in CONFIG_DIR=${CONFIG_DIR}"
+
+runner=()
+if [[ ! -w "${CONFIG_DIR}" ]]; then
+  runner=(sudo -E)
+fi
+
+"${runner[@]}" "${PY}" - <<'PY'
+from pathlib import Path
+from continuonbrain.settings_manager import SettingsStore
+
+cfg_dir = Path(__import__("os").environ.get("CONFIG_DIR") or "/opt/continuonos/brain")
+store = SettingsStore(cfg_dir)
+settings = store.load()
+
+settings.setdefault("chat", {})["log_rlds"] = True
+settings.setdefault("training", {})["enable_sidecar_trainer"] = True
+
+agent_mgr = settings.setdefault("agent_manager", {})
+chat_learn = agent_mgr.setdefault("chat_learn", {})
+chat_learn["enabled"] = True
+chat_learn["modes"] = ["idle", "autonomous"]
+chat_learn["interval_s"] = int(chat_learn.get("interval_s") or 600)
+chat_learn["turns_per_cycle"] = int(chat_learn.get("turns_per_cycle") or 10)
+chat_learn["model_hint"] = str(chat_learn.get("model_hint") or "google/gemma-3n-2b")
+chat_learn["delegate_model_hint"] = str(chat_learn.get("delegate_model_hint") or "google/gemma-370m")
+chat_learn["topic"] = str(chat_learn.get("topic") or "self-training on this repository (ContinuonXR/continuonbrain/continuonai)")
+
+orch = agent_mgr.setdefault("autonomy_orchestrator", {})
+orch["enabled"] = True
+orch["modes"] = ["autonomous"]
+
+validated = store.save(settings)
+print("Wrote", store.path)
+print("chat.log_rlds =", validated["chat"]["log_rlds"])
+print("training.enable_sidecar_trainer =", validated["training"]["enable_sidecar_trainer"])
+print("agent_manager.chat_learn =", validated["agent_manager"]["chat_learn"])
+print("agent_manager.autonomy_orchestrator.enabled =", validated["agent_manager"]["autonomy_orchestrator"]["enabled"])
+PY
+
+echo "Done."
+

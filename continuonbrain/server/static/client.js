@@ -169,6 +169,12 @@ window.updateStatus = async function () {
         <div class="metric-row"><div class="metric-label">Hardware</div><div class="metric-value">${hw}</div></div>
       `;
     }
+    // Best-effort: populate the legacy Home/Status widgets if present.
+    try {
+      applyStatusToHomePanels(status);
+    } catch (e) {
+      // ignore
+    }
     return data;
   } catch (err) {
     if (badge) badge.textContent = 'Disconnected';
@@ -185,7 +191,161 @@ document.addEventListener('DOMContentLoaded', () => {
     window.updateStatus();
     setInterval(() => window.updateStatus(), 12000);
   }
+
+  // Page-specific auto-wiring
+  if (document.getElementById('task-list') && typeof window.fetchTaskLibrary === 'function') {
+    window.fetchTaskLibrary();
+  }
+  if (document.getElementById('skill-list') && typeof window.fetchSkillLibrary === 'function') {
+    window.fetchSkillLibrary();
+  }
+  if (document.getElementById('safety-gates-list') && typeof window.pollLoopHealth === 'function') {
+    window.pollLoopHealth();
+    setInterval(() => window.pollLoopHealth(), 12000);
+  }
+
+  if (document.getElementById('reality-proof-score') || document.getElementById('capability-matrix')) {
+    // Research page: best-effort populate.
+    window.refreshResearchPanels?.();
+  }
+
+  // Agent details panel: keep lightweight lists fresh.
+  if (typeof window.updateAgentDetailsPanel === 'function') {
+    window.updateAgentDetailsPanel();
+    setInterval(() => window.updateAgentDetailsPanel(), 15000);
+  }
 });
+
+function applyStatusToHomePanels(status) {
+  if (!status || typeof status !== 'object') return;
+  const modeBadge = document.getElementById('robot-mode-badge');
+  const hwEl = document.getElementById('hardware-mode');
+  const battEl = document.getElementById('battery-status');
+  const uptimeEl = document.getElementById('uptime');
+  const healthEl = document.getElementById('health-metrics');
+
+  const mode = status.mode || status.robot_mode || 'unknown';
+  const hw = status.hardware_mode || status.hardwareMode || 'unknown';
+  const battery = status.battery || {};
+  const battLabel = battery && typeof battery === 'object'
+    ? (battery.percent != null ? `${battery.percent}%` : (battery.available === false ? 'unavailable' : (battery.error || '—')))
+    : '—';
+  const uptimeS = Number(status.mode_duration ?? status.uptime_s ?? status.uptime_seconds);
+  const uptimeLabel = Number.isFinite(uptimeS) ? `${Math.max(0, uptimeS).toFixed(0)}s` : '—';
+
+  if (modeBadge) modeBadge.textContent = String(mode);
+  if (hwEl) hwEl.textContent = String(hw);
+  if (battEl) battEl.textContent = String(battLabel);
+  if (uptimeEl) uptimeEl.textContent = String(uptimeLabel);
+
+  if (healthEl) {
+    const gates = status.gate_snapshot || status.gates || {};
+    const safety = status.safety_head || {};
+    const cap = status.capabilities || {};
+    const lines = [];
+    if (gates && typeof gates === 'object') {
+      lines.push(`<div class="metric-row"><div class="metric-label">Motion gate</div><div class="metric-value">${gates.allow_motion ? 'ENABLED' : 'LOCKED'}</div></div>`);
+      lines.push(`<div class="metric-row"><div class="metric-label">Recording</div><div class="metric-value">${gates.record_episodes ? 'ON' : 'OFF'}</div></div>`);
+      lines.push(`<div class="metric-row"><div class="metric-label">Inference</div><div class="metric-value">${gates.run_inference ? 'ON' : 'OFF'}</div></div>`);
+    }
+    if (safety && typeof safety === 'object') {
+      lines.push(`<div class="metric-row"><div class="metric-label">Safety head</div><div class="metric-value">${escapeHtml(String(safety.status || '—'))}</div></div>`);
+    }
+    if (cap && typeof cap === 'object') {
+      lines.push(`<div class="metric-row"><div class="metric-label">Vision</div><div class="metric-value">${cap.has_vision ? 'yes' : 'no'}</div></div>`);
+      lines.push(`<div class="metric-row"><div class="metric-label">Manipulator</div><div class="metric-value">${cap.has_manipulator ? 'yes' : 'no'}</div></div>`);
+    }
+    healthEl.innerHTML = lines.length ? lines.join('') : '<div class="stack-item"><span class="stack-meta">No health telemetry yet</span></div>';
+  }
+}
+
+async function postJson(url, payload) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload ? JSON.stringify(payload) : '{}',
+  });
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+  if (!res.ok) {
+    const err = new Error('HTTP ' + res.status);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+// Agent rail actions (wired)
+window.toggleAgentDetails = function () {
+  const panel = document.getElementById('agent-details-panel');
+  const btn = document.getElementById('agent-details-toggle');
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  if (btn) {
+    btn.textContent = open ? 'Hide details' : 'Show details';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+};
+
+window.pauseAgents = async function () {
+  try {
+    await postJson('/api/mode/idle');
+  } catch (err) {
+    console.warn('pauseAgents failed', err);
+  } finally {
+    if (typeof window.updateStatus === 'function') window.updateStatus();
+  }
+};
+
+window.resumeAgents = async function () {
+  try {
+    await postJson('/api/mode/autonomous');
+  } catch (err) {
+    console.warn('resumeAgents failed', err);
+  } finally {
+    if (typeof window.updateStatus === 'function') window.updateStatus();
+  }
+};
+
+window.reviewLearning = function () {
+  try {
+    const panel = document.getElementById('agent-details-panel');
+    if (panel && !panel.classList.contains('open')) {
+      window.toggleAgentDetails();
+    }
+    const target = document.getElementById('training-dashboard-list') || document.getElementById('training-memory-list');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    console.warn('reviewLearning failed', err);
+  }
+};
+
+window.toggleHumanMode = async function () {
+  const toggle = document.getElementById('human-toggle');
+  const stateEl = document.getElementById('human-toggle-state');
+  const key = 'continuon_human_mode';
+  let on = false;
+  try {
+    on = localStorage.getItem(key) === '1';
+  } catch {
+    on = false;
+  }
+  const next = !on;
+  try {
+    localStorage.setItem(key, next ? '1' : '0');
+  } catch {}
+  if (toggle) toggle.classList.toggle('active', next);
+  if (stateEl) stateEl.textContent = next ? 'On' : 'Off';
+  if (next) {
+    await window.pauseAgents();
+  }
+};
 
 window.clearPlan = function () {
   window.__lastArmPlan = null;
@@ -263,8 +423,26 @@ window.viewTrainingLogs = async function () {
 
 window.openEpisodeImports = function () {
   const statusEl = document.getElementById('training-status');
-  if (statusEl) statusEl.textContent = 'Episode import UI not yet wired';
-  alert('Episode import UI not yet wired to backend.');
+  if (statusEl) statusEl.textContent = 'Loading episode import summary…';
+  // "Episode imports" = imported tool-use datasets (toolchat_hf* folders) summary.
+  fetch('/api/training/tool_dataset_summary?limit=2000')
+    .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+    .then(({ ok, j }) => {
+      if (!ok || j?.status === 'error') throw new Error(j?.message || 'tool dataset summary failed');
+      const sources = Array.isArray(j.sources) ? j.sources : [];
+      const brief = sources.map((s) => {
+        const name = (s.dir || '').split('/').slice(-1)[0] || 'dataset';
+        const rate = (typeof s.tool_call_rate === 'number') ? (s.tool_call_rate * 100).toFixed(1) + '%' : '—';
+        return `${name}: episodes=${s.episodes ?? '—'} steps=${s.steps_total ?? '—'} tool_call_rate=${rate}`;
+      }).join('\n');
+      if (statusEl) statusEl.textContent = sources.length ? `Episode imports: ${sources.length} dataset(s) detected` : 'Episode imports: none found';
+      alert(brief || 'No toolchat_hf_* datasets found under /opt/continuonos/brain/rlds/episodes.');
+    })
+    .catch((err) => {
+      console.warn('openEpisodeImports failed', err);
+      if (statusEl) statusEl.textContent = 'Episode import summary failed';
+      alert('Episode import summary failed: ' + (err?.message || err));
+    });
 };
 
 window.runManualTraining = async function (payload = {}) {
@@ -351,6 +529,311 @@ window.checkTrainingStatus = async function () {
   } catch (err) {
     console.warn('Training status failed', err);
     if (statusEl) statusEl.textContent = 'Status fetch failed: ' + (err?.message || err);
+  }
+};
+
+// --- Page wiring for Tasks / Skills / Safety ---
+window.fetchTaskLibrary = async function () {
+  const container = document.getElementById('task-list');
+  if (!container) return null;
+  container.innerHTML = '<div class="loading-spinner">Loading tasks...</div>';
+  try {
+    const data = await window.StudioClient.fetchJson('/api/tasks?include_ineligible=false', { timeoutMs: 6000 });
+    const tasks = data?.tasks || data || [];
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      container.innerHTML = '<div class="stack-item"><span class="stack-meta">No tasks available</span></div>';
+      return data;
+    }
+    container.innerHTML = tasks.map((t) => {
+      const id = escapeHtml(t.id || t.task_id || '');
+      const title = escapeHtml(t.title || t.name || id || 'task');
+      const desc = escapeHtml(t.description || '');
+      const eligible = (t.eligible === true) ? 'eligible' : ((t.eligible === false) ? 'ineligible' : 'unknown');
+      return (
+        `<div class="stack-item" style="cursor:pointer" onclick="window.selectTask('${id}')">` +
+          `<div style="min-width:0;"><h4>${title}</h4><div class="stack-meta">${desc}</div></div>` +
+          `<div><span class="status-chip ${eligible === 'eligible' ? 'active' : 'warning'}">${eligible.toUpperCase()}</span></div>` +
+        `</div>`
+      );
+    }).join('');
+    return data;
+  } catch (err) {
+    console.warn('fetchTaskLibrary failed', err);
+    container.innerHTML = '<div class="stack-item"><span class="stack-meta">Failed to load tasks</span></div>';
+    return null;
+  }
+};
+
+window.selectTask = async function (taskId) {
+  const details = document.getElementById('task-details');
+  if (details) details.innerHTML = '<div class="loading-spinner">Loading task...</div>';
+  try {
+    const res = await window.StudioClient.fetchJson(`/api/tasks/summary/${encodeURIComponent(taskId)}`, { timeoutMs: 6000 });
+    const summary = res?.summary || res || {};
+    if (!details) return;
+    details.innerHTML =
+      `<div class="stack-item"><div><h4>${escapeHtml(summary.title || summary.name || taskId)}</h4><div class="stack-meta">${escapeHtml(summary.description || '')}</div></div>` +
+      `<div><button class="rail-btn primary" type="button" onclick="window.activateTask('${escapeHtml(taskId)}')">Select</button></div></div>` +
+      `<pre style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:320px; overflow:auto;">${escapeHtml(JSON.stringify(res, null, 2))}</pre>`;
+  } catch (err) {
+    console.warn('selectTask failed', err);
+    if (details) details.innerHTML = '<div class="stack-item"><span class="stack-meta">Failed to load task summary</span></div>';
+  }
+};
+
+window.activateTask = async function (taskId) {
+  try {
+    await postJson('/api/tasks/select', { task_id: taskId, reason: 'selected from web UI' });
+  } catch (err) {
+    console.warn('activateTask failed', err);
+  } finally {
+    if (typeof window.fetchTaskLibrary === 'function') window.fetchTaskLibrary();
+  }
+};
+
+window.refreshTasks = function () {
+  return window.fetchTaskLibrary();
+};
+
+window.fetchSkillLibrary = async function () {
+  const container = document.getElementById('skill-list');
+  if (!container) return null;
+  container.innerHTML = '<div class="loading-spinner">Loading skills...</div>';
+  try {
+    const data = await window.StudioClient.fetchJson('/api/skills?include_ineligible=false', { timeoutMs: 6000 });
+    const skills = data?.skills || data || [];
+    if (!Array.isArray(skills) || skills.length === 0) {
+      container.innerHTML = '<div class="stack-item"><span class="stack-meta">No skills available</span></div>';
+      return data;
+    }
+    container.innerHTML = skills.map((s) => {
+      const id = escapeHtml(s.id || s.skill_id || '');
+      const title = escapeHtml(s.title || s.name || id || 'skill');
+      const desc = escapeHtml(s.description || '');
+      const eligible = (s.eligible === true) ? 'eligible' : ((s.eligible === false) ? 'ineligible' : 'unknown');
+      return (
+        `<div class="stack-item" style="cursor:pointer" onclick="window.selectSkill('${id}')">` +
+          `<div style="min-width:0;"><h4>${title}</h4><div class="stack-meta">${desc}</div></div>` +
+          `<div><span class="status-chip ${eligible === 'eligible' ? 'active' : 'warning'}">${eligible.toUpperCase()}</span></div>` +
+        `</div>`
+      );
+    }).join('');
+    return data;
+  } catch (err) {
+    console.warn('fetchSkillLibrary failed', err);
+    container.innerHTML = '<div class="stack-item"><span class="stack-meta">Failed to load skills</span></div>';
+    return null;
+  }
+};
+
+window.selectSkill = async function (skillId) {
+  const details = document.getElementById('skill-details');
+  if (details) details.innerHTML = '<div class="loading-spinner">Loading skill...</div>';
+  try {
+    const res = await window.StudioClient.fetchJson(`/api/skills/summary/${encodeURIComponent(skillId)}`, { timeoutMs: 6000 });
+    if (!details) return;
+    const summary = res?.summary || res || {};
+    details.innerHTML =
+      `<div class="stack-item"><div><h4>${escapeHtml(summary.title || summary.name || skillId)}</h4><div class="stack-meta">${escapeHtml(summary.description || '')}</div></div></div>` +
+      `<pre style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:320px; overflow:auto;">${escapeHtml(JSON.stringify(res, null, 2))}</pre>`;
+  } catch (err) {
+    console.warn('selectSkill failed', err);
+    if (details) details.innerHTML = '<div class="stack-item"><span class="stack-meta">Failed to load skill summary</span></div>';
+  }
+};
+
+window.refreshSkills = function () {
+  return window.fetchSkillLibrary();
+};
+
+window.pollLoopHealth = async function () {
+  const list = document.getElementById('safety-gates-list');
+  if (!list) return null;
+  try {
+    const data = await window.StudioClient.fetchJson('/api/gates', { timeoutMs: 5000 });
+    const gates = data?.gates || data || {};
+    if (!gates || typeof gates !== 'object') {
+      list.innerHTML = '<div class="stack-item"><span class="stack-meta">No gates reported</span></div>';
+      return data;
+    }
+    const rows = Object.entries(gates).map(([k, v]) => {
+      const val = String(v);
+      const locked = (val === 'locked' || val === 'closed' || val === 'false');
+      return (
+        `<div class="stack-item">` +
+          `<div><h4>${escapeHtml(k)}</h4><div class="stack-meta">${escapeHtml(val)}</div></div>` +
+          `<div><span class="status-chip ${locked ? 'warning' : 'active'}">${locked ? 'LOCKED' : 'OK'}</span></div>` +
+        `</div>`
+      );
+    });
+    list.innerHTML = rows.join('') || '<div class="stack-item"><span class="stack-meta">No gates reported</span></div>';
+    return data;
+  } catch (err) {
+    console.warn('pollLoopHealth failed', err);
+    if (list) list.innerHTML = '<div class="stack-item"><span class="stack-meta">Failed to load safety gates</span></div>';
+    return null;
+  }
+};
+
+window.triggerEStop = async function () {
+  try {
+    await postJson('/api/safety/hold');
+  } catch (err) {
+    console.warn('triggerEStop failed', err);
+  } finally {
+    if (typeof window.pollLoopHealth === 'function') window.pollLoopHealth();
+    if (typeof window.updateStatus === 'function') window.updateStatus();
+  }
+};
+
+// Safety page buttons map onto the same mode actions as the agent rail.
+window.pauseRobot = window.pauseAgents;
+window.resumeRobot = window.resumeAgents;
+
+// Research page wiring (best-effort, offline-first)
+window.refreshResearchPanels = async function () {
+  const proofEl = document.getElementById('reality-proof-score');
+  const dreamEl = document.getElementById('dream-consistency-score');
+  const matrixEl = document.getElementById('capability-matrix');
+  const chartEl = document.getElementById('world-model-chart');
+
+  try {
+    const [statusRes, dqRes, archRes, tasksRes, skillsRes] = await Promise.all([
+      fetch('/api/status'),
+      fetch('/api/training/data_quality?limit=40&step_cap=2500'),
+      fetch('/api/training/architecture_status'),
+      fetch('/api/tasks?include_ineligible=false'),
+      fetch('/api/skills?include_ineligible=false'),
+    ]);
+    const status = await statusRes.json().catch(() => ({}));
+    const dq = await dqRes.json().catch(() => ({}));
+    const arch = await archRes.json().catch(() => ({}));
+    const tasks = await tasksRes.json().catch(() => ({}));
+    const skills = await skillsRes.json().catch(() => ({}));
+
+    // Simple heuristic scores (placeholders, but connected to real signals)
+    const actNonzero = Number(dq?.action?.nonzero_rate);
+    const obsNumeric = Number(dq?.observation?.numeric_rate);
+    const proofScore = (Number.isFinite(actNonzero) && Number.isFinite(obsNumeric))
+      ? Math.max(0, Math.min(100, Math.round(((actNonzero + obsNumeric) / 2) * 100)))
+      : null;
+    const dreamScore = (arch?.status === 'ok')
+      ? 100
+      : null;
+
+    if (proofEl) proofEl.textContent = (proofScore == null) ? '--%' : `${proofScore}%`;
+    if (dreamEl) dreamEl.textContent = (dreamScore == null) ? '--%' : `${dreamScore}%`;
+
+    if (chartEl) {
+      chartEl.innerHTML =
+        `<pre style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:320px; overflow:auto;">` +
+        `${escapeHtml(JSON.stringify({ architecture_status: arch, data_quality: dq }, null, 2))}` +
+        `</pre>`;
+    }
+
+    if (matrixEl) {
+      const cap = status?.status?.capabilities || status?.capabilities || {};
+      const taskCount = Array.isArray(tasks?.tasks) ? tasks.tasks.length : (Array.isArray(tasks) ? tasks.length : null);
+      const skillCount = Array.isArray(skills?.skills) ? skills.skills.length : (Array.isArray(skills) ? skills.length : null);
+      matrixEl.innerHTML =
+        `<div class="stack-item"><div><h4>Capabilities</h4><div class="stack-meta">Runtime-reported modality support</div></div></div>` +
+        `<div class="metric-row"><div class="metric-label">Vision</div><div class="metric-value">${cap.has_vision ? 'yes' : 'no'}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Manipulator</div><div class="metric-value">${cap.has_manipulator ? 'yes' : 'no'}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Mobile base</div><div class="metric-value">${cap.has_mobile_base ? 'yes' : 'no'}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Audio</div><div class="metric-value">${cap.has_audio ? 'yes' : 'no'}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Tasks (eligible)</div><div class="metric-value">${taskCount == null ? '—' : String(taskCount)}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Skills (eligible)</div><div class="metric-value">${skillCount == null ? '—' : String(skillCount)}</div></div>`;
+    }
+  } catch (err) {
+    console.warn('refreshResearchPanels failed', err);
+    if (matrixEl) matrixEl.innerHTML = '<div class="stack-item"><span class="stack-meta">Research panels unavailable</span></div>';
+  }
+};
+
+window.updateAgentDetailsPanel = async function () {
+  const threadList = document.getElementById('agent-thread-list');
+  const modelList = document.getElementById('model-stack-list');
+  const toolList = document.getElementById('toolchain-list');
+  const milestones = document.getElementById('learning-milestones');
+  const eventsEl = document.getElementById('learning-events');
+
+  if (!threadList && !modelList && !toolList && !milestones && !eventsEl) return;
+
+  try {
+    const [statusRes, archRes, eventsRes] = await Promise.all([
+      fetch('/api/status'),
+      fetch('/api/training/architecture_status'),
+      fetch('/api/system/events?limit=40'),
+    ]);
+    const statusPayload = await statusRes.json().catch(() => ({}));
+    const status = statusPayload?.status || statusPayload || {};
+    const arch = await archRes.json().catch(() => ({}));
+    const events = await eventsRes.json().catch(() => ({}));
+
+    const caps = status?.capabilities || {};
+    const gates = status?.gate_snapshot || {};
+    const threads = arch?.tasks || {};
+
+    if (threadList) {
+      const rows = [];
+      for (const [k, v] of Object.entries(threads || {})) {
+        const alive = !!v?.alive;
+        rows.push(
+          `<div class="stack-item">` +
+            `<div><h4>${escapeHtml(k)}</h4><div class="stack-meta">${escapeHtml(v?.present ? (alive ? 'alive' : 'stopped') : 'absent')}</div></div>` +
+            `<div><span class="status-chip ${alive ? 'active' : 'warning'}">${alive ? 'OK' : 'OFF'}</span></div>` +
+          `</div>`
+        );
+      }
+      threadList.innerHTML = rows.length ? rows.join('') : '<div class="stack-item"><span class="stack-meta">No agent threads reported</span></div>';
+    }
+
+    if (modelList) {
+      const hw = status?.hardware_mode || 'unknown';
+      const det = status?.detected_hardware || {};
+      const hailo = arch?.hailo || {};
+      modelList.innerHTML =
+        `<div class="stack-item"><div><h4>Runtime</h4><div class="stack-meta">hardware_mode=${escapeHtml(hw)}</div></div></div>` +
+        `<div class="metric-row"><div class="metric-label">Vision</div><div class="metric-value">${caps.has_vision ? 'yes' : 'no'}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Manipulator</div><div class="metric-value">${caps.has_manipulator ? 'yes' : 'no'}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Depth cam</div><div class="metric-value">${escapeHtml(det.depth_camera || '—')}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Accelerator</div><div class="metric-value">${escapeHtml(det.ai_accelerator || '—')}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Hailo devices</div><div class="metric-value">${escapeHtml(String((hailo.hardware?.dev_nodes || []).join(', ') || '—'))}</div></div>`;
+    }
+
+    if (toolList) {
+      const toolRouter = arch?.tool_router || {};
+      toolList.innerHTML =
+        `<div class="metric-row"><div class="metric-label">Chat API</div><div class="metric-value">/api/chat</div></div>` +
+        `<div class="metric-row"><div class="metric-label">SSE stream</div><div class="metric-value">/api/events</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Tool-router export</div><div class="metric-value">${escapeHtml(toolRouter.export_dir || '—')}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Tool-router metrics</div><div class="metric-value">${escapeHtml(toolRouter.metrics_path || '—')}</div></div>` +
+        `<div class="metric-row"><div class="metric-label">Tool-router eval</div><div class="metric-value">${escapeHtml(toolRouter.eval_metrics_path || '—')}</div></div>`;
+    }
+
+    if (milestones) {
+      milestones.innerHTML =
+        `<div class="milestone-row"><div>Mode</div><div>${escapeHtml(String(status?.mode || '—'))}</div></div>` +
+        `<div class="milestone-row"><div>Allow motion</div><div>${gates.allow_motion ? 'yes' : 'no'}</div></div>` +
+        `<div class="milestone-row"><div>Record episodes</div><div>${gates.record_episodes ? 'yes' : 'no'}</div></div>` +
+        `<div class="milestone-row"><div>Run inference</div><div>${gates.run_inference ? 'yes' : 'no'}</div></div>`;
+    }
+
+    if (eventsEl) {
+      const items = Array.isArray(events?.items) ? events.items : [];
+      if (!items.length) {
+        eventsEl.innerHTML = '<div class="stack-item"><span class="stack-meta">No system events yet</span></div>';
+      } else {
+        eventsEl.innerHTML = items.slice().reverse().map((ev) => {
+          const t = ev.timestamp || ev.time || ev.ts || '';
+          const kind = ev.event_type || ev.type || 'event';
+          const msg = ev.message || ev.detail || ev.summary || '';
+          return `<div class="learning-item"><strong>${escapeHtml(kind)}</strong><div class="learning-meta">${escapeHtml(String(t))} ${escapeHtml(String(msg))}</div></div>`;
+        }).join('');
+      }
+    }
+  } catch (err) {
+    console.warn('updateAgentDetailsPanel failed', err);
   }
 };
 

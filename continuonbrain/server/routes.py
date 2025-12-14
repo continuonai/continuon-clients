@@ -194,6 +194,33 @@ class SimpleJSONServer:
         elif path == "/api/wiring":
             response_body = json.dumps(self._get_wiring_stats())
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+
+        elif path == "/api/system/events":
+            # Lightweight UI feed: recent system lifecycle events (jsonl).
+            limit_raw = (query_params.get("limit", ["60"]) or ["60"])[0]
+            try:
+                limit = max(1, min(500, int(limit_raw)))
+            except Exception:
+                limit = 60
+            events_path = Path("/opt/continuonos/brain/logs/system_events.jsonl")
+            items: list[dict[str, Any]] = []
+            if events_path.exists():
+                try:
+                    lines = events_path.read_text(errors="replace").splitlines()
+                    for ln in lines[-limit:]:
+                        ln = ln.strip()
+                        if not ln:
+                            continue
+                        try:
+                            payload = json.loads(ln)
+                            if isinstance(payload, dict):
+                                items.append(payload)
+                        except Exception:
+                            items.append({"raw": ln})
+                except Exception as exc:  # noqa: BLE001
+                    items = [{"error": str(exc)}]
+            response_body = json.dumps({"status": "ok", "path": str(events_path), "items": items})
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/loops":
             status = await self.service.GetLoopHealth()
             response_body = json.dumps(status)
