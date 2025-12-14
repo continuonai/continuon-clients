@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Continuon Robot Editor</title>
     <link rel="stylesheet" href="/static/ui.css">
 </head>
+
 <body class="ide-body fullwidth">
     <div class="ide-shell wide">
         <header class="ide-topbar sticky">
@@ -55,7 +57,8 @@
                         </div>
                     </div>
                     <div class="command-grid">
-                        <button id="manual-control-btn" class="command-btn primary" onclick="startManualControl(this)">🎮 Manual Control</button>
+                        <button id="manual-control-btn" class="command-btn primary"
+                            onclick="startManualControl(this)">🎮 Manual Control</button>
                         <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
                         <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
                         <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
@@ -132,7 +135,9 @@
                     <div class="status-deck">
                         <div class="status-card">
                             <div class="status-label">Wave / Particle</div>
-                            <div class="gauge-bar"><div class="gauge-fill" id="wave-meter"></div></div>
+                            <div class="gauge-bar">
+                                <div class="gauge-fill" id="wave-meter"></div>
+                            </div>
                             <div class="loop-meta" id="wave-value">--</div>
                         </div>
                         <div class="status-card">
@@ -165,7 +170,8 @@
                     </div>
                     <div class="task-group-controls">
                         <div class="segmented-controls" id="task-group-segments"></div>
-                        <input id="task-filter-input" class="input-compact" type="search" placeholder="Filter tasks..." oninput="window.filterTaskText(this.value)">
+                        <input id="task-filter-input" class="input-compact" type="search" placeholder="Filter tasks..."
+                            oninput="window.filterTaskText(this.value)">
                     </div>
                     <div class="task-groups-accordion" id="task-groups">
                         <div class="status-item">
@@ -182,7 +188,8 @@
                             <p class="panel-subtitle">Capabilities, publishers, and eligibility.</p>
                         </div>
                         <div class="segmented-controls tight">
-                            <input id="skill-filter-input" class="input-compact" type="search" placeholder="Filter skills..." oninput="window.filterSkillText(this.value)">
+                            <input id="skill-filter-input" class="input-compact" type="search"
+                                placeholder="Filter skills..." oninput="window.filterSkillText(this.value)">
                             <button class="ghost" onclick="window.fetchSkillLibrary()">Refresh</button>
                         </div>
                     </div>
@@ -235,11 +242,13 @@
                         <div>
                             <div class="panel-eyebrow">Reality vs. Dream</div>
                             <h2>World-Model Proof Harness</h2>
-                            <p class="panel-subtitle">Visual tokens, temporal resolution, compute budget, and surprise tracking.</p>
+                            <p class="panel-subtitle">Visual tokens, temporal resolution, compute budget, and surprise
+                                tracking.</p>
                         </div>
                         <div class="proof-actions">
                             <div class="chip" id="surprise-counter-chip">Surprises: 0</div>
-                            <button class="ghost" type="button" onclick="window.logRealitySurprise()">Log surprise</button>
+                            <button class="ghost" type="button" onclick="window.logRealitySurprise()">Log
+                                surprise</button>
                         </div>
                     </div>
                     <div class="dream-grid">
@@ -350,7 +359,8 @@
                             <span>Human mode</span>
                             <strong id="human-toggle-state">Off</strong>
                         </div>
-                        <div class="human-toggle" id="teacher-toggle" onclick="toggleTeacherMode()" style="margin-top: 8px;">
+                        <div class="human-toggle" id="teacher-toggle" onclick="toggleTeacherMode()"
+                            style="margin-top: 8px;">
                             <span>Teacher Mode</span>
                             <strong id="teacher-toggle-state">Off</strong>
                         </div>
@@ -397,24 +407,33 @@
                         <div class="chat-rail">
                             <div class="chat-messages inline" id="chat-messages"></div>
                             <div class="chat-input-area inline">
-                                <select id="chat-agent-select" class="input-compact" style="width:220px; margin-right:8px;">
+                                <select id="chat-agent-select" class="input-compact"
+                                    style="width:220px; margin-right:8px;">
                                     <option value="agent_manager" selected>Agent Manager</option>
-                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)</option>
-                                    <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)</option>
+                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)
+                                    </option>
+                                    <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)
+                                    </option>
                                     <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
                                     <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
                                 </select>
-                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                <label
+                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
                                     <input id="chat-attach-camera" type="checkbox">
                                     Vision
                                 </label>
-                                <img id="chat-camera-thumb" alt="camera frame" style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
+                                <img id="chat-camera-thumb" alt="camera frame"
+                                    style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
                                 <button class="rail-btn" id="chat-mic" type="button" title="Push-to-talk">🎙️</button>
-                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                <label
+                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
                                     <input id="chat-speak-replies" type="checkbox">
                                     Speak
                                 </label>
-                                <input type="text" class="chat-input" id="chat-input" placeholder="Ask about robot status, control tips..." aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                                <input type="text" class="chat-input" id="chat-input"
+                                    placeholder="Ask about robot status, control tips..."
+                                    aria-label="Chat message input"
+                                    onkeypress="if(event.key==='Enter') sendChatMessage()">
                                 <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
                             </div>
                         </div>
@@ -487,19 +506,19 @@
     <script src="/static/client.js"></script>
     <script type="text/javascript">
         // Tab switching for Home Page
-        window.switchHomeTab = function(tabName) {
+        window.switchHomeTab = function (tabName) {
             document.querySelectorAll('.tab-btn').forEach(btn => {
-                if(btn.dataset.tab === tabName) btn.classList.add('active');
+                if (btn.dataset.tab === tabName) btn.classList.add('active');
                 else btn.classList.remove('active');
             });
 
             document.querySelectorAll('.home-panel').forEach(panel => {
-                if(panel.id === tabName + '-panel') panel.style.display = 'block';
+                if (panel.id === tabName + '-panel') panel.style.display = 'block';
                 else panel.style.display = 'none';
             });
         };
         // Global functions for onclick handlers
-        window.showMessage = function(message, isError) {
+        window.showMessage = function (message, isError) {
             if (typeof isError === 'undefined') { isError = false; }
             var msgDiv = document.getElementById('status-message');
             msgDiv.textContent = message;
@@ -507,7 +526,7 @@
             msgDiv.style.background = isError ? '#ff3b30' : '#34c759';
             msgDiv.style.color = 'white';
             msgDiv.style.textAlign = 'center';
-            setTimeout(function() {
+            setTimeout(function () {
                 msgDiv.style.display = 'none';
             }, 3000);
         };
@@ -544,7 +563,7 @@
             return payload.settings || {};
         }
 
-        window.openSettingsModal = async function() {
+        window.openSettingsModal = async function () {
             settingsModal?.classList.add('open');
             settingsBackdrop?.classList.add('open');
             settingsModal?.setAttribute('aria-hidden', 'false');
@@ -560,7 +579,7 @@
             }
         };
 
-        window.closeSettingsModal = function() {
+        window.closeSettingsModal = function () {
             settingsModal?.classList.remove('open');
             settingsBackdrop?.classList.remove('open');
             settingsModal?.setAttribute('aria-hidden', 'true');
@@ -568,7 +587,7 @@
 
         settingsBackdrop?.addEventListener('click', closeSettingsModal);
 
-        settingsForm?.addEventListener('submit', async function(event) {
+        settingsForm?.addEventListener('submit', async function (event) {
             event.preventDefault();
 
             const telemetryRate = parseFloat(document.getElementById('telemetry-rate').value);
@@ -752,7 +771,7 @@
             setProofText('proof-context-line', realityProofState.surprises > 0 ? 'Context updated after surprises' : 'No context updates logged');
         }
 
-        window.logRealitySurprise = function() {
+        window.logRealitySurprise = function () {
             realityProofState.surprises += 1;
             const log = document.getElementById('surprise-log');
             const entry = `<div class="surprise-row">Surprise @ ${new Date().toLocaleTimeString()}</div>`;
@@ -794,12 +813,12 @@
                 const flags = [item.role, item.latency, item.accelerator].filter(Boolean).map(flag => `<span class="task-tag">${flag}</span>`).join('');
                 return `<div class="stack-item ${item.primary ? 'primary' : ''}">` +
                     `<div>` +
-                        `<h4>${item.name || 'Model'}</h4>` +
-                        `<div class="stack-meta">${item.description || 'Primary + fallback routing for Agent Manager'}</div>` +
-                        (flags ? `<div class="stack-flags">${flags}</div>` : '') +
+                    `<h4>${item.name || 'Model'}</h4>` +
+                    `<div class="stack-meta">${item.description || 'Primary + fallback routing for Agent Manager'}</div>` +
+                    (flags ? `<div class="stack-flags">${flags}</div>` : '') +
                     `</div>` +
                     `<div>${statusChip}</div>` +
-                `</div>`;
+                    `</div>`;
             }).join('');
         }
 
@@ -818,12 +837,12 @@
                 const flags = [tool.detail, tool.scope].filter(Boolean).map(flag => `<span class="task-tag">${flag}</span>`).join('');
                 return `<div class="stack-item">` +
                     `<div>` +
-                        `<h4>${tool.name || 'Tool'}</h4>` +
-                        `<div class="stack-meta">${tool.detail || 'Sub-agent or tool connector'}</div>` +
-                        (flags ? `<div class="stack-flags">${flags}</div>` : '') +
+                    `<h4>${tool.name || 'Tool'}</h4>` +
+                    `<div class="stack-meta">${tool.detail || 'Sub-agent or tool connector'}</div>` +
+                    (flags ? `<div class="stack-flags">${flags}</div>` : '') +
                     `</div>` +
                     `<div>${statusChip}</div>` +
-                `</div>`;
+                    `</div>`;
             }).join('');
         }
 
@@ -844,7 +863,7 @@
                 return `<div class="metric-row">` +
                     `<div class="metric-label">${metric.label}</div>` +
                     `<div class="metric-value">${metric.value}</div>` +
-                `</div>`;
+                    `</div>`;
             }).join('');
         }
 
@@ -866,7 +885,7 @@
                 return `<div class="status-item">` +
                     `<span class="status-label">${row.label}</span>` +
                     `<span class="${statusClass}">${row.value}</span>` +
-                `</div>`;
+                    `</div>`;
             }).join('');
 
             const trainingChip = document.getElementById('training-safe-chip');
@@ -889,7 +908,7 @@
                     `<div class="safe-mode-meta">${preset.description}</div>` +
                     `<div class="status-chip info">${gateLine}</div>` +
                     `<button class="command-btn" onclick="window.setSafeModePreset('${preset.id}')">${selected ? 'Active' : 'Set safe mode'}</button>` +
-                `</div>`;
+                    `</div>`;
             }).join('');
 
             const statusChip = document.getElementById('safe-mode-status');
@@ -899,7 +918,7 @@
             }
         }
 
-        window.setSafeModePreset = async function(presetId) {
+        window.setSafeModePreset = async function (presetId) {
             const preset = safetyPersonaPresets.find(p => p.id === presetId);
             const statusChip = document.getElementById('safe-mode-status');
             if (!preset) return;
@@ -929,12 +948,12 @@
             window.updateStatus();
         }
 
-        window.applyGatesPayload = function(payload) {
+        window.applyGatesPayload = function (payload) {
             if (!payload) return;
             renderGateStatus(payload);
         }
 
-        window.fetchGates = async function(payload) {
+        window.fetchGates = async function (payload) {
             if (payload) {
                 window.applyGatesPayload(payload);
                 return;
@@ -963,11 +982,11 @@
                 const chip = `<span class="status-chip ${normalizedStatus}">${normalizedStatus === 'active' ? '🟢' : '⏸️'} ${normalizedStatus}</span>`;
                 return `<div class="agent-thread">` +
                     `<div>` +
-                        `<h4>${agent.name || 'Agent'}</h4>` +
-                        `<div class="agent-meta">${agent.focus || 'Monitoring'} • ${agent.threads || 1} thread${(agent.threads || 1) > 1 ? 's' : ''}</div>` +
+                    `<h4>${agent.name || 'Agent'}</h4>` +
+                    `<div class="agent-meta">${agent.focus || 'Monitoring'} • ${agent.threads || 1} thread${(agent.threads || 1) > 1 ? 's' : ''}</div>` +
                     `</div>` +
                     `<div>${chip}</div>` +
-                `</div>`;
+                    `</div>`;
             }).join('');
         }
 
@@ -994,12 +1013,12 @@
                     : '';
                 return `<div class="milestone-row">` +
                     `<div>` +
-                        `<div>${item.label}</div>` +
-                        `<div class="learning-meta">${item.detail}</div>` +
-                        `${progressBar}` +
+                    `<div>${item.label}</div>` +
+                    `<div class="learning-meta">${item.detail}</div>` +
+                    `${progressBar}` +
                     `</div>` +
                     `<span class="${chipClass}">${item.done ? '✅' : '…'} ${item.done ? 'Complete' : 'Pending'}</span>` +
-                `</div>`;
+                    `</div>`;
             }).join('');
         }
 
@@ -1013,7 +1032,7 @@
                     `<strong>${event.title}</strong>` +
                     `<div class="learning-meta">${event.detail || 'Update pending'}</div>` +
                     (event.time ? `<div class="learning-meta">${event.time}</div>` : '') +
-                `</div>`;
+                    `</div>`;
             }).join('');
         }
 
@@ -1092,24 +1111,24 @@
 
                     return `<div class="task-card ${isSelected ? 'selected' : ''} ${detailOpen ? 'expanded' : ''}" ${highlightStyle}>` +
                         `<div>` +
-                            `<h3>${task.title || 'Task'}</h3>` +
-                            `<div class="task-description">${task.description || ''}</div>` +
+                        `<h3>${task.title || 'Task'}</h3>` +
+                        `<div class="task-description">${task.description || ''}</div>` +
                         `</div>` +
                         `<div class="task-actions">` +
-                            `<button onclick="window.selectTask('${task.id}')" ${disabledAttr}>${selectLabel}</button>` +
-                            `<button class="ghost" onclick="window.viewTaskSummary('${task.id}')">Summary</button>` +
-                            `<button class="ghost" onclick="window.toggleTaskDetails('${task.id}')">${detailLabel}</button>` +
-                            `<div class="agent-shortcuts">` +
-                                `<span class="task-tag">Model: <span id="agent-model-chip">${localStorage.getItem('agent_manager_model') || 'gemma-3n'}</span></span>` +
-                                `<button class="ghost" onclick="window.openAgentMenu('${task.id}')">Agent menu</button>` +
-                            `</div>` +
+                        `<button onclick="window.selectTask('${task.id}')" ${disabledAttr}>${selectLabel}</button>` +
+                        `<button class="ghost" onclick="window.viewTaskSummary('${task.id}')">Summary</button>` +
+                        `<button class="ghost" onclick="window.toggleTaskDetails('${task.id}')">${detailLabel}</button>` +
+                        `<div class="agent-shortcuts">` +
+                        `<span class="task-tag">Model: <span id="agent-model-chip">${localStorage.getItem('agent_manager_model') || 'gemma-3n'}</span></span>` +
+                        `<button class="ghost" onclick="window.openAgentMenu('${task.id}')">Agent menu</button>` +
+                        `</div>` +
                         `</div>` +
                         `<div class="task-detail-drawer ${detailOpen ? 'open' : ''}" id="task-detail-${task.id}">` +
-                            `<div class="task-meta">${detailMeta || 'No timing hints'}</div>` +
-                            `${tagRow ? `<div class="task-tags">${tagRow}</div>` : ''}` +
-                            `<div class="eligibility-stack">${markers}</div>` +
+                        `<div class="task-meta">${detailMeta || 'No timing hints'}</div>` +
+                        `${tagRow ? `<div class="task-tags">${tagRow}</div>` : ''}` +
+                        `<div class="eligibility-stack">${markers}</div>` +
                         `</div>` +
-                    `</div>`;
+                        `</div>`;
                 }).join('');
 
                 const isVisible = taskDeckState.selectedGroup === 'all' || taskDeckState.selectedGroup === groupLabel;
@@ -1118,28 +1137,28 @@
 
                 return `<details class="task-group" data-group="${groupLabel}" ${openAttr} ${hiddenStyle}>` +
                     `<summary>` +
-                        `<div>` +
-                            `<div class="panel-eyebrow">${groupLabel}</div>` +
-                            `<h3>${entries.length} task${entries.length === 1 ? '' : 's'}</h3>` +
-                        `</div>` +
-                        `<div class="status-chip info">${taskDeckState.selectedGroup === groupLabel ? 'Focused' : 'Browse'}</div>` +
+                    `<div>` +
+                    `<div class="panel-eyebrow">${groupLabel}</div>` +
+                    `<h3>${entries.length} task${entries.length === 1 ? '' : 's'}</h3>` +
+                    `</div>` +
+                    `<div class="status-chip info">${taskDeckState.selectedGroup === groupLabel ? 'Focused' : 'Browse'}</div>` +
                     `</summary>` +
                     `<div class="task-panel-grid">${cards}</div>` +
-                `</details>`;
+                    `</details>`;
             }).join('');
         }
 
-        window.filterTaskGroup = function(group) {
+        window.filterTaskGroup = function (group) {
             taskDeckState.selectedGroup = group || 'all';
             renderTaskLibrary(taskLibraryPayload || {});
         };
 
-        window.filterTaskText = function(text) {
+        window.filterTaskText = function (text) {
             taskDeckState.textFilter = (text || '').toLowerCase();
             renderTaskLibrary(taskLibraryPayload || {});
         };
 
-        window.setViewMode = function(mode) {
+        window.setViewMode = function (mode) {
             viewState.mode = mode === 'research' ? 'research' : 'owner';
             localStorage.setItem('studio_view_mode', viewState.mode);
             const ownerPanels = document.querySelectorAll('.owner-only');
@@ -1163,7 +1182,7 @@
             }
         })();
 
-        window.toggleTaskDetails = function(taskId) {
+        window.toggleTaskDetails = function (taskId) {
             if (!taskId) return;
             taskDeckState.expandedDetails[taskId] = !taskDeckState.expandedDetails[taskId];
             renderTaskLibrary(taskLibraryPayload || {});
@@ -1245,25 +1264,25 @@
             }
         }
 
-        window.toggleHumanMode = function() {
+        window.toggleHumanMode = function () {
             agentManagerState.humanMode = !agentManagerState.humanMode;
             window.showMessage(agentManagerState.humanMode ? 'Human guidance injected' : 'Human mode disabled');
             renderAgentRail();
         };
 
-        window.pauseAgents = function() {
+        window.pauseAgents = function () {
             agentManagerState.agents = agentManagerState.agents.map(agent => ({ ...agent, status: 'paused' }));
             window.showMessage('Agents paused for inspection');
             renderAgentRail();
         };
 
-        window.resumeAgents = function() {
+        window.resumeAgents = function () {
             agentManagerState.agents = agentManagerState.agents.map(agent => ({ ...agent, status: 'active' }));
             window.showMessage('Agents resumed');
             renderAgentRail();
         };
 
-        window.reviewLearning = function() {
+        window.reviewLearning = function () {
             window.showMessage('Learning feed refreshed');
             renderAgentRail();
             const events = document.getElementById('learning-events');
@@ -1272,7 +1291,7 @@
             }
         };
 
-        window.triggerSafetyHold = async function() {
+        window.triggerSafetyHold = async function () {
             window.showMessage('Engaging safety hold...');
             try {
                 const response = await fetch('/api/safety/hold', { method: 'POST' });
@@ -1289,7 +1308,7 @@
             }
         };
 
-        window.resetSafetyGates = async function() {
+        window.resetSafetyGates = async function () {
             window.showMessage('Resetting gates to idle baseline...');
             try {
                 const response = await fetch('/api/safety/reset', { method: 'POST' });
@@ -1373,7 +1392,7 @@
             }
         }
 
-        window.selectTask = async function(taskId) {
+        window.selectTask = async function (taskId) {
             if (!taskId) return;
             try {
                 const response = await fetch('/api/tasks/select', {
@@ -1397,7 +1416,7 @@
             }
         };
 
-        window.applyTaskLibraryPayload = function(payload) {
+        window.applyTaskLibraryPayload = function (payload) {
             if (!payload) return;
             renderTaskLibrary(payload);
             if (payload && payload.selected_task_id && Array.isArray(payload.tasks)) {
@@ -1408,7 +1427,7 @@
             }
         }
 
-        window.fetchTaskLibrary = async function(payload) {
+        window.fetchTaskLibrary = async function (payload) {
             if (payload) {
                 window.applyTaskLibraryPayload(payload);
                 return;
@@ -1423,7 +1442,7 @@
             }
         };
 
-        window.applySkillLibraryPayload = function(payload) {
+        window.applySkillLibraryPayload = function (payload) {
             const container = document.getElementById('skill-groups');
             if (!container) return;
             const skills = (payload && payload.skills) || [];
@@ -1490,7 +1509,7 @@
             }).join('');
         }
 
-        window.fetchSkillLibrary = async function(payload) {
+        window.fetchSkillLibrary = async function (payload) {
             if (payload) {
                 window.applySkillLibraryPayload(payload);
                 return;
@@ -1505,12 +1524,12 @@
             }
         };
 
-        window.filterSkillText = function(text) {
+        window.filterSkillText = function (text) {
             skillDeckState.textFilter = (text || '').toLowerCase();
             window.applySkillLibraryPayload(skillLibraryPayload || { skills: skillDeckState.skills });
         }
 
-        window.viewTaskSummary = async function(taskId) {
+        window.viewTaskSummary = async function (taskId) {
             try {
                 const res = await fetch(`/api/tasks/summary/${taskId}`);
                 if (!res.ok) return;
@@ -1521,7 +1540,7 @@
             }
         }
 
-        window.viewSkillSummary = async function(skillId) {
+        window.viewSkillSummary = async function (skillId) {
             try {
                 const res = await fetch(`/api/skills/summary/${skillId}`);
                 if (!res.ok) return;
@@ -1532,7 +1551,7 @@
             }
         };
 
-        window.pinSkill = function(skillId) {
+        window.pinSkill = function (skillId) {
             localStorage.setItem('pinned_skill', skillId);
             window.showMessage('Pinned skill: ' + skillId);
             const pill = document.getElementById('pinned-skill-pill');
@@ -1542,21 +1561,21 @@
         };
 
         // Tab switching logic for Manual Control
-        window.switchTab = function(tabName) {
+        window.switchTab = function (tabName) {
             // Update tab buttons
             document.querySelectorAll('.tab-btn').forEach(btn => {
-                if(btn.dataset.tab === tabName) btn.classList.add('active');
+                if (btn.dataset.tab === tabName) btn.classList.add('active');
                 else btn.classList.remove('active');
             });
 
             // Update panels
             document.querySelectorAll('.control-panel').forEach(panel => {
-                if(panel.id === tabName + '-panel') panel.style.display = 'block';
+                if (panel.id === tabName + '-panel') panel.style.display = 'block';
                 else panel.style.display = 'none';
             });
         };
-        
-        window.applyStatusPayload = function(statusPayload) {
+
+        window.applyStatusPayload = function (statusPayload) {
             if (!statusPayload) return;
             var status = statusPayload.status ? statusPayload.status : statusPayload;
             var mode = status.mode || 'unknown';
@@ -1596,7 +1615,7 @@
             if (status.detected_hardware) {
                 var hw = status.detected_hardware;
                 var hwHtml = '';
-                
+
                 if (hw.depth_camera) {
                     hwHtml += '<div class="status-item"><span class="status-label">📷 Depth Camera</span><span class="status-value">' + hw.depth_camera + '</span></div>';
                 }
@@ -1609,7 +1628,7 @@
                 if (hw.servo_controller_address) {
                     hwHtml += '<div class="status-item"><span class="status-label">I2C Address</span><span class="status-value">' + hw.servo_controller_address + '</span></div>';
                 }
-                
+
                 if (hwHtml) {
                     hardwareDiv.innerHTML = hwHtml;
                 } else {
@@ -1625,19 +1644,19 @@
             if (agiModel) {
                 var stack = (status && status.model_stack) || agentManagerState.modelStack || {};
                 var primary = stack.primary ? stack.primary.name : 'HOPE';
-                var fallbacks = (stack.fallbacks || []).map(function(f){ return f.name; }).filter(Boolean);
+                var fallbacks = (stack.fallbacks || []).map(function (f) { return f.name; }).filter(Boolean);
                 agiModel.textContent = [primary].concat(fallbacks).join(' → ') || 'HOPE → Gemma';
             }
         };
 
-        window.updateStatus = function(payload) {
+        window.updateStatus = function (payload) {
             if (payload) {
                 window.applyStatusPayload(payload);
                 return;
             }
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '/api/status', true);
-            xhr.onload = function() {
+            xhr.onload = function () {
                 if (xhr.status === 200) {
                     try {
                         var data = JSON.parse(xhr.responseText);
@@ -1649,20 +1668,20 @@
                     }
                 }
             };
-            xhr.onerror = function() {
+            xhr.onerror = function () {
                 console.error('Connection failed');
                 window.showMessage('Failed to connect to robot', true);
             };
             xhr.send();
         };
-        
-        window.setMode = function(mode) {
+
+        window.setMode = function (mode) {
             console.log('Setting mode to:', mode);
             window.showMessage('Changing mode to ' + mode.replace(/_/g, ' ') + '...');
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '/api/mode/' + mode, true);
-            xhr.onload = function() {
+            xhr.onload = function () {
                 if (xhr.status === 200) {
                     try {
                         var data = JSON.parse(xhr.responseText);
@@ -1680,14 +1699,14 @@
                     window.showMessage('Server error: ' + xhr.status, true);
                 }
             };
-            xhr.onerror = function() {
+            xhr.onerror = function () {
                 console.error('Connection failed');
                 window.showMessage('Connection failed', true);
             };
             xhr.send();
         };
 
-        window.startManualControl = async function(buttonEl) {
+        window.startManualControl = async function (buttonEl) {
             const manualButton = buttonEl || document.getElementById('manual-control-btn');
             if (!manualButton) {
                 window.showMessage('Manual Control button not found', true);
@@ -1730,7 +1749,7 @@
             }
         };
 
-        window.applyLoopHealthPayload = function(payload) {
+        window.applyLoopHealthPayload = function (payload) {
             if (!payload) return;
             const source = payload.metrics || payload.loop_metrics ? payload : payload.status || payload;
             if (source.metrics || source.loop_metrics) {
@@ -1744,7 +1763,7 @@
             updateRealityProof();
         }
 
-        window.pollLoopHealth = async function(payload) {
+        window.pollLoopHealth = async function (payload) {
             if (payload) {
                 window.applyLoopHealthPayload(payload);
                 return;
@@ -1803,7 +1822,7 @@
             rightHandle?.addEventListener('mousedown', startDrag('right'));
         })();
 
-        window.openAgentMenu = function(taskId) {
+        window.openAgentMenu = function (taskId) {
             const menu = document.createElement('div');
             menu.className = 'task-card expanded';
             menu.style.position = 'fixed';
@@ -1833,7 +1852,7 @@
             document.body.appendChild(menu);
         };
 
-        window.setAgentModel = function(model) {
+        window.setAgentModel = function (model) {
             localStorage.setItem('agent_manager_model', model);
             const chip = document.getElementById('agent-model-chip');
             if (chip) chip.textContent = model;
@@ -1916,7 +1935,7 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: role, content: text});
+                chatHistory.push({ role: role, content: text });
                 persistChatState();
             }
         }
@@ -1938,20 +1957,20 @@
             if (typeof text !== 'string') {
                 return '';
             }
-            
+
             // Remove any HTML tags first
             var sanitized = text.replace(/<[^>]*>/g, '');
-            
+
             // Remove any remaining < or > characters that might be part of incomplete tags
             sanitized = sanitized.replace(/[<>]/g, '');
-            
+
             // Remove javascript: and data: URL schemes
             sanitized = sanitized.replace(/javascript:/gi, '');
             sanitized = sanitized.replace(/data:/gi, '');
-            
+
             // Remove common XSS event handlers
             sanitized = sanitized.replace(/on\w+\s*=/gi, '');
-            
+
             // Limit length to prevent DOS attacks
             return sanitized.substring(0, 10000);
         }
@@ -2008,26 +2027,42 @@
 
             // Validate inputs to prevent injection attacks
             var validatedText = validateChatContent(text);
-            var validatedRole = validateChatRole(role);
+            var safeRole = (role || 'system').toLowerCase();
+
+            // Map backend roles to safe CSS classes
+            var validClasses = ['user', 'assistant', 'system', 'agent-manager', 'subagent'];
+            var cssClass = validClasses.indexOf(safeRole) !== -1 ? safeRole : 'system';
 
             var messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message ' + validatedRole;
-            messageDiv.textContent = validatedText; // textContent prevents XSS
-            // Sanitize text before rendering
-            var sanitized = sanitizeText(text);
-            
-            var messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message ' + role;
-            messageDiv.textContent = sanitized;
+            messageDiv.className = 'chat-message ' + cssClass;
+            messageDiv.textContent = validatedText;
+
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             if (shouldPersist) {
-                chatHistory.push({role: validatedRole, content: validatedText});
-                chatHistory.push({role: role, content: sanitized});
+                chatHistory.push({ role: cssClass, content: validatedText });
                 persistChatState();
             }
         }
+
+        window.renderIncomingChatMessage = function (evt) {
+            // evt = { role: "subagent"|"agent_manager", name: "...", text: "...", ... }
+            if (!evt || !evt.text) return;
+            // Map the event role to our CSS class
+            var cssRole = 'system';
+            if (evt.role === 'subagent') cssRole = 'subagent';
+            else if (evt.role === 'agent_manager') cssRole = 'agent-manager';
+            else if (evt.role === 'user') cssRole = 'user';
+
+            // Optional: Prepend name if it's a subagent/agent-manager to make it clear
+            var displayText = evt.text;
+            if (evt.name && (cssRole === 'subagent' || cssRole === 'agent-manager')) {
+                displayText = '[' + evt.name + '] ' + displayText;
+            }
+
+            renderChatMessage(displayText, cssRole, true);
+        };
 
         function hydrateChatOverlay() {
             try {
@@ -2042,7 +2077,7 @@
                         console.warn('Failed to parse chat history from localStorage, using empty history instead:', parseError);
                         chatHistory = [];
                     }
-                    chatHistory.forEach(function(msg) {
+                    chatHistory.forEach(function (msg) {
                         if (msg && typeof msg === 'object' && msg.role && msg.content) {
                             renderChatMessage(msg.content, msg.role, false);
                         }
@@ -2063,17 +2098,17 @@
             applyChatMinimized();
         }
 
-        window.toggleChat = function() {
+        window.toggleChat = function () {
             chatMinimized = !chatMinimized;
             persistChatState();
             applyChatMinimized();
         };
 
-        window.addChatMessage = function(text, role) {
+        window.addChatMessage = function (text, role) {
             renderChatMessage(text, role, true);
         };
 
-        window.sendChatMessage = function() {
+        window.sendChatMessage = function () {
             var input = document.getElementById('chat-input');
             var sendBtn = document.getElementById('chat-send');
             var message = input ? input.value.trim() : '';
@@ -2092,7 +2127,7 @@
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/chat', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = function() {
+            xhr.onload = function () {
                 if (input) input.disabled = false;
                 if (sendBtn) sendBtn.disabled = false;
 
@@ -2113,7 +2148,7 @@
 
                 if (input) input.focus();
             };
-            xhr.onerror = function() {
+            xhr.onerror = function () {
                 if (input) input.disabled = false;
                 if (sendBtn) sendBtn.disabled = false;
                 addChatMessage('Connection error', 'system');
@@ -2146,6 +2181,7 @@
                 onLoops: (payload) => window.pollLoopHealth(payload),
                 onTasks: (payload) => window.fetchTaskLibrary(payload),
                 onSkills: (payload) => window.fetchSkillLibrary({ skills: payload }),
+                onChat: (payload) => window.renderIncomingChatMessage(payload),
                 fallbackPollMs: 8000,
             });
         } else {
@@ -2160,11 +2196,11 @@
         var pendingTeacherQuestion = null;
         var teacherPollInterval = null;
 
-        window.toggleTeacherMode = async function() {
+        window.toggleTeacherMode = async function () {
             teacherModeActive = !teacherModeActive;
             const stateLabel = document.getElementById('teacher-toggle-state');
             const toggleBtn = document.getElementById('teacher-toggle');
-            
+
             if (stateLabel) stateLabel.textContent = teacherModeActive ? 'On' : 'Off';
             if (toggleBtn) {
                 if (teacherModeActive) toggleBtn.classList.add('active');
@@ -2179,20 +2215,20 @@
                 });
                 const res = await response.json();
                 window.showMessage(res.message || 'Teacher mode updated');
-                
+
                 if (teacherModeActive && !teacherPollInterval) {
-                     teacherPollInterval = setInterval(pollTeacherStatus, 2000);
+                    teacherPollInterval = setInterval(pollTeacherStatus, 2000);
                 } else if (!teacherModeActive && teacherPollInterval) {
-                     clearInterval(teacherPollInterval);
-                     teacherPollInterval = null;
-                     document.body.classList.remove('teacher-intervention-active');
+                    clearInterval(teacherPollInterval);
+                    teacherPollInterval = null;
+                    document.body.classList.remove('teacher-intervention-active');
                 }
             } catch (err) {
                 console.error('Failed to toggle teacher mode', err);
                 window.showMessage('Failed to toggle teacher mode', true);
-                 // Revert UI state on error
+                // Revert UI state on error
                 teacherModeActive = !teacherModeActive;
-                 if (stateLabel) stateLabel.textContent = teacherModeActive ? 'On' : 'Off';
+                if (stateLabel) stateLabel.textContent = teacherModeActive ? 'On' : 'Off';
             }
         };
 
@@ -2202,16 +2238,16 @@
                 const response = await fetch('/api/training/teacher/status');
                 if (!response.ok) return;
                 const status = await response.json();
-                
+
                 const wasPending = !!pendingTeacherQuestion;
                 pendingTeacherQuestion = status.pending_question;
-                
+
                 if (status.waiting_for_answer) {
                     document.body.classList.add('teacher-intervention-active');
                     // Ensure the UI shows the question if it's new
                     if (!wasPending && pendingTeacherQuestion) {
-                         const chatMessages = document.getElementById('chat-messages');
-                         const questionHtml = `
+                        const chatMessages = document.getElementById('chat-messages');
+                        const questionHtml = `
                             <div class="message-row assistant intervention">
                                 <div class="message-bubble system-alert">
                                     <strong>👨‍🏫 Teacher Intervention Requested</strong><br/>
@@ -2222,16 +2258,16 @@
                                 </div>
                             </div>
                          `;
-                         chatMessages.insertAdjacentHTML('beforeend', questionHtml);
-                         chatMessages.scrollTop = chatMessages.scrollHeight;
-                         
-                         // Focus input
-                         const input = document.getElementById('chat-input');
-                         if (input) {
+                        chatMessages.insertAdjacentHTML('beforeend', questionHtml);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                        // Focus input
+                        const input = document.getElementById('chat-input');
+                        if (input) {
                             input.focus();
                             input.placeholder = "Type your answer to teach the agent...";
                             input.classList.add('highlight');
-                         }
+                        }
                     }
                 } else {
                     document.body.classList.remove('teacher-intervention-active');
@@ -2248,16 +2284,16 @@
 
         // Hook into sendChatMessage to intercept answers
         const originalSendChatMessage = window.sendChatMessage;
-        window.sendChatMessage = async function() {
+        window.sendChatMessage = async function () {
             if (teacherModeActive && pendingTeacherQuestion) {
                 var input = document.getElementById('chat-input');
                 var message = input ? input.value.trim() : '';
                 if (!message) return;
-                
+
                 // Optimistic UI update
                 addChatMessage(message, 'user teacher-answer');
                 if (input) input.value = '';
-                
+
                 try {
                     const response = await fetch('/api/training/teacher/answer', {
                         method: 'POST',
@@ -2269,17 +2305,17 @@
                         // Clear pending state locally until next poll confirms
                         pendingTeacherQuestion = null;
                         document.body.classList.remove('teacher-intervention-active');
-                         const msgDiv = document.getElementById('chat-messages');
-                         msgDiv.insertAdjacentHTML('beforeend', 
+                        const msgDiv = document.getElementById('chat-messages');
+                        msgDiv.insertAdjacentHTML('beforeend',
                             `<div class="message-row system"><div class="message-bubble success">✅ Answer submitted to Agent Manager. Resuming training...</div></div>`
-                         );
-                         msgDiv.scrollTop = msgDiv.scrollHeight;
-                         
-                         const inputEl = document.getElementById('chat-input');
-                         if (inputEl) {
+                        );
+                        msgDiv.scrollTop = msgDiv.scrollHeight;
+
+                        const inputEl = document.getElementById('chat-input');
+                        if (inputEl) {
                             inputEl.classList.remove('highlight');
                             inputEl.placeholder = "Ask about robot status, control tips...";
-                         }
+                        }
                     } else {
                         window.showMessage(res.message || 'Failed to submit answer', true);
                     }
@@ -2300,10 +2336,22 @@
                 border: 2px solid #FFD700 !important;
                 background: rgba(255, 215, 0, 0.1);
             }
-            .message-bubble.system-alert {
-                background: #4a3b00;
-                border: 1px solid #FFD700;
-                color: #fff;
+            .chat-message.agent-manager {
+            align-self: flex-start;
+            background: #2d3748;
+            border-left: 3px solid #63b3ed;
+        }
+        .chat-message.subagent {
+            align-self: flex-start;
+            background: #1a3c5e; /* distinct blue-ish tint */
+            border-left: 3px solid #90cdf4;
+            margin-left: 20px; /* Indent to show it's a sub-call */
+        }
+        .chat-message.system-alert {
+            background: #742a2a;
+            color: #fff5f5;
+            border: 1px solid #ffbcbc;
+        }        color: #fff;
             }
             .message-bubble.success {
                 background: rgba(50, 205, 50, 0.2);
@@ -2322,5 +2370,5 @@
 
     </script>
 </body>
-</html>
 
+</html>

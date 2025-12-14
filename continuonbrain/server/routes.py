@@ -1358,6 +1358,19 @@ class SimpleJSONServer:
                     break
 
                 try:
+                    # Check for pending chat events
+                    # We loop quickly to drain queue if multiple messages arrived
+                    while True:
+                        try:
+                            if not self.service.chat_event_queue.empty():
+                                chat_evt = self.service.chat_event_queue.get_nowait()
+                                writer.write(f"data: {json.dumps({'chat': chat_evt})}\n\n".encode("utf-8"))
+                                await writer.drain()
+                            else:
+                                break
+                        except Exception:
+                            break
+
                     status = await self.service.GetRobotStatus()
                     loops = await self.service.GetLoopHealth()
                     tasks = await self.service.ListTasks(include_ineligible=True)

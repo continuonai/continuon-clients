@@ -8,7 +8,7 @@ import threading
 import os
 from collections import deque
 from pathlib import Path
-from typing import AsyncIterator, Dict, Optional
+from typing import AsyncIterator, Dict, Optional, Any, List
 
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController
 from continuonbrain.actuators.drivetrain_controller import DrivetrainController
@@ -176,6 +176,7 @@ class RobotService:
             config_dir=config_dir,
             status_provider=self.GetRobotStatus,
             gemma_chat=self.gemma_chat,
+            on_chat_event=self._on_chat_event,
         )
         # Background supervisors (threads; keep working even if no asyncio loop is kept alive).
         self._bg_stop_event = threading.Event()
@@ -194,6 +195,23 @@ class RobotService:
         self.teacher_pending_question: Optional[str] = None
         self.teacher_response_event = asyncio.Event()
         self.teacher_response_text: Optional[str] = None
+
+        self.teacher_response_text: Optional[str] = None
+        
+        # Real-time chat events for UI (SSE)
+        self.chat_event_queue = asyncio.Queue(maxsize=100)
+
+    def _on_chat_event(self, event: dict) -> None:
+        """Callback for ChatAdapter to push events to the UI."""
+        try:
+            if self.chat_event_queue.full():
+                try:
+                    self.chat_event_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            self.chat_event_queue.put_nowait(event)
+        except Exception:
+            pass
 
     def _check_safety_protocol(self, action: str, context: dict = None) -> tuple[bool, str]:
         """Check if an action complies with safety protocol.

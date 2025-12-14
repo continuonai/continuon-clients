@@ -51,6 +51,7 @@
           if (payload.loops) emit("loops", payload.loops);
           if (payload.tasks) emit("tasks", payload.tasks);
           if (payload.skills) emit("skills", payload.skills);
+          if (payload.chat) emit("chat", payload.chat);
         } catch (err) {
           console.warn("SSE parse error", err);
         }
@@ -65,12 +66,16 @@
     if (onLoops) subscribers.loops.push(onLoops);
     if (onTasks) subscribers.tasks.push(onTasks);
     if (onSkills) subscribers.skills.push(onSkills);
+    if (onChat) {
+      if (!subscribers.chat) subscribers.chat = [];
+      subscribers.chat.push(onChat);
+    }
     connect();
   }
 
   function startRealtime(options = {}) {
-    const { onStatus, onLoops, onTasks, onSkills, fallbackPollMs = 8000 } = options;
-    startEventStream({ onStatus, onLoops, onTasks, onSkills });
+    const { onStatus, onLoops, onTasks, onSkills, onChat, fallbackPollMs = 8000 } = options;
+    startEventStream({ onStatus, onLoops, onTasks, onSkills, onChat });
 
     if (fallbackPollMs && fallbackPollMs > 0) {
       setInterval(() => {
@@ -339,7 +344,7 @@ window.toggleHumanMode = async function () {
   const next = !on;
   try {
     localStorage.setItem(key, next ? '1' : '0');
-  } catch {}
+  } catch { }
   if (toggle) toggle.classList.toggle('active', next);
   if (stateEl) stateEl.textContent = next ? 'On' : 'Off';
   if (next) {
@@ -551,8 +556,8 @@ window.fetchTaskLibrary = async function () {
       const eligible = (t.eligible === true) ? 'eligible' : ((t.eligible === false) ? 'ineligible' : 'unknown');
       return (
         `<div class="stack-item" style="cursor:pointer" onclick="window.selectTask('${id}')">` +
-          `<div style="min-width:0;"><h4>${title}</h4><div class="stack-meta">${desc}</div></div>` +
-          `<div><span class="status-chip ${eligible === 'eligible' ? 'active' : 'warning'}">${eligible.toUpperCase()}</span></div>` +
+        `<div style="min-width:0;"><h4>${title}</h4><div class="stack-meta">${desc}</div></div>` +
+        `<div><span class="status-chip ${eligible === 'eligible' ? 'active' : 'warning'}">${eligible.toUpperCase()}</span></div>` +
         `</div>`
       );
     }).join('');
@@ -613,8 +618,8 @@ window.fetchSkillLibrary = async function () {
       const eligible = (s.eligible === true) ? 'eligible' : ((s.eligible === false) ? 'ineligible' : 'unknown');
       return (
         `<div class="stack-item" style="cursor:pointer" onclick="window.selectSkill('${id}')">` +
-          `<div style="min-width:0;"><h4>${title}</h4><div class="stack-meta">${desc}</div></div>` +
-          `<div><span class="status-chip ${eligible === 'eligible' ? 'active' : 'warning'}">${eligible.toUpperCase()}</span></div>` +
+        `<div style="min-width:0;"><h4>${title}</h4><div class="stack-meta">${desc}</div></div>` +
+        `<div><span class="status-chip ${eligible === 'eligible' ? 'active' : 'warning'}">${eligible.toUpperCase()}</span></div>` +
         `</div>`
       );
     }).join('');
@@ -661,8 +666,8 @@ window.pollLoopHealth = async function () {
       const locked = (val === 'locked' || val === 'closed' || val === 'false');
       return (
         `<div class="stack-item">` +
-          `<div><h4>${escapeHtml(k)}</h4><div class="stack-meta">${escapeHtml(val)}</div></div>` +
-          `<div><span class="status-chip ${locked ? 'warning' : 'active'}">${locked ? 'LOCKED' : 'OK'}</span></div>` +
+        `<div><h4>${escapeHtml(k)}</h4><div class="stack-meta">${escapeHtml(val)}</div></div>` +
+        `<div><span class="status-chip ${locked ? 'warning' : 'active'}">${locked ? 'LOCKED' : 'OK'}</span></div>` +
         `</div>`
       );
     });
@@ -780,8 +785,8 @@ window.updateAgentDetailsPanel = async function () {
         const alive = !!v?.alive;
         rows.push(
           `<div class="stack-item">` +
-            `<div><h4>${escapeHtml(k)}</h4><div class="stack-meta">${escapeHtml(v?.present ? (alive ? 'alive' : 'stopped') : 'absent')}</div></div>` +
-            `<div><span class="status-chip ${alive ? 'active' : 'warning'}">${alive ? 'OK' : 'OFF'}</span></div>` +
+          `<div><h4>${escapeHtml(k)}</h4><div class="stack-meta">${escapeHtml(v?.present ? (alive ? 'alive' : 'stopped') : 'absent')}</div></div>` +
+          `<div><span class="status-chip ${alive ? 'active' : 'warning'}">${alive ? 'OK' : 'OFF'}</span></div>` +
           `</div>`
         );
       }
@@ -895,18 +900,18 @@ window.renderPlanSteps = function (planResp) {
     const unc = (s?.uncertainty !== undefined) ? String(Number(s.uncertainty).toFixed(3)) : '—';
     return (
       `<div class="stack-item${active}">` +
-        `<div>` +
-          `<h4>Step ${i}</h4>` +
-          `<div class="stack-meta">Δ ${escapeHtml(delta)}</div>` +
-          `<div class="stack-meta">Pred ${escapeHtml(pred)}</div>` +
-          `<div class="stack-flags">` +
-            `<span class="task-tag">score:${escapeHtml(score)}</span>` +
-            `<span class="task-tag">unc:${escapeHtml(unc)}</span>` +
-          `</div>` +
-        `</div>` +
-        `<div style="display:flex; gap:8px; align-items:center;">` +
-          `<button class="rail-btn" onclick="window.executePlanStep(${i})">Execute</button>` +
-        `</div>` +
+      `<div>` +
+      `<h4>Step ${i}</h4>` +
+      `<div class="stack-meta">Δ ${escapeHtml(delta)}</div>` +
+      `<div class="stack-meta">Pred ${escapeHtml(pred)}</div>` +
+      `<div class="stack-flags">` +
+      `<span class="task-tag">score:${escapeHtml(score)}</span>` +
+      `<span class="task-tag">unc:${escapeHtml(unc)}</span>` +
+      `</div>` +
+      `</div>` +
+      `<div style="display:flex; gap:8px; align-items:center;">` +
+      `<button class="rail-btn" onclick="window.executePlanStep(${i})">Execute</button>` +
+      `</div>` +
       `</div>`
     );
   }).join('');
@@ -1009,19 +1014,19 @@ function renderPromotionAudit(container, status) {
     return `<div class="metric-row">` +
       `<div class="metric-label">${escapeHtml(label)}</div>` +
       `<div class="metric-value" style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">` +
-        `<span style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeVal}</span>` +
-        `${copyBtn}` +
+      `<span style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeVal}</span>` +
+      `${copyBtn}` +
       `</div>` +
-    `</div>`;
+      `</div>`;
   }
 
   const parts = [
     `<div class="stack-item">` +
-      `<div>` +
-        `<h4>Adapter promotion</h4>` +
-        `<div class="stack-meta">Latest candidate → current decision</div>` +
-      `</div>` +
-      `<div>${badge}</div>` +
+    `<div>` +
+    `<h4>Adapter promotion</h4>` +
+    `<div class="stack-meta">Latest candidate → current decision</div>` +
+    `</div>` +
+    `<div>${badge}</div>` +
     `</div>`,
     row('When', ts, false),
     row('Reason', reason, false),
@@ -1076,10 +1081,10 @@ function renderCloudReadiness(payload) {
     return `<div class="metric-row">` +
       `<div class="metric-label">${escapeHtml(label)}</div>` +
       `<div class="metric-value" style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">` +
-        `<span style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeVal}</span>` +
-        `${copyBtn}` +
+      `<span style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeVal}</span>` +
+      `${copyBtn}` +
       `</div>` +
-    `</div>`;
+      `</div>`;
   }
 
   const gates = Array.isArray(payload.gates) ? payload.gates : [];
@@ -1087,11 +1092,11 @@ function renderCloudReadiness(payload) {
     const ok = g && g.ok === true;
     return (
       `<div class="stack-item">` +
-        `<div>` +
-          `<h4>${escapeHtml(g?.name || 'gate')}</h4>` +
-          `<div class="stack-meta">${escapeHtml(g?.detail || '')}</div>` +
-        `</div>` +
-        `<div><span class="status-chip ${ok ? 'active' : 'warning'}">${ok ? 'OK' : 'BLOCKED'}</span></div>` +
+      `<div>` +
+      `<h4>${escapeHtml(g?.name || 'gate')}</h4>` +
+      `<div class="stack-meta">${escapeHtml(g?.detail || '')}</div>` +
+      `</div>` +
+      `<div><span class="status-chip ${ok ? 'active' : 'warning'}">${ok ? 'OK' : 'BLOCKED'}</span></div>` +
       `</div>`
     );
   }).join('');
@@ -1104,11 +1109,11 @@ function renderCloudReadiness(payload) {
 
   return [
     `<div class="stack-item">` +
-      `<div>` +
-        `<h4>Cloud handoff</h4>` +
-        `<div class="stack-meta">Seed + episodes → TPU v1 training</div>` +
-      `</div>` +
-      `<div>${chip}</div>` +
+    `<div>` +
+    `<h4>Cloud handoff</h4>` +
+    `<div class="stack-meta">Seed + episodes → TPU v1 training</div>` +
+    `</div>` +
+    `<div>${chip}</div>` +
     `</div>`,
     row('RLDS dir', rlds.dir || '—', true),
     row('Episodes', String(rlds.episodes_total ?? '—'), false),
@@ -1248,8 +1253,8 @@ function sparklineSvg(points, { width = 220, height = 46 } = {}) {
   const d = points.map((v, i) => `${i === 0 ? 'M' : 'L'} ${mapX(i).toFixed(2)} ${mapY(Number(v)).toFixed(2)}`).join(' ');
   return (
     `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">` +
-      `<path d="${d}" fill="none" stroke="rgba(124, 196, 255, 0.95)" stroke-width="2" stroke-linecap="round" />` +
-      `<text x="${width - 6}" y="${height - 8}" text-anchor="end" fill="rgba(255,255,255,0.55)" font-size="10">${escapeHtml(yMin.toExponential(2))}–${escapeHtml(yMax.toExponential(2))}</text>` +
+    `<path d="${d}" fill="none" stroke="rgba(124, 196, 255, 0.95)" stroke-width="2" stroke-linecap="round" />` +
+    `<text x="${width - 6}" y="${height - 8}" text-anchor="end" fill="rgba(255,255,255,0.55)" font-size="10">${escapeHtml(yMin.toExponential(2))}–${escapeHtml(yMax.toExponential(2))}</text>` +
     `</svg>`
   );
 }
@@ -1272,9 +1277,9 @@ function sparklineSvgWithThreshold(points, threshold, { width = 220, height = 46
   const thY = mapY(Number(threshold));
   return (
     `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">` +
-      `<path d="${d}" fill="none" stroke="rgba(124, 196, 255, 0.95)" stroke-width="2" stroke-linecap="round" />` +
-      `<path d="M ${pad} ${thY.toFixed(2)} L ${(width - pad).toFixed(2)} ${thY.toFixed(2)}" fill="none" stroke="rgba(255,77,109,0.9)" stroke-width="1.5" stroke-dasharray="4 3" />` +
-      `<text x="${width - 6}" y="${height - 8}" text-anchor="end" fill="rgba(255,255,255,0.55)" font-size="10">${escapeHtml(yMin.toExponential(2))}–${escapeHtml(yMax.toExponential(2))}</text>` +
+    `<path d="${d}" fill="none" stroke="rgba(124, 196, 255, 0.95)" stroke-width="2" stroke-linecap="round" />` +
+    `<path d="M ${pad} ${thY.toFixed(2)} L ${(width - pad).toFixed(2)} ${thY.toFixed(2)}" fill="none" stroke="rgba(255,77,109,0.9)" stroke-width="1.5" stroke-dasharray="4 3" />` +
+    `<text x="${width - 6}" y="${height - 8}" text-anchor="end" fill="rgba(255,255,255,0.55)" font-size="10">${escapeHtml(yMin.toExponential(2))}–${escapeHtml(yMax.toExponential(2))}</text>` +
     `</svg>`
   );
 }
@@ -1320,11 +1325,11 @@ function renderTrainingDashboard({ status, metrics, evals, tasks, skills }) {
   function card(title, subtitle, rightHtml, bodyHtml) {
     return (
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>${escapeHtml(title)}</h4>` +
-          `<div class="stack-meta">${escapeHtml(subtitle || '')}</div>` +
-        `</div>` +
-        `<div>${rightHtml || ''}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>${escapeHtml(title)}</h4>` +
+      `<div class="stack-meta">${escapeHtml(subtitle || '')}</div>` +
+      `</div>` +
+      `<div>${rightHtml || ''}</div>` +
       `</div>` +
       (bodyHtml ? `<div class="panel-ghost" style="margin-top:10px;">${bodyHtml}</div>` : '')
     );
@@ -1342,9 +1347,9 @@ function renderTrainingDashboard({ status, metrics, evals, tasks, skills }) {
 
   const lossGrid = (
     `<div style="display:grid; grid-template-columns: 1fr; gap:10px;">` +
-      `<div class="metric-row"><div class="metric-label">Fast</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(fastPts)}<span class="stack-meta">${escapeHtml(loopSummary('fast'))}</span></div></div>` +
-      `<div class="metric-row"><div class="metric-label">Mid</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(midPts)}<span class="stack-meta">${escapeHtml(loopSummary('mid'))}</span></div></div>` +
-      `<div class="metric-row"><div class="metric-label">Slow</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(slowPts)}<span class="stack-meta">${escapeHtml(loopSummary('slow'))}</span></div></div>` +
+    `<div class="metric-row"><div class="metric-label">Fast</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(fastPts)}<span class="stack-meta">${escapeHtml(loopSummary('fast'))}</span></div></div>` +
+    `<div class="metric-row"><div class="metric-label">Mid</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(midPts)}<span class="stack-meta">${escapeHtml(loopSummary('mid'))}</span></div></div>` +
+    `<div class="metric-row"><div class="metric-label">Slow</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(slowPts)}<span class="stack-meta">${escapeHtml(loopSummary('slow'))}</span></div></div>` +
     `</div>`
   );
 
@@ -1417,11 +1422,11 @@ function renderTrainingDashboard({ status, metrics, evals, tasks, skills }) {
       const name = (src.dir || '').split('/').slice(-1)[0] || 'tool dataset';
       rows.push(
         `<div class="stack-item">` +
-          `<div style="min-width:0;">` +
-            `<h4>${escapeHtml(name)}</h4>` +
-            `<div class="stack-meta">episodes:${escapeHtml(String(src.episodes ?? '—'))} steps:${escapeHtml(String(src.steps_total ?? '—'))} tool-call rate:${escapeHtml(pct(src.tool_call_rate))}</div>` +
-          `</div>` +
-          `<div>${chip(pct(src.tool_call_rate), (src.tool_call_rate ?? 0) > 0.12 ? 'good' : 'warn')}</div>` +
+        `<div style="min-width:0;">` +
+        `<h4>${escapeHtml(name)}</h4>` +
+        `<div class="stack-meta">episodes:${escapeHtml(String(src.episodes ?? '—'))} steps:${escapeHtml(String(src.steps_total ?? '—'))} tool-call rate:${escapeHtml(pct(src.tool_call_rate))}</div>` +
+        `</div>` +
+        `<div>${chip(pct(src.tool_call_rate), (src.tool_call_rate ?? 0) > 0.12 ? 'good' : 'warn')}</div>` +
         `</div>` +
         `<div class="metric-row"><div class="metric-label">Top tools</div><div class="metric-value"><span class="stack-meta">${escapeHtml(topLine || '—')}</span></div></div>`
       );
@@ -1554,8 +1559,8 @@ window.predictToolRouter = async function () {
     }
     if (out) out.innerHTML = preds.map((p) => (
       `<div class="stack-item">` +
-        `<div><h4>${escapeHtml(p.tool || 'tool')}</h4><div class="stack-meta">score ${escapeHtml(fmtNum(p.score))}</div></div>` +
-        `<div>${chip(pct(p.score), (p.score ?? 0) > 0.35 ? 'good' : 'info')}</div>` +
+      `<div><h4>${escapeHtml(p.tool || 'tool')}</h4><div class="stack-meta">score ${escapeHtml(fmtNum(p.score))}</div></div>` +
+      `<div>${chip(pct(p.score), (p.score ?? 0) > 0.35 ? 'good' : 'info')}</div>` +
       `</div>`
     )).join('');
   } catch (err) {
@@ -1584,8 +1589,8 @@ window.predictToolRouterResearch = async function () {
     }
     out.innerHTML = preds.map((p) => (
       `<div class="stack-item">` +
-        `<div style="min-width:0;"><h4>${escapeHtml(p.tool || 'tool')}</h4><div class="stack-meta">score ${escapeHtml(fmtNum(p.score))}</div></div>` +
-        `<div>${chip(pct(p.score), (p.score ?? 0) > 0.35 ? 'good' : 'info')}</div>` +
+      `<div style="min-width:0;"><h4>${escapeHtml(p.tool || 'tool')}</h4><div class="stack-meta">score ${escapeHtml(fmtNum(p.score))}</div></div>` +
+      `<div>${chip(pct(p.score), (p.score ?? 0) > 0.35 ? 'good' : 'info')}</div>` +
       `</div>`
     )).join('');
   } catch (err) {
@@ -1671,95 +1676,95 @@ window.updateResearchDashboard = async function () {
 
     const liveHtml =
       `<div class="stack-item primary">` +
-        `<div style="min-width:0;">` +
-          `<h4>Control loop tick latency (real)</h4>` +
-          `<div class="stack-meta">Measured in this runtime process; proves scheduler cadence. Threshold is ${escapeHtml(String(loopTarget))}ms.</div>` +
-        `</div>` +
-        `<div>${(loopP95 != null) ? chip('p95 ' + fmtNum(loopP95) + 'ms', (Number(loopP95) <= Number(loopTarget) ? 'good' : 'warn')) : chip('no samples', 'warn')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Control loop tick latency (real)</h4>` +
+      `<div class="stack-meta">Measured in this runtime process; proves scheduler cadence. Threshold is ${escapeHtml(String(loopTarget))}ms.</div>` +
+      `</div>` +
+      `<div>${(loopP95 != null) ? chip('p95 ' + fmtNum(loopP95) + 'ms', (Number(loopP95) <= Number(loopTarget) ? 'good' : 'warn')) : chip('no samples', 'warn')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Tick period</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvgWithThreshold(loopPts, loopTarget)}<span class="stack-meta">p50:${escapeHtml(fmtNum(loop?.period_ms?.p50))} p95:${escapeHtml(fmtNum(loopP95))} p99:${escapeHtml(fmtNum(loop?.period_ms?.p99))} misses:${escapeHtml(String(loop?.deadline_misses ?? '—'))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Work time</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(safeSeries(loop?.work_ms?.points || []))}<span class="stack-meta">p95:${escapeHtml(fmtNum(loop?.work_ms?.p95))}ms</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Resources</div><div class="metric-value"><span class="stack-meta">cpu:${escapeHtml(cpuTemp == null ? '—' : (fmtNum(cpuTemp) + '°C'))} mem:${escapeHtml(memPct == null ? '—' : (fmtNum(memPct) + '%'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Tick period</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvgWithThreshold(loopPts, loopTarget)}<span class="stack-meta">p50:${escapeHtml(fmtNum(loop?.period_ms?.p50))} p95:${escapeHtml(fmtNum(loopP95))} p99:${escapeHtml(fmtNum(loop?.period_ms?.p99))} misses:${escapeHtml(String(loop?.deadline_misses ?? '—'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Work time</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(safeSeries(loop?.work_ms?.points || []))}<span class="stack-meta">p95:${escapeHtml(fmtNum(loop?.work_ms?.p95))}ms</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Resources</div><div class="metric-value"><span class="stack-meta">cpu:${escapeHtml(cpuTemp == null ? '—' : (fmtNum(cpuTemp) + '°C'))} mem:${escapeHtml(memPct == null ? '—' : (fmtNum(memPct) + '%'))}</span></div></div>` +
       `</div>` +
 
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>Architecture participation (alive subsystems)</h4>` +
-          `<div class="stack-meta">Mode + learners + orchestrator threads + RLDS chat logging gate.</div>` +
-        `</div>` +
-        `<div>${chip(mode, 'info')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Architecture participation (alive subsystems)</h4>` +
+      `<div class="stack-meta">Mode + learners + orchestrator threads + RLDS chat logging gate.</div>` +
+      `</div>` +
+      `<div>${chip(mode, 'info')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Chat→RLDS</div><div class="metric-value">${chip(String(!!chatRlds), chatRlds ? 'good' : 'warn')}</div></div>` +
-        `<div class="metric-row"><div class="metric-label">Background learner</div><div class="metric-value"><span class="stack-meta">running:${escapeHtml(String(backgroundLearner?.running ?? '—'))} paused:${escapeHtml(String(backgroundLearner?.paused ?? '—'))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Threads</div><div class="metric-value"><span class="stack-meta">chat_learn:${escapeHtml(String(tasksMeta?.chat_learn_thread?.alive ?? '—'))} orchestrator:${escapeHtml(String(tasksMeta?.orchestrator_thread?.alive ?? '—'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Chat→RLDS</div><div class="metric-value">${chip(String(!!chatRlds), chatRlds ? 'good' : 'warn')}</div></div>` +
+      `<div class="metric-row"><div class="metric-label">Background learner</div><div class="metric-value"><span class="stack-meta">running:${escapeHtml(String(backgroundLearner?.running ?? '—'))} paused:${escapeHtml(String(backgroundLearner?.paused ?? '—'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Threads</div><div class="metric-value"><span class="stack-meta">chat_learn:${escapeHtml(String(tasksMeta?.chat_learn_thread?.alive ?? '—'))} orchestrator:${escapeHtml(String(tasksMeta?.orchestrator_thread?.alive ?? '—'))}</span></div></div>` +
       `</div>` +
 
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>HOPE/CMS loop health + gates</h4>` +
-          `<div class="stack-meta">Fast/Mid/Slow (hz, implied latency) + motion/record gates.</div>` +
-        `</div>` +
-        `<div>${gates?.allow_motion ? chip('motion allowed', 'good') : chip('motion locked', 'warn')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>HOPE/CMS loop health + gates</h4>` +
+      `<div class="stack-meta">Fast/Mid/Slow (hz, implied latency) + motion/record gates.</div>` +
+      `</div>` +
+      `<div>${gates?.allow_motion ? chip('motion allowed', 'good') : chip('motion locked', 'warn')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Gates</div><div class="metric-value"><span class="stack-meta">allow_motion:${escapeHtml(String(gates?.allow_motion ?? '—'))} record:${escapeHtml(String(gates?.record_episodes ?? '—'))} inference:${escapeHtml(String(gates?.run_inference ?? '—'))} self_train:${escapeHtml(String(gates?.self_train ?? '—'))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Loops</div><div class="metric-value"><span class="stack-meta">fast:${escapeHtml(String(hopeLoops?.fast?.hz ?? '—'))}Hz mid:${escapeHtml(String(hopeLoops?.mid?.hz ?? '—'))}Hz slow:${escapeHtml(String(hopeLoops?.slow?.hz ?? '—'))}Hz wave/particle:${escapeHtml(String(waveParticle ?? '—'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Gates</div><div class="metric-value"><span class="stack-meta">allow_motion:${escapeHtml(String(gates?.allow_motion ?? '—'))} record:${escapeHtml(String(gates?.record_episodes ?? '—'))} inference:${escapeHtml(String(gates?.run_inference ?? '—'))} self_train:${escapeHtml(String(gates?.self_train ?? '—'))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Loops</div><div class="metric-value"><span class="stack-meta">fast:${escapeHtml(String(hopeLoops?.fast?.hz ?? '—'))}Hz mid:${escapeHtml(String(hopeLoops?.mid?.hz ?? '—'))}Hz slow:${escapeHtml(String(hopeLoops?.slow?.hz ?? '—'))}Hz wave/particle:${escapeHtml(String(waveParticle ?? '—'))}</span></div></div>` +
       `</div>` +
       `<div class="stack-item primary">` +
-        `<div style="min-width:0;">` +
-          `<h4>WaveCore loops (loss sparklines)</h4>` +
-          `<div class="stack-meta">From <code>/api/training/metrics</code> (wavecore_*_metrics.json).</div>` +
-        `</div>` +
-        `<div>${chip('live', 'good')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>WaveCore loops (loss sparklines)</h4>` +
+      `<div class="stack-meta">From <code>/api/training/metrics</code> (wavecore_*_metrics.json).</div>` +
+      `</div>` +
+      `<div>${chip('live', 'good')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Fast</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(fastLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(fastLoss.at(-1)))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Mid</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(midLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(midLoss.at(-1)))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Slow</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(slowLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(slowLoss.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Fast</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(fastLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(fastLoss.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Mid</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(midLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(midLoss.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Slow</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(slowLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(slowLoss.at(-1)))}</span></div></div>` +
       `</div>` +
 
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>Symbolic search: Tool router (train + eval)</h4>` +
-          `<div class="stack-meta">Predict tools for prompts; accuracy/top‑k track “search quality”.</div>` +
-        `</div>` +
-        `<div>${chip('search', 'info')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Symbolic search: Tool router (train + eval)</h4>` +
+      `<div class="stack-meta">Predict tools for prompts; accuracy/top‑k track “search quality”.</div>` +
+      `</div>` +
+      `<div>${chip('search', 'info')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Loss</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(toolLoss.at(-1)))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Accuracy</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolAcc)}<span class="stack-meta">latest:${escapeHtml(pct(toolAcc.at(-1)))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Eval top‑1</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop1)}<span class="stack-meta">latest:${escapeHtml(pct(toolTop1.at(-1)))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Eval top‑5</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop5)}<span class="stack-meta">latest:${escapeHtml(pct(toolTop5.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Loss</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolLoss)}<span class="stack-meta">latest:${escapeHtml(fmtNum(toolLoss.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Accuracy</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolAcc)}<span class="stack-meta">latest:${escapeHtml(pct(toolAcc.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Eval top‑1</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop1)}<span class="stack-meta">latest:${escapeHtml(pct(toolTop1.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Eval top‑5</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop5)}<span class="stack-meta">latest:${escapeHtml(pct(toolTop5.at(-1)))}</span></div></div>` +
       `</div>` +
 
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>HOPE eval evidence (RLDS)</h4>` +
-          `<div class="stack-meta">Heuristic grader over <code>hope_eval_*.json</code> episodes: non-empty answers and fallback usage.</div>` +
-        `</div>` +
-        `<div>${hopeLatest ? chip(pct(hopeLatest.success_rate), (hopeLatest.success_rate ?? 0) > 0.9 ? 'good' : 'warn') : chip('no episodes', 'warn')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>HOPE eval evidence (RLDS)</h4>` +
+      `<div class="stack-meta">Heuristic grader over <code>hope_eval_*.json</code> episodes: non-empty answers and fallback usage.</div>` +
+      `</div>` +
+      `<div>${hopeLatest ? chip(pct(hopeLatest.success_rate), (hopeLatest.success_rate ?? 0) > 0.9 ? 'good' : 'warn') : chip('no episodes', 'warn')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Success</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(hopeSeries)}<span class="stack-meta">latest:${escapeHtml(pct(hopeLatest?.success_rate))} fallback:${escapeHtml(pct(hopeLatest?.fallback_rate))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">FACTS</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(factsSeries)}<span class="stack-meta">recent facts_eval</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Wiki</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(wikiSeries)}<span class="stack-meta">recent wiki_learn</span></div></div>` +
-        `${hopeLatest?.path ? `<div class="metric-row"><div class="metric-label">Latest</div><div class="metric-value"><span class="stack-meta" style="max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(hopeLatest.path)}</span></div></div>` : ''}` +
+      `<div class="metric-row"><div class="metric-label">Success</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(hopeSeries)}<span class="stack-meta">latest:${escapeHtml(pct(hopeLatest?.success_rate))} fallback:${escapeHtml(pct(hopeLatest?.fallback_rate))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">FACTS</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(factsSeries)}<span class="stack-meta">recent facts_eval</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Wiki</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(wikiSeries)}<span class="stack-meta">recent wiki_learn</span></div></div>` +
+      `${hopeLatest?.path ? `<div class="metric-row"><div class="metric-label">Latest</div><div class="metric-value"><span class="stack-meta" style="max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(hopeLatest.path)}</span></div></div>` : ''}` +
       `</div>` +
 
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>Data quality / learnability</h4>` +
-          `<div class="stack-meta">Explains flat loss curves: are actions/observations present and non‑zero?</div>` +
-        `</div>` +
-        `<div>${dq?.status === 'ok' ? chip('scanned', 'good') : chip('unavailable', 'warn')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Data quality / learnability</h4>` +
+      `<div class="stack-meta">Explains flat loss curves: are actions/observations present and non‑zero?</div>` +
+      `</div>` +
+      `<div>${dq?.status === 'ok' ? chip('scanned', 'good') : chip('unavailable', 'warn')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Action present</div><div class="metric-value">${chip(pct(dqAction.present_rate), (dqAction.present_rate ?? 0) > 0.8 ? 'good' : 'warn')}</div></div>` +
-        `<div class="metric-row"><div class="metric-label">Action non‑zero</div><div class="metric-value">${chip(pct(dqAction.nonzero_rate), (dqAction.nonzero_rate ?? 0) > 0.5 ? 'good' : 'warn')} <span class="stack-meta">mean|a|:${escapeHtml(fmtNum(dqAction.mean_abs_sum))}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Obs present</div><div class="metric-value">${chip(pct(dqObs.present_rate), (dqObs.present_rate ?? 0) > 0.8 ? 'good' : 'warn')}</div></div>` +
-        `<div class="metric-row"><div class="metric-label">Obs numeric</div><div class="metric-value">${chip(pct(dqObs.numeric_rate), (dqObs.numeric_rate ?? 0) > 0.5 ? 'good' : 'warn')} <span class="stack-meta">avg scalars:${escapeHtml(fmtNum(dqObs.avg_numeric_scalars))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Action present</div><div class="metric-value">${chip(pct(dqAction.present_rate), (dqAction.present_rate ?? 0) > 0.8 ? 'good' : 'warn')}</div></div>` +
+      `<div class="metric-row"><div class="metric-label">Action non‑zero</div><div class="metric-value">${chip(pct(dqAction.nonzero_rate), (dqAction.nonzero_rate ?? 0) > 0.5 ? 'good' : 'warn')} <span class="stack-meta">mean|a|:${escapeHtml(fmtNum(dqAction.mean_abs_sum))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Obs present</div><div class="metric-value">${chip(pct(dqObs.present_rate), (dqObs.present_rate ?? 0) > 0.8 ? 'good' : 'warn')}</div></div>` +
+      `<div class="metric-row"><div class="metric-label">Obs numeric</div><div class="metric-value">${chip(pct(dqObs.numeric_rate), (dqObs.numeric_rate ?? 0) > 0.5 ? 'good' : 'warn')} <span class="stack-meta">avg scalars:${escapeHtml(fmtNum(dqObs.avg_numeric_scalars))}</span></div></div>` +
       `</div>`;
 
     live.innerHTML = liveHtml;
@@ -1772,14 +1777,14 @@ window.updateResearchDashboard = async function () {
     const hopeImproving = hasHope ? (hopeSeries.at(-1) >= hopeSeries[0]) : false;
     claimCards.push(
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>Claim: HOPE/CMS stabilizes behavior while adding skills (anti-forgetting)</h4>` +
-          `<div class="stack-meta">Metric: success_rate over recent hope_eval RLDS episodes (heuristic grader).</div>` +
-        `</div>` +
-        `<div>${claimStatus(hasHope && hopeImproving, !hasHope)}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Claim: HOPE/CMS stabilizes behavior while adding skills (anti-forgetting)</h4>` +
+      `<div class="stack-meta">Metric: success_rate over recent hope_eval RLDS episodes (heuristic grader).</div>` +
+      `</div>` +
+      `<div>${claimStatus(hasHope && hopeImproving, !hasHope)}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Trend</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(hopeSeries)}<span class="stack-meta">${hasHope ? `first:${escapeHtml(pct(hopeSeries[0]))} last:${escapeHtml(pct(hopeSeries.at(-1)))}` : 'no hope_eval episodes found'}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Trend</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(hopeSeries)}<span class="stack-meta">${hasHope ? `first:${escapeHtml(pct(hopeSeries[0]))} last:${escapeHtml(pct(hopeSeries.at(-1)))}` : 'no hope_eval episodes found'}</span></div></div>` +
       `</div>`
     );
 
@@ -1788,14 +1793,14 @@ window.updateResearchDashboard = async function () {
     const slowDown = hasSlowLoss ? (slowLoss.at(-1) <= slowLoss[0]) : false;
     claimCards.push(
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>Claim: WaveCore loops improve with experience (loss down)</h4>` +
-          `<div class="stack-meta">Metric: slow loop loss curve (plus fast/mid).</div>` +
-        `</div>` +
-        `<div>${claimStatus(hasSlowLoss && slowDown, !hasSlowLoss)}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Claim: WaveCore loops improve with experience (loss down)</h4>` +
+      `<div class="stack-meta">Metric: slow loop loss curve (plus fast/mid).</div>` +
+      `</div>` +
+      `<div>${claimStatus(hasSlowLoss && slowDown, !hasSlowLoss)}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Slow loss</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(slowLoss)}<span class="stack-meta">${hasSlowLoss ? `first:${escapeHtml(fmtNum(slowLoss[0]))} last:${escapeHtml(fmtNum(slowLoss.at(-1)))}` : 'no wavecore_slow_metrics.json'}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Slow loss</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(slowLoss)}<span class="stack-meta">${hasSlowLoss ? `first:${escapeHtml(fmtNum(slowLoss[0]))} last:${escapeHtml(fmtNum(slowLoss.at(-1)))}` : 'no wavecore_slow_metrics.json'}</span></div></div>` +
       `</div>`
     );
 
@@ -1804,15 +1809,15 @@ window.updateResearchDashboard = async function () {
     const top1Improving = hasTop1 ? (toolTop1.at(-1) >= toolTop1[0]) : false;
     claimCards.push(
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>Claim: Symbolic search learns a better tool policy (top‑k up)</h4>` +
-          `<div class="stack-meta">Metric: tool_router eval top‑1/top‑5.</div>` +
-        `</div>` +
-        `<div>${claimStatus(hasTop1 && top1Improving, !hasTop1)}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Claim: Symbolic search learns a better tool policy (top‑k up)</h4>` +
+      `<div class="stack-meta">Metric: tool_router eval top‑1/top‑5.</div>` +
+      `</div>` +
+      `<div>${claimStatus(hasTop1 && top1Improving, !hasTop1)}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">Top‑1</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop1)}<span class="stack-meta">${hasTop1 ? `first:${escapeHtml(pct(toolTop1[0]))} last:${escapeHtml(pct(toolTop1.at(-1)))}` : 'no eval metrics yet'}</span></div></div>` +
-        `<div class="metric-row"><div class="metric-label">Top‑5</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop5)}<span class="stack-meta">latest:${escapeHtml(pct(toolTop5.at(-1)))}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Top‑1</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop1)}<span class="stack-meta">${hasTop1 ? `first:${escapeHtml(pct(toolTop1[0]))} last:${escapeHtml(pct(toolTop1.at(-1)))}` : 'no eval metrics yet'}</span></div></div>` +
+      `<div class="metric-row"><div class="metric-label">Top‑5</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${sparklineSvg(toolTop5)}<span class="stack-meta">latest:${escapeHtml(pct(toolTop5.at(-1)))}</span></div></div>` +
       `</div>`
     );
 
@@ -1820,15 +1825,15 @@ window.updateResearchDashboard = async function () {
     // Use control loop work time as proxy for SSM timing (should scale linearly with sequence length)
     const workMs = safeSeries(loop?.work_ms?.points || []);
     // Normalize work time to show linear scaling (convert ms to relative units, 0.06-0.44 range for display)
-    const ssmTiming = workMs.length > 0 
+    const ssmTiming = workMs.length > 0
       ? workMs.slice(-Math.min(20, workMs.length)).map(w => {
-          // Normalize: assume typical range 5-50ms, map to 0.06-0.44 for sparkline
-          const normalized = Math.max(0.06, Math.min(0.44, 0.06 + (w / 50) * 0.38));
-          return normalized;
-        })
+        // Normalize: assume typical range 5-50ms, map to 0.06-0.44 for sparkline
+        const normalized = Math.max(0.06, Math.min(0.44, 0.06 + (w / 50) * 0.38));
+        return normalized;
+      })
       : [];
     const hasSsmData = ssmTiming.length >= 2;
-    
+
     // CMS timescales: use actual loop Hz values to compute progress bars
     // Expected ranges: Fast ~12-20Hz, Mid ~6-10Hz, Slow ~0.5-2Hz
     const fastHz = hopeLoops?.fast?.hz ?? 0;
@@ -1837,25 +1842,25 @@ window.updateResearchDashboard = async function () {
     const fastPct = Math.min(100, Math.max(0, (fastHz / 20) * 100)); // 0-20Hz -> 0-100%
     const midPct = Math.min(100, Math.max(0, (midHz / 10) * 100)); // 0-10Hz -> 0-100%
     const slowPct = Math.min(100, Math.max(0, (slowHz / 2) * 100)); // 0-2Hz -> 0-100%
-    
+
     claimCards.push(
       `<div class="stack-item">` +
-        `<div style="min-width:0;">` +
-          `<h4>Claim: SSM (“Mamba-style”) wave path scales linearly with sequence length</h4>` +
-          `<div class="stack-meta">Metric: control loop work time (proxy for SSM timing, should scale ~linearly).</div>` +
-        `</div>` +
-        `<div>${hasSsmData ? chip('live', 'good') : chip('no data', 'warn')}</div>` +
+      `<div style="min-width:0;">` +
+      `<h4>Claim: SSM (“Mamba-style”) wave path scales linearly with sequence length</h4>` +
+      `<div class="stack-meta">Metric: control loop work time (proxy for SSM timing, should scale ~linearly).</div>` +
+      `</div>` +
+      `<div>${hasSsmData ? chip('live', 'good') : chip('no data', 'warn')}</div>` +
       `</div>` +
       `<div class="panel-ghost">` +
-        `<div class="metric-row"><div class="metric-label">SSM timing (work ms)</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${hasSsmData ? sparklineSvg(ssmTiming) : '<span class="stack-meta">no samples</span>'}${hasSsmData ? `<span class="stack-meta">p95:${escapeHtml(fmtNum(loop?.work_ms?.p95))}ms (linear scaling)</span>` : ''}</div></div>` +
-        `<div class="metric-row"><div class="metric-label">CMS timescales</div><div class="metric-value" style="min-width:340px;">` +
-          `<div class="stack-meta">Fast (reflex), Mid (adapter/sequence), Slow (consolidation)</div>` +
-          `<div style="display:grid; gap:10px; margin-top:8px;">` +
-            `<div><div class="stack-meta">Fast ${fastHz > 0 ? escapeHtml(fmtNum(fastHz)) + 'Hz' : '—'}</div><div class="progress-bar"><div class="progress-fill" style="width:${fastPct}%;"></div></div></div>` +
-            `<div><div class="stack-meta">Mid ${midHz > 0 ? escapeHtml(fmtNum(midHz)) + 'Hz' : '—'}</div><div class="progress-bar"><div class="progress-fill" style="width:${midPct}%;"></div></div></div>` +
-            `<div><div class="stack-meta">Slow ${slowHz > 0 ? escapeHtml(fmtNum(slowHz)) + 'Hz' : '—'}</div><div class="progress-bar"><div class="progress-fill" style="width:${slowPct}%;"></div></div></div>` +
-          `</div>` +
-        `</div></div>` +
+      `<div class="metric-row"><div class="metric-label">SSM timing (work ms)</div><div class="metric-value" style="display:flex; gap:10px; align-items:center;">${hasSsmData ? sparklineSvg(ssmTiming) : '<span class="stack-meta">no samples</span>'}${hasSsmData ? `<span class="stack-meta">p95:${escapeHtml(fmtNum(loop?.work_ms?.p95))}ms (linear scaling)</span>` : ''}</div></div>` +
+      `<div class="metric-row"><div class="metric-label">CMS timescales</div><div class="metric-value" style="min-width:340px;">` +
+      `<div class="stack-meta">Fast (reflex), Mid (adapter/sequence), Slow (consolidation)</div>` +
+      `<div style="display:grid; gap:10px; margin-top:8px;">` +
+      `<div><div class="stack-meta">Fast ${fastHz > 0 ? escapeHtml(fmtNum(fastHz)) + 'Hz' : '—'}</div><div class="progress-bar"><div class="progress-fill" style="width:${fastPct}%;"></div></div></div>` +
+      `<div><div class="stack-meta">Mid ${midHz > 0 ? escapeHtml(fmtNum(midHz)) + 'Hz' : '—'}</div><div class="progress-bar"><div class="progress-fill" style="width:${midPct}%;"></div></div></div>` +
+      `<div><div class="stack-meta">Slow ${slowHz > 0 ? escapeHtml(fmtNum(slowHz)) + 'Hz' : '—'}</div><div class="progress-bar"><div class="progress-fill" style="width:${slowPct}%;"></div></div></div>` +
+      `</div>` +
+      `</div></div>` +
       `</div>`
     );
 

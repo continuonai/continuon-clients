@@ -49,10 +49,13 @@ class ChatAdapter:
         config_dir: str,
         status_provider: Callable[[], Awaitable[dict]],
         gemma_chat: Optional[object] = None,
+        on_chat_event: Optional[Callable[[dict], Any]] = None,
     ) -> None:
         self.config_dir = config_dir
         self.status_provider = status_provider
         self.gemma_chat = gemma_chat
+        self.on_chat_event = on_chat_event
+        
         # Optional Hailo vision offload (subprocess-safe). Used only when an image is attached.
         self._hailo_vision = None
         self._hailo_vision_state_cache: Optional[dict] = None
@@ -158,6 +161,18 @@ class ChatAdapter:
                         "model_hint": delegate_model_hint,
                         "response": sub_text[:2000],
                     }
+                    if self.on_chat_event:
+                        try:
+                            self.on_chat_event({
+                                "role": "subagent",
+                                "name": "Gemma 3n",  # UI label
+                                "text": sub_text[:2000],
+                                "model": delegate_model_hint,
+                                "timestamp": datetime.datetime.now().isoformat(),
+                            })
+                        except Exception:
+                            pass
+
                     # Feed the subagent answer into the system prompt so the Agent Manager can learn/incorporate.
                     prompt = (
                         prompt
@@ -242,6 +257,19 @@ class ChatAdapter:
             except Exception:
                 pass
             self._log_chat(message, response, status)
+            
+            if self.on_chat_event:
+                try:
+                    self.on_chat_event({
+                        "role": "agent_manager",
+                        "name": "Agent Manager",
+                        "text": response,
+                        "model": model_hint or "primary",
+                        "timestamp": datetime.datetime.now().isoformat(),
+                    })
+                except Exception:
+                    pass
+
             self._maybe_log_chat_rlds(
                 message=message,
                 response=response,
