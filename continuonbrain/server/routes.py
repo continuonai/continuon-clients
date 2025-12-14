@@ -1439,7 +1439,43 @@ class SimpleJSONServer:
         return summary
 
     def _json_response(self, payload: Any, status_code: int = 200) -> bytes:
-        body = json.dumps(payload)
+        def _default(o: Any):  # noqa: ANN401
+            # Make API responses robust to numpy/jax scalars (e.g. float32) and other
+            # common non-JSON-native types.
+            try:
+                import numpy as np  # type: ignore
+
+                if isinstance(o, np.generic):
+                    return o.item()
+                if isinstance(o, np.ndarray):
+                    return o.tolist()
+            except Exception:
+                pass
+
+            # Generic fallbacks (covers some torch/jax types as well).
+            try:
+                if hasattr(o, "tolist") and callable(getattr(o, "tolist")):
+                    return o.tolist()
+            except Exception:
+                pass
+            try:
+                if hasattr(o, "item") and callable(getattr(o, "item")):
+                    return o.item()
+            except Exception:
+                pass
+            try:
+                if isinstance(o, Path):
+                    return str(o)
+            except Exception:
+                pass
+            try:
+                if isinstance(o, set):
+                    return list(o)
+            except Exception:
+                pass
+            return str(o)
+
+        body = json.dumps(payload, default=_default)
         status_text = "OK" if status_code < 400 else "Error"
         return (
             f"HTTP/1.1 {status_code} {status_text}\r\n"
