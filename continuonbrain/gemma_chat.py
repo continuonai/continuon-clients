@@ -383,8 +383,13 @@ class GemmaChat:
                 logger.error(f"API chat failed: {e}")
                 return f"Error from remote API: {str(e)}"
         
+        # --- PATH 1.5: Explicit Mock/Debug ---
+        if model_hint == "mock":
+            return f"Mock response. System Context length: {len(system_context) if system_context else 0}. Message received: {message}"
+
         # --- PATH 2: Local Transformers ---
         if model_hint and model_hint != self.model_name:
+
             # Attempt to switch models ONLY if available locally (or downloads explicitly allowed).
             if _model_in_local_hf_cache(model_hint) or _allow_model_downloads():
                 self.model_name = model_hint
