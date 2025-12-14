@@ -938,6 +938,10 @@ class RobotService:
 
                 with self._orchestrator_lock:
                     actions = {}
+                    # IMPORTANT: JAX/tensorstore wheels are often broken/mismatched on Pi images.
+                    # Importing them can hard-crash the process (abort), which cannot be caught.
+                    # Therefore, we only attempt JAX-based tasks when explicitly enabled.
+                    jax_tasks_ok = os.environ.get("CONTINUON_ENABLE_JAX_TASKS", "0").lower() in ("1", "true", "yes", "on")
 
                     # 1) HOPE CMS compaction (cheap, helps stability/memory).
                     cms_every = int(orch.get("cms_compact_every_s", 600) or 600)
@@ -983,7 +987,10 @@ class RobotService:
 
                     # 3) WaveCore (SSM-ish/JAX seed loops): only if resources are OK.
                     wave_every = int(orch.get("wavecore_every_s", 1800) or 1800)
-                    if res.level not in (ResourceLevel.CRITICAL,) and (now - last["wavecore"] >= wave_every):
+                    if (not jax_tasks_ok) and (now - last["wavecore"] >= wave_every):
+                        actions["wavecore"] = {"ok": False, "skipped": "jax_tasks_disabled"}
+                        last["wavecore"] = now
+                    elif res.level not in (ResourceLevel.CRITICAL,) and (now - last["wavecore"] >= wave_every):
                         try:
                             _pause_bg()
                             fast_steps = int(orch.get("wavecore_steps_fast", 60) or 60)
@@ -1012,7 +1019,10 @@ class RobotService:
 
                     # 4) Tool-router refresh (heavy).
                     tool_every = int(orch.get("tool_router_every_s", 3600) or 3600)
-                    if res.level == ResourceLevel.NORMAL and (now - last["tool_router"] >= tool_every):
+                    if (not jax_tasks_ok) and (now - last["tool_router"] >= tool_every):
+                        actions["tool_router"] = {"ok": False, "skipped": "jax_tasks_disabled"}
+                        last["tool_router"] = now
+                    elif res.level == ResourceLevel.NORMAL and (now - last["tool_router"] >= tool_every):
                         try:
                             _pause_bg()
                             steps = int(orch.get("tool_router_steps", 200) or 200)

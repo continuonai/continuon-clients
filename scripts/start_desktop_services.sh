@@ -76,9 +76,12 @@ export CONTINUON_LOG_CHAT_RLDS="${CONTINUON_LOG_CHAT_RLDS:-1}"
 export CONTINUON_APPLY_SELF_TRAINING_SETTINGS="${CONTINUON_APPLY_SELF_TRAINING_SETTINGS:-1}"
 export CONTINUON_START_TRAINING_REPORT_DAEMON="${CONTINUON_START_TRAINING_REPORT_DAEMON:-1}"
 
-export CONTINUON_DISABLE_CHAT_LEARN="${CONTINUON_DISABLE_CHAT_LEARN:-0}"
-export CONTINUON_DISABLE_AUTONOMOUS_LEARNER="${CONTINUON_DISABLE_AUTONOMOUS_LEARNER:-0}"
-export CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR="${CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR:-0}"
+# For this desktop "self training" launcher, force-enable the schedulers unless
+# the operator explicitly edits the script (these env vars may be inherited as 1
+# from other shells/services).
+export CONTINUON_DISABLE_CHAT_LEARN="0"
+export CONTINUON_DISABLE_AUTONOMOUS_LEARNER="0"
+export CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR="0"
 
 needs_sudo() {
   # Need sudo if we cannot write to CONFIG_DIR (common for /opt installs).
@@ -90,6 +93,25 @@ sudo_env_prefix() {
   # We intentionally enumerate CONTINUON_* vars because sudo may drop -E env.
   cat <<EOF
 sudo env \
+PYTHONPATH=${PYTHONPATH} \
+CONFIG_DIR=${CONFIG_DIR} \
+CONTINUON_FORCE_REAL_HARDWARE=${CONTINUON_FORCE_REAL_HARDWARE} \
+CONTINUON_SKIP_MOTION_HW=${CONTINUON_SKIP_MOTION_HW} \
+CONTINUON_HEADLESS=${CONTINUON_HEADLESS} \
+CONTINUON_UI_AUTOLAUNCH=${CONTINUON_UI_AUTOLAUNCH} \
+CONTINUON_FORCE_MOCK_HARDWARE=${CONTINUON_FORCE_MOCK_HARDWARE} \
+CONTINUON_ENABLE_BACKGROUND_TRAINER=${CONTINUON_ENABLE_BACKGROUND_TRAINER} \
+CONTINUON_LOG_CHAT_RLDS=${CONTINUON_LOG_CHAT_RLDS} \
+CONTINUON_DISABLE_CHAT_LEARN=${CONTINUON_DISABLE_CHAT_LEARN} \
+CONTINUON_DISABLE_AUTONOMOUS_LEARNER=${CONTINUON_DISABLE_AUTONOMOUS_LEARNER} \
+CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR=${CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR}
+EOF
+}
+
+env_prefix() {
+  # Same as sudo_env_prefix but without sudo.
+  cat <<EOF
+env \
 PYTHONPATH=${PYTHONPATH} \
 CONFIG_DIR=${CONFIG_DIR} \
 CONTINUON_FORCE_REAL_HARDWARE=${CONTINUON_FORCE_REAL_HARDWARE} \
@@ -127,11 +149,30 @@ report_running() {
   return 1
 }
 
+kill_stray_processes() {
+  # Best-effort cleanup for stale services (common when ports are left bound).
+  # We intentionally target module names to avoid killing unrelated python.
+  local pids
+  pids="$(pgrep -f 'continuonbrain.startup_manager' || true)"
+  if [[ -n "${pids}" ]]; then
+    echo "Stopping stray startup_manager PID(s): ${pids}"
+    sudo kill ${pids} 2>/dev/null || true
+  fi
+  pids="$(pgrep -f 'continuonbrain.robot_api_server' || true)"
+  if [[ -n "${pids}" ]]; then
+    echo "Stopping stray robot_api_server PID(s): ${pids}"
+    sudo kill ${pids} 2>/dev/null || true
+  fi
+}
+
 cmd_start() {
   if is_running; then
     echo "Already running (pid=$(cat "${PIDFILE}"))"
     exit 0
   fi
+
+  # Ensure we own port 8080 and don't accidentally spawn duplicates.
+  kill_stray_processes
 
   if [[ "${CONTINUON_APPLY_SELF_TRAINING_SETTINGS}" == "1" ]]; then
     "${REPO_ROOT}/scripts/enable_self_training.sh" || true
@@ -154,7 +195,7 @@ echo "Training: BACKGROUND_TRAINER=${CONTINUON_ENABLE_BACKGROUND_TRAINER} LOG_CH
     ) &
   else
     (
-      "${PY}" -m continuonbrain.startup_manager --config-dir "${CONFIG_DIR}" \
+      $(env_prefix) "${PY}" -m continuonbrain.startup_manager --config-dir "${CONFIG_DIR}" \
         >> "${LOG_FILE}" 2>&1
     ) &
   fi
@@ -184,7 +225,7 @@ echo "Training: BACKGROUND_TRAINER=${CONTINUON_ENABLE_BACKGROUND_TRAINER} LOG_CH
           $(sudo_env_prefix) "${REPO_ROOT}/scripts/training_report_daemon.sh"
         ) >> "${LOG_FILE}" 2>&1 &
       else
-        "${REPO_ROOT}/scripts/training_report_daemon.sh" >> "${LOG_FILE}" 2>&1 &
+        $(env_prefix) "${REPO_ROOT}/scripts/training_report_daemon.sh" >> "${LOG_FILE}" 2>&1 &
       fi
       echo $! > "${REPORT_PIDFILE}"
       echo "Training report daemon started (pid=$(cat "${REPORT_PIDFILE}"))."
@@ -221,6 +262,9 @@ cmd_stop() {
     fi
     rm -f "${REPORT_PIDFILE}" || true
   fi
+
+  # Also stop any strays not tracked by pidfiles.
+  kill_stray_processes
 }
 
 cmd_status() {
