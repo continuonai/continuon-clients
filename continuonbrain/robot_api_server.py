@@ -6,6 +6,7 @@ Runs against real hardware by default with optional mock fallback for dev.
 import asyncio
 import threading
 import os
+from collections import deque
 from pathlib import Path
 from typing import AsyncIterator, Dict, Optional
 
@@ -112,6 +113,18 @@ class RobotService:
         self.stream_helper = VideoStreamHelper(self)
         self._tool_router_bundle = None
         self.pairing = PairingManager(config_dir)
+
+        # Control-loop timing telemetry (real scheduling + work-time in this process).
+        # Used by the Research dashboard to prove "<=100ms tick" claims.
+        self._control_loop_stop = threading.Event()
+        self._control_loop_thread: Optional[threading.Thread] = None
+        self._control_loop_period_ms = deque(maxlen=600)
+        self._control_loop_work_ms = deque(maxlen=600)
+        self._control_loop_deadline_misses = 0
+        self._control_loop_samples = 0
+        self._control_loop_target_allow_motion_s = _parse_env_float("CONTINUON_CONTROL_TICK_S", 0.05)
+        self._control_loop_target_idle_s = _parse_env_float("CONTINUON_IDLE_TICK_S", 0.25)
+        self._control_loop_target_ms = _parse_env_int("CONTINUON_CONTROL_TICK_TARGET_MS", 100)
 
         # Prefer JAX-based models by default to avoid heavyweight transformers init on boot.
         self.prefer_jax_models = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes")
@@ -1177,6 +1190,9 @@ class RobotService:
             self.mode_manager.return_to_idle()
         print(" Mode manager ready")
 
+        # Start lightweight control-loop telemetry monitor (safe even in mock mode).
+        self._start_control_loop_monitor()
+
         # Start background chat-learn scheduler (thread; controlled via settings).
         disable_chat_learn = os.environ.get("CONTINUON_DISABLE_CHAT_LEARN", "0").lower() in ("1", "true", "yes", "on")
         if disable_chat_learn:
@@ -1644,6 +1660,7 @@ class RobotService:
                 })
                 status["gate_snapshot"] = self.mode_manager.get_gate_snapshot()
                 status["loop_metrics"] = self.mode_manager.get_loop_metrics()
+                status["control_loop"] = self._control_loop_summary()
             
             if self.detected_config:
                 status["detected_hardware"] = self.detected_config.get("primary")
@@ -1710,6 +1727,103 @@ class RobotService:
             }
         except Exception as e:
             return {"success": False, "message": f"Error: {str(e)}"}
+
+    async def GetControlLoopMetrics(self, payload: Optional[dict] = None) -> dict:
+        """Expose control-loop telemetry (period/work p50/p95/p99 + recent points)."""
+        payload = payload or {}
+        try:
+            limit = int(payload.get("limit") or 180)
+        except Exception:
+            limit = 180
+        limit = max(20, min(600, limit))
+
+        period_points = list(self._control_loop_period_ms)[-limit:]
+        work_points = list(self._control_loop_work_ms)[-limit:]
+
+        return {
+            "status": "ok",
+            "target_period_ms": self._control_loop_target_ms,
+            "target_allow_motion_s": self._control_loop_target_allow_motion_s,
+            "target_idle_s": self._control_loop_target_idle_s,
+            "samples": self._control_loop_samples,
+            "deadline_misses": self._control_loop_deadline_misses,
+            "period_ms": {
+                "points": period_points,
+                "p50": _percentile(period_points, 0.50),
+                "p95": _percentile(period_points, 0.95),
+                "p99": _percentile(period_points, 0.99),
+            },
+            "work_ms": {
+                "points": work_points,
+                "p50": _percentile(work_points, 0.50),
+                "p95": _percentile(work_points, 0.95),
+                "p99": _percentile(work_points, 0.99),
+            },
+        }
+
+    def _start_control_loop_monitor(self) -> None:
+        if self._control_loop_thread is not None and self._control_loop_thread.is_alive():
+            return
+        self._control_loop_stop.clear()
+        self._control_loop_thread = threading.Thread(
+            target=self._control_loop_monitor_loop,
+            name="control_loop_monitor",
+            daemon=True,
+        )
+        self._control_loop_thread.start()
+
+    def _control_loop_monitor_loop(self) -> None:
+        """A lightweight periodic loop that measures tick cadence + work time."""
+        prev_start = None
+        next_deadline = time.perf_counter()
+        while not self._control_loop_stop.is_set():
+            # Determine desired tick cadence based on mode gates.
+            allow_motion = False
+            try:
+                if self.mode_manager is not None:
+                    allow_motion = bool(self.mode_manager.get_mode_config(self.mode_manager.current_mode).allow_motion)
+            except Exception:
+                allow_motion = False
+            period_s = self._control_loop_target_allow_motion_s if allow_motion else self._control_loop_target_idle_s
+            period_s = max(0.01, min(2.0, float(period_s)))
+
+            # Sleep until next tick (drift-resistant).
+            now = time.perf_counter()
+            sleep_s = next_deadline - now
+            if sleep_s > 0:
+                time.sleep(sleep_s)
+
+            start = time.perf_counter()
+            if prev_start is not None:
+                period_ms = (start - prev_start) * 1000.0
+                self._control_loop_period_ms.append(period_ms)
+                if period_ms > float(self._control_loop_target_ms):
+                    self._control_loop_deadline_misses += 1
+            prev_start = start
+
+            # Minimal tick work (safe in mock mode; never blocks on network).
+            try:
+                if self.health_checker is not None:
+                    _ = self.health_checker.get_safety_head_status()
+            except Exception:
+                pass
+
+            end = time.perf_counter()
+            self._control_loop_work_ms.append((end - start) * 1000.0)
+            self._control_loop_samples += 1
+
+            next_deadline = max(next_deadline + period_s, time.perf_counter() + period_s)
+
+    def _control_loop_summary(self) -> dict:
+        pts = list(self._control_loop_period_ms)
+        return {
+            "target_period_ms": self._control_loop_target_ms,
+            "samples": self._control_loop_samples,
+            "deadline_misses": self._control_loop_deadline_misses,
+            "period_ms_p50": _percentile(pts, 0.50),
+            "period_ms_p95": _percentile(pts, 0.95),
+            "period_ms_p99": _percentile(pts, 0.99),
+        }
 
     async def ListTasks(self, include_ineligible: bool = False) -> dict:
         """List Task Library entries with eligibility markers."""
@@ -2127,6 +2241,10 @@ class RobotService:
         except Exception:
             pass
         try:
+            self._control_loop_stop.set()
+        except Exception:
+            pass
+        try:
             if self.background_learner:
                 self.background_learner.stop()
         except Exception:
@@ -2145,6 +2263,39 @@ class RobotService:
             self.arm.shutdown()
         
         print("✅ Shutdown complete")
+
+
+def _percentile(values: list, q: float) -> Optional[float]:
+    """Simple nearest-rank percentile for small arrays (no numpy dependency)."""
+    if not values:
+        return None
+    q = max(0.0, min(1.0, float(q)))
+    xs = sorted(float(v) for v in values)
+    if len(xs) == 1:
+        return xs[0]
+    idx = int(round(q * (len(xs) - 1)))
+    idx = max(0, min(len(xs) - 1, idx))
+    return xs[idx]
+
+
+def _parse_env_float(key: str, default: float) -> float:
+    raw = os.environ.get(key, "")
+    if not raw:
+        return float(default)
+    try:
+        return float(raw)
+    except Exception:
+        return float(default)
+
+
+def _parse_env_int(key: str, default: int) -> int:
+    raw = os.environ.get(key, "")
+    if not raw:
+        return int(default)
+    try:
+        return int(raw)
+    except Exception:
+        return int(default)
 
 
 class _LegacySimpleJSONServer:

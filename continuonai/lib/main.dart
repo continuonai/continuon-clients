@@ -11,6 +11,7 @@ import 'screens/manual_mode_screen.dart';
 import 'screens/record_screen.dart';
 import 'screens/robot_list_screen.dart';
 import 'screens/pair_robot_screen.dart';
+import 'screens/research_screen.dart';
 import 'services/brain_client.dart';
 import 'services/gemma_runtime.dart';
 
@@ -45,6 +46,7 @@ class MyApp extends StatelessWidget {
       initialRoute: MarketingHomeScreen.routeName,
       routes: {
         MarketingHomeScreen.routeName: (context) => const MarketingHomeScreen(),
+        ResearchScreen.routeName: (context) => const ResearchScreen(),
         LoginScreen.routeName: (context) => const LoginScreen(),
         RobotListScreen.routeName: (context) => const RobotListScreen(),
         PairRobotScreen.routeName: (context) => const PairRobotScreen(),

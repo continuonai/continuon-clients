@@ -284,6 +284,13 @@ class SimpleJSONServer:
         elif path == "/api/training/data_quality":
             payload = self._read_data_quality(query_params)
             return self._json_response(payload)
+        elif path == "/api/runtime/control_loop" and method == "GET":
+            try:
+                limit_raw = (query_params.get("limit", ["180"]) or ["180"])[0]
+                payload = await self.service.GetControlLoopMetrics({"limit": limit_raw})
+                return self._json_response(payload)
+            except Exception as exc:  # noqa: BLE001
+                return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
         elif path == "/api/training/tool_dataset_summary":
             payload = self._read_tool_dataset_summary(query_params)
             return self._json_response(payload)

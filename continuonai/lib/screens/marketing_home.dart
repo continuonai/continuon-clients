@@ -5,6 +5,7 @@ import '../widgets/marketing/problem_solution_section.dart';
 import '../widgets/marketing/manifesto_section.dart';
 import '../widgets/marketing/tech_stack_section.dart';
 import '../widgets/marketing/cta_section.dart';
+import 'research_screen.dart';
 
 class MarketingHomeScreen extends StatelessWidget {
   const MarketingHomeScreen({super.key});
@@ -49,6 +50,15 @@ class MarketingHomeScreen extends StatelessWidget {
                     Navigator.pushNamed(context, '/login');
                   },
                   child: const Text('Sign up / Log in'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, ResearchScreen.routeName);
+                  },
+                  child: const Text('Research'),
                 ),
               ),
               Padding(
