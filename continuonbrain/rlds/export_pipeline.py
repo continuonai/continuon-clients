@@ -259,3 +259,50 @@ def prepare_cloud_export(
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(manifest.to_json() + "\n", encoding="utf-8")
     return manifest
+
+
+def _discover_episode_files(episodes_dir: Path) -> List[Path]:
+    """Discover episode JSON files under an episodes directory."""
+    if not episodes_dir.exists():
+        return []
+    # Prefer episode.json nested structure, but also accept flat *.json episodes.
+    episode_files = list(episodes_dir.glob("**/episode.json"))
+    if not episode_files:
+        episode_files = list(episodes_dir.glob("*.json"))
+    return sorted(episode_files)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """CLI entrypoint: anonymize + validate episodes for cloud export."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Anonymize and validate RLDS episodes for Continuon Cloud export")
+    parser.add_argument("--episodes-dir", type=Path, required=True, help="Directory containing RLDS episodes")
+    parser.add_argument("--output-dir", type=Path, required=True, help="Output directory for anonymized bundle")
+    parser.add_argument(
+        "--hash-salt",
+        type=str,
+        default=os.getenv("CONTINUON_EXPORT_HASH_SALT", "continuonbrain"),
+        help="Salt for hashing PII-like fields (default: env CONTINUON_EXPORT_HASH_SALT or 'continuonbrain')",
+    )
+    args = parser.parse_args(list(argv) if argv is not None else None)
+
+    episodes = _discover_episode_files(args.episodes_dir)
+    if not episodes:
+        print(f"No episodes found under {args.episodes_dir}", file=sys.stderr)
+        return 1
+
+    cfg = PiiAnonymizationConfig(hash_salt=args.hash_salt)
+    try:
+        manifest = prepare_cloud_export(episodes, args.output_dir, config=cfg)
+    except Exception as exc:
+        print(f"Export failed: {exc}", file=sys.stderr)
+        return 1
+
+    manifest_path = args.output_dir / "manifest.json"
+    print(f"Exported {len(manifest.episodes)} episode(s) -> {manifest_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

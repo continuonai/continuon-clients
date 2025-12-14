@@ -1,36 +1,55 @@
+from __future__ import annotations
 
-import sys
-import os
-import time
-import logging
-import json
-from pathlib import Path
+import argparse
 import asyncio
+import json
+import logging
+import time
+from pathlib import Path
 from unittest.mock import MagicMock
 
-# Setup logic
-REPO_ROOT = Path("/home/craigm26/ContinuonXR")
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from continuonbrain.resource_monitor import ResourceLevel, ResourceStatus
+from continuonbrain.services.background_learner import BackgroundLearner
+from continuonbrain.services.brain_service import BrainService
 
-os.environ["HUGGINGFACE_TOKEN"] = "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"
 
-# Configure logging
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(message)s') # Reduce noise
+# Configure logging (keep console output readable)
+logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(message)s")
 logger = logging.getLogger("ProofOfLearning")
 
-from continuonbrain.services.brain_service import BrainService
-from continuonbrain.services.background_learner import BackgroundLearner
-from continuonbrain.resource_monitor import ResourceStatus, ResourceLevel
 
-async def main():
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Demonstrate on-device learning dynamics and save a proof artifact")
+    p.add_argument(
+        "--config-dir",
+        type=Path,
+        default=Path("/tmp/continuon_learning_proof"),
+        help="Working directory for BrainService state/logs",
+    )
+    p.add_argument(
+        "--duration-sec",
+        type=float,
+        default=10.0,
+        help="How long to monitor learning dynamics (seconds)",
+    )
+    p.add_argument(
+        "--output",
+        type=Path,
+        default=Path("proof_of_learning.json"),
+        help="Where to write the proof JSON artifact",
+    )
+    return p.parse_args()
+
+
+async def main() -> int:
+    args = _parse_args()
     print("\n🔬 PROOF OF LEARNING: CAPABILITY DEMONSTRATION 🔬")
     print("==================================================")
     
     # 1. Initialize Brain
     print("1. Initializing System...")
     service = BrainService(
-        config_dir="/tmp/continuon_learning_proof",
+        config_dir=str(args.config_dir),
         prefer_real_hardware=False,
         auto_detect=False
     )
@@ -92,7 +111,7 @@ async def main():
     metrics_log = []
     
     start_time = time.time()
-    duration = 10 # seconds
+    duration = float(args.duration_sec)
     
     try:
         while (time.time() - start_time) < duration:
@@ -147,15 +166,23 @@ async def main():
             print("   - Parameters did not change significantly (frozen or zero gradient).")
             
     # Save proof artifact
-    proof_file = Path("proof_of_learning.json")
-    with open(proof_file, 'w') as f:
+    proof_file = Path(args.output)
+    proof_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(proof_file, "w", encoding="utf-8") as f:
         json.dump({
             "timestamp": time.time(),
             "config": learner_config,
             "metrics": metrics_log,
-            "verdict": "SUCCESS" if total_updates > 0 else "FAILURE"
+            "verdict": "SUCCESS" if total_updates > 0 and max_delta > 1e-9 else "FAILURE",
+            "summary": {
+                "total_updates": total_updates,
+                "max_param_delta": max_delta,
+                "final_novelty": final_novelty,
+                "duration_sec": duration,
+            },
         }, f, indent=2)
     print(f"\nProof data saved to {proof_file.absolute()}")
+    return 0
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(asyncio.run(main()))

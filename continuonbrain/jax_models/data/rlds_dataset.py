@@ -60,12 +60,25 @@ def _parse_tfrecord_example(example_proto: tf.Tensor) -> Dict[str, tf.Tensor]:
 
 def _deserialize_observation(obs_bytes: bytes) -> Dict[str, Any]:
     """Deserialize observation from JSON bytes."""
-    return json.loads(obs_bytes.decode('utf-8'))
+    # In TF pipelines this may be an EagerTensor; normalize to raw bytes first.
+    if hasattr(obs_bytes, "numpy"):
+        obs_bytes = obs_bytes.numpy()
+    if isinstance(obs_bytes, memoryview):
+        obs_bytes = obs_bytes.tobytes()
+    if isinstance(obs_bytes, str):
+        obs_bytes = obs_bytes.encode("utf-8")
+    return json.loads(bytes(obs_bytes).decode("utf-8"))
 
 
 def _deserialize_action(action_bytes: bytes) -> Dict[str, Any]:
     """Deserialize action from JSON bytes."""
-    return json.loads(action_bytes.decode('utf-8'))
+    if hasattr(action_bytes, "numpy"):
+        action_bytes = action_bytes.numpy()
+    if isinstance(action_bytes, memoryview):
+        action_bytes = action_bytes.tobytes()
+    if isinstance(action_bytes, str):
+        action_bytes = action_bytes.encode("utf-8")
+    return json.loads(bytes(action_bytes).decode("utf-8"))
 
 
 def _extract_pose_vector(pose: Any) -> List[float]:
@@ -313,16 +326,18 @@ def tf_dataset_to_jax_iterator(
         raise ImportError("JAX is required for dataset iteration")
     
     for batch in tf_dataset:
-        # Convert TensorFlow tensors to JAX arrays
-        jax_batch = {}
-        for key, value in batch.items():
-            if isinstance(value, tf.Tensor):
-                # Convert to numpy then to JAX array
-                numpy_value = value.numpy()
-                jax_batch[key] = jnp.array(numpy_value)
-            else:
-                jax_batch[key] = value
-        
+        # Convert only numeric tensors needed by training into JAX arrays.
+        # Keep this iterator "jit-safe": train_step() jit requires all batch leaves
+        # to be numeric arrays (no strings / objects).
+        reward = batch["reward"].numpy()
+        if reward.ndim == 1:
+            reward = reward[:, None]
+        jax_batch = {
+            "obs": jnp.array(batch["obs"].numpy()),
+            "action": jnp.array(batch["action"].numpy()),
+            "reward": jnp.array(reward),
+            "done": jnp.array(batch["done"].numpy()),
+        }
         yield jax_batch
 
 

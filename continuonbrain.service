@@ -27,7 +27,6 @@ Type=simple
 Environment=CONFIG_DIR=/home/craigm26/.continuonbrain
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/craigm26/.Xauthority
-Environment=GEMINI_API_KEY=AIzaSyDhXpcXCwhNP6Xl8HGNcAMAWi6TBdBw20A
 WorkingDirectory=/home/craigm26/ContinuonXR
 ExecStart=/home/craigm26/ContinuonXR/.venv/bin/python3 -m continuonbrain.startup_manager --config-dir ${CONFIG_DIR}
 Restart=on-failure

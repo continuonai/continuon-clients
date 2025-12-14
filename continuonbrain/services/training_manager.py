@@ -252,7 +252,9 @@ class TrainingManager:
             str(self.trainer_config),
         ]
         if self.trainer_data_path:
-            cmd.extend(["--data-path", str(self.trainer_data_path)])
+            # Local mode uses --rlds-dir for TFRecord (or JSON fallback) inputs.
+            # --data-path is only used by the TPU training path.
+            cmd.extend(["--rlds-dir", str(self.trainer_data_path)])
         return cmd
 
     def _tfrecord_cmd(self) -> List[str]:

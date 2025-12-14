@@ -307,6 +307,7 @@ class StartupManager:
                 # Force usage of venv python if available/detected relative to repo root
                 venv_python = repo_root / ".venv" / "bin" / "python3"
                 python_exec = str(venv_python) if venv_python.exists() else sys.executable
+                env["CONTINUON_PYTHON"] = python_exec
 
                 # Capture child process logs to a persistent file so boot failures are diagnosable.
                 log_dir = self.config_dir / "logs"
@@ -369,7 +370,7 @@ class StartupManager:
                     trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
                     if trainer_path.exists():
                         self.trainer_process = subprocess.Popen(
-                            [sys.executable, "-m", "continuonbrain.run_trainer", "--trainer", "auto", "--mode", "local"],
+                            [python_exec, "-m", "continuonbrain.run_trainer", "--trainer", "auto", "--mode", "local"],
                             env=env,
                             stdout=subprocess.DEVNULL,  # Keep console clean
                             stderr=subprocess.DEVNULL
@@ -388,7 +389,7 @@ class StartupManager:
                         wiki_log = (logs_dir / "wiki_curiosity.log").open("a", encoding="utf-8")
                         print("📚 Starting Wiki Curiosity (offline) sidecar...")
                         self.wiki_curiosity_process = subprocess.Popen(
-                            [sys.executable, "-m", "continuonbrain.eval.wiki_curiosity_boot", "--config-dir", str(self.config_dir)],
+                            [python_exec, "-m", "continuonbrain.eval.wiki_curiosity_boot", "--config-dir", str(self.config_dir)],
                             env=env,
                             stdout=wiki_log,
                             stderr=wiki_log,
