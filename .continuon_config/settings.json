@@ -21,8 +21,32 @@
     "intervention_confidence_threshold": 0.5,
     "enable_status_updates": true,
     "enable_autonomous_learning": true,
-    "autonomous_learning_steps_per_cycle": 100,
+    "autonomous_learning_steps_per_cycle": 200,
     "autonomous_learning_checkpoint_interval": 1000,
-    "agent_model": "hope-v1"
+    "agent_model": "hope-v1",
+    "chat_learn": {
+        "enabled": true,
+        "interval_s": 300,
+        "turns_per_cycle": 20,
+        "model_hint": "google/gemma-3n-2b",
+        "delegate_model_hint": "google/gemma-3n-2b",
+        "topic": "tool use + planning + safety",
+        "modes": ["idle", "autonomous"]
+    },
+    "autonomy_orchestrator": {
+        "enabled": true,
+        "modes": ["autonomous"],
+        "min_interval_s": 30,
+        "cms_compact_every_s": 600,
+        "hope_eval_every_s": 1800,
+        "facts_eval_every_s": 3600,
+        "wavecore_every_s": 1800,
+        "tool_router_every_s": 3600,
+        "min_memory_headroom_mb": 512,
+        "wavecore_steps_fast": 60,
+        "wavecore_steps_mid": 120,
+        "wavecore_steps_slow": 180,
+        "tool_router_steps": 200
+    }
   }
 }
