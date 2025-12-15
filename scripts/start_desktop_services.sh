@@ -41,9 +41,14 @@ if [[ -z "${PY}" ]]; then
   exit 1
 fi
 
-DEFAULT_CONFIG_DIR="/opt/continuonos/brain"
+# Prefer a repo-local config dir for desktop/dev runs (keeps writes local, no sudo).
+DEFAULT_CONFIG_DIR="${REPO_ROOT}/brain_config"
 if [[ -d "${DEFAULT_CONFIG_DIR}" ]]; then
   CONFIG_DIR="${CONFIG_DIR:-${DEFAULT_CONFIG_DIR}}"
+elif [[ -d "/opt/continuonbrain/config" ]]; then
+  CONFIG_DIR="${CONFIG_DIR:-/opt/continuonbrain/config}"
+elif [[ -d "/opt/continuonos/brain" ]]; then
+  CONFIG_DIR="${CONFIG_DIR:-/opt/continuonos/brain}"
 else
   CONFIG_DIR="${CONFIG_DIR:-${HOME}/.continuonbrain}"
 fi
