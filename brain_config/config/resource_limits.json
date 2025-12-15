@@ -1,6 +1,6 @@
 {
     "memory": {
-        "system_reserve_mb": 500,
+        "system_reserve_mb": 250,
         "max_brain_mb": 4096,
         "warning_threshold_percent": 95.0,
         "critical_threshold_percent": 98.0,

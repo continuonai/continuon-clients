@@ -2348,7 +2348,11 @@
             border-left: 3px solid #90cdf4;
             margin-left: 20px; /* Indent to show it's a sub-call */
         }
-        .chat-message.system-alert {
+        .chat-message.assistant { align-self: flex-start; background: #2d3342; border-radius: 4px 12px 12px 4px; color: #cfd7ff; }
+    .chat-message.agent_manager { align-self: flex-start; background: #2d4233; border-radius: 4px 12px 12px 4px; color: #d7ffcf; border-left: 3px solid #4caf50; }
+    .chat-message.subagent { align-self: flex-start; background: #2d3855; border-radius: 4px 12px 12px 4px; color: #d0e1ff; border-left: 3px solid #4c89af; font-family: 'Roboto Mono', monospace; font-size: 0.9em; }
+    .chat-message.user { align-self: flex-end; background: #4a5a75; border-radius: 12px 4px 4px 12px; color: #fff; }
+            .chat-message.system-alert {
             background: #742a2a;
             color: #fff5f5;
             border: 1px solid #ffbcbc;

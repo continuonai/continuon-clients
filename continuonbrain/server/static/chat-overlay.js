@@ -45,7 +45,7 @@
   function setSpeakEnabled(v) {
     try {
       localStorage.setItem(speechKey, v ? '1' : '0');
-    } catch (e) {}
+    } catch (e) { }
   }
 
   async function speakOnRobot(text) {
@@ -57,7 +57,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: msg.slice(0, 500), rate_wpm: 175, voice: 'en' }),
       });
-    } catch (e) {}
+    } catch (e) { }
   }
 
   function startBrowserSTT() {
@@ -78,7 +78,7 @@
           input.value = String(text).trim();
           input.focus();
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     rec.onerror = (ev) => {
       appendMessage('Mic error: ' + (ev && ev.error ? ev.error : 'unknown'), 'system');
@@ -186,7 +186,9 @@
     const container = qs('chat-messages');
     if (!container) return;
     const div = document.createElement('div');
-    div.className = 'chat-message ' + role;
+    // Normalize role to safe CSS class (e.g. "Agent Manager" -> "agent_manager")
+    const safeRole = String(role || 'assistant').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    div.className = 'chat-message ' + safeRole;
     div.textContent = text;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -452,6 +454,12 @@
           maybeAnnounce('tasks', `Task library updated (${count})`);
           state.lastTaskCount = count;
         }
+      },
+      onChat: (msg) => {
+        if (!msg) return;
+        // Ignore user messages reflected back to avoid duplicates if local echo handled it
+        if (msg.role === 'user') return;
+        appendMessage(msg.content, msg.role, true);
       },
       reconnectDelayMs: 3000,
     });

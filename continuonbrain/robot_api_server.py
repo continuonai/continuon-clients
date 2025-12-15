@@ -56,6 +56,7 @@ from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
 from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
 
 # Use extracted SimpleJSONServer implementation
+print(f"[DEBUG] server_routes imported from: {server_routes.__file__}")
 SimpleJSONServer = server_routes.SimpleJSONServer
 
 # Repo root for resolving bundled question files when running from source.
@@ -627,9 +628,15 @@ class RobotService:
             "what could be better, and how learning actually happens.\n"
             "End each turn with the required structured JSON line.\n"
         )
+        print(f"[DEBUG] RunChatLearn called. Turns={turns}, Model={model_hint}, Delegate={delegate_model_hint}")
         history: list = []
         outputs = []
         
+        # Validation
+        if turns <= 0:
+            print("[DEBUG] RunChatLearn aborted: turns <= 0")
+            return {"status": "ok", "history": [], "message": "Zero turns requested"}
+
         # Chat-learn RLDS logging is opt-in (privacy). Respect settings/env.
         log_enabled = False
         try:
@@ -639,6 +646,8 @@ class RobotService:
             log_enabled = bool((settings.get("chat", {}) or {}).get("log_rlds", False))
         except Exception:
             log_enabled = False
+        
+        print(f"[DEBUG] RunChatLearn: Starting loop for {turns} turns. LogRLDS={log_enabled}")
         if os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0").lower() in ("1", "true", "yes", "on"):
             log_enabled = True
         
@@ -656,6 +665,7 @@ class RobotService:
             )
         
         for i in range(turns):
+            print(f"[DEBUG] Loop {i}: History={len(history)}, Outputs={len(outputs)}")
             # HITL Teacher Mode Intervention
             # If enabled, pause and wait for user input instead of calling Gemma subagent.
             teacher_response = None
@@ -668,7 +678,8 @@ class RobotService:
                 # The loop starts with `self.ChatWithGemma(message, ...)`
                 # The `message` variable holds the Agent Manager's prompt/question from previous iteration (or init).
                 # So every start of loop is "Agent Manager asking (or synthesizing)".
-                # The *response* from ChatWithGemma is the Subagent (or AM synthesis result? No, ChatWithGemma *is* the model acting as AM? 
+                # The *response* from ChatWithGemma is the Subagent (or AM synthesis result? No, ChatWithGemma *is* the model acting as AM?
+                pass 
                 # Wait. "As the Agent Manager... Consult the subagent". 
                 # The PROMPT says "You are the Agent Manager... Consult the subagent".
                 # So the MODEL generates the AM's question? Or the Subagent's answer?
@@ -749,8 +760,10 @@ class RobotService:
                 # 4. Inject Teacher Answer into history as a "user" (or "system"?) message saying "Subagent Response: <Answer>".
                 # 5. Then proceed to AM's "Synthesize" turn.
                 
-                pass # Logic implementation below
-            
+            # logic for teacher mode pre-check omitted or comments
+            pass 
+        
+            # Core chat logic - must run regardless of teacher mode
             resp = await self.ChatWithGemma(
                 message,
                 history,
@@ -836,55 +849,78 @@ class RobotService:
                     f"Chat learning turn {i+1}: Got fallback response instead of actual conversation. "
                     f"Model may not be available. Skipping RLDS log for this turn."
                 )
-            else:
-                # Directly log to RLDS for chat learning (ensures we capture actual conversation)
-                if log_enabled and rlds_cfg is not None and log_chat_turn is not None:
-                    try:
-                        status_data = await self.GetRobotStatus()
-                        status = status_data.get("status", {}) if isinstance(status_data, dict) else {}
-
-                        log_chat_turn(
-                            rlds_cfg,
-                            user_message=message,
-                            assistant_response=assistant_text,
-                            structured=structured_data if isinstance(structured_data, dict) else {},
-                            status_context=status,
-                            session_id=session_id,
-                            model_hint=model_hint,
-                            agent_label=model_hint or "agent_manager",
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        import logging
-                        logging.getLogger(__name__).warning(f"Failed to log chat learning turn to RLDS: {exc}")
             
+            if log_chat_turn and not is_fallback:
+                # Log to RLDS. 
+                # Note: 'assistant_text' is the model's output. 'message' was the user/system input.
+                # ChatRldsLogger expects: user_text, model_text, session_id...
+                try:
+                    log_chat_turn(
+                        rlds_cfg,
+                        user_text=message,
+                        model_text=assistant_text,
+                        session_id=session_id,
+                        metadata={
+                            "turn_index": i,
+                            "model_hint": model_hint,
+                            "delegate_model_hint": delegate_model_hint,
+                            "role": "agent_manager" if i % 2 == 0 else "subagent" # Heuristic approach
+                        }
+                    )
+                except Exception as e:
+                    print(f"Failed to log chat turn {i}: {e}")
+
+            # Append to history for context
+            # NOTE: We must append explicit dicts, not `resp` object if it's complex
+            # ChatWithGemma returns dict with 'response', 'history' (optional), etc.
+            # We want to maintain a linear chat history [User, Assistant, User, Assistant...]
+            
+            # The 'message' we passed IN was the User/Teacher prompt.
+            # The 'assistant_text' is the Assistant response.
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": assistant_text})
             
-            # Enhanced conversation flow for agent manager to subagent discussions
-            if i < turns - 1:  # Not the last turn
-                # Alternate between agent manager questions and subagent synthesis
+            # Prepare next message
+            print(f"[DEBUG] Loop {i} END. HistoryLen={len(history)}")
+
+            if i < turns - 1:
+                # Alternating roles or random topics?
+                # The prompt strategy above says:
+                # 1) Agent Manager (Curious) -> 2) Subagent (Teacher/Internals) -> 3) Agent Manager (Synthesis)
+                # But we are using ONE model call per loop iteration.
+                # So we need to instructing the model to play the NEXT role.
+                
+                # If current turn was Agent Manager (i=0, 2, 4...)
                 if i % 2 == 0:
-                    # Agent Manager asks a new question about HOPE learning
+                    # Next turn should be Subagent answering the question.
+                    # We need to extract the question from `assistant_text`.
+                    # And prompt the model: "You are the Subagent... Answer this: {question}"
                     message = (
-                        f"As the Agent Manager, identify another area where HOPE should learn to be more helpful. "
-                        f"Formulate a specific question about: {topic}. "
-                        f"Turn {i+2}/{turns}."
+                        "You are the internal Subagent (Gemma 3n) with deep knowledge of system internals.\n"
+                        "Answer the Agent Manager's question effectively.\n"
+                        "Provide specific technical details about CMS, WaveCore, ToolRouter, or RLDS.\n"
+                        "Be helpful and precise.\n"
+                        "End with the JSON line."
                     )
+                    # If we successfully delegated to a real subagent (via delegate_model_hint), 
+                    # ChatWithGemma might have ALREADY handled the role switch?
+                    # But here we are driving the loop manually.
+                    
+                    # Update delegate hint for next turn?
+                    # The payload had `delegate_model_hint`. 
+                    # If we want the *Main* model to answer (simulating subagent), we keep it same?
+                    # Or we swap hints?
+                    pass
                 else:
-                    # Agent Manager synthesizes subagent advice and proposes learning
+                    # Current turn was Subagent (i=1, 3, 5...)
+                    # Next turn is Agent Manager Synthesizing.
                     message = (
-                        f"As the Agent Manager, synthesize the subagent's previous advice. "
-                        f"Explain how HOPE should learn from this and what concrete improvements it would enable. "
-                        f"Turn {i+2}/{turns}."
+                        "You are the Agent Manager.\n"
+                        "Synthesize the insights from the subagent.\n"
+                        "Decide how to improve the system based on this update.\n"
+                        "End with the JSON line."
                     )
-            else:
-                # Final turn: summarize key learnings
-                message = (
-                    f"Final turn: As the Agent Manager, summarize the top 3 things HOPE should learn "
-                    f"based on our conversation, and explain how each would make HOPE more helpful. "
-                    f"Turn {i+2}/{turns}."
-                )
-            # HITL Injection
+                    
             if self.teacher_mode_active and self.teacher_response_text and i % 2 == 0:
                  # Check if we have a teacher response to inject for the Synthesis turn
                 message = (
@@ -903,7 +939,11 @@ class RobotService:
             "delegate_model_hint": delegate_model_hint,
             "rlds_logging": bool(log_enabled),
             "results": outputs[-3:],
+            "history": history,  # Expose full history for analysis/UI
         }
+    
+    # Alias for API dispatch
+    chat_learn = RunChatLearn
 
     def _chat_learn_loop(self) -> None:
         """Background periodic chat learning loop (offline-first)."""

@@ -50,7 +50,7 @@
             "wavecore_steps_mid": 200,
             "wavecore_steps_slow": 300,
             "tool_router_steps": 300,
-            "min_memory_headroom_mb": 200
+            "min_memory_headroom_mb": 100
         },
         "enable_status_updates": true,
         "enable_autonomous_learning": true,

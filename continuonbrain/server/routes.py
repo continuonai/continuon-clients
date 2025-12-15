@@ -59,6 +59,11 @@ class SimpleJSONServer:
 
     async def handle_http_request(self, request_line: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle HTTP request and return HTML/JSON/SSE response."""
+        try:
+            with open("/tmp/debug_routes.txt", "a") as f:
+                f.write(f"Request: {request_line}\n")
+        except:
+             pass
         parts = request_line.split()
         method = parts[0] if len(parts) > 0 else "GET"
         full_path = parts[1] if len(parts) > 1 else "/"
@@ -374,6 +379,8 @@ class SimpleJSONServer:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
                 return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/training/chat_learn" and method == "POST":
+            with open("/tmp/debug_routes.txt", "a") as f:
+                f.write(f"Hit /api/training/chat_learn at {time.time()}\n")
             payload = await self._read_json_body(reader, headers)
             try:
                 result = await self.service.RunChatLearn(payload or {})

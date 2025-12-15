@@ -1,4 +1,4 @@
-  File "/home/craigm26/Downloads/ContinuonXR/continuonbrain/robot_api_server.py", line 776
+  File "/home/craigm26/Downloads/ContinuonXR/continuonbrain/robot_api_server.py", line 777
     assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
 IndentationError: unexpected indent
 profiling:/usr/src/Python-3.11.10/Modules/getpath.gcda:Cannot open
