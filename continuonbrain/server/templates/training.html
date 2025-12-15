@@ -10,11 +10,12 @@
         <div class="rail-actions">
             <button class="rail-btn primary" onclick="startAutonomousTraining()">▶ Start Autonomous Training</button>
             <button class="rail-btn" onclick="startManualTraining()">🛠 Start Manual Training Step</button>
+            <button class="rail-btn input-warn" onclick="testManualTraining()">🧪 Test Manual Training</button>
             <button class="rail-btn" onclick="stopTraining()">⏹ Stop Training</button>
         </div>
         <div style="margin-top: 15px;">
-             <h3>WaveCore Loops</h3>
-             <div class="rail-actions">
+            <h3>WaveCore Loops</h3>
+            <div class="rail-actions">
                 <button class="rail-btn" onclick="runWaveCoreLoop('fast')">⚡ Run Fast Loop</button>
                 <button class="rail-btn" onclick="runWaveCoreLoop('mid')">🌊 Run Mid Loop</button>
                 <button class="rail-btn" onclick="runWaveCoreLoop('slow')">🐢 Run Slow Loop</button>
@@ -38,16 +39,18 @@
                 <label>Accuracy</label>
                 <span id="metric-accuracy">--</span>
             </div>
-             <div class="status-item">
+            <div class="status-item">
                 <label>Steps</label>
                 <span id="metric-steps">--</span>
             </div>
-             <div class="status-item">
+            <div class="status-item">
                 <label>Episode Reward</label>
                 <span id="metric-reward">--</span>
             </div>
         </div>
-        <div id="full-metrics-json" style="margin-top: 20px; white-space: pre-wrap; font-family: monospace; background: #111; padding: 10px; border-radius: 4px; display: none;"></div>
+        <div id="full-metrics-json"
+            style="margin-top: 20px; white-space: pre-wrap; font-family: monospace; background: #111; padding: 10px; border-radius: 4px; display: none;">
+        </div>
     </div>
 </div>
 
@@ -57,9 +60,10 @@
         <button class="rail-btn" onclick="refreshLogs()">↻ Refresh Logs</button>
     </div>
     <div class="panel-content">
-        <pre id="training-logs" style="height: 300px; overflow-y: auto; background: #000; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace;">Waiting for logs...</pre>
+        <pre id="training-logs"
+            style="height: 300px; overflow-y: auto; background: #000; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace;">Waiting for logs...</pre>
     </div>
 </div>
 
-<script src="/static/training.js"></script>
+<script src="/static/training.js?v=test2"></script>
 {% endblock %}

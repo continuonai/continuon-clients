@@ -23,6 +23,20 @@ function startManualTraining() {
         .catch(err => alert('Error running manual training: ' + err));
 }
 
+function testManualTraining() {
+    fetch('/api/training/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ "force_mock_train": true, "episodes": 1 })
+    })
+        .then(response => response.json())
+        .then(data => {
+            alert('Manual Training Test Completed: ' + JSON.stringify(data));
+            refreshMetrics();
+        })
+        .catch(err => alert('Error running manual training test: ' + err));
+}
+
 function stopTraining() {
     // There isn't an explicit "Stop" endpoint exposed in routes.py yet for the background process,
     // but usually 'switching mode' or similar might help. For now we will just log it.

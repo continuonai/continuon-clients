@@ -712,8 +712,9 @@ def build_chat_service() -> Optional[Any]:
             logger.info(f"JAX/Flax Gemma chat unavailable ({exc}); falling back.")
 
 
-    # LiteRT Preference (if installed and not explicitly disabled)
+    # LiteRT Preference
     use_litert = os.environ.get("CONTINUON_USE_LITERT", "1").lower() in ("1", "true", "yes", "on")
+    prefer_litert = os.environ.get("CONTINUON_PREFER_LITERT", "0").lower() in ("1", "true", "yes", "on")
     
     # Check for LiteRT availability (lazy check via import attempt or pkg util)
     litert_available = False
@@ -723,15 +724,36 @@ def build_chat_service() -> Optional[Any]:
     except ImportError:
         pass
 
+    # If LiteRT is PREFERRED, try it BEFORE JAX
+    if prefer_litert and litert_available and use_litert:
+        try:
+             # Check for LiteRT model preference or default
+             chat = LiteRTGemmaChat(accelerator_device=accelerator_device)
+             logger.info("Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)")
+             return chat
+        except Exception as exc:
+             logger.warning(f"LiteRT Chat init failed: {exc}")
+
+    # Fallback to JAX/Flax if enabled
+    if prefer_jax and enable_jax_chat:
+        try:
+            from continuonbrain.gemma_chat_jax import create_gemma_chat_jax
+
+            chat_jax = create_gemma_chat_jax(device="cpu", accelerator_device=accelerator_device)
+            if chat_jax:
+                logger.info("Using JAX/Flax Gemma chat backend")
+                return chat_jax
+        except Exception as exc:  # noqa: BLE001
+            logger.info(f"JAX/Flax Gemma chat unavailable ({exc}); falling back.")
 
 
     if headless and not allow_transformers and not litert_available:
         logger.info("Headless mode: transformers chat disabled and LiteRT unavailable.")
         return None
 
+    # If LiteRT was NOT preferred but is available, try it now (after JAX failed or wasn't preferred)
     if litert_available and use_litert:
          try:
-             # Check for LiteRT model preference or default
              return LiteRTGemmaChat(accelerator_device=accelerator_device)
          except Exception as exc:
              logger.warning(f"LiteRT Chat init failed: {exc}")

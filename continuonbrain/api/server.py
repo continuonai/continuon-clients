@@ -997,6 +997,16 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     logger.error(f"Search failed: {e}")
                     self.send_json({"success": False, "error": str(e)}, status=500)
 
+            elif self.path == "/api/training/manual":
+                try:
+                    data = json.loads(body) if body else {}
+                    # RunManualTraining is async, so we must run it in a loop
+                    result = asyncio.run(brain_service.RunManualTraining(data))
+                    self.send_json(result)
+                except Exception as e:
+                    logger.error(f"Manual training failed: {e}")
+                    self.send_json({"status": "error", "message": str(e)}, status=500)
+
             elif self.path == "/api/agent/consolidate":
                 try:
                     stats = brain_service.experience_logger.consolidate_memories()

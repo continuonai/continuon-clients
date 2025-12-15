@@ -14,5 +14,10 @@ fi
 #   export GEMINI_API_KEY="..."
 #   export HUGGINGFACE_TOKEN="..."
 
+export CONTINUON_ALLOW_MODEL_DOWNLOADS=1
+export CONTINUON_PREFER_LITERT=1
+export CONTINUON_USE_LITERT=1
+export CONTINUON_PREFER_JAX=0
+
 echo "Starting Server Manual Debug (Unbuffered)..." > debug_server.log
 ./.venv/bin/python3 -u -m continuonbrain.api.server --port 8080 --real-hardware >> debug_server.log 2>&1

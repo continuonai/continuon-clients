@@ -253,6 +253,7 @@ class BrainService:
         # HOPE brain (optional)
         self.hope_brain = None
         self.background_learner = None
+        self.manual_trainer = None
         
         # Experience logger for active learning
         from continuonbrain.services.experience_logger import ExperienceLogger
@@ -1680,6 +1681,49 @@ class BrainService:
             "Training": "📹"
         }
         return icons.get(group, "📋")
+
+    async def RunManualTraining(self, payload: Optional[dict] = None) -> dict:
+        """Run manual JAX trainer with optional overrides from payload."""
+        
+        # Check if we are on LiteRT (training not supported)
+        if getattr(self.gemma_chat, "is_litert_backend", False):
+            if payload and payload.get("force_mock_train", False):
+                # Allow a mock verification step if requested
+                pass
+            else:
+                return {
+                    "status": "error",
+                    "message": "Manual Training is not supported on LiteRT backend (Inference Only). Use a JAX/Torch backend or 'force_mock_train' for testing."
+                }
+
+        # Lazy import: JAX stack can be absent/broken on embedded targets.
+        try:
+            from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest  # noqa: WPS433
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "error": "jax_unavailable",
+                "message": f"Manual JAX training is unavailable on this device ({exc}).",
+                "hint": "Install/repair JAX + tensorstore wheels, or run training elsewhere.",
+            }
+
+        payload = payload or {}
+        if self.manual_trainer is None:
+            self.manual_trainer = ManualTrainer()
+
+        request = ManualTrainerRequest(
+            rlds_dir=Path(payload["rlds_dir"]) if payload.get("rlds_dir") else None,
+            use_synthetic=bool(payload.get("use_synthetic", False)),
+            max_steps=int(payload.get("max_steps", 10)),
+            batch_size=int(payload.get("batch_size", 4)),
+            learning_rate=float(payload.get("learning_rate", 1e-3)),
+            obs_dim=int(payload.get("obs_dim", 128)),
+            action_dim=int(payload.get("action_dim", 32)),
+            output_dim=int(payload.get("output_dim", 32)),
+            disable_jit=bool(payload.get("disable_jit", True)),
+            metrics_path=Path(payload["metrics_path"]) if payload.get("metrics_path") else None,
+        )
+        return await self.manual_trainer.run(request)
     
     async def Drive(self, steering: float, throttle: float) -> dict:
         """Apply drivetrain command with safety checks."""
