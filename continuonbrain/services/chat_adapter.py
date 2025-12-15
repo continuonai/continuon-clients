@@ -50,11 +50,14 @@ class ChatAdapter:
         status_provider: Callable[[], Awaitable[dict]],
         gemma_chat: Optional[object] = None,
         on_chat_event: Optional[Callable[[dict], Any]] = None,
+        *,
+        hope_agent_provider: Optional[Callable[[], Any]] = None,
     ) -> None:
         self.config_dir = config_dir
         self.status_provider = status_provider
         self.gemma_chat = gemma_chat
         self.on_chat_event = on_chat_event
+        self.hope_agent_provider = hope_agent_provider
         
         # Optional Hailo vision offload (subprocess-safe). Used only when an image is attached.
         self._hailo_vision = None
@@ -232,7 +235,25 @@ class ChatAdapter:
                     subagent_info = {"model_hint": delegate_model_hint, "error": str(exc)}
 
             # Call model and capture raw response
-            raw_response = self._call_model(message, prompt, history, model_hint=model_hint, image=image_obj)
+            raw_response = None
+            agent_role = "agent_manager"
+            effective_model_hint = model_hint
+
+            # "Main agent is always HOPE v1" mode:
+            # If the caller asks for hope-v1 explicitly, use HOPE as the identity/orchestrator and
+            # (optionally) use the available local model as a *writer* to format the final answer.
+            if (model_hint or "").strip().lower() in {"hope-v1", "hope_v1", "hope"}:
+                agent_role = "hope_v1"
+                effective_model_hint = "hope-v1"
+                raw_response = self._call_hope_v1(
+                    message=message,
+                    prompt=prompt,
+                    history=history,
+                    delegate_model_hint=delegate_model_hint,
+                    image=image_obj,
+                )
+            else:
+                raw_response = self._call_model(message, prompt, history, model_hint=model_hint, image=image_obj)
             
             # Check if we got a fallback response
             is_fallback = (
@@ -260,13 +281,19 @@ class ChatAdapter:
                         pass
             
             response, structured = _extract_structured_block(raw_response)
+            # Ensure we always have a structured payload (UI expects a stable shape).
+            if not isinstance(structured, dict):
+                structured = {}
+            if not structured:
+                structured = {
+                    "goals": [],
+                    "probes": [],
+                    "plan": {"steps": [], "requires_human_approval": False},
+                    "approvals": [],
+                }
             if delegate_model_hint:
-                if not isinstance(structured, dict):
-                    structured = {}
                 structured["subagent"] = subagent_info
             if image_jpeg or vision_requested:
-                if not isinstance(structured, dict):
-                    structured = {}
                 structured["vision"] = {
                     "attached": bool(image_jpeg),
                     "source": image_source or "unknown",
@@ -294,25 +321,23 @@ class ChatAdapter:
                 if enable_suggest:
                     from continuonbrain.jax_models.infer.tool_router_infer import load_tool_router_bundle, predict_topk
 
-                    export_dir = Path("/opt/continuonos/brain/model/adapters/candidate/tool_router_seed")
+                    export_dir = Path(self.config_dir) / "model" / "adapters" / "candidate" / "tool_router_seed"
                     if export_dir.exists():
                         bundle = load_tool_router_bundle(export_dir)
                         preds = predict_topk(bundle, message, k=5)
-                        if not isinstance(structured, dict):
-                            structured = {}
                         structured["suggested_tools"] = preds
             except Exception:
                 pass
             self._log_chat(message, response, status)
             
             if self.on_chat_event:
-                print(f"[ChatAdapter] Emitting agent_manager event")
+                print(f"[ChatAdapter] Emitting {agent_role} event")
                 try:
                     self.on_chat_event({
-                        "role": "agent_manager",
-                        "name": "Agent Manager",
+                        "role": agent_role,
+                        "name": "HOPE v1" if agent_role == "hope_v1" else "Agent Manager",
                         "text": response,
-                        "model": model_hint or "primary",
+                        "model": effective_model_hint or model_hint or "primary",
                         "timestamp": datetime.datetime.now().isoformat(),
                     })
                 except Exception as e:
@@ -324,15 +349,15 @@ class ChatAdapter:
                 structured=structured,
                 status=status,
                 session_id=session_id,
-                model_hint=model_hint,
+                model_hint=effective_model_hint or model_hint,
             )
             status_updates = [
                 f"Mode={mode}",
                 f"Hardware={hardware}",
                 f"MotionAllowed={bool(allow_motion)}",
             ]
-            if model_hint:
-                status_updates.append(f"ModelHint={model_hint}")
+            if effective_model_hint or model_hint:
+                status_updates.append(f"ModelHint={(effective_model_hint or model_hint)}")
             if delegate_model_hint:
                 status_updates.append(f"SubagentHint={delegate_model_hint}")
             if image_jpeg:
@@ -352,7 +377,7 @@ class ChatAdapter:
                 "intervention_question": None,
                 "intervention_options": [],
                 "status_updates": status_updates,
-                "agent": model_hint or "agent_manager",
+                "agent": effective_model_hint or model_hint or agent_role,
                 "hope_confidence": None,
                 "structured": structured,
                 # Convenience accessors (optional, best-effort)
@@ -402,6 +427,109 @@ class ChatAdapter:
             + "\n"
             "Always answer as the Agent Manager. State when you are using the primary model, a fallback, or a sub-agent/tool. Be concise, technical, and action-oriented."
         )
+
+    def _call_hope_v1(
+        self,
+        *,
+        message: str,
+        prompt: str,
+        history: list,
+        delegate_model_hint: Optional[str],
+        image: Any,
+    ) -> str:
+        """
+        HOPE v1 "main agent" orchestrator.
+
+        - Identity is HOPE v1.
+        - Sub-agents (Gemma variants) may be consulted via `delegate_model_hint` (handled earlier).
+        - If an LLM backend is available, use it as a writer to format a helpful answer while
+          grounding on HOPE context; otherwise fall back to a HOPE-only response.
+
+        Returns a raw string that SHOULD include the structured JSON line; if not, the caller
+        will attach a minimal structured payload.
+        """
+        hope_agent = None
+        try:
+            if self.hope_agent_provider:
+                hope_agent = self.hope_agent_provider()
+        except Exception:
+            hope_agent = None
+
+        hope_confidence = None
+        hope_can_answer = False
+        hope_memories = []
+        try:
+            if hope_agent:
+                hope_can_answer, hope_confidence = hope_agent.can_answer(message)
+                hope_memories = hope_agent.get_relevant_memories(message, max_memories=5) or []
+        except Exception:
+            hope_can_answer = False
+            hope_confidence = None
+            hope_memories = []
+
+        # If no LLM backend, return HOPE-only.
+        if not self.gemma_chat:
+            try:
+                if hope_agent:
+                    base = hope_agent.generate_response(message) or ""
+                else:
+                    base = ""
+            except Exception:
+                base = ""
+            if not base:
+                base = (
+                    "I'm running HOPE v1 as the main agent, but the local chat model backend is unavailable. "
+                    "I can still discuss sensors, safety gates, and learning modes. "
+                    "If you want richer language output, enable an on-device Gemma backend."
+                )
+            return base + "\n" + f"{STRUCTURED_PREFIX}" + json.dumps(
+                {"goals": [], "probes": [], "plan": {"steps": [], "requires_human_approval": False}, "approvals": []}
+            )
+
+        # Build a writer context that explicitly frames HOPE as the main agent.
+        lines = []
+        lines.append("HOPE v1 main-agent context:")
+        lines.append(f"- hope_can_answer: {bool(hope_can_answer)}")
+        if hope_confidence is not None:
+            try:
+                lines.append(f"- hope_confidence: {float(hope_confidence):.3f}")
+            except Exception:
+                lines.append(f"- hope_confidence: {hope_confidence}")
+        if hope_memories:
+            lines.append("- hope_memories:")
+            for mem in hope_memories[:5]:
+                try:
+                    desc = str(mem.get("description") or "").strip()
+                    conf = mem.get("confidence")
+                    src = mem.get("source")
+                    lines.append(f"  - {desc} (confidence={conf}, source={src})")
+                except Exception:
+                    continue
+        else:
+            lines.append("- hope_memories: (none)")
+        if delegate_model_hint:
+            lines.append(f"- subagent_delegate_hint: {delegate_model_hint}")
+
+        writer_prompt = (
+            "You are HOPE v1 (the main agent). You may use sub-agent advice when present, but you must speak as HOPE.\n"
+            "Output requirements:\n"
+            "- First: a normal helpful answer.\n"
+            f"- Then EXACTLY ONE additional line with JSON prefixed by {STRUCTURED_PREFIX}\n"
+            + "\n\n"
+            + prompt
+            + "\n\n"
+            + "\n".join(lines)
+        )
+
+        # Use the existing model as a writer (no special model_hint; allow backend to pick best).
+        try:
+            return str(self.gemma_chat.chat(message, system_context=writer_prompt, image=image, model_hint=None))
+        except TypeError:
+            # Some backends may not accept model_hint.
+            return str(self.gemma_chat.chat(message, system_context=writer_prompt, image=image))
+        except Exception:
+            # Fall back to existing model call path (may return a generic fallback).
+            return self._call_model(message, writer_prompt, history, model_hint=None, image=image)
 
     def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None, image: Any = None) -> str:
         # Try to use actual model first

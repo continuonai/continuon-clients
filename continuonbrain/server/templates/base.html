@@ -211,10 +211,11 @@
                             <div class="chat-input-area inline">
                                 <select id="chat-agent-select" class="input-compact"
                                     style="width:220px; margin-right:8px;">
-                                    <option value="agent_manager" selected>Agent Manager</option>
-                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)
+                                    <option value="hope-v1" selected>HOPE v1 (main)</option>
+                                    <option value="agent_manager">Agent Manager (LLM)</option>
+                                    <option value="consult:google/gemma-3n-2b">HOPE v1 + Gemma 3n (subagent)
                                     </option>
-                                    <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)
+                                    <option value="consult:google/gemma-370m">HOPE v1 + Gemma 370m (subagent)
                                     </option>
                                     <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
                                     <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
@@ -237,6 +238,13 @@
                                     aria-label="Chat message input"
                                     onkeypress="if(event.key==='Enter') sendChatMessage()">
                                 <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
+                                <button class="rail-btn" id="chat-learn" type="button" onclick="runChatLearn()"
+                                    title="Run an agent↔subagent learning loop (writes RLDS only if enabled)">Learn</button>
+                            </div>
+                            <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                                <input id="chat-learn-topic" class="input-compact" type="text"
+                                    placeholder="Learning topic (optional)" style="flex:1; min-width:220px;">
+                                <span class="stack-meta" style="font-size:12px;">Tip: enable RLDS logging with <code>CONTINUON_LOG_CHAT_RLDS=1</code></span>
                             </div>
                         </div>
                     </div>

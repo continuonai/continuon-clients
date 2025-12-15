@@ -15,10 +15,11 @@ systemctl disable continuonbrain-watchdog.service 2>/dev/null || true
 systemctl disable continuonbrain.service 2>/dev/null || true
 
 # Backup user data
-if [ -d "/opt/continuonbrain/data" ]; then
+if [ -d "/opt/continuonbrain/data" ] || [ -d "/opt/continuonbrain/config" ]; then
     echo "Backing up user data..."
     tar -czf "/tmp/continuonbrain-backup-$(date +%Y%m%d-%H%M%S).tar.gz" \
         /opt/continuonbrain/data \
+        /opt/continuonbrain/config \
         /etc/continuonbrain 2>/dev/null || true
     echo "Backup saved to /tmp/"
 fi

@@ -299,10 +299,14 @@
       const choice = sel ? String(sel.value || 'agent_manager') : 'agent_manager';
       let model_hint = null;
       let delegate_model_hint = null;
-      if (choice.startsWith('direct:')) {
-        model_hint = choice.replace('direct:', '').trim() || null;
+      if (choice === 'hope-v1') {
+        model_hint = 'hope-v1';
       } else if (choice.startsWith('consult:')) {
-        delegate_model_hint = choice.replace('consult:', '').trim() || null;
+        // HOPE v1 is the main agent; consult runs a subagent turn first.
+        model_hint = 'hope-v1';
+        delegate_model_hint = choice; // keep "consult:" prefix for backend behavior
+      } else if (choice.startsWith('direct:')) {
+        model_hint = choice.replace('direct:', '').trim() || null;
       }
       const attachEl = qs('chat-attach-camera');
       const attach_camera_frame = !!(attachEl && attachEl.checked);
@@ -347,6 +351,49 @@
       } else {
         appendMessage('Error: ' + msg, 'system');
       }
+    }
+  }
+
+  async function runChatLearn() {
+    // Manual agent↔subagent learning loop (server-side).
+    // Writes RLDS only when enabled (privacy gate).
+    try {
+      const topicEl = qs('chat-learn-topic');
+      const topic = topicEl ? String(topicEl.value || '').trim() : '';
+      const sel = qs('chat-agent-select');
+      const choice = sel ? String(sel.value || 'hope-v1') : 'hope-v1';
+
+      let model_hint = 'hope-v1';
+      let delegate_model_hint = null;
+      if (choice.startsWith('consult:')) {
+        delegate_model_hint = choice; // keep consult: prefix
+      } else if (choice.startsWith('direct:')) {
+        // Direct models are not "learning loops" in the intended sense; still allow.
+        model_hint = choice.replace('direct:', '').trim() || 'hope-v1';
+      } else if (choice === 'agent_manager') {
+        model_hint = null;
+      }
+
+      appendMessage(`Starting learn loop${topic ? `: ${topic}` : ''}...`, 'system');
+      const res = await fetch('/api/training/chat_learn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          turns: 10,
+          topic: topic || null,
+          model_hint,
+          delegate_model_hint,
+          session_id: state.sessionId ? `chat_learn_ui_${state.sessionId}` : null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status === 'error') {
+        throw new Error(data.message || ('HTTP ' + res.status));
+      }
+      appendMessage('Learn loop queued/completed (see Training dashboard + RLDS if enabled).', 'system');
+      renderStructured(data);
+    } catch (err) {
+      appendMessage('Learn loop failed: ' + (err?.message || err), 'system');
     }
   }
 
@@ -408,6 +455,12 @@
       speakToggle.dataset.wired = '1';
       speakToggle.checked = getSpeakEnabled();
       speakToggle.addEventListener('change', () => setSpeakEnabled(!!speakToggle.checked));
+    }
+
+    const learnBtn = qs('chat-learn');
+    if (learnBtn && !learnBtn.dataset.wired) {
+      learnBtn.dataset.wired = '1';
+      learnBtn.addEventListener('click', runChatLearn);
     }
   }
 
@@ -478,6 +531,7 @@
   window.toggleChat = toggleChat;
   window.toggleChatSize = toggleChatSize;
   window.sendChatMessage = sendChatMessage;
+  window.runChatLearn = runChatLearn;
   window.renderChatMessage = appendMessage;
 
   if (document.readyState === 'loading') {

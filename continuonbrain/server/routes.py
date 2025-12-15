@@ -45,6 +45,22 @@ class SimpleJSONServer:
             autoescape=jinja2.select_autoescape(['html', 'xml'])
         )
 
+    def _base_dir(self) -> Path:
+        """
+        Resolve the runtime base directory for offline-first storage.
+
+        Packaged installs run with a configurable config-dir (e.g. /opt/continuonbrain/config).
+        Older code used the legacy /opt/continuonos/brain path. Prefer the service's config_dir
+        when present to keep UI + learning + RLDS writes consistent in packaged mode.
+        """
+        try:
+            cfg = getattr(self.service, "config_dir", None)
+            if cfg:
+                return Path(str(cfg))
+        except Exception:
+            pass
+        return Path("/opt/continuonos/brain")
+
     def render_template(self, template_name: str, context: Dict[str, Any] = None) -> str:
         """Render a Jinja2 template."""
         if context is None:
@@ -208,7 +224,7 @@ class SimpleJSONServer:
                 limit = max(1, min(500, int(limit_raw)))
             except Exception:
                 limit = 60
-            events_path = Path("/opt/continuonos/brain/logs/system_events.jsonl")
+            events_path = self._base_dir() / "logs" / "system_events.jsonl"
             items: list[dict[str, Any]] = []
             if events_path.exists():
                 try:
@@ -236,7 +252,7 @@ class SimpleJSONServer:
             response_body = json.dumps(gates)
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/training/status":
-            status_path = Path("/opt/continuonos/brain/trainer/status.json")
+            status_path = self._base_dir() / "trainer" / "status.json"
             if status_path.exists():
                 response_body = status_path.read_text()
             else:
@@ -253,7 +269,7 @@ class SimpleJSONServer:
             except Exception as exc:  # noqa: BLE001
                 return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
         elif path == "/api/training/exports":
-            exports_dir = Path("/opt/continuonos/brain/exports")
+            exports_dir = self._base_dir() / "exports"
             exports_dir.mkdir(parents=True, exist_ok=True)
             zips = sorted(exports_dir.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)[:40]
             items = []
@@ -301,7 +317,7 @@ class SimpleJSONServer:
             payload = self._read_tool_dataset_summary(query_params)
             return self._json_response(payload)
         elif path == "/api/training/logs":
-            log_dir = Path("/opt/continuonos/brain/trainer/logs")
+            log_dir = self._base_dir() / "trainer" / "logs"
             logs = sorted(log_dir.glob("trainer_*.log"), key=lambda p: p.stat().st_mtime, reverse=True)[:5]
             payload = [{"path": str(p), "mtime": p.stat().st_mtime} for p in logs]
             response_body = json.dumps(payload)
@@ -621,13 +637,14 @@ class SimpleJSONServer:
         Lightweight, file-based readiness report for "cloud TPU v1 training" handoff.
         Intentionally offline-first: no uploads are performed here.
         """
-        rlds_dir = Path("/opt/continuonos/brain/rlds/episodes")
-        tfrecord_dir = Path("/opt/continuonos/brain/rlds/tfrecord")
-        seed_export_dir = Path("/opt/continuonos/brain/model/adapters/candidate/core_model_seed")
+        base_dir = self._base_dir()
+        rlds_dir = base_dir / "rlds" / "episodes"
+        tfrecord_dir = base_dir / "rlds" / "tfrecord"
+        seed_export_dir = base_dir / "model" / "adapters" / "candidate" / "core_model_seed"
         seed_manifest = seed_export_dir / "model_manifest.json"
-        ckpt_dir = Path("/opt/continuonos/brain/trainer/checkpoints/core_model_seed")
-        trainer_status = Path("/opt/continuonos/brain/trainer/status.json")
-        proof = Path("/opt/continuonos/brain/proof_of_learning.json")
+        ckpt_dir = base_dir / "trainer" / "checkpoints" / "core_model_seed"
+        trainer_status = base_dir / "trainer" / "status.json"
+        proof = base_dir / "proof_of_learning.json"
 
         def _count_json(prefix: Optional[str] = None) -> int:
             if not rlds_dir.exists():
@@ -680,8 +697,8 @@ class SimpleJSONServer:
 
         # High-signal, copyable command suggestions (not executed by the server).
         commands = {
-            "zip_episodes": "cd /opt/continuonos/brain && zip -r episodes.zip rlds/episodes",
-            "tfrecord_convert": "python -m continuonbrain.jax_models.data.tfrecord_converter --input-dir /opt/continuonos/brain/rlds/episodes --output-dir /opt/continuonos/brain/rlds/tfrecord --compress",
+            "zip_episodes": f"cd {base_dir} && zip -r episodes.zip rlds/episodes",
+            "tfrecord_convert": f"python -m continuonbrain.jax_models.data.tfrecord_converter --input-dir {base_dir}/rlds/episodes --output-dir {base_dir}/rlds/tfrecord --compress",
             "cloud_tpu_train_template": "python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000",
         }
 
@@ -741,7 +758,7 @@ class SimpleJSONServer:
         return h.hexdigest()
 
     def _build_cloud_export_zip(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        exports_dir = Path("/opt/continuonos/brain/exports")
+        exports_dir = self._base_dir() / "exports"
         exports_dir.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d-%H%M%S")
         name = payload.get("name") or f"cloud_handoff_{ts}.zip"
@@ -767,15 +784,15 @@ class SimpleJSONServer:
 
         roots = []
         if include_episodes:
-            roots.append(("rlds/episodes", Path("/opt/continuonos/brain/rlds/episodes")))
+            roots.append(("rlds/episodes", self._base_dir() / "rlds" / "episodes"))
         if include_tfrecord:
-            roots.append(("rlds/tfrecord", Path("/opt/continuonos/brain/rlds/tfrecord")))
+            roots.append(("rlds/tfrecord", self._base_dir() / "rlds" / "tfrecord"))
         if include_seed:
-            roots.append(("model/adapters/candidate/core_model_seed", Path("/opt/continuonos/brain/model/adapters/candidate/core_model_seed")))
+            roots.append(("model/adapters/candidate/core_model_seed", self._base_dir() / "model" / "adapters" / "candidate" / "core_model_seed"))
         if include_checkpoints:
-            roots.append(("trainer/checkpoints/core_model_seed", Path("/opt/continuonos/brain/trainer/checkpoints/core_model_seed")))
+            roots.append(("trainer/checkpoints/core_model_seed", self._base_dir() / "trainer" / "checkpoints" / "core_model_seed"))
         if include_status:
-            roots.append(("trainer/status.json", Path("/opt/continuonos/brain/trainer/status.json")))
+            roots.append(("trainer/status.json", self._base_dir() / "trainer" / "status.json"))
 
         with zipfile.ZipFile(out_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             # Always include a small metadata record for provenance.
@@ -817,7 +834,7 @@ class SimpleJSONServer:
         }
 
     def _download_export_zip(self, name: str) -> bytes:
-        exports_dir = Path("/opt/continuonos/brain/exports").resolve()
+        exports_dir = (self._base_dir() / "exports").resolve()
         exports_dir.mkdir(parents=True, exist_ok=True)
         safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(name))
         if safe != name or not safe.endswith(".zip"):
@@ -842,7 +859,7 @@ class SimpleJSONServer:
         Sources:
         - /opt/continuonos/brain/trainer/logs/wavecore_{fast,mid,slow}_metrics.json
         """
-        log_dir = Path("/opt/continuonos/brain/trainer/logs")
+        log_dir = self._base_dir() / "trainer" / "logs"
         limit_raw = (query_params.get("limit", ["120"]) or ["120"])[0]
         try:
             limit = max(10, min(2000, int(limit_raw)))
@@ -897,7 +914,7 @@ class SimpleJSONServer:
         - fallback_rate: fraction of steps with used_fallback=true
         - tier_coverage: distribution of obs.tier
         """
-        rlds_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        rlds_dir = self._base_dir() / "rlds" / "episodes"
         limit_raw = (query_params.get("limit", ["6"]) or ["6"])[0]
         try:
             limit = max(1, min(30, int(limit_raw)))
@@ -968,7 +985,7 @@ class SimpleJSONServer:
         - Are observations present with numeric content?
         This helps explain flat loss curves (e.g., constant zeros).
         """
-        rlds_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        rlds_dir = self._base_dir() / "rlds" / "episodes"
         limit_raw = (query_params.get("limit", ["30"]) or ["30"])[0]
         step_cap_raw = (query_params.get("step_cap", ["2500"]) or ["2500"])[0]
         try:
@@ -1133,7 +1150,7 @@ class SimpleJSONServer:
 
         Returns counts + tool-call rate + top tool names to help visualize tool-use coverage in the UI.
         """
-        base_dir = Path("/opt/continuonos/brain/rlds/episodes")
+        base_dir = self._base_dir() / "rlds" / "episodes"
         limit_raw = (query_params.get("limit", ["2000"]) or ["2000"])[0]
         try:
             limit = max(50, min(200000, int(limit_raw)))
@@ -1219,7 +1236,7 @@ class SimpleJSONServer:
         if not source_url and not source_path:
             raise ValueError("Provide source_url or source_path")
 
-        incoming_root = Path("/opt/continuonos/brain/model/_incoming")
+        incoming_root = self._base_dir() / "model" / "_incoming"
         incoming_root.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d-%H%M%S")
         staging = incoming_root / f"incoming_{ts}"
@@ -1278,7 +1295,7 @@ class SimpleJSONServer:
             manifest_path = manifest_candidates[0]
             manifest = json.loads(manifest_path.read_text())
 
-            target_dir = Path("/opt/continuonos/brain/model/adapters/candidate/core_model_seed")
+            target_dir = self._base_dir() / "model" / "adapters" / "candidate" / "core_model_seed"
             target_dir.parent.mkdir(parents=True, exist_ok=True)
             backup_dir = None
             if target_dir.exists():
@@ -1313,7 +1330,7 @@ class SimpleJSONServer:
             edge = json.loads(edge_path.read_text())
             version = str(edge.get("version") or ts)
             version_safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", version)
-            bundles_dir = Path("/opt/continuonos/brain/model/bundles")
+            bundles_dir = self._base_dir() / "model" / "bundles"
             bundles_dir.mkdir(parents=True, exist_ok=True)
             bundle_dir = bundles_dir / version_safe
             if bundle_dir.exists():
@@ -1450,8 +1467,9 @@ class SimpleJSONServer:
             return {}
 
     def _get_wiring_stats(self) -> Dict[str, Any]:
-        ep_dir = Path("/opt/continuonos/brain/rlds/episodes")
-        compact_summary = Path("/opt/continuonos/brain/rlds/compact/compact_summary.json")
+        base_dir = self._base_dir()
+        ep_dir = base_dir / "rlds" / "episodes"
+        compact_summary = base_dir / "rlds" / "compact" / "compact_summary.json"
 
         def _count(prefix: str) -> int:
             return sum(1 for p in ep_dir.glob(f"{prefix}*.json") if p.is_file())

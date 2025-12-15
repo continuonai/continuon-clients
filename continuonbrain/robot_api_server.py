@@ -189,6 +189,7 @@ class RobotService:
             status_provider=self.GetRobotStatus,
             gemma_chat=self.gemma_chat,
             on_chat_event=self._on_chat_event,
+            hope_agent_provider=self._get_hope_agent,
         )
         # Background supervisors (threads; keep working even if no asyncio loop is kept alive).
         self._bg_stop_event = threading.Event()
@@ -197,6 +198,7 @@ class RobotService:
         self._orchestrator_thread: Optional[threading.Thread] = None
         self._orchestrator_lock = threading.Lock()
         self.hope_brain = None
+        self._hope_agent = None
         self.background_learner = None
         self._last_autonomous_learner_action: Optional[dict] = None
         self.resource_monitor = ResourceMonitor(config_dir=Path(config_dir))
@@ -582,14 +584,14 @@ class RobotService:
             "resources": res,
             "hailo": {"vision": hailo_state, "hardware": hailo_hw},
             "wavecore_metrics": {
-                "fast": "/opt/continuonos/brain/trainer/logs/wavecore_fast_metrics.json",
-                "mid": "/opt/continuonos/brain/trainer/logs/wavecore_mid_metrics.json",
-                "slow": "/opt/continuonos/brain/trainer/logs/wavecore_slow_metrics.json",
+                "fast": str(Path(self.config_dir) / "trainer" / "logs" / "wavecore_fast_metrics.json"),
+                "mid": str(Path(self.config_dir) / "trainer" / "logs" / "wavecore_mid_metrics.json"),
+                "slow": str(Path(self.config_dir) / "trainer" / "logs" / "wavecore_slow_metrics.json"),
             },
             "tool_router": {
-                "export_dir": "/opt/continuonos/brain/model/adapters/candidate/tool_router_seed",
-                "metrics_path": "/opt/continuonos/brain/trainer/logs/tool_router_metrics.json",
-                "eval_metrics_path": "/opt/continuonos/brain/trainer/logs/tool_router_eval_metrics.json",
+                "export_dir": str(Path(self.config_dir) / "model" / "adapters" / "candidate" / "tool_router_seed"),
+                "metrics_path": str(Path(self.config_dir) / "trainer" / "logs" / "tool_router_metrics.json"),
+                "eval_metrics_path": str(Path(self.config_dir) / "trainer" / "logs" / "tool_router_eval_metrics.json"),
             },
         }
 
@@ -599,7 +601,8 @@ class RobotService:
         turns = int(payload.get("turns", 10) or 10)
         turns = max(1, min(turns, 50))
         session_id = str(payload.get("session_id") or f"chat_learn_{int(time.time())}")
-        model_hint = str(payload.get("model_hint") or "google/gemma-3n-2b")
+        # Default to HOPE v1 as the main agent (subagents optional via delegate_model_hint).
+        model_hint = str(payload.get("model_hint") or "hope-v1")
         delegate_model_hint = payload.get("delegate_model_hint")
         topic = str(payload.get("topic") or "tool use + planning + safety")
 
@@ -683,7 +686,7 @@ class RobotService:
 
             log_chat_turn = _log_chat_turn
             rlds_cfg = ChatRldsLogConfig(
-                episodes_dir=Path("/opt/continuonos/brain/rlds/episodes"),
+                episodes_dir=Path(self.config_dir) / "rlds" / "episodes",
                 group_by_session=True,
             )
         
@@ -1029,11 +1032,30 @@ class RobotService:
             cfg = HOPEConfig.pi5_optimized()
             # Keep dims modest; this is currently used for background curiosity learning + monitoring.
             self.hope_brain = HOPEBrain(config=cfg, obs_dim=10, action_dim=4, output_dim=4)
+            # Also prepare a lightweight HOPEAgent instance for chat orchestration.
+            try:
+                from continuonbrain.services.agent_hope import HOPEAgent
+
+                self._hope_agent = HOPEAgent(self.hope_brain, confidence_threshold=0.6)
+            except Exception:
+                self._hope_agent = None
             return True
         except Exception as exc:  # noqa: BLE001
             print(f"  HOPE brain init unavailable: {exc}")
             self.hope_brain = None
+            self._hope_agent = None
             return False
+
+    def _get_hope_agent(self):
+        """Best-effort accessor for HOPEAgent (used by ChatAdapter when model_hint=hope-v1)."""
+        try:
+            if getattr(self, "_hope_agent", None) is not None:
+                return self._hope_agent
+            if not self._ensure_hope_brain():
+                return None
+            return self._hope_agent
+        except Exception:
+            return None
 
     def _autonomous_learning_loop(self) -> None:
         """Start/pause/stop HOPE BackgroundLearner based on robot mode + settings."""
@@ -1279,7 +1301,7 @@ class RobotService:
                     if (now - last["hope_eval"] >= hope_every):
                         try:
                             _pause_bg()
-                            asyncio.run(self.RunHopeEval({"rlds_dir": "/opt/continuonos/brain/rlds/episodes", "use_fallback": True}))
+                            asyncio.run(self.RunHopeEval({"rlds_dir": str(Path(self.config_dir) / "rlds" / "episodes"), "use_fallback": True}))
                             actions["hope_eval"] = {"ok": True}
                         except Exception as exc:  # noqa: BLE001
                             actions["hope_eval"] = {"ok": False, "error": str(exc)}
@@ -1291,7 +1313,7 @@ class RobotService:
                     if (now - last["facts_eval"] >= facts_every):
                         try:
                             _pause_bg()
-                            asyncio.run(self.RunFactsEval({"rlds_dir": "/opt/continuonos/brain/rlds/episodes", "use_fallback": True}))
+                            asyncio.run(self.RunFactsEval({"rlds_dir": str(Path(self.config_dir) / "rlds" / "episodes"), "use_fallback": True}))
                             actions["facts_eval"] = {"ok": True}
                         except Exception as exc:  # noqa: BLE001
                             actions["facts_eval"] = {"ok": False, "error": str(exc)}
@@ -1372,7 +1394,7 @@ class RobotService:
         """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
         payload = payload or {}
         questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "hope_eval_questions.json"))
-        rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+        rlds_dir = Path(payload.get("rlds_dir") or (Path(self.config_dir) / "rlds" / "episodes"))
         use_fallback = bool(payload.get("use_fallback", True))
         # Hailo is an accelerator, not a text model id.
         fallback_order = payload.get("fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"]
@@ -1388,7 +1410,7 @@ class RobotService:
         """Run FACTS-lite eval and log RLDS episode."""
         payload = payload or {}
         questions_path = Path(payload.get("questions_path") or (REPO_ROOT / "continuonbrain" / "eval" / "facts_eval_questions.json"))
-        rlds_dir = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+        rlds_dir = Path(payload.get("rlds_dir") or (Path(self.config_dir) / "rlds" / "episodes"))
         use_fallback = bool(payload.get("use_fallback", True))
         fallback_order = payload.get("fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"]
         return await run_hope_eval_and_log(
@@ -2450,7 +2472,7 @@ class RobotService:
 
             # RLDS trace: log the full plan + diagnostics as a canonical episode_dir.
             try:
-                rlds_root = Path(payload.get("rlds_dir") or "/opt/continuonos/brain/rlds/episodes")
+                rlds_root = Path(payload.get("rlds_dir") or (Path(self.config_dir) / "rlds" / "episodes"))
                 plan_payload = {
                     "ok": plan.ok,
                     "reason": plan.reason,

@@ -90,7 +90,11 @@ def log_chat_turn(
         "reward": 0.0,
         "is_terminal": False,
         "step_metadata": {
+            # Local-only by default: this logger only writes to disk. Upload/export is handled elsewhere.
             "source": "human_chat",
+            "local_only": True,
+            "privacy": {"local_only": True, "no_upload": True},
+            "agent": agent_label,
             "timestamp": now,
         },
     }

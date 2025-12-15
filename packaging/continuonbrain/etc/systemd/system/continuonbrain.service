@@ -14,7 +14,7 @@ Environment="PATH=/opt/continuonbrain/venv/bin:/usr/local/sbin:/usr/local/bin:/u
 Environment="PYTHONPATH=/opt/continuonbrain/app"
 ExecStart=/opt/continuonbrain/venv/bin/python -m continuonbrain.startup_manager \
     --config-dir /opt/continuonbrain/config \
-    --no-trainer
+    --robot-name ContinuonBot
 Restart=always
 RestartSec=10
 StandardOutput=journal

@@ -9,6 +9,11 @@ GROUP="continuon"
 
 echo "🚀 Installing ContinuonBrain..."
 
+# Ensure config directories exist (service uses /opt/continuonbrain/config as --config-dir).
+mkdir -p "$CONFIG_DIR"
+mkdir -p "$INSTALL_DIR/config"
+mkdir -p "$INSTALL_DIR/data"
+
 # Create system user for running the service
 if ! id "$USER" &>/dev/null; then
     echo "Creating system user: $USER"
