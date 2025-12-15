@@ -1,9 +1,9 @@
 {
   "mode": "idle",
-  "timestamp": 1765769675.4175558,
+  "timestamp": 1765775804.3612309,
   "config": {
     "mode": "idle",
-    "timestamp": 1765769675.4175558,
+    "timestamp": 1765775804.3612309,
     "allow_motion": false,
     "record_episodes": false,
     "run_inference": false,

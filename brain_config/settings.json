@@ -24,7 +24,7 @@
         "enable_intervention_prompts": true,
         "intervention_confidence_threshold": 0.5,
         "chat_learn": {
-            "enabled": true,
+            "enabled": false,
             "interval_s": 300,
             "turns_per_cycle": 20,
             "model_hint": "google/gemma-3n-E2B-it",
@@ -53,7 +53,7 @@
             "min_memory_headroom_mb": 100
         },
         "enable_status_updates": true,
-        "enable_autonomous_learning": true,
+        "enable_autonomous_learning": false,
         "autonomous_learning_steps_per_cycle": 100,
         "autonomous_learning_checkpoint_interval": 1000,
         "agent_model": "hope-v1"

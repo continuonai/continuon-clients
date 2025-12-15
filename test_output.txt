@@ -1,15 +1,7 @@
-....
-----------------------------------------------------------------------
-Ran 4 tests in 0.029s
+Starting 10 autonomous chat iterations...
 
-OK
-🌐 Launching UI: http://127.0.0.1:8080/ui
-   Using default system browser...
-ℹ️  UI auto-launch disabled in config
-🌐 Launching UI: http://127.0.0.1:8080/ui
-   Using default system browser...
-🌐 Launching UI: http://127.0.0.1:8080/ui
-   Using browser: chromium-browser (with --password-store=basic)
+--- Iteration 1/10 ---
+Test aborted: HTTPConnectionPool(host='localhost', port=8082): Max retries exceeded with url: /api/training/chat_learn (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8082): Failed to establish a new connection: [Errno 111] Connection refused"))
 profiling:/usr/src/Python-3.11.10/Modules/getpath.gcda:Cannot open
 profiling:/usr/src/Python-3.11.10/Python/deepfreeze/deepfreeze.gcda:Cannot open
 profiling:/usr/src/Python-3.11.10/Modules/xxsubtype.gcda:Cannot open
