@@ -286,6 +286,18 @@ class RobotService:
 
     async def RunManualTraining(self, payload: Optional[dict] = None) -> dict:
         """Run manual JAX trainer with optional overrides from payload."""
+        
+        # Check if we are on LiteRT (training not supported)
+        if hasattr(self.gemma_chat, "accelerator_device") and self.gemma_chat.accelerator_device == "litert":
+            if payload and payload.get("force_mock_train", False):
+                # Allow a mock verification step if requested
+                pass
+            else:
+                return {
+                    "status": "error",
+                    "message": "Manual Training is not supported on LiteRT backend (Inference Only). Use a JAX/Torch backend or 'force_mock_train' for testing."
+                }
+
         # Lazy import: JAX stack can be absent/broken on embedded targets.
         try:
             from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest  # noqa: WPS433

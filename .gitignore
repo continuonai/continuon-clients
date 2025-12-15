@@ -82,3 +82,6 @@ recordings/
 # Local identity assets (never commit)
 /.brain_config/identity/
 /.continuon_config/identity/
+
+# Secrets
+.htoken

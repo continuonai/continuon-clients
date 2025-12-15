@@ -1,8 +1,15 @@
 #!/bin/bash
-export PYTHONPATH=/home/craigm26/ContinuonXR:/home/craigm26/.local/lib/python3.13/site-packages
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 export CONFIG_DIR=/home/craigm26/.continuonbrain
 
 # NOTE: Keep secrets out of repo scripts.
+
+# Load secrets from .htoken if present
+if [ -f ".htoken" ]; then
+    export HUGGINGFACE_TOKEN=$(cat .htoken | tr -d '\n')
+    # echo "Loaded HUGGINGFACE_TOKEN from .htoken"
+fi
+
 # Set these in your shell environment (or a secure systemd env/credential) before running:
 #   export GEMINI_API_KEY="..."
 #   export HUGGINGFACE_TOKEN="..."

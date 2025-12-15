@@ -21,7 +21,7 @@ from continuonbrain.recording.arm_episode_recorder import ArmEpisodeRecorder
 from continuonbrain.sensors.hardware_detector import HardwareDetector
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
 from continuonbrain.services.desktop_service import DesktopService
-from continuonbrain.gemma_chat import create_gemma_chat
+from continuonbrain.gemma_chat import build_chat_service, create_gemma_chat
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
@@ -281,7 +281,8 @@ class BrainService:
         self._ownership_path = Path(config_dir) / "ownership.json"
 
         # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
-        self.gemma_chat = create_gemma_chat(use_mock=False)
+        # Initialize Gemma chat (use centralized factory to allow LiteRT/JAX/Mock preference)
+        self.gemma_chat = build_chat_service()
 
         # Load persistent settings
         self.agent_settings = {}
@@ -1386,11 +1387,18 @@ class BrainService:
                 # Check for accelerator adoption
                 accelerator = self.detected_config.get("primary", {}).get("ai_accelerator")
                 if accelerator:
-                    print(f"🚀 Re-initializing Chat Agent with Accelerator: {accelerator}")
-                    self.gemma_chat = create_gemma_chat(
-                        use_mock=False,
-                        accelerator_device=accelerator
-                    )
+                    if self.gemma_chat is None or getattr(self.gemma_chat, 'accelerator_device', None) != accelerator:
+                        print(f"🚀 Re-initializing Chat Agent with Accelerator: {accelerator}")
+                        # Try to rebuild checking for new hardware or env
+                        # Note: build_chat_service will check env. If we want to FORCE accelerator, we might need args?
+                        # build_chat_service calls create_gemma_chat internally if logic permits.
+                        # But LiteRT logic is env based.
+                        # If we are here, we likely want to refresh.
+                        self.gemma_chat = build_chat_service()
+                        if self.gemma_chat and accelerator and hasattr(self.gemma_chat, 'accelerator_device'):
+                            # Ensure device is set if factory didn't pick it up (though factory usually does)
+                            if not self.gemma_chat.accelerator_device:
+                                self.gemma_chat.accelerator_device = accelerator
             else:
                 print("  No hardware detected!")
 

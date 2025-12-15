@@ -1,5 +1,5 @@
 Starting Server Manual Debug (Unbuffered)...
-Could not import BackgroundLearner (likely missing dependencies like torch). Background learning will be disabled.
+DEBUG: CMS MODULE LOADED FROM /home/craigm26/Downloads/ContinuonXR/continuonbrain/hope_impl/cms.py
 DEBUG: Loading ui_routes.py with Jinja2 templates
 WARNING:BrainServer:Port 8080 in use; bound to 8081 instead
 Starting ContinuonBrain Server on port 8081...
@@ -46,14 +46,12 @@ Agent Manager Settings:
   Autonomous Learning: True
 INFO:continuonbrain.resource_monitor:No resource limits config found at /tmp/continuonbrain_demo/config/resource_limits.json, using defaults
 INFO:continuonbrain.resource_monitor:Resource Monitor initialized: System reserve 2000MB, Brain max 2000MB
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 82.7% - 1392MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'warning', 'memory_percent': 82.7, 'available_mb': 1392, 'swap_percent': 63.4, 'checkpoints_mb': 0.0, 'can_allocate': False, 'message': 'WARNING: Memory at 82.7% - 1392MB available', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'normal', 'memory_percent': 73.0, 'available_mb': 2178, 'swap_percent': 98.0, 'checkpoints_mb': 0.0, 'can_allocate': True, 'message': 'Normal: 2178MB available (73.0% used)', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
 INFO:continuonbrain.services.brain_service:📚 Experience logger initialized for active learning
 INFO:continuonbrain.services.brain_service:💬 Conversation session management initialized
 INFO:continuonbrain.services.brain_service:🤖 Personality initialized: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, verbosity_level=0.5, system_name='robot', identity_mode='Adaptive')
-WARNING:continuonbrain.gemma_chat:transformers not available: cannot import name '_regex' from partially initialized module 'regex' (most likely due to a circular import) (/home/craigm26/.local/lib/python3.13/site-packages/regex/__init__.py).
-INFO:continuonbrain.gemma_chat:Using mock Gemma chat. Error: cannot import name '_regex' from partially initialized module 'regex' (most likely due to a circular import) (/home/craigm26/.local/lib/python3.13/site-packages/regex/__init__.py)
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files:  20%|██        | 1/5 [00:00<00:02,  1.68it/s]Fetching 5 files:  60%|██████    | 3/5 [16:15<12:02, 361.08s/it]Fetching 5 files: 100%|██████████| 5/5 [16:15<00:00, 195.02s/it]
+ERROR:continuonbrain.services.chat.litert_chat:No .tflite file found in google/gemma-3n-E2B-it-litert-lm snapshot at /home/craigm26/.cache/huggingface/hub/models--google--gemma-3n-E2B-it-litert-lm/snapshots/c03b6f60b8da6c5400b6838a2cf26420f80c0a01
 INFO:continuonbrain.services.brain_service:Loaded agent settings: {'agent_model': 'hope-v1', 'enable_thinking_indicator': True, 'enable_intervention_prompts': True, 'intervention_confidence_threshold': 0.5, 'enable_status_updates': True, 'enable_autonomous_learning': True, 'autonomous_learning_steps_per_cycle': 100, 'autonomous_learning_checkpoint_interval': 1000, 'chat_learn': {'enabled': False, 'interval_s': 600, 'turns_per_cycle': 10, 'model_hint': 'google/gemma-3n-2b', 'delegate_model_hint': '', 'topic': 'coding this repository (ContinuonXR/continuonbrain/continuonai)', 'modes': ['idle']}, 'autonomy_orchestrator': {'enabled': False, 'modes': ['autonomous'], 'min_interval_s': 30, 'cms_compact_every_s': 600, 'hope_eval_every_s': 1800, 'facts_eval_every_s': 3600, 'wavecore_every_s': 1800, 'tool_router_every_s': 3600, 'min_memory_headroom_mb': 512, 'wavecore_steps_fast': 60, 'wavecore_steps_mid': 120, 'wavecore_steps_slow': 180, 'tool_router_steps': 200}}
 Initializing Brain Service (REAL HARDWARE MODE)...
 Auto-detecting hardware...
@@ -73,7 +71,7 @@ Ai Accelerator:
     Capabilities: ai, inference, neural_network, hailo8
 
 Depth Camera:
-  • OAK Camera (usb3: bus_002_dev_003)
+  • OAK Camera (usb3: bus_002_dev_004)
     Capabilities: rgb, depth, stereo, ai
 
 Display:
@@ -87,10 +85,21 @@ Human Interface:
 ============================================================
 
 🚀 Re-initializing Chat Agent with Accelerator: Hailo AI HAT+
-WARNING:continuonbrain.gemma_chat:transformers not available: cannot import name '_regex' from partially initialized module 'regex' (most likely due to a circular import) (/home/craigm26/.local/lib/python3.13/site-packages/regex/__init__.py).
-INFO:continuonbrain.gemma_chat: MockGemmaChat using mock accelerator: Hailo AI HAT+
-INFO:continuonbrain.gemma_chat:Using mock Gemma chat. Error: cannot import name '_regex' from partially initialized module 'regex' (most likely due to a circular import) (/home/craigm26/.local/lib/python3.13/site-packages/regex/__init__.py)
+ERROR:continuonbrain.services.chat.litert_chat:No .tflite file found in google/gemma-3n-E2B-it-litert-lm snapshot at /home/craigm26/.cache/huggingface/hub/models--google--gemma-3n-E2B-it-litert-lm/snapshots/c03b6f60b8da6c5400b6838a2cf26420f80c0a01
 Loading Gemma Chat Model...
+ERROR:continuonbrain.services.chat.litert_chat:LiteRT model path invalid: None
+WARNING:continuonbrain.services.brain_service:Gemma load failed; trying fallback ladder (4B -> 270M -> mock).
+INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3-270m-it
+Fetching 11 files:   0%|          | 0/11 [00:00<?, ?it/s]Fetching 11 files:   9%|▉         | 1/11 [00:00<00:04,  2.35it/s]Fetching 11 files:  64%|██████▎   | 7/11 [00:39<00:23,  5.81s/it]Fetching 11 files: 100%|██████████| 11/11 [00:39<00:00,  3.55s/it]
+INFO:continuonbrain.gemma_chat:✅ Using HuggingFace snapshot: /home/craigm26/.cache/huggingface/hub/models--google--gemma-3-270m-it/snapshots/ac82b4e820549b854eebf28ce6dedaf9fdfa17b3
+INFO:continuonbrain.gemma_chat:Loading tokenizer from snapshot (local_files_only=True)
+INFO:continuonbrain.gemma_chat:✅ Tokenizer loaded
+INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
+INFO:continuonbrain.gemma_chat:Loading CausalLM model from snapshot (local_files_only=True)
+INFO:continuonbrain.gemma_chat:  Snapshot: /home/craigm26/.cache/huggingface/hub/models--google--gemma-3-270m-it/snapshots/ac82b4e820549b854eebf28ce6dedaf9fdfa17b3
+INFO:continuonbrain.gemma_chat:✅ Model loaded
+INFO:continuonbrain.gemma_chat:Gemma model loaded (CausalLM mode)
+INFO:continuonbrain.services.brain_service:✅ Chat backend ready: google/gemma-3-270m-it
 Initializing episode recorder...
 Initializing hardware via ContinuonBrain...
 Auto-detecting hardware...
@@ -121,7 +130,7 @@ Activating AUTONOMOUS mode (motion + inference + training enabled)
 ============================================================
  Mode Change: idle -> autonomous
 ============================================================
-Time: 2025-12-15 09:43:39
+Time: 2025-12-15 10:32:03
 Motion: Enabled
 Recording: ON
 Inference: ON
@@ -129,39 +138,49 @@ Self-Training: OFF
 
 Mode Configuration:
   control_source: vla_policy
-  startup_time: 2025-12-15 09:43:39
+  startup_time: 2025-12-15 10:32:03
   auto_activated: True
   self_training_enabled: True
 ============================================================
 
 Mode manager ready
 Initializing HOPE brain...
-   CRITICAL: HOPE brain implementation not available!
-  This system requires HOPE brain to operate.
-  Please ensure hope_impl module is installed:
-    pip install -e .
-  Error: Failed to load PyTorch C extensions:
-    It appears that PyTorch has loaded the `torch/_C` folder
-    of the PyTorch repository rather than the C extensions which
-    are expected in the `torch._C` namespace. This can occur when
-    using the `install` workflow. e.g.
-        $ python -m pip install --no-build-isolation -v . && python -c "import torch"
-
-    This error can generally be solved using the `develop` workflow
-        $ python -m pip install --no-build-isolation -v -e . && python -c "import torch"  # This should succeed
-    or by running Python from a different directory.
-WARNING: Skipping HOPE
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 80.8% - 1551MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+  Available memory: 1551MB
+  Using Pi5-optimized config (low memory mode)
+INFO:continuonbrain.resource_monitor:WARNING: Memory at 80.8% - 1551MB available
+WARNING:continuonbrain.services.brain_service:Memory constrained: 1551MB available, need 2000MB + reserve
+    Forcing Pi5-optimized config due to memory constraints
+DEBUG_CMS_INIT: d_s=128, d_e=128, d_k=32, d_c=128, num_levels=3, cms_dims=[64, 128, 256]
+INFO:continuonbrain.resource_monitor:Registered cleanup callback for critical threshold
+    Registered with web monitoring
+    HOPE brain ready (1,386,003 parameters, 5.3MB)
 ============================================================
 Brain Service Ready
 ============================================================
 INFO:BrainServer:Background learner not active; learning endpoints will report disabled
 INFO:continuonbrain.services.brain_service:Switching chat model to: hope-v1
-WARNING:continuonbrain.gemma_chat:transformers not available: cannot import name '_regex' from partially initialized module 'regex' (most likely due to a circular import) (/home/craigm26/.local/lib/python3.13/site-packages/regex/__init__.py).
-INFO:continuonbrain.gemma_chat:Using mock Gemma chat. Error: cannot import name '_regex' from partially initialized module 'regex' (most likely due to a circular import) (/home/craigm26/.local/lib/python3.13/site-packages/regex/__init__.py)
+INFO:continuonbrain.services.brain_service:Unloading previous model: google/gemma-3-270m-it
+INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
+INFO:continuonbrain.gemma_chat:✅ Using HuggingFace snapshot: /home/craigm26/.cache/huggingface/hub/models--google--gemma-3n-E2B-it/snapshots/5e092ebca197cdcd8d8b195040accf22693501bc
+INFO:continuonbrain.gemma_chat:Attempting to load VLM: google/gemma-3n-E2B-it
+INFO:continuonbrain.gemma_chat:Loading processor from snapshot (local_files_only=True)
+INFO:continuonbrain.gemma_chat:✅ Processor loaded
+INFO:continuonbrain.gemma_chat:Loading VLM model from snapshot (local_files_only=True)
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards:  33%|███▎      | 1/3 [00:01<00:03,  1.55s/it]Loading checkpoint shards:  67%|██████▋   | 2/3 [00:01<00:00,  1.13it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:02<00:00,  1.13it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:02<00:00,  1.05it/s]
+INFO:continuonbrain.gemma_chat:✅ VLM model loaded
+INFO:continuonbrain.gemma_chat: Gemma 3N VLM loaded successfully!
 INFO:continuonbrain.services.brain_service:Successfully switched to model: hope-v1
  Server listening on http://0.0.0.0:8081
-[?1049h[22;0;0t[1;24r(B[m[4l[?7h[?1h=[?1h=[39;49m[39;49m[37m[40m[H[2J[37m[40m[J(B[m[39;49m[37m[40m[39;49m[37m[40m[J[39;49m(B[m[22d[93m[44mGetting http://localhost:8081/ui[K[39;49m(B[m[93m[44mLooking up localhost:8081[K[39;49m(B[m[93m[44mMaking HTTP connection to localhost:8081[39;49m(B[m[24d[24;1H[?1049l[23;0;0t[?1l>DEBUG: do_GET called for path: /training
-DEBUG: do_GET called for path: /training
-DEBUG: do_GET called for path: /training
-DEBUG: do_GET called for path: /training
-DEBUG: do_GET called for path: /favicon.ico
+[?1049h[22;0;0t[1;24r(B[m[4l[?7h[?1h=[?1h=[39;49m[39;49m[37m[40m[H[2J[11d[39;49m(B[m[J[H[37m[40m[K[2d[K[3d[K[4d[K[5d[K[6d[K[7d[K[8d[K[9d[K[10d[K[H[39;49m(B[m[93m[44mGetting http://localhost:8081/ui[39;49m(B[m[93m[44mLooking up localhost:8081[39;49m(B[m[93m[44mSending HTTP request.[39;49m(B[mDEBUG: do_GET called for path: /ui
+DEBUG: get_home_html called. TEMPLATE_DIR=/home/craigm26/Downloads/ContinuonXR/continuonbrain/server/templates
+DEBUG: Rendered content length: 31550
+DEBUG: Content snippet: <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" conten
+[1;49H[37m[40m[1K [35m[40mContinuonBrain New UI (p1 of 2)[2;4H[37m[40mContinuonBrain[3;4HConnected[4;4HLoading robot status…[5;4HHealth checks pending[6;4H(BUTTON) Refresh status (BUTTON) Hide agent rail Prefer the Continuon[7;4HAI app? Point it at this robot to use the mobile summary endpoint.[8;4H[35m[40m  * [32m[40mHome / Status[9;4H[35m[40m  * [32m[40mOperator & Safety[10;4H[35m[40m  * [32m[40mAutonomy Tasks[37m[40m   [35m[40m  * [32m[40mSkill Library[37m[40m   [35m[40m  * [32m[40mResearch & World Model[33m[40m class="na[6;28H[39;49m(B[m[93m[44m** Bad HTML!! Use -trace to diagnose. **[37m[40m[K[39;49m(B[m[1;79H[35m[40m7[6;29H[37m[40mBUTTON[28G[39;49m(B[m[37m[40m[K[39;49m(B[m[5G[93m[40mBUTTON[4G[39;49m(B[m

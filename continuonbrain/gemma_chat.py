@@ -609,7 +609,7 @@ def _install_missing_deps():
     # boot-reliability goals (and is undesirable under systemd). Keep this OFF by default.
     if os.environ.get("CONTINUON_AUTO_INSTALL_PY_DEPS", "0").lower() not in ("1", "true", "yes", "on"):
         return False
-    required = ["transformers", "accelerate", "timm"]
+    required = ["transformers", "accelerate", "timm", "ai-edge-litert", "ai-edge-litert"]
     missing = []
     for pkg in required:
         try:
@@ -688,6 +688,7 @@ def build_chat_service() -> Optional[Any]:
     prefer_jax = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes", "on")
     headless = os.environ.get("CONTINUON_HEADLESS", "0").lower() in ("1", "true", "yes", "on")
     allow_transformers = os.environ.get("CONTINUON_ALLOW_TRANSFORMERS_CHAT", "0").lower() in ("1", "true", "yes", "on")
+    use_litert = os.environ.get("CONTINUON_USE_LITERT", "1").lower() in ("1", "true", "yes", "on") # Default enabled if avail
 
     # Best-effort accelerator detection (non-fatal).
     accelerator_device = None
@@ -710,10 +711,30 @@ def build_chat_service() -> Optional[Any]:
         except Exception as exc:  # noqa: BLE001
             logger.info(f"JAX/Flax Gemma chat unavailable ({exc}); falling back.")
 
-    # Transformers fallback (disabled by default on headless to keep boot fast).
-    if headless and not allow_transformers:
-        logger.info("Headless mode: transformers chat disabled (set CONTINUON_ALLOW_TRANSFORMERS_CHAT=1 to enable).")
+
+    # LiteRT Preference (if installed and not explicitly disabled)
+    use_litert = os.environ.get("CONTINUON_USE_LITERT", "1").lower() in ("1", "true", "yes", "on")
+    
+    # Check for LiteRT availability (lazy check via import attempt or pkg util)
+    litert_available = False
+    try:
+        from continuonbrain.services.chat.litert_chat import HAS_LITERT, LiteRTGemmaChat
+        litert_available = HAS_LITERT
+    except ImportError:
+        pass
+
+
+
+    if headless and not allow_transformers and not litert_available:
+        logger.info("Headless mode: transformers chat disabled and LiteRT unavailable.")
         return None
+
+    if litert_available and use_litert:
+         try:
+             # Check for LiteRT model preference or default
+             return LiteRTGemmaChat(accelerator_device=accelerator_device)
+         except Exception as exc:
+             logger.warning(f"LiteRT Chat init failed: {exc}")
 
     try:
         return create_gemma_chat(use_mock=False, accelerator_device=accelerator_device)
