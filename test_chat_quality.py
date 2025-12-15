@@ -13,7 +13,7 @@ def run_test():
     # If the user wants to see if they "converse", we'll see the mock echoes.
     payload = {
         "turns": 3, 
-        "model_hint": "google/gemma-370m",  # Requesting real model to check fallback behavior
+        "model_hint": "hope-v1",  # Requesting primary agent model
         "delegate_model_hint": "google/gemma-370m", 
         "topic": "System Self-Improvement"
     }

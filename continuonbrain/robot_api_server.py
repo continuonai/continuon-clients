@@ -145,20 +145,28 @@ class RobotService:
             pass
 
         if self.prefer_jax_models and self.selected_model and self.selected_model.get("backend") == "jax":
-            print("  CONTINUON_PREFER_JAX=1 and JAX detected -> skipping transformers chat init; use inference_router for JAX.")
+            print("  CONTINUON_PREFER_JAX=1 and JAX detected -> Enforcing JAX chat init.")
+            os.environ["CONTINUON_ENABLE_JAX_GEMMA_CHAT"] = "1"
+        
+        # Transformers/JAX path
+        try:
+            self.gemma_chat = build_chat_service()
+            # If build_chat_service didn't detect Hailo, try to set it here
+            if accelerator_device and self.gemma_chat and hasattr(self.gemma_chat, 'accelerator_device'):
+                if not self.gemma_chat.accelerator_device:
+                    self.gemma_chat.accelerator_device = accelerator_device
+                    print(f"  Set accelerator_device={accelerator_device} on GemmaChat")
+            
+            # FORCE PRELOAD: Ensure checkpoints are loaded at system start
+            if self.gemma_chat:
+                print("  [Startup] Pre-loading model checkpoints...")
+                loaded = self.gemma_chat.load_model()
+                print(f"  [Startup] Model load result: {loaded}")
+                
+        except Exception as e:  # noqa: BLE001
+            print(f"  Chat initialization failed ({e}); continuing without chat service.")
             self.gemma_chat = None
-        else:
-            # Transformers path (fallback)
-            try:
-                self.gemma_chat = build_chat_service()
-                # If build_chat_service didn't detect Hailo, try to set it here
-                if accelerator_device and self.gemma_chat and hasattr(self.gemma_chat, 'accelerator_device'):
-                    if not self.gemma_chat.accelerator_device:
-                        self.gemma_chat.accelerator_device = accelerator_device
-                        print(f"  Set accelerator_device={accelerator_device} on GemmaChat")
-            except Exception as e:  # noqa: BLE001
-                print(f"  Chat initialization failed ({e}); continuing without chat service.")
-                self.gemma_chat = None
+
 
         # Status log for selected model/backend
         if self.selected_model:
@@ -857,8 +865,8 @@ class RobotService:
                 try:
                     log_chat_turn(
                         rlds_cfg,
-                        user_text=message,
-                        model_text=assistant_text,
+                        user_message=message,
+                        assistant_response=assistant_text,
                         session_id=session_id,
                         metadata={
                             "turn_index": i,
@@ -1014,6 +1022,7 @@ class RobotService:
 
     def _autonomous_learning_loop(self) -> None:
         """Start/pause/stop HOPE BackgroundLearner based on robot mode + settings."""
+        chat_last_run = 0.0
         while not self._bg_stop_event.is_set():
             try:
                 from continuonbrain.settings_manager import SettingsStore
@@ -1090,9 +1099,59 @@ class RobotService:
                     except Exception:
                         pass
                 else:
-                    if self.background_learner is not None and self.background_learner.running and not self.background_learner.paused:
+                    if self.background_learner is not None and self.background_learner.running:
+                         if not self.background_learner.paused:
+                             self.background_learner.pause()
+                         # Stop thread completely if disabled to save noise?
+                         # self.background_learner.stop() 
+                         # self.background_learner = None
+
+                # -------------------------------------------------------------------------
+                # MERGED PROCESS: Check for Chat Learning Opportunity
+                # "The Agent Manager decides when to speak."
+                # -------------------------------------------------------------------------
+                # Load chat learn settings (re-load to catch updates)
+                chat_cfg = (agent_mgr.get("chat_learn") or {}) if isinstance(agent_mgr, dict) else {}
+                chat_enabled = bool(chat_cfg.get("enabled", False))
+                chat_interval = int(chat_cfg.get("interval_s", 600) or 600)
+                
+                # Check if due
+                chat_due = (time.time() - chat_last_run) >= float(max(10, chat_interval))
+                
+                # DEBUG MERGE LOGIC
+                print(f"[DEBUG Auto] mode={mode}, want_run={want_running}, chat_enabled={chat_enabled}, due={chat_due}, rec={self.is_recording}")
+
+                if want_running and chat_enabled and chat_due and not self.is_recording:
+                    # ONE ENTITY: Pause Controller learning while Chatting
+                    controller_was_running = False
+                    if self.background_learner and self.background_learner.running and not self.background_learner.paused:
                         self.background_learner.pause()
-                        self._last_autonomous_learner_action = {"action": "pause", "ts": time.time(), "mode": mode}
+                        controller_was_running = True
+                        print("[UnifiedAgent] Pausing Controller for Chat Session...")
+
+                    # Run Chat Session
+                    print("[UnifiedAgent] Starting Chat Learning Session...")
+                    try:
+                        asyncio.run(
+                            self.RunChatLearn({
+                                "turns": int(chat_cfg.get("turns_per_cycle", 10) or 10),
+                                "model_hint": str(chat_cfg.get("model_hint") or "hope-v1"),
+                                "delegate_model_hint": chat_cfg.get("delegate_model_hint"),
+                                "topic": str(chat_cfg.get("topic") or "coding this repository"),
+                                "session_id": f"unified_learn_{int(time.time())}",
+                            })
+                        )
+                    except Exception as exc:
+                        print(f"[UnifiedAgent] Chat session failed: {exc}")
+                    
+                    chat_last_run = time.time()
+                    
+                    # Resume Controller
+                    if controller_was_running and self.background_learner:
+                        print("[UnifiedAgent] Chat finished. Resuming Controller...")
+                        self.background_learner.resume()
+
+                self._last_autonomous_learner_action = {"action": "pause", "ts": time.time(), "mode": mode}
             except Exception:
                 pass
             time.sleep(5)
@@ -1425,12 +1484,15 @@ class RobotService:
         if disable_chat_learn:
             print(" Chat-learn scheduler disabled via CONTINUON_DISABLE_CHAT_LEARN=1")
         elif self._chat_learn_thread is None or not self._chat_learn_thread.is_alive():
-            try:
-                self._chat_learn_thread = threading.Thread(target=self._chat_learn_loop, daemon=True)
-                self._chat_learn_thread.start()
-                print(" Chat-learn scheduler started (thread; settings-gated)")
-            except Exception as exc:  # noqa: BLE001
-                print(f"  Chat-learn scheduler failed to start: {exc}")
+            # MERGED PROCESS: Chat learning is now handled by _autonomous_learning_loop
+            print(" Chat-learn scheduler: Merged into autonomous supervisor (independent thread disabled).")
+            # try:
+            #     self._chat_learn_thread = threading.Thread(target=self._chat_learn_loop, daemon=True)
+            #     self._chat_learn_thread.start()
+            #     print(" Chat-learn scheduler started (thread; settings-gated)")
+            # except Exception as exc:  # noqa: BLE001
+            #     print(f"  Chat-learn scheduler failed to start: {exc}")
+
 
         disable_autonomous_learner = os.environ.get("CONTINUON_DISABLE_AUTONOMOUS_LEARNER", "0").lower() in ("1", "true", "yes", "on")
         if disable_autonomous_learner:

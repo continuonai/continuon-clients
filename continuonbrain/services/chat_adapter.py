@@ -567,6 +567,15 @@ class ChatAdapter:
                 "safety": f"{model_tag} Safety: run at SLOW, keep E-Stop handy. Start gentle, then scale up.",
                 "default": f"{model_tag} Control helper online. Status={context}. Ask for control/safety guidance.",
             },
+            "hope-v1": {
+                "status": f"{model_tag} [HOPE-V1 Primary] System nominal. Status: {context}. Ready for complex orchestrations.",
+                "control": f"{model_tag} [HOPE-V1] Precision control active. Use sliders or keyboard. Speed governed at SLOW (0.3).",
+                "joints": f"{model_tag} [HOPE-V1] 6-DOF Manipulator available. Base/Shoulder/Elbow/Wrist/Gripper. Range [-1.0, 1.0].",
+                "car": f"{model_tag} [HOPE-V1] Mobility platform online. Presets: Crawl/Slow/Med/Fast. Default: SLOW.",
+                "record": f"{model_tag} [HOPE-V1] Episode logging enabled in manual_training mode. Demonstrations are valuable.",
+                "safety": f"{model_tag} [HOPE-V1] Safety protocols engaged. E-Stop monitoring active. Proceed with caution.",
+                "default": f"{model_tag} [HOPE-V1] Agent Manager online. I am HOPE v1, ready to assist with robot operations and learning. Status={context}.",
+            },
         }
 
         bucket = None
