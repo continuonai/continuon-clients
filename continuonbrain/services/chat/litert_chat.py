@@ -140,6 +140,9 @@ class LiteRTGemmaChat:
             if not self.load_model():
                 return "Error: LiteRT model not loaded."
 
+        if self.is_mock:
+            return f"[LiteRT Mock] Response to: '{message}'. System Context: {len(system_context) if system_context else 0} chars."
+
         # Format prompt
         # Use simpler approach for now: concatenate history
         # (MediaPipe LlmInference is usually stateless or requires session management that we haven't implemented)

@@ -671,6 +671,9 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
                 logger.error(f"Deps installed but Gemma init still failed: {exc}")
         return MockGemmaChat(error_msg=str(e), **kwargs)
 
+# Exposed for brain_service fallback logic
+create_gemma_chat.DEFAULT_MODEL_ID = GemmaChat.DEFAULT_MODEL_ID
+
 
 def build_chat_service() -> Optional[Any]:
     """
