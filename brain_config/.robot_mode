@@ -1,15 +1,16 @@
 {
   "mode": "autonomous",
-  "timestamp": 1765779427.271624,
+  "timestamp": 1765809824.1638005,
   "config": {
     "mode": "autonomous",
-    "timestamp": 1765779427.271624,
+    "timestamp": 1765809824.1638005,
     "allow_motion": true,
     "record_episodes": true,
     "run_inference": true,
     "self_train": false,
     "metadata": {
-      "control_source": "vla_policy"
+      "control_source": "vla_policy",
+      "restored_from_persisted": true
     }
   }
 }

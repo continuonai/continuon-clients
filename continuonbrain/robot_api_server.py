@@ -6,6 +6,9 @@ Runs against real hardware by default with optional mock fallback for dev.
 import asyncio
 import threading
 import os
+# Force model downloads to ensure seed models are available
+os.environ["CONTINUON_ALLOW_MODEL_DOWNLOADS"] = "1"
+
 from collections import deque
 from pathlib import Path
 from typing import AsyncIterator, Dict, Optional, Any, List

@@ -22,11 +22,25 @@
         }
 
         /* Place existing columns into the new grid order without changing HTML structure. */
-        .right-column { grid-area: agent; }
-        .left-column { grid-area: nav; }
-        .center-column { grid-area: content; }
-        .col-resizer[data-resize="right"] { grid-area: agent-resizer; }
-        .col-resizer[data-resize="left"] { grid-area: nav-resizer; }
+        .right-column {
+            grid-area: agent;
+        }
+
+        .left-column {
+            grid-area: nav;
+        }
+
+        .center-column {
+            grid-area: content;
+        }
+
+        .col-resizer[data-resize="right"] {
+            grid-area: agent-resizer;
+        }
+
+        .col-resizer[data-resize="left"] {
+            grid-area: nav-resizer;
+        }
 
         .column {
             overflow-y: auto;
@@ -112,7 +126,8 @@
             <div class="mobile-action-row">
                 <button class="mobile-action-btn" id="mobile-refresh" type="button">Refresh status</button>
                 <button class="mobile-action-btn ghost" id="mobile-rail-toggle" type="button">Hide agent rail</button>
-                <span class="mobile-action-hint">Prefer the Continuon AI app? Point it at this robot to use the mobile summary endpoint.</span>
+                <span class="mobile-action-hint">Prefer the Continuon AI app? Point it at this robot to use the mobile
+                    summary endpoint.</span>
             </div>
         </div>
         <div class="workspace-grid" id="workspace-grid">
@@ -134,9 +149,11 @@
                         <li class="nav-item"><a href="/research"
                                 class="nav-link {% if active_page == 'research' %}active{% endif %}">Research & World
                                 Model</a></li>
-                        <li class="nav-item"><a href="/api_explorer"
-                                class="nav-link {% if active_page == 'api_explorer' %}active{% endif %}">API
-                                Explorer</a></li>
+                        class="nav-link {% if active_page == 'api_explorer' %}active{% endif %}">API
+                        Explorer</a></li>
+                        <li class="nav-item"><a href="/training"
+                                class="nav-link {% if active_page == 'training' %}active{% endif %}">Training
+                                Dashboard</a></li>
                     </ul>
                 </nav>
                 <div class="panel">
@@ -168,7 +185,8 @@
                             <div id="persona-badge" class="persona-badge">Persona: default</div>
                         </div>
                         <div style="display:flex; gap:10px; align-items:center;">
-                            <button class="rail-btn" id="agent-details-toggle" onclick="toggleAgentDetails()" aria-expanded="false" type="button">Show details</button>
+                            <button class="rail-btn" id="agent-details-toggle" onclick="toggleAgentDetails()"
+                                aria-expanded="false" type="button">Show details</button>
                             <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
                                 <span>Human mode</span>
                                 <strong id="human-toggle-state">Off</strong>
@@ -187,23 +205,30 @@
                             <div class="chat-messages inline" id="chat-messages"></div>
                             <div class="chat-structured-block" id="chat-structured-block" style="margin-top:12px;">
                                 <div class="panel-eyebrow">Structured (goals / probes / plan)</div>
-                                <pre id="chat-structured" style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:260px; overflow:auto;">(no structured plan yet)</pre>
+                                <pre id="chat-structured"
+                                    style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:260px; overflow:auto;">(no structured plan yet)</pre>
                             </div>
                             <div class="chat-input-area inline">
-                                <select id="chat-agent-select" class="input-compact" style="width:220px; margin-right:8px;">
+                                <select id="chat-agent-select" class="input-compact"
+                                    style="width:220px; margin-right:8px;">
                                     <option value="agent_manager" selected>Agent Manager</option>
-                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)</option>
-                                    <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)</option>
+                                    <option value="consult:google/gemma-3n-2b">Agent Manager + Gemma 3n (subagent)
+                                    </option>
+                                    <option value="consult:google/gemma-370m">Agent Manager + Gemma 370m (subagent)
+                                    </option>
                                     <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
                                     <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
                                 </select>
-                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                <label
+                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
                                     <input id="chat-attach-camera" type="checkbox">
                                     Vision
                                 </label>
-                                <img id="chat-camera-thumb" alt="camera frame" style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
+                                <img id="chat-camera-thumb" alt="camera frame"
+                                    style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
                                 <button class="rail-btn" id="chat-mic" type="button" title="Push-to-talk">🎙️</button>
-                                <label style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                <label
+                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
                                     <input id="chat-speak-replies" type="checkbox">
                                     Speak
                                 </label>
@@ -220,12 +245,36 @@
                         <div class="panel-eyebrow">Planner</div>
                         <div class="stack-list" id="planning-panel">
                             <div class="panel-subtitle">Goal in normalized joint space ([-1, 1])</div>
-                            <div class="metric-row"><div class="metric-label">J0</div><div class="metric-value"><input id="plan-goal-j0" class="input-compact" type="number" step="0.05" value="0.2" style="width:120px;"></div></div>
-                            <div class="metric-row"><div class="metric-label">J1</div><div class="metric-value"><input id="plan-goal-j1" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
-                            <div class="metric-row"><div class="metric-label">J2</div><div class="metric-value"><input id="plan-goal-j2" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
-                            <div class="metric-row"><div class="metric-label">J3</div><div class="metric-value"><input id="plan-goal-j3" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
-                            <div class="metric-row"><div class="metric-label">J4</div><div class="metric-value"><input id="plan-goal-j4" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
-                            <div class="metric-row"><div class="metric-label">J5</div><div class="metric-value"><input id="plan-goal-j5" class="input-compact" type="number" step="0.05" value="0.0" style="width:120px;"></div></div>
+                            <div class="metric-row">
+                                <div class="metric-label">J0</div>
+                                <div class="metric-value"><input id="plan-goal-j0" class="input-compact" type="number"
+                                        step="0.05" value="0.2" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J1</div>
+                                <div class="metric-value"><input id="plan-goal-j1" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J2</div>
+                                <div class="metric-value"><input id="plan-goal-j2" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J3</div>
+                                <div class="metric-value"><input id="plan-goal-j3" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J4</div>
+                                <div class="metric-value"><input id="plan-goal-j4" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J5</div>
+                                <div class="metric-value"><input id="plan-goal-j5" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
                             <div class="metric-row">
                                 <div class="metric-label">Auto-exec step 0</div>
                                 <div class="metric-value"><input id="plan-execute" type="checkbox"></div>
@@ -240,7 +289,8 @@
                                 <div class="metric-label"> </div>
                                 <div class="metric-value">
                                     <button class="rail-btn primary" onclick="window.runArmPlanner()">Plan</button>
-                                    <button class="rail-btn" onclick="window.executeNextPlanStep()">Execute next</button>
+                                    <button class="rail-btn" onclick="window.executeNextPlanStep()">Execute
+                                        next</button>
                                     <button class="rail-btn" onclick="window.clearPlan()">Clear</button>
                                 </div>
                             </div>
@@ -250,7 +300,8 @@
                                 <div class="metric-label">Show raw</div>
                                 <div class="metric-value"><input id="plan-show-raw" type="checkbox"></div>
                             </div>
-                            <pre id="plan-output" style="display:none; white-space:pre-wrap; font-size:12px; color:#cfe9ff; background:#0b1220; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:240px; overflow:auto;">(no plan yet)</pre>
+                            <pre id="plan-output"
+                                style="display:none; white-space:pre-wrap; font-size:12px; color:#cfe9ff; background:#0b1220; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:240px; overflow:auto;">(no plan yet)</pre>
                         </div>
                     </div>
                 </div>
@@ -285,24 +336,29 @@
                             <div class="panel-eyebrow">Training Progress</div>
                             <div class="panel-subtitle">Loss curves, eval signals, and capability coverage.</div>
                             <div class="rail-actions" style="margin-top:10px;">
-                                <button class="rail-btn" type="button" onclick="window.updateTrainingDashboard()">Refresh</button>
+                                <button class="rail-btn" type="button"
+                                    onclick="window.updateTrainingDashboard()">Refresh</button>
                             </div>
                             <div class="panel-subtitle" id="training-status" style="margin-top:8px;">—</div>
                             <div class="stack-list" id="training-dashboard-list" style="margin-top:10px;"></div>
                         </div>
                         <div class="panel-ghost">
                             <div class="panel-eyebrow">Cloud training (TPU) handoff</div>
-                            <div class="panel-subtitle">Offline-first readiness + packaging + re-acquire (manual/opt-in).</div>
+                            <div class="panel-subtitle">Offline-first readiness + packaging + re-acquire
+                                (manual/opt-in).</div>
                             <div class="rail-actions" style="margin-top:10px;">
-                                <button class="rail-btn primary" type="button" onclick="window.refreshCloudReadiness()">Check readiness</button>
-                                <button class="rail-btn" type="button" onclick="window.listCloudExports()">List exports</button>
+                                <button class="rail-btn primary" type="button"
+                                    onclick="window.refreshCloudReadiness()">Check readiness</button>
+                                <button class="rail-btn" type="button" onclick="window.listCloudExports()">List
+                                    exports</button>
                             </div>
                             <div class="stack-list" id="cloud-readiness-list" style="margin-top:10px;"></div>
 
                             <div class="panel-subtitle" style="margin-top:14px;">Build export zip</div>
                             <div class="metric-row">
                                 <div class="metric-label">Include episodes</div>
-                                <div class="metric-value"><input id="cloud-export-episodes" type="checkbox" checked></div>
+                                <div class="metric-value"><input id="cloud-export-episodes" type="checkbox" checked>
+                                </div>
                             </div>
                             <div class="metric-row">
                                 <div class="metric-label">Include TFRecords</div>
@@ -314,16 +370,19 @@
                             </div>
                             <div class="metric-row">
                                 <div class="metric-label">Include checkpoints</div>
-                                <div class="metric-value"><input id="cloud-export-checkpoints" type="checkbox" checked></div>
+                                <div class="metric-value"><input id="cloud-export-checkpoints" type="checkbox" checked>
+                                </div>
                             </div>
                             <div class="metric-row">
                                 <div class="metric-label">Episode limit (newest)</div>
-                                <div class="metric-value"><input id="cloud-export-episode-limit" class="input-compact" type="number" step="1" min="0" placeholder="(all)" style="width:120px;"></div>
+                                <div class="metric-value"><input id="cloud-export-episode-limit" class="input-compact"
+                                        type="number" step="1" min="0" placeholder="(all)" style="width:120px;"></div>
                             </div>
                             <div class="metric-row">
                                 <div class="metric-label"> </div>
                                 <div class="metric-value">
-                                    <button class="rail-btn" type="button" onclick="window.buildCloudExportZip()">Build zip</button>
+                                    <button class="rail-btn" type="button" onclick="window.buildCloudExportZip()">Build
+                                        zip</button>
                                 </div>
                             </div>
                             <div class="panel-subtitle" id="cloud-export-status" style="margin-top:6px;">—</div>
@@ -341,16 +400,19 @@
                             </div>
                             <div class="metric-row">
                                 <div class="metric-label">Source URL</div>
-                                <div class="metric-value"><input id="cloud-install-url" class="input-compact" type="text" placeholder="https://.../bundle.zip" style="width:260px;"></div>
+                                <div class="metric-value"><input id="cloud-install-url" class="input-compact"
+                                        type="text" placeholder="https://.../bundle.zip" style="width:260px;"></div>
                             </div>
                             <div class="metric-row">
                                 <div class="metric-label">OR source path</div>
-                                <div class="metric-value"><input id="cloud-install-path" class="input-compact" type="text" placeholder="/abs/path/to/bundle.zip" style="width:260px;"></div>
+                                <div class="metric-value"><input id="cloud-install-path" class="input-compact"
+                                        type="text" placeholder="/abs/path/to/bundle.zip" style="width:260px;"></div>
                             </div>
                             <div class="metric-row">
                                 <div class="metric-label"> </div>
                                 <div class="metric-value">
-                                    <button class="rail-btn" type="button" onclick="window.installCloudBundle()">Install</button>
+                                    <button class="rail-btn" type="button"
+                                        onclick="window.installCloudBundle()">Install</button>
                                 </div>
                             </div>
                             <div class="panel-subtitle" id="cloud-install-status" style="margin-top:6px;">—</div>
@@ -365,20 +427,26 @@
                         </div>
                         <div class="panel-ghost">
                             <div class="panel-eyebrow">Pair phone (Continuon AI app / browser)</div>
-                            <div class="panel-subtitle">Scan QR on your iPhone (local network) and enter the 6‑digit confirm code shown here.</div>
+                            <div class="panel-subtitle">Scan QR on your iPhone (local network) and enter the 6‑digit
+                                confirm code shown here.</div>
                             <div class="rail-actions" style="margin-top:10px;">
-                                <button class="rail-btn primary" type="button" onclick="window.startPhonePairing()">Start pairing</button>
-                                <button class="rail-btn" type="button" onclick="window.refreshOwnershipStatus()">Refresh status</button>
+                                <button class="rail-btn primary" type="button"
+                                    onclick="window.startPhonePairing()">Start pairing</button>
+                                <button class="rail-btn" type="button" onclick="window.refreshOwnershipStatus()">Refresh
+                                    status</button>
                             </div>
                             <div class="stack-list" id="pairing-status-list" style="margin-top:10px;"></div>
                             <div class="metric-row" style="margin-top:10px;">
                                 <div class="metric-label">Confirm code</div>
-                                <div class="metric-value"><span class="status-chip info" id="pairing-confirm-code">—</span></div>
+                                <div class="metric-value"><span class="status-chip info"
+                                        id="pairing-confirm-code">—</span></div>
                             </div>
                             <div class="panel-subtitle" style="margin-top:10px;">Scan this QR</div>
-                            <img id="pairing-qr" alt="pair QR" style="display:none; width:220px; height:220px; border-radius:16px; border:1px solid rgba(255,255,255,0.12); background:#fff;">
+                            <img id="pairing-qr" alt="pair QR"
+                                style="display:none; width:220px; height:220px; border-radius:16px; border:1px solid rgba(255,255,255,0.12); background:#fff;">
                             <div class="panel-subtitle" style="margin-top:10px;">Or open URL</div>
-                            <pre id="pairing-url" style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);">(not started)</pre>
+                            <pre id="pairing-url"
+                                style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);">(not started)</pre>
                         </div>
                     </div>
                 </div>
@@ -460,7 +528,7 @@
                     detailsToggle.textContent = open ? 'Hide details' : 'Show details';
                     detailsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
                 }
-                try { localStorage.setItem(detailsKey, open ? '1' : '0'); } catch (e) {}
+                try { localStorage.setItem(detailsKey, open ? '1' : '0'); } catch (e) { }
             };
             window.toggleAgentDetails = () => {
                 const open = document.body.classList.contains('agent-details-open');

@@ -132,6 +132,11 @@ class SimpleJSONServer:
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
             
+        elif path == "/training":
+            response_body = self.render_template("training.html", {"active_page": "training"})
+            response_bytes = response_body.encode('utf-8')
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+            
         elif path == "/wiring":
             response_body = self.get_wiring_html()
             response_bytes = response_body.encode('utf-8')
@@ -442,6 +447,12 @@ class SimpleJSONServer:
         elif path.startswith("/api/mode/"):
             mode_name = path.split("/")[-1]
             result = await self.service.SetRobotMode(mode_name)
+            return self._json_response(result)
+
+        elif path == "/api/training/control/mode" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            mode = payload.get("mode")
+            result = await self.service.SetRobotMode(mode)
             return self._json_response(result)
 
         elif path == "/api/command" and method == "POST":

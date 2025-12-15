@@ -26,9 +26,13 @@ from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
-from continuonbrain.services.background_learner import BackgroundLearner
-
 logger = logging.getLogger(__name__)
+
+try:
+    from continuonbrain.services.background_learner import BackgroundLearner
+except ImportError:
+    logger.warning("Could not import BackgroundLearner (likely missing dependencies like torch). Background learning will be disabled.")
+    BackgroundLearner = None
 
 # --- Task Dataclasses ---
 
@@ -1548,7 +1552,7 @@ class BrainService:
                 f"  Error: {e}"
             )
             print(f"   {error_msg}")
-            raise RuntimeError(error_msg) from e
+            print("WARNING: Skipping HOPE"); self.hope_brain = None
         except Exception as e:
             error_msg = (
                 f"CRITICAL: HOPE brain initialization failed: {e}\n"
@@ -1559,7 +1563,7 @@ class BrainService:
                 "    - System has sufficient memory ({resource_status.available_memory_mb}MB available)"
             )
             print(f"   {error_msg}")
-            raise RuntimeError(error_msg) from e
+            print("WARNING: Skipping HOPE"); self.hope_brain = None
         
         
         print("=" * 60)

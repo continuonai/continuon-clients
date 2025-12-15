@@ -25,7 +25,7 @@
         "intervention_confidence_threshold": 0.5,
         "chat_learn": {
             "enabled": true,
-            "interval_s": 10,
+            "interval_s": 60,
             "turns_per_cycle": 20,
             "model_hint": "hope-v1",
             "delegate_model_hint": "google/gemma-370m",

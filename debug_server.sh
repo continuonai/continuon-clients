@@ -8,4 +8,4 @@ export CONFIG_DIR=/home/craigm26/.continuonbrain
 #   export HUGGINGFACE_TOKEN="..."
 
 echo "Starting Server Manual Debug (Unbuffered)..." > debug_server.log
-/home/craigm26/ContinuonXR/.venv/bin/python3 -u -m continuonbrain.api.server --port 8080 --real-hardware >> debug_server.log 2>&1
+./.venv/bin/python3 -u -m continuonbrain.api.server --port 8080 --real-hardware >> debug_server.log 2>&1
