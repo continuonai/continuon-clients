@@ -208,8 +208,22 @@ class TrainingRunner:
                             trainable_box[name] = lora
                 return trainable_box, params
 
-            def make_opt(params):
-                return torch.optim.Adam(params, lr=1e-3)
+            def make_opt(params, lr, weight_decay):
+                fallback_lr = 1e-3
+                safe_lr = lr if lr is not None else fallback_lr
+                if lr is None:
+                    logger.info("Using default learning rate %.1e", fallback_lr)
+
+                fallback_weight_decay = 0.0
+                safe_weight_decay = weight_decay if weight_decay is not None else fallback_weight_decay
+                if weight_decay is None:
+                    logger.info("Using default weight decay %.1f", fallback_weight_decay)
+
+                return torch.optim.Adam(
+                    params,
+                    lr=safe_lr,
+                    weight_decay=safe_weight_decay,
+                )
 
             def step(model, batch, optimizer):
                 optimizer.zero_grad()
