@@ -60,18 +60,20 @@ class TrainingRunner:
         logger = logging.getLogger("continuonbrain.training_runner")
         logger.setLevel(logging.INFO)
 
-        try:
-            logs_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            log_path = logs_dir / f"trainer_{timestamp}.log"
-            handler: logging.Handler = logging.FileHandler(log_path)
-            log_dir_ready = True
-        except Exception as exc:  # noqa: BLE001
-            print(f"[TrainingRunner] Falling back to stdout logging: {exc}")
-            handler = logging.StreamHandler()
+        # Only add a handler if none exist to avoid duplicate logs
+        if not logger.handlers:
+            try:
+                logs_dir.mkdir(parents=True, exist_ok=True)
+                timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                log_path = logs_dir / f"trainer_{timestamp}.log"
+                handler: logging.Handler = logging.FileHandler(log_path)
+                log_dir_ready = True
+            except Exception as exc:  # noqa: BLE001
+                print(f"[TrainingRunner] Falling back to stdout logging: {exc}")
+                handler = logging.StreamHandler()
 
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-        logger.addHandler(handler)
+            handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+            logger.addHandler(handler)
 
         start_time = datetime.utcnow().isoformat()
 
