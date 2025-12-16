@@ -284,6 +284,20 @@ async function installSeedBundle() {
     const kind = document.getElementById('cloud-install-kind')?.value || 'jax_seed_manifest';
     const source_url = document.getElementById('cloud-install-url')?.value?.trim();
     const source_path = document.getElementById('cloud-install-path')?.value?.trim();
+    // Validate source_url if provided
+    if (source_url) {
+        let urlObj;
+        try {
+            urlObj = new URL(source_url);
+        } catch (e) {
+            if (statusEl) statusEl.textContent = 'Invalid URL format. Please enter a valid http(s) URL.';
+            return;
+        }
+        if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+            if (statusEl) statusEl.textContent = 'Only http(s) URLs are allowed.';
+            return;
+        }
+    }
     if (!source_url && !source_path) {
         if (statusEl) statusEl.textContent = 'Provide a source URL or local path to install.';
         return;
