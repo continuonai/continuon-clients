@@ -112,17 +112,109 @@ function refreshMetrics() {
         .catch(err => console.error('Error fetching metrics:', err));
 }
 
+let selectedLogPath = null;
+let logRefreshIntervalId = null;
+const LOG_TAIL_LINES = 200;
+const LOG_REFRESH_MS = 5000;
+
+function setLogStatus(message) {
+    const logContent = document.getElementById('training-logs');
+    if (logContent) {
+        logContent.innerText = message;
+    }
+}
+
+function renderLogList(logs) {
+    const listEl = document.getElementById('training-log-list');
+    if (!listEl) {
+        return;
+    }
+
+    listEl.innerHTML = '';
+
+    if (!Array.isArray(logs) || logs.length === 0) {
+        selectedLogPath = null;
+        listEl.innerText = 'No logs found.';
+        setLogStatus('Waiting for logs...');
+        stopLogAutoRefresh();
+        return;
+    }
+
+    logs.forEach((log) => {
+        const button = document.createElement('button');
+        button.textContent = `${new Date(log.mtime * 1000).toLocaleString()}\n${log.path}`;
+        button.style.display = 'block';
+        button.style.width = '100%';
+        button.style.textAlign = 'left';
+        button.style.marginBottom = '6px';
+        button.style.fontFamily = 'monospace';
+        button.style.whiteSpace = 'pre-wrap';
+        button.className = selectedLogPath === log.path ? 'rail-btn primary' : 'rail-btn';
+        button.onclick = () => selectLog(log.path);
+        listEl.appendChild(button);
+    });
+
+    if (!selectedLogPath) {
+        selectLog(logs[0].path);
+    }
+}
+
 function refreshLogs() {
-    // For now, listing log files.
     fetch('/api/training/logs')
         .then(response => response.json())
         .then(data => {
-            let logText = "Available Logs:\n" + data.map(f => f.path).join('\n');
-            document.getElementById('training-logs').innerText = logText;
+            renderLogList(data);
         })
         .catch(err => {
-            document.getElementById('training-logs').innerText = 'Error fetching log list: ' + err;
+            setLogStatus('Error fetching log list: ' + err);
         });
+}
+
+function selectLog(path) {
+    selectedLogPath = path;
+    // refreshLogs(); // Removed to prevent unnecessary API call and re-render
+    fetchSelectedLogTail();
+    startLogAutoRefresh();
+}
+
+function fetchSelectedLogTail() {
+    if (!selectedLogPath) {
+        setLogStatus('Select a log to view content.');
+        return;
+    }
+
+    const url = `/api/training/logs/tail?path=${encodeURIComponent(selectedLogPath)}&lines=${LOG_TAIL_LINES}`;
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status !== 'ok') {
+                setLogStatus('Error: ' + (data.message || 'Unable to read log'));
+                return;
+            }
+            const header = `Tailing ${data.path} (last ${data.lines} lines)\n\n`;
+            setLogStatus(header + (data.content || ''));
+            const contentEl = document.getElementById('training-logs');
+            if (contentEl) {
+                contentEl.scrollTop = contentEl.scrollHeight;
+            }
+        })
+        .catch(err => {
+            setLogStatus('Error fetching log tail: ' + err);
+        });
+}
+
+function startLogAutoRefresh() {
+    if (logRefreshIntervalId) {
+        return;
+    }
+    logRefreshIntervalId = setInterval(fetchSelectedLogTail, LOG_REFRESH_MS);
+}
+
+function stopLogAutoRefresh() {
+    if (logRefreshIntervalId) {
+        clearInterval(logRefreshIntervalId);
+        logRefreshIntervalId = null;
+    }
 }
 
 // Auto-refresh on load
