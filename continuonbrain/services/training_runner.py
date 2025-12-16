@@ -263,11 +263,12 @@ class TrainingRunner:
                 adapter_path=result.adapter_path,
                 completed_at=completed_at,
             )
+            avg_loss_str = "%.6f" % result.avg_loss if result.avg_loss is not None else "N/A"
             logger.info(
-                "RunTraining completed: status=%s steps=%s avg_loss=%.6f adapter=%s",
+                "RunTraining completed: status=%s steps=%s avg_loss=%s adapter=%s",
                 result.status,
                 result.steps,
-                result.avg_loss,
+                avg_loss_str,
                 result.adapter_path,
             )
         except Exception as exc:  # noqa: BLE001
