@@ -38,19 +38,21 @@ class StartupManager:
     
     def __init__(
         self, 
-        config_dir: str = "/opt/continuonos/brain",
+        config_dir: Optional[str] = None,
         start_services: bool = True,
         robot_name: str = "ContinuonBot",
         headless: bool = False,
+        port: int = 8080,
     ):
-        self.config_dir = Path(config_dir)
+        self.config_dir = Path(config_dir or os.environ.get("CONTINUON_CONFIG_DIR", "/opt/continuonos/brain"))
         self.state_file = self.config_dir / ".startup_state"
         self.last_wake_time: Optional[int] = None
         self.start_services = start_services
         self.robot_name = robot_name
         env_headless = self._env_flag("CONTINUON_HEADLESS", default=self._default_headless())
         self.headless = headless or env_headless
-        self.service_port = 8080
+        self.service_port = port
+        self.processes: List[subprocess.Popen] = []
         # Background trainer defaults to off on Pi-class boards to keep boot fast and memory low.
         self.enable_background_trainer = self._env_flag(
             "CONTINUON_ENABLE_BACKGROUND_TRAINER",
@@ -783,7 +785,7 @@ def main():
         "--max-sleep-training-hours",
         type=float,
         default=6.0,
-        help="Max hours to allow self-training during sleep (default: 6)",
+        help="Max duration for sleep training",
     )
     parser.add_argument(
         "--max-download-bytes",
@@ -794,10 +796,15 @@ def main():
     
     args = parser.parse_args()
     
+    # If --config-dir passed, set expected env var so sub-processes see it
+    if args.config_dir:
+        os.environ["CONTINUON_CONFIG_DIR"] = args.config_dir
+
     manager = StartupManager(
         config_dir=args.config_dir,
         start_services=not args.no_services,
-        robot_name=args.robot_name
+        robot_name=args.robot_name,
+        port=args.port
     )
     
     if args.prepare_sleep:

@@ -233,12 +233,12 @@ echo "Training: BACKGROUND_TRAINER=${CONTINUON_ENABLE_BACKGROUND_TRAINER} LOG_CH
   if needs_sudo; then
     # Force env vars through sudo (sudo often drops -E env).
     (
-      $(sudo_env_prefix) "${PY}" -m continuonbrain.startup_manager --config-dir "${CONFIG_DIR}" \
+      $(sudo_env_prefix) "${PY}" -m continuonbrain.startup_manager --config-dir "${CONFIG_DIR}" --port 8081 \
         >> "${LOG_FILE}" 2>&1
     ) &
   else
     (
-      $(env_prefix) "${PY}" -m continuonbrain.startup_manager --config-dir "${CONFIG_DIR}" \
+      $(env_prefix) "${PY}" -m continuonbrain.startup_manager --config-dir "${CONFIG_DIR}" --port 8081 \
         >> "${LOG_FILE}" 2>&1
     ) &
   fi

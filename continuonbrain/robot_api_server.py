@@ -117,6 +117,11 @@ class RobotService:
         self.stream_helper = VideoStreamHelper(self)
         self._tool_router_bundle = None
         self.pairing = PairingManager(config_dir)
+        
+        # JAX World Model for Symbolic Search
+        self.jax_adapter = None
+
+
 
         # Control-loop timing telemetry (real scheduling + work-time in this process).
         # Used by the Research dashboard to prove "<=100ms tick" claims.
@@ -214,6 +219,96 @@ class RobotService:
         
         # Real-time chat events for UI (SSE)
         self.chat_event_queue = asyncio.Queue(maxsize=100)
+        
+
+
+    def _init_jax_search(self):
+        """Initialize JAX model adapter for search if JAX is available/selected."""
+        if self.selected_model and self.selected_model.get("backend") == "jax":
+            try:
+                # Lazy import to avoid hard dependency if not used
+                from continuonbrain.jax_models.core_model import make_core_model, CoreModelConfig
+                from continuonbrain.reasoning.jax_adapter import JaxWorldModelAdapter
+                import jax
+                
+                # Check for cached/shared params? For now create fresh for search (inefficient but safe)
+                # Ideally we share with TrainingRunner or Load from Checkpoint.
+                # For Phase 1 Verification: Init random (valid for flow testing).
+                rng = jax.random.PRNGKey(0)
+                model, params = make_core_model(rng, obs_dim=128, action_dim=32, output_dim=32)
+                self.jax_adapter = JaxWorldModelAdapter(model, params, CoreModelConfig.pi5_optimized())
+                print("[RobotService] JAX World Model Adapter initialized for Search.")
+            except Exception as e:
+                print(f"[RobotService] Failed to init JAX search adapter: {e}")
+
+    async def RunJaxTraining(self, payload: dict) -> dict:
+        """Run a single JAX training step (mocked for browser verification)."""
+        if not self.jax_adapter:
+            self._init_jax_search()
+            
+        # Simulate training delay
+        await asyncio.sleep(1.0)
+        
+        # Mock metrics for UI verification
+        metrics = {
+            "step": getattr(self, "_train_step_counter", 0) + 1,
+            "loss": 0.1234 - (getattr(self, "_train_step_counter", 0) * 0.001),
+        }
+        self._train_step_counter = metrics["step"]
+        
+        return {
+            "status": "success",
+            "metrics": metrics
+        }
+        
+    async def RunSymbolicSearch(self, payload: dict) -> dict:
+        """Run Symbolic/Tree search using the JAX World Model."""
+        from continuonbrain.reasoning.tree_search import symbolic_search, ArmGoal, WorldModelState
+        
+        if not self.jax_adapter:
+            self._init_jax_search()
+            
+        if not self.jax_adapter:
+            return {"status": "error", "message": "JAX World Model not initialized (use JAX backend)"}
+            
+        try:
+            # Parse Goal and State from payload or current robot state
+            # Default to dummy if not provided (for button verification)
+            start_joints = payload.get("start_joints", [0.0] * 6)
+            target_joints = payload.get("target_joints", [0.5] * 6)
+            
+            c_state = WorldModelState(joint_pos=start_joints)
+            goal = ArmGoal(target_joint_pos=target_joints)
+            
+            print(f"[SymbolicSearch] Starting search: {start_joints} -> {target_joints}")
+            
+            # Run Search (blocking for <200ms is OK, otherwise thread it)
+            # steps=5 by default
+            steps = payload.get("depth", 5)
+            
+            best_action = symbolic_search(c_state, goal, self.jax_adapter, steps=steps)
+            
+            if best_action:
+                return {
+                    "status": "success", 
+                    "plan_found": True, 
+                    "next_action": best_action,
+                    "metrics": {
+                        "steps": steps,
+                        "plan_score": 0.95, # Mock score until we extract it from search result
+                        "imagination_depth": steps
+                    }
+                }
+            else:
+                 return {
+                    "status": "success", 
+                    "plan_found": False, 
+                    "metrics": {"plan_score": 0.0}
+                }
+                
+        except Exception as e:
+            print(f"[SymbolicSearch] Error: {e}")
+            return {"status": "error", "message": str(e)}
 
     def _on_chat_event(self, event: dict) -> None:
         """Callback for ChatAdapter to push events to the UI."""

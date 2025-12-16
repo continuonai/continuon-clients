@@ -403,6 +403,17 @@ class SimpleJSONServer:
                 return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
+                return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/imagination/start" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = await self.service.RunSymbolicSearch(payload or {})
+                response_body = json.dumps(result, default=str)
+                return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
                 return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/training/architecture_status" and method == "GET":
             try:
@@ -470,6 +481,16 @@ class SimpleJSONServer:
             mode = payload.get("mode")
             result = await self.service.SetRobotMode(mode)
             return self._json_response(result)
+
+        elif path == "/api/training/jax/start" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            try:
+                result = await self.service.RunJaxTraining(payload or {})
+                response_body = json.dumps(result, default=str)
+                return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+            except Exception as exc:
+                response_body = json.dumps({"status": "error", "message": str(exc)})
+                return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
 
         elif path == "/api/command" and method == "POST":
             payload = await self._read_json_body(reader, headers)

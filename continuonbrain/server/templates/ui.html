@@ -46,6 +46,7 @@
                     <div class="view-toggle">
                         <button id="owner-view-btn" class="active" onclick="window.setViewMode('owner')">Owner</button>
                         <button id="research-view-btn" onclick="window.setViewMode('research')">Research</button>
+                        <button id="docs-view-btn" onclick="window.setViewMode('docs')">Docs</button>
                     </div>
                 </div>
 
@@ -106,7 +107,68 @@
 
             <!-- CENTER COLUMN -->
             <main class="column center-column resizable" data-column="center">
-                <div class="panel">
+                <!-- DOCS VIEW PANEL -->
+                <div class="panel docs-view" style="display:none;">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Documentation</div>
+                            <h2>Training the Seed Model</h2>
+                            <p class="panel-subtitle">Human & HOPE Reading: Fast, Mid, and Slow Loops.</p>
+                        </div>
+                    </div>
+                    <div class="task-description" style="margin-bottom: 20px;">
+                        The <strong>Pi SSM Seed Model</strong> aligns with the HOPE architecture (Fast/Mid/Slow).
+                        Reflexes run on Pi CPU (liquid/RNN) using <code>Local Sanity</code>, skill sequencing processes
+                        locally, and long-horizon distillation happens in the cloud (TPU).
+                    </div>
+
+                    <h3 style="margin-top:16px; margin-bottom:8px; color:#fff;">Runbook: Pi5 to Cloud to OTA</h3>
+                    <div class="step-list">
+                        <div class="step-item">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <strong>Hardware & Data Capture</strong>
+                                <p>Validate hardware (<code>pi5_hardware_validation</code>). Capture 16+ clean episodes
+                                    (RGB-D + Actions) using Manual Teleop or Companion App.</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <strong>Local Sanity Training</strong>
+                                <p>Run JAX sanity check on Pi CPU to verify data shapes and finite loss.
+                                    <br /><code
+                                        style="font-size:0.85em; background:rgba(0,0,0,0.3); padding:2px;">python -m continuonbrain.jax_models.train.local_sanity_check</code>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <strong>Cloud TPU Distillation</strong>
+                                <p>Upload TFRecords to GCS. Run <code>tpu_train</code> job (v5e) to distill the seed
+                                    model.</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <strong>OTA Deployment</strong>
+                                <p>Export signed edge bundle. Deploy via OTA. Verify control loop latency &lt;100ms.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top:24px; margin-bottom:8px; color:#fff;">Success Criteria</h3>
+                    <ul style="color:#a0aec0; padding-left:20px; line-height:1.6; margin-top:0;">
+                        <li><strong>Data:</strong> Timestamp skew &le; 5ms, schema validation passes.</li>
+                        <li><strong>Training:</strong> No critical resource alerts, loss decreases.</li>
+                        <li><strong>Artifact:</strong> Bundle signed, includes safety manifest.</li>
+                        <li><strong>Rollback:</strong> Fallback path preserved on-device.</li>
+                    </ul>
+                </div>
+
+                <div class="panel standard-view">
                     <div class="panel-header">
                         <div>
                             <div class="panel-eyebrow">Live State</div>
@@ -305,7 +367,7 @@
                 </div>
 
                 <!-- NEW: Training & Imagination Panel -->
-                <div class="panel">
+                <div class="panel standard-view">
                     <div class="panel-header">
                         <div>
                             <div class="panel-eyebrow">JAX World Model</div>
@@ -1201,18 +1263,36 @@
         };
 
         window.setViewMode = function (mode) {
-            viewState.mode = mode === 'research' ? 'research' : 'owner';
+            viewState.mode = mode; // 'owner' | 'research' | 'docs'
             localStorage.setItem('studio_view_mode', viewState.mode);
+
             const ownerPanels = document.querySelectorAll('.owner-only');
             const researchPanels = document.querySelectorAll('.research-only');
-            ownerPanels.forEach(p => p.style.display = viewState.mode === 'owner' ? '' : 'none');
-            researchPanels.forEach(p => p.style.display = viewState.mode === 'research' ? '' : 'none');
+            const standardPanels = document.querySelectorAll('.standard-view');
+            const docsPanels = document.querySelectorAll('.docs-view');
+
+            // Reset all
+            ownerPanels.forEach(p => p.style.display = 'none');
+            researchPanels.forEach(p => p.style.display = 'none');
+            standardPanels.forEach(p => p.style.display = 'none');
+            docsPanels.forEach(p => p.style.display = 'none');
+
+            if (mode === 'docs') {
+                docsPanels.forEach(p => p.style.display = 'block');
+            } else if (mode === 'owner') {
+                standardPanels.forEach(p => p.style.display = 'block');
+                ownerPanels.forEach(p => p.style.display = 'block');
+            } else if (mode === 'research') {
+                standardPanels.forEach(p => p.style.display = 'block');
+                researchPanels.forEach(p => p.style.display = 'block');
+            }
+
             const ownerBtn = document.getElementById('owner-view-btn');
             const researchBtn = document.getElementById('research-view-btn');
-            if (ownerBtn && researchBtn) {
-                ownerBtn.classList.toggle('active', viewState.mode === 'owner');
-                researchBtn.classList.toggle('active', viewState.mode === 'research');
-            }
+            const docsBtn = document.getElementById('docs-view-btn');
+            if (ownerBtn) ownerBtn.classList.toggle('active', viewState.mode === 'owner');
+            if (researchBtn) researchBtn.classList.toggle('active', viewState.mode === 'research');
+            if (docsBtn) docsBtn.classList.toggle('active', viewState.mode === 'docs');
         };
 
         (function initViewMode() {
@@ -1599,6 +1679,88 @@
             const pill = document.getElementById('pinned-skill-pill');
             if (pill) {
                 pill.textContent = 'Pinned skill: ' + skillId;
+            }
+        };
+
+        window.startJaxTraining = async function () {
+            try {
+                window.showMessage('Starting JAX Training cycle...');
+                document.getElementById('training-status').className = 'status-badge warning';
+                document.getElementById('training-status').textContent = 'Training...';
+
+                const res = await fetch('/api/training/jax/start', { method: 'POST' });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    window.showMessage('Training step complete!');
+                    document.getElementById('training-status').className = 'status-badge success';
+                    document.getElementById('training-status').textContent = 'Idle';
+
+                    if (json.metrics) {
+                        document.getElementById('train-step').textContent = json.metrics.step || 0;
+                        document.getElementById('train-loss').textContent = (json.metrics.loss || 0).toFixed(4);
+                        const log = document.getElementById('training-log');
+                        if (log) {
+                            log.innerHTML = `<div class="log-entry system">Step ${json.metrics.step}: Loss ${json.metrics.loss.toFixed(4)}</div>` + log.innerHTML;
+                        }
+                    }
+                } else {
+                    window.showMessage('Training failed: ' + json.message, true);
+                    document.getElementById('training-status').className = 'status-badge error';
+                    document.getElementById('training-status').textContent = 'Error';
+                }
+            } catch (e) {
+                console.error(e);
+                window.showMessage('Training request failed', true);
+                document.getElementById('training-status').className = 'status-badge error';
+                document.getElementById('training-status').textContent = 'Error';
+            }
+        };
+
+        window.startSymbolicSearch = async function () {
+            try {
+                window.showMessage('Starting Symbolic Search...');
+                document.getElementById('training-status').className = 'status-badge warning';
+                document.getElementById('training-status').textContent = 'Imagine...';
+
+                const val = document.getElementById('imagination-depth');
+                if (val) val.textContent = '...';
+
+                // Default payload for demo
+                const payload = {
+                    start_joints: [0, 0, 0, 0, 0, 0],
+                    target_joints: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+                    depth: 5
+                };
+
+                const res = await fetch('/api/imagination/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    window.showMessage('Search complete!');
+                    document.getElementById('training-status').className = 'status-badge success';
+                    document.getElementById('training-status').textContent = 'Idle';
+
+                    if (json.metrics) {
+                        document.getElementById('plan-score').textContent = (json.metrics.plan_score || 0).toFixed(2);
+                        document.getElementById('imagination-depth').textContent = json.metrics.imagination_depth || 0;
+                        const log = document.getElementById('training-log');
+                        if (log) {
+                            log.innerHTML = `<div class="log-entry success">Plan found! Score: ${(json.metrics.plan_score).toFixed(2)}</div>` + log.innerHTML;
+                        }
+                    }
+                } else {
+                    window.showMessage('Search failed: ' + json.message, true);
+                    document.getElementById('training-status').className = 'status-badge error';
+                    document.getElementById('training-status').textContent = 'Error';
+                }
+            } catch (e) {
+                console.error(e);
+                window.showMessage('Search request failed', true);
             }
         };
 
@@ -2412,6 +2574,11 @@
             #teacher-toggle.active strong {
                 color: #FFD700;
             }
+            /* Docs Styles */
+            .step-item { display:flex; gap:12px; margin-bottom:12px; }
+            .step-number { background:#4a5568; color:#fff; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; flex-shrink:0; }
+            .step-content strong { color:#e2e8f0; display:block; margin-bottom:2px; }
+            .step-content p { color:#a0aec0; margin:0; font-size:0.9em; line-height:1.4; }
         `;
         document.head.appendChild(style);
 
