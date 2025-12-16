@@ -83,17 +83,26 @@ function refreshMetrics() {
     fetch('/api/training/status')
         .then(response => response.json())
         .then(data => {
+            const statusBadge = document.getElementById('training-status-badge');
+            const state = data.state || data.status || 'unknown';
+            statusBadge.innerText = state;
+            document.getElementById('trainer-state').innerText = state;
+
+            const steps = data.steps ?? data?.fast?.result?.steps ?? data?.fast?.steps;
+            document.getElementById('metric-steps').innerText = steps !== undefined ? steps : '--';
+
+            const lossValue = typeof data.avg_loss === 'number'
+                ? data.avg_loss
+                : data?.fast?.result?.metrics?.loss;
+            document.getElementById('metric-loss').innerText = typeof lossValue === 'number'
+                ? lossValue.toFixed(4)
+                : '--';
+
+            const adapterPath = data.adapter_path || data.adapterPath || '--';
+            document.getElementById('adapter-path').innerText = adapterPath;
+
             document.getElementById('full-metrics-json').innerText = JSON.stringify(data, null, 2);
             document.getElementById('full-metrics-json').style.display = 'block';
-
-            // Try to extract key metrics if available
-            // Structure varies, but usually data.fast.result.metrics or similar
-            if (data.fast && data.fast.result && data.fast.result.metrics) {
-                const m = data.fast.result.metrics;
-                document.getElementById('metric-loss').innerText = m.loss ? m.loss.toFixed(4) : '--';
-                document.getElementById('metric-accuracy').innerText = m.accuracy ? (m.accuracy * 100).toFixed(1) + '%' : '--';
-            }
-            // If data is just from the status file, it might contain "trainer_status"
         })
         .catch(err => console.error('Error fetching metrics:', err));
 }
@@ -114,6 +123,5 @@ function refreshLogs() {
 // Auto-refresh on load
 document.addEventListener('DOMContentLoaded', function () {
     refreshMetrics();
-    // Poll every 10 seconds?
-    // setInterval(refreshMetrics, 10000);
+    setInterval(refreshMetrics, 5000);
 });

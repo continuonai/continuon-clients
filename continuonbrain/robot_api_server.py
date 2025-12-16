@@ -106,7 +106,7 @@ class RobotService:
         self.task_library = TaskLibrary()
         self.skill_library = SkillLibrary()
         self.selected_task_id: Optional[str] = None
-        self.training_runner = TrainingRunner()
+        self.training_runner = TrainingRunner(config_dir=config_dir)
         # JAX-based trainers/tool-router are intentionally lazy-imported to keep the
         # Robot API server robust on devices that don't have working JAX/tensorstore
         # wheels (common on Pi images).
