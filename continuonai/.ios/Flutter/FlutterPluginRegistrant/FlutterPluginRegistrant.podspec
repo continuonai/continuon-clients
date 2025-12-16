@@ -29,6 +29,7 @@ Depends on all your plugins, and provides a function to register them.
   s.dependency 'google_sign_in_ios'
   s.dependency 'integration_test'
   s.dependency 'large_file_handler'
+  s.dependency 'mobile_scanner'
   s.dependency 'nsd_ios'
   s.dependency 'path_provider_foundation'
   s.dependency 'permission_handler_apple'
