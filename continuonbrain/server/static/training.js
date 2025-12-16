@@ -158,7 +158,7 @@ function refreshLogs() {
 
 function selectLog(path) {
     selectedLogPath = path;
-    refreshLogs();
+    // refreshLogs(); // Removed to prevent unnecessary API call and re-render
     fetchSelectedLogTail();
     startLogAutoRefresh();
 }
