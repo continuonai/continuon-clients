@@ -126,17 +126,23 @@ document.addEventListener('DOMContentLoaded', function () {
     listSeedExports();
 });
 
+/**
+ * Derives the base directory from the payload.
+ * Precedence: RLDS dir takes precedence over seed export dir.
+ */
 function deriveBaseDir(payload) {
-    const guesses = [];
     const rldsDir = payload?.rlds?.dir;
     if (typeof rldsDir === 'string' && rldsDir.includes('/rlds/episodes')) {
-        guesses.push(rldsDir.split('/rlds/episodes')[0]);
+        // RLDS dir has highest precedence
+        return rldsDir.split('/rlds/episodes')[0];
     }
     const seedExport = payload?.seed?.export_dir;
     if (typeof seedExport === 'string' && seedExport.includes('/model/adapters/candidate/core_model_seed')) {
-        guesses.push(seedExport.split('/model/adapters/candidate/core_model_seed')[0]);
+        // Fallback to seed export dir if RLDS dir is not available
+        return seedExport.split('/model/adapters/candidate/core_model_seed')[0];
     }
-    return guesses.find(Boolean) || seedBundleState.baseDir;
+    // Default fallback
+    return seedBundleState.baseDir;
 }
 
 function renderGates(gates) {
