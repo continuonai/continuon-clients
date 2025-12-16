@@ -794,6 +794,13 @@ def main():
         help="Download ceiling for model/assets during sleep training (default: 1GiB)",
     )
     
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Service port (default: 8080)"
+    )
+    
     args = parser.parse_args()
     
     # If --config-dir passed, set expected env var so sub-processes see it
@@ -804,7 +811,7 @@ def main():
         config_dir=args.config_dir,
         start_services=not args.no_services,
         robot_name=args.robot_name,
-        port=args.port
+        port=args.port,
     )
     
     if args.prepare_sleep:
