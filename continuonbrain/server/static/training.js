@@ -308,7 +308,7 @@ async function installSeedBundle() {
         return;
     }
     if (source_url && seedBundleState.readiness?.ready_for_cloud_handoff !== true) {
-        if (statusEl) statusEl.textContent = 'External downloads blocked until readiness confirms local assets.';
+        if (statusEl) statusEl.textContent = 'External bundle downloads are blocked until the readiness check passes. Please verify local RLDS episodes and seed manifests exist, then re-run the readiness check.';
         return;
     }
     try {
