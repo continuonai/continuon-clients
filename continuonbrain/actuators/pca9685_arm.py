@@ -1,6 +1,6 @@
 """
 PCA9685 servo controller for SO-ARM101 robot arm.
-Provides bounded control with safety limits per PI5_CAR_READINESS.md.
+Provides bounded control with safety limits per PI5_EDGE_BRAIN_INSTRUCTIONS.md.
 """
 from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass

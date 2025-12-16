@@ -1,6 +1,6 @@
 """
 OAK-D Lite depth camera capture for RLDS episodes.
-Integrates with Pi5 robot arm setup per PI5_CAR_READINESS.md.
+Integrates with Pi5 robot arm setup per PI5_EDGE_BRAIN_INSTRUCTIONS.md.
 Updated for DepthAI v3.x API.
 """
 

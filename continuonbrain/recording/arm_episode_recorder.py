@@ -2,7 +2,7 @@
 RLDS episode recorder for SO-ARM101 robot arm manipulation.
 
 Records depth vision + arm state + human teleop actions.
-Compatible with Pi5 setup per PI5_CAR_READINESS.md and docs/rlds-schema.md.
+Compatible with Pi5 setup per PI5_EDGE_BRAIN_INSTRUCTIONS.md and docs/rlds-schema.md.
 """
 import importlib
 import importlib.util

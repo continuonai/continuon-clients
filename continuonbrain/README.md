@@ -5,8 +5,8 @@ The Continuon Brain runtime and scaffolding now live together in this monorepo. 
 - **Training topology (v0.2):** See `docs/continuonbrain_training_topology.md` for the JAX-first, Google-aligned plan that starts with a Colab/TPU seed, seeds down to Pi 5 for HOPE loop embodiment, and scales back to Vertex TPU with OTA channels. RTX 3050 laptops are acceptable for the first tiny seed runs; Pi 5 **8GB is supported** and Pi 5 **16GB** is the recommended drop-in upgrade for heavier on-device workloads (AI HAT+/segmentation), with Jetson Orin Nano Super Dev Kit as an optional local consolidation companion.
 - `proto/continuonbrain_link.proto` (shared contract; mirror downstream).
 - `trainer/` offline Pi/Jetson adapter-training scaffold (bounded, RLDS-only, safety-gated) to align with ContinuonBrain/OS goals. Synthetic RLDS samples for dry-runs sit under `continuonbrain/rlds/episodes/`. Sample manifest in `continuonbrain/model/manifest.pi5.example.json` shows how Pi 5 + `flutter_gemma` can load base + LoRA without extra quantization.
-- Raspberry Pi 5 bring-up checklist (depth cam + PCA9685) lives in `continuonbrain/PI5_CAR_READINESS.md`.
-- Pi 5 edge brain v0 execution steps (health checks, RLDS recording, trainer runbook) live in `continuonbrain/PI5_EDGE_BRAIN_INSTRUCTIONS.md`.
+- Pi 5 edge brain v0 execution steps (health checks, RLDS recording, DepthAI + optional SAM3, trainer runbook) live in `continuonbrain/PI5_EDGE_BRAIN_INSTRUCTIONS.md`.
+- Pi 5 bring-up checklist (depth cam + PCA9685) is maintained as a short redirect in `continuonbrain/PI5_CAR_READINESS.md` to avoid duplicated commands.
 - JAX training pipeline lives under `continuonbrain/jax_models/` with a unified trainer (`run_trainer.py`) that selects JAX vs PyTorch based on hardware. Use `--config-preset` or `--config-json` to tune CoreModel settings.
 - Model selection is JAX-first (`CONTINUON_PREFER_JAX=1` by default). Transformers/Gemma remains available as fallback. Gemma 3n JAX/Flax weights in the HF cache are detected when present.
 
@@ -14,7 +14,7 @@ Production runtime code belongs here; keep docs explicit about what is productio
 
 For training-time autonomy (when humans are away), keep the robot focused on safe, creator-aligned work items listed in `SELF_IMPROVEMENT_BACKLOG.md`. Tasks emphasize offline-first checks, system health validation, and strict adherence to the safety protocol.
 
-### Pi 5 HAT vision seed (reference names)
+## Pi 5 HAT vision seed (reference names)
 
 - Base model placeholder for HAT vision runs: `/opt/continuonos/brain/model/base_model/hat_vision_seed.pt`
 - Current adapter target: `/opt/continuonos/brain/model/adapters/current/lora_hat_vision.pt`
@@ -35,7 +35,7 @@ For training-time autonomy (when humans are away), keep the robot focused on saf
   out = runner(inputs)
   ```
 
-### Pi5 world-model + RAG (VQ-VAE + Librarian)
+## Pi5 world-model + RAG (VQ-VAE + Librarian)
 
 - **Latent tokens on HAT:** VQ-VAE runs on the AI HAT to compress OAK-D RGB/depth into discrete token grids; log tokens and codebook IDs in RLDS (`observation.latent_tokens`) for replay/grounding.
 - **Predictor on Pi CPU:** Fast/Mid loops predict next latent tokens from prior tokens + actions; log a surprise signal (pred vs. actual) in `step_metadata` for closed-loop correction.
@@ -167,15 +167,17 @@ python -m continuonbrain.scripts.record_owner_realdepth_episode \
   --teacher-openai-chat-model your-chat-model
 ```
 
-### Pi 5 install + boot (systemd)
+## Pi 5 install + boot (systemd)
 
 For a repeatable Pi setup (repo-local `.venv`, DepthAI, optional JAX/SAM3, and boot startup), use:
+
 - `scripts/pi/install_pi5_venv.sh`
 - `scripts/pi/install_pi5_systemd.sh`
 
 See also:
+
 - `PI5_EDGE_BRAIN_INSTRUCTIONS.md`
-- `PI5_CAR_READINESS.md`
+- `PI5_CAR_READINESS.md` (short redirect)
 
 - **Imagination proof metrics**: the JAX sanity check logs:
   - `mse_main`: MSE over the “normal” action dims
@@ -200,6 +202,7 @@ See also:
 - OTA apply is gated in the ContinuonAI app by robot ownership + paid subscription; device verifies checksums/signature before swap.
 
 ## Local pairing / ownership claim (QR, LAN-only)
+
 This runtime supports a **non-biometric**, offline-first ownership claim flow intended for local-network setup with the Continuon AI app (iPhone) or a phone browser.
 
 - **Robot UI path**: open `http://<robot-ip>:8080/ui`, expand **Agent Details → Pair phone**, click **Start pairing**.
@@ -213,10 +216,12 @@ This runtime supports a **non-biometric**, offline-first ownership claim flow in
   - `GET /api/ownership/status` (includes both nested `ownership` and legacy flat keys)
 
 ## Speech I/O (offline-first)
+
 - **TTS**: `POST /api/audio/tts` uses `espeak-ng`/`espeak` (install `espeak-ng` on Pi).
 - **Mic record**: `POST /api/audio/record` uses `sounddevice` or `arecord` (install `alsa-utils`); `GET /api/audio/devices` helps debug ALSA capture devices.
 
 ## Multimodal chat (vision)
+
 - **Attach camera frame**: `POST /api/chat` supports `attach_camera_frame=true` to attach the latest `/api/camera/frame` JPEG to the Agent Manager (best-effort; structured metadata includes whether vision was requested/attached).
 
 Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
@@ -262,4 +267,4 @@ Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `
 
 - Quick validation on-device: `python -m continuonbrain.pi5_hardware_validation --log-json /tmp/pi5_check.json` (creates the expected `/opt/continuonos/brain` layout, checks UVC/I2C, and exercises depth + servo timestamps).
 
-See `PI5_CAR_READINESS.md` for full hardware setup and validation steps.
+See `PI5_EDGE_BRAIN_INSTRUCTIONS.md` for the current hardware setup, capture, and training steps. (`PI5_CAR_READINESS.md` is a short redirect.)

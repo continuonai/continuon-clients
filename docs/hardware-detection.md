@@ -313,6 +313,6 @@ if vendor_id == 'your_vendor_id':
 
 ## See Also
 
-- [Pi5 Car Readiness](../continuonbrain/PI5_CAR_READINESS.md) - Initial hardware setup
+- [Pi5 Edge Brain Instructions](../continuonbrain/PI5_EDGE_BRAIN_INSTRUCTIONS.md) - Current Pi runbook (hardware setup + capture + training)
 - [RLDS Schema](rlds-schema.md) - Episode recording format
 - [System Architecture](system-architecture.md) - Overall system design

@@ -352,5 +352,5 @@ if __name__ == "__main__":
 ## See Also
 
 - [Hardware Detection](hardware-detection.md) - Auto-detect cameras, HATs, servos
-- [Pi5 Car Readiness](../continuonbrain/PI5_CAR_READINESS.md) - Initial setup
+- [Pi5 Edge Brain Instructions](../continuonbrain/PI5_EDGE_BRAIN_INSTRUCTIONS.md) - Current Pi runbook
 - [System Architecture](system-architecture.md) - Overall design
