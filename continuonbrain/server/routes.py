@@ -906,16 +906,38 @@ class SimpleJSONServer:
         return header.encode("utf-8") + content
 
     def _tail_file(self, path: Path, line_count: int) -> list[str]:
-        """Return the last ``line_count`` lines from ``path`` safely."""
+        """Return the last ``line_count`` lines from ``path`` safely and efficiently."""
 
         if line_count <= 0:
             return []
 
-        buffer: deque[str] = deque(maxlen=line_count)
-        with path.open("r", errors="replace") as handle:
-            for line in handle:
-                buffer.append(line)
-        return list(buffer)
+        # Efficiently read the last `line_count` lines from the file
+        # Read in binary mode to avoid issues with encoding and newlines
+        lines = []
+        buffer = b""
+        chunk_size = 4096
+        try:
+            with path.open("rb") as f:
+                f.seek(0, os.SEEK_END)
+                file_size = f.tell()
+                pos = file_size
+                while pos > 0 and len(lines) <= line_count:
+                    read_size = min(chunk_size, pos)
+                    pos -= read_size
+                    f.seek(pos)
+                    data = f.read(read_size)
+                    buffer = data + buffer
+                    # Split lines
+                    lines = buffer.splitlines()
+            # Return the last `line_count` lines, decoded
+            return [line.decode(errors="replace") for line in lines[-line_count:]]
+        except Exception:
+            # Fallback to original method if any error occurs
+            buffer: deque[str] = deque(maxlen=line_count)
+            with path.open("r", errors="replace") as handle:
+                for line in handle:
+                    buffer.append(line)
+            return list(buffer)
 
     def _read_training_metrics(self, query_params: Dict[str, Any]) -> Dict[str, Any]:
         """
