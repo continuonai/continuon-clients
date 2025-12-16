@@ -130,9 +130,10 @@ def _validate_observation(step_idx: int, observation: Dict[str, Any], issues: Li
         "diagnostics",
     ]
     _require_fields(observation, required_fields, prefix, issues)
+    # v1.1 additions are optional; allow them while keeping the validator strict.
     _flag_unexpected_fields(
         observation,
-        required_fields + ["audio", "ui_context"],
+        required_fields + ["audio", "ui_context", "media", "dialog", "world_model"],
         prefix,
         issues,
     )
@@ -166,7 +167,13 @@ def _validate_observation(step_idx: int, observation: Dict[str, Any], issues: Li
 def _validate_action(step_idx: int, action: Dict[str, Any], issues: List[str]):
     prefix = f"steps[{step_idx}].action."
     _require_fields(action, ["command", "source"], prefix, issues)
-    _flag_unexpected_fields(action, ["command", "source", "annotation", "ui_action"], prefix, issues)
+    # v1.1 additions are optional; allow them while keeping the validator strict.
+    _flag_unexpected_fields(
+        action,
+        ["command", "source", "annotation", "ui_action", "dialog", "planner", "tool_calls"],
+        prefix,
+        issues,
+    )
 
     if isinstance(action.get("command"), list) and not action["command"]:
         issues.append(f"{prefix}command must include at least one control value")
@@ -199,7 +206,31 @@ def validate_episode(episode: Dict[str, Any]) -> ValidationResult:
         errors.append("metadata must be an object")
         metadata = {}
     _require_fields(metadata, ["xr_mode", "control_role", "environment_id", "tags", "software"], "metadata.", errors)
-    _flag_unexpected_fields(metadata, ["xr_mode", "control_role", "environment_id", "tags", "software"], "metadata.", errors)
+    # v1.1 additions are optional; allow them while keeping the validator strict.
+    _flag_unexpected_fields(
+        metadata,
+        [
+            "xr_mode",
+            "control_role",
+            "environment_id",
+            "tags",
+            "software",
+            "schema_version",
+            "episode_id",
+            "robot_id",
+            "robot_model",
+            "frame_convention",
+            "start_time_unix_ms",
+            "duration_ms",
+            "owner",
+            "safety",
+            "share",
+            "provenance",
+            "capabilities",
+        ],
+        "metadata.",
+        errors,
+    )
 
     software_block = metadata.get("software") or {}
     _require_fields(software_block, ["xr_app", "continuonbrain_os", "glove_firmware"], "metadata.software.", errors)

@@ -118,6 +118,15 @@ class SimpleJSONServer:
             response_body = self.render_template("research.html", {"active_page": "research"})
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+        elif path == "/training_proof":
+            response_body = self.render_template("training_proof.html", {"active_page": "training_proof"})
+            response_bytes = response_body.encode("utf-8")
+            return (
+                f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode(
+                    "utf-8"
+                )
+                + response_bytes
+            )
         elif path == "/api_explorer":
             response_body = self.render_template("api_explorer.html", {"active_page": "api_explorer"})
             response_bytes = response_body.encode('utf-8')
@@ -216,7 +225,7 @@ class SimpleJSONServer:
             payload = await self._read_json_body(reader, headers)
             try:
                 result = await self.service.RunWavecoreLoops(payload or {})
-                response_body = json.dumps({"status": "completed", "result": result})
+                response_body = json.dumps({"status": "completed", "result": result}, default=str)
                 return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
@@ -313,6 +322,111 @@ class SimpleJSONServer:
         elif path == "/api/safety/reset" and method == "POST":
             result = await self.service.ResetSafetyGates()
             return self._json_response(result)
+
+        elif path == "/api/admin/factory_reset" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                return self._json_response({"success": False, "message": "invalid payload"}, status_code=400)
+
+            profile = str(payload.get("profile") or "factory").strip()
+            confirm = str(payload.get("confirm") or "").strip()
+            token = payload.get("token") or headers.get("x-continuon-admin-token")
+            dry_run = bool(payload.get("dry_run", False))
+
+            # Gate on mode and allow_motion
+            try:
+                status_res = await self.service.GetRobotStatus()
+            except Exception as exc:  # noqa: BLE001
+                return self._json_response({"success": False, "message": f"status unavailable: {exc}"}, status_code=503)
+
+            status_block = (status_res or {}).get("status") if isinstance(status_res, dict) else {}
+            mode = (status_block or {}).get("mode")
+            allow_motion = (status_block or {}).get("allow_motion")
+            if mode not in ("idle", "emergency_stop") or allow_motion not in (False, None):
+                return self._json_response(
+                    {
+                        "success": False,
+                        "message": "reset blocked: requires mode=idle or emergency_stop and allow_motion=false",
+                        "mode": mode,
+                        "allow_motion": allow_motion,
+                    },
+                    status_code=409,
+                )
+
+            from continuonbrain.services.reset_manager import ResetManager, ResetProfile, ResetRequest
+
+            manager = ResetManager()
+            try:
+                prof = ResetProfile(profile)
+            except Exception:
+                return self._json_response({"success": False, "message": f"unknown profile: {profile}"}, status_code=400)
+
+            expected_confirm = manager.CONFIRM_FACTORY if prof == ResetProfile.FACTORY else manager.CONFIRM_MEMORIES
+            if confirm != expected_confirm:
+                return self._json_response(
+                    {"success": False, "message": "confirmation required", "confirm_expected": expected_confirm},
+                    status_code=400,
+                )
+
+            runtime_root = Path("/opt/continuonos/brain")
+            config_dir = Path(getattr(self.service, "config_dir", "")) if getattr(self.service, "config_dir", None) else None
+            if not manager.authorize(provided_token=token, runtime_root=runtime_root, config_dir=config_dir):
+                return self._json_response(
+                    {
+                        "success": False,
+                        "message": "not authorized (set CONTINUON_ADMIN_TOKEN or CONTINUON_ALLOW_UNSAFE_RESET=1 for dev)",
+                    },
+                    status_code=403,
+                )
+
+            req = ResetRequest(profile=prof, dry_run=dry_run, config_dir=config_dir, runtime_root=runtime_root)
+            res = manager.run(req)
+            return self._json_response({"success": res.success, "result": res.__dict__}, status_code=200 if res.success else 500)
+
+        elif path == "/api/admin/promote_candidate" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                return self._json_response({"success": False, "message": "invalid payload"}, status_code=400)
+
+            token = payload.get("token") or headers.get("x-continuon-admin-token")
+            dry_run = bool(payload.get("dry_run", False))
+
+            # Gate on mode and allow_motion
+            try:
+                status_res = await self.service.GetRobotStatus()
+            except Exception as exc:  # noqa: BLE001
+                return self._json_response({"success": False, "message": f"status unavailable: {exc}"}, status_code=503)
+
+            status_block = (status_res or {}).get("status") if isinstance(status_res, dict) else {}
+            mode = (status_block or {}).get("mode")
+            allow_motion = (status_block or {}).get("allow_motion")
+            if mode not in ("idle", "emergency_stop") or allow_motion not in (False, None):
+                return self._json_response(
+                    {
+                        "success": False,
+                        "message": "promotion blocked: requires mode=idle or emergency_stop and allow_motion=false",
+                        "mode": mode,
+                        "allow_motion": allow_motion,
+                    },
+                    status_code=409,
+                )
+
+            from continuonbrain.services.promotion_manager import PromotionManager
+
+            runtime_root = Path("/opt/continuonos/brain")
+            config_dir = Path(getattr(self.service, "config_dir", "")) if getattr(self.service, "config_dir", None) else None
+            mgr = PromotionManager()
+            if not mgr.authorize(provided_token=token, runtime_root=runtime_root, config_dir=config_dir):
+                return self._json_response(
+                    {
+                        "success": False,
+                        "message": "not authorized (set CONTINUON_ADMIN_TOKEN or CONTINUON_ALLOW_UNSAFE_RESET=1 for dev)",
+                    },
+                    status_code=403,
+                )
+
+            res = mgr.promote(runtime_root=runtime_root, dry_run=dry_run)
+            return self._json_response({"success": res.success, "result": res.__dict__}, status_code=200 if res.success else 500)
 
         elif path == "/api/chat" and method == "POST":
             payload = await self._read_json_body(reader, headers)

@@ -22,6 +22,9 @@ Examples: audio channels, IMU axes, joint positions/velocities, token embeddings
 3. **Gated fusion**: `gate = sigmoid(linear(cat(detail, global)))`; `fused = gate * global + (1 - gate) * detail`.
 4. **State handling**: optional recurrent state for streaming windows; decay schedule controls long-range retention.
 
+### JAX seed implementation note (Mamba-like selective SSM)
+The current JAX seed core uses a **Mamba-like selective SSM** (stable diagonal A, input-dependent Δ/B/C) implemented with `jax.lax.scan` (no custom kernels) so the same code runs on GPU/TPU and Pi-class CPUs.
+
 ## Inbound APIs
 - `WaveCore.ingest_text(tokens, modality_id)` → embeds tokens, aligns to Δt, produces WaveTensor.
 - `WaveCore.ingest_audio(waveform, sample_rate)` → resamples, optional STFT, produces WaveTensor.

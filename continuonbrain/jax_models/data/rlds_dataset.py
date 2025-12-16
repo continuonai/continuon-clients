@@ -8,22 +8,48 @@ Supports batching, shuffling, and prefetching for efficient TPU training.
 from __future__ import annotations
 
 import json
+import importlib.util
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 import numpy as np
+import hashlib
 
 try:
-    import tensorflow as tf
-    import jax
-    import jax.numpy as jnp
-    TF_AVAILABLE = True
+    import jax  # type: ignore
+    import jax.numpy as jnp  # type: ignore
     JAX_AVAILABLE = True
-except ImportError:
-    TF_AVAILABLE = False
+except Exception:
     JAX_AVAILABLE = False
 
 
-def _parse_tfrecord_example(example_proto: tf.Tensor) -> Dict[str, tf.Tensor]:
+def _tf_is_usable() -> bool:
+    """
+    TensorFlow is optional. On some dev machines (notably NumPy>=2 with older TF wheels),
+    importing TF can throw noisy errors and even crash.
+
+    We avoid importing TF at module import time and only enable TF paths when it is
+    plausibly usable.
+    """
+    if importlib.util.find_spec("tensorflow") is None:
+        return False
+    try:
+        major = int(str(np.__version__).split(".", 1)[0])
+        if major >= 2:
+            # Most TF builds in the wild still pin to NumPy<2; avoid noisy import failures.
+            return False
+    except Exception:
+        pass
+    try:
+        import tensorflow as tf  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+TF_AVAILABLE = _tf_is_usable()
+
+
+def _parse_tfrecord_example(example_proto: "tf.Tensor") -> Dict[str, "tf.Tensor"]:
     """
     Parse a TFRecord example.
     
@@ -36,6 +62,8 @@ def _parse_tfrecord_example(example_proto: tf.Tensor) -> Dict[str, tf.Tensor]:
     if not TF_AVAILABLE:
         raise ImportError("TensorFlow is required for TFRecord parsing")
     
+    import tensorflow as tf  # type: ignore
+
     feature_description = {
         'episode_id': tf.io.FixedLenFeature([], tf.string),
         'step_index': tf.io.FixedLenFeature([], tf.int64),
@@ -162,19 +190,67 @@ def _extract_action_vector(action: Dict[str, Any], action_dim: int) -> np.ndarra
     """
     Extract action vector from action dictionary.
     """
+    def _hash_to_vec(text: str, dim: int) -> np.ndarray:
+        if dim <= 0:
+            return np.zeros((0,), dtype=np.float32)
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        raw = np.frombuffer(digest, dtype=np.uint8).astype(np.float32)
+        reps = int(np.ceil(dim / raw.size))
+        tiled = np.tile(raw, reps)[:dim]
+        # map to [-1, 1]
+        return (tiled / 127.5 - 1.0).astype(np.float32)
+
+    base = None
     if "command" in action:
         cmd = action["command"]
         if isinstance(cmd, (list, np.ndarray)):
-            vec = np.array(cmd, dtype=np.float32)
-            # Pad or truncate to action_dim
-            if len(vec) < action_dim:
-                vec = np.pad(vec, (0, action_dim - len(vec)), mode='constant')
-            elif len(vec) > action_dim:
-                vec = vec[:action_dim]
-            return vec
+            base = np.array(cmd, dtype=np.float32)
+
+    if base is None:
+        base = np.zeros(action_dim, dtype=np.float32)
+
+    # Pad/truncate base to action_dim
+    if len(base) < action_dim:
+        base = np.pad(base, (0, action_dim - len(base)), mode="constant")
+    elif len(base) > action_dim:
+        base = base[:action_dim]
+
+    # Optional "imagination" targets: encode planner/tool traces into tail dims.
+    # This lets the current WaveCore training (MSE on action vector) learn to predict
+    # symbolic-plan intent without changing model outputs.
+    reserve = min(16, action_dim)
+    if reserve > 0:
+        plan_k = reserve // 2
+        tool_k = reserve - plan_k
+        tail = np.zeros((reserve,), dtype=np.float32)
+
+        planner = action.get("planner")
+        if isinstance(planner, dict) and plan_k > 0:
+            intent = str(planner.get("intent") or "")
+            steps = planner.get("plan_steps") or []
+            if isinstance(steps, (list, tuple)):
+                steps_text = " | ".join([str(s) for s in steps][:16])
+            else:
+                steps_text = str(steps)
+            plan_text = f"intent:{intent}\nsteps:{steps_text}"
+            tail[:plan_k] = _hash_to_vec(plan_text, plan_k)
+
+        tool_calls = action.get("tool_calls")
+        if isinstance(tool_calls, list) and tool_k > 0:
+            names = []
+            for tc in tool_calls[:16]:
+                if isinstance(tc, dict):
+                    names.append(str(tc.get("name") or tc.get("tool") or ""))
+                else:
+                    names.append(str(tc))
+            tool_text = "tools:" + ",".join(names)
+            tail[plan_k:] = _hash_to_vec(tool_text, tool_k)
+
+        # Write into the last `reserve` dims
+        base[-reserve:] = tail
     
     # Default: return zeros
-    return np.zeros(action_dim, dtype=np.float32)
+    return base
 
 
 def create_tfrecord_dataset(
@@ -188,7 +264,7 @@ def create_tfrecord_dataset(
     action_dim: int = 32,
     compression_type: Optional[str] = "GZIP",
     feature_spec: Optional[Dict[str, Any]] = None,
-) -> tf.data.Dataset:
+) -> "tf.data.Dataset":
     """
     Create a TensorFlow dataset from TFRecord files.
     
@@ -208,6 +284,8 @@ def create_tfrecord_dataset(
     """
     if not TF_AVAILABLE:
         raise ImportError("TensorFlow is required for dataset loading")
+
+    import tensorflow as tf  # type: ignore
     
     # Convert to list of paths
     if isinstance(tfrecord_paths, (str, Path)):
@@ -296,9 +374,7 @@ def create_tfrecord_dataset(
     return dataset
 
 
-def tf_dataset_to_jax_iterator(
-    tf_dataset: tf.data.Dataset,
-) -> Iterator[Dict[str, jnp.ndarray]]:
+def tf_dataset_to_jax_iterator(tf_dataset: "tf.data.Dataset") -> Iterator[Dict[str, "jnp.ndarray"]]:
     """
     Convert TensorFlow dataset to JAX-compatible iterator.
     
@@ -310,6 +386,8 @@ def tf_dataset_to_jax_iterator(
     """
     if not JAX_AVAILABLE:
         raise ImportError("JAX is required for dataset iteration")
+
+    import tensorflow as tf  # type: ignore
     
     for batch in tf_dataset:
         # Convert TensorFlow tensors to JAX arrays

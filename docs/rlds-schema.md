@@ -1,6 +1,10 @@
-# RLDS Schema Contract (Draft)
+# RLDS Schema Contract (Draft, v1.1)
 
 This draft defines the RLDS-style schema ContinuonXR must emit. All episodes must validate against these rules before upload.
+
+**Versioning**
+- Episodes SHOULD include `metadata.schema_version` (semantic-ish string, e.g. `"1.0"` / `"1.1"`). When absent, consumers MUST treat as `"1.0"`.
+- All schema additions in v1.1 are **optional** and MUST be ignored by older consumers.
 
 ## Pi-side RLDS schema (Continuon Brain runtime)
 The Pi-side recorder (Continuon Brain runtime) MUST mirror the headset schema so OTA and cloud handoff stay lossless. Minimum f
@@ -34,6 +38,43 @@ ields:
 - `metadata.environment_id`: string — deployment target or mock instance id (e.g., `lab-mock`, `pbos-dev01`).
 - `metadata.software`: object — XR app version, Continuon Brain runtime version, glove firmware version.
 - `metadata.tags`: list<string> — freeform labels such as task name, scene, robot type, and the natural language task instruction.
+
+### v1.1 optional metadata blocks (autonomy + continuous learning)
+- `metadata.schema_version`: string (see Versioning above).
+- `metadata.episode_id`: string stable identifier (`ep_<ts>` or UUID). If absent, derive from filename.
+- `metadata.robot_id`: string stable device/robot identity (may be hardware serial hashed).
+- `metadata.robot_model`: string (e.g., `pi5-donkeycar`, `so-arm101`).
+- `metadata.frame_convention`: string (e.g., `base_link`, `camera_link`) to disambiguate pose frames.
+- `metadata.start_time_unix_ms`: int64 wall-clock for lifecycle auditing.
+- `metadata.duration_ms`: int64.
+- `metadata.capabilities`: object describing the brain+body capabilities for this run (used for conditioning and safety).
+  - `compute`: `{ "device": "pi5|jetson|laptop|tpu", "ram_gb": 8, "gpu": "RTX2050", "dtype": "bf16|fp16|fp32" }`
+  - `sensors`: `{ "rgb": true, "depth": true, "audio": false, "imu": false, "glove": false }`
+  - `actuators`: `{ "drive": true, "arm": false, "gripper": false }`
+  - `limits`: `{ "allow_motion": false, "max_speed_mps": 0.0 }`
+- `metadata.owner`: **optional, local-only** identity and preference block used for supervised personalization.
+  - `owner_id`: string (prefer stable hash; avoid raw serials)
+  - `display_name`: string (PII)
+  - `preferred_name`: string (PII)
+  - `roles`: list<string> (e.g., `["creator", "owner"]`)
+  - `preferences`: map<string,string> (e.g., `{"tone":"curious","ask_clarifying":"true"}`)
+- `metadata.safety`: required for public/share flows; recommended always.
+  - `content_rating`: `{ "audience": "general|teen|adult", "violence": "none|mild|graphic", "language": "clean|some|strong" }`
+  - `pii_attestation`: `{ "pii_present": true|false, "faces_present": true|false, "name_present": true|false, "consent": true|false }`
+  - `pii_cleared`: bool (default false when faces/plates/audio present)
+  - `pii_redacted`: bool
+  - `pending_review`: bool
+- `metadata.share`: governs whether an episode is publishable/listable (Continuon Cloud).
+  - `public`: bool
+  - `slug`: string
+  - `title`: string
+  - `license`: string (SPDX-ish, e.g., `CC-BY-4.0`, `CC-BY-NC-4.0`, `Proprietary`)
+  - `tags`: list<string>
+- `metadata.provenance`: object
+  - `origin`: string (e.g., `origin:pi5:oakd`, `origin:studio:windows:webcam`)
+  - `source_commit`: string git SHA (optional)
+  - `source_host`: string
+  - `notes`: string
 
 ## Step structure
 Each step is timestamped in monotonic time (ns) and wall-clock time (ms) for reconciliation. Steps must align robot state, video, glove, and pose to within 5 ms.
@@ -76,6 +117,21 @@ step {
 - `step_metadata`: per-step string map for quick flags/ids without schema changes. Use to surface `ball_reached=true` terminal markers and `safety_violations` lists when clamps/firewalls trip.
 - `diagnostics`: drop counters, latency measurements, BLE RSSI.
 
+#### v1.1 optional observation blocks (multimodal + dialog + tools)
+- `media`: optional object with per-step references to recorded blobs; all URIs are local paths or signed URLs.
+  - `rgb`: `{ "uri": "...", "frame_id": "...", "timestamp_ns": 0, "width": 0, "height": 0, "format": "jpeg|png|raw" }`
+  - `depth`: `{ "uri": "...", "frame_id": "...", "timestamp_ns": 0, "width": 0, "height": 0, "format": "png16|raw16", "units": "mm" }`
+  - `audio`: `{ "uri": "...", "frame_id": "...", "timestamp_ns": 0, "sample_rate_hz": 0, "num_channels": 0, "format": "pcm16le|wav" }`
+- `dialog`: optional block for HOPE-style training conversations.
+  - `speaker`: `user|assistant|system`
+  - `text`: string
+  - `turn_id`: string (stable within episode)
+  - `conversation_id`: string (stable across episodes, optional)
+- `world_model`: optional block for self-learning signals.
+  - `latent_tokens`: list<int> (VQ/VAE codes)
+  - `surprise`: float (prediction error proxy)
+  - `belief_state_id`: string (planner state pointer)
+
 ### `action`
 - `command`: normalized control vector (e.g., EE velocity or joint delta).
 - `arm_commands`: optional object (default null) for per-arm actuation.
@@ -88,6 +144,19 @@ step {
 - `source`: string — must be `human_teleop_xr` for Mode A.
 - `annotation`: optional; polygons/masks/flags for Mode C supervision.
 - `ui_action`: optional; workstation/IDE context events for Mode B (`open_panel`, `run_command`, `label_run` etc.).
+
+#### v1.1 optional action blocks (planner + tools + conversation)
+- `dialog`: optional response block mirroring observation dialog (assistant turn).
+  - `speaker`: `assistant`
+  - `text`: string
+  - `turn_id`: string
+- `planner`: optional planner outputs for autonomy-eligible logs.
+  - `intent`: string
+  - `plan_steps`: list<string>
+  - `selected_skill`: string
+  - `confidence`: float (0..1)
+- `tool_calls`: optional list of tool call records (for later distillation/replay).
+  - each item: `{ "tool": "http|mcp|filesystem|...", "name": "...", "args_json": "...", "result_json": "...", "ok": true|false }`
 
 ### `step_metadata`
 - Freeform string map for per-step tags (e.g., quality flags, scene ids). Use for lightweight contextual tags without changing schema.
@@ -122,3 +191,11 @@ Each exported bundle must include `edge_manifest.json` at the root to support Pi
 ## Extensibility principles
 - Prefer extending `observation` with new nested blocks (e.g., `gaze`, `audio`) rather than external sidecar files so schema remains self-contained.
 - Keep new fields optional with defaults so episodes remain readable when sensors are absent.
+
+## PII + public safety (local-first defaults)
+- Episodes that include faces, names, license plates, or raw audio SHOULD default to:
+  - `metadata.safety.pii_attestation.pii_present=true`
+  - `metadata.safety.pii_cleared=false`
+  - `metadata.safety.pending_review=true`
+  - `metadata.share.public=false`
+- Public listing MUST require `pii_cleared=true` and `pending_review=false` (and prefer redacted assets when `pii_redacted=true`).

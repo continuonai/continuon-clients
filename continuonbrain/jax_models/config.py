@@ -64,6 +64,12 @@ class CoreModelConfig:
     # Architecture options
     obs_type: str = "vector"  # "vector" or "image"
     output_type: str = "continuous"  # "continuous" or "discrete"
+
+    # Mamba-like selective SSM options (seed-safe defaults)
+    use_mamba_wave: bool = True
+    mamba_state_dim: int = 1
+    mamba_dt_min: float = 1e-4
+    mamba_dt_scale: float = 1.0
     
     def __post_init__(self):
         """Validate configuration."""
@@ -103,6 +109,10 @@ class CoreModelConfig:
                 self.state_saturation_limit,
                 self.obs_type,
                 self.output_type,
+                self.use_mamba_wave,
+                self.mamba_state_dim,
+                self.mamba_dt_min,
+                self.mamba_dt_scale,
             )
         )
         

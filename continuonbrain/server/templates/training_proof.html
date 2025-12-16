@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-header">
+    <h2>Training Proof (Imagination)</h2>
+    <div class="status-badge" id="proof-status">Loading…</div>
+  </div>
+  <div class="panel-content">
+    <div class="status-grid" style="grid-template-columns: repeat(4, minmax(140px, 1fr));">
+      <div class="status-item">
+        <label>Loop</label>
+        <select id="loop-select" style="padding:8px;border-radius:8px;border:1px solid #333;background:#111;color:#e0e0e0;">
+          <option value="slow">slow</option>
+          <option value="mid">mid</option>
+          <option value="fast">fast</option>
+        </select>
+      </div>
+      <div class="status-item">
+        <label>Main MSE</label>
+        <span id="mse-main">--</span>
+      </div>
+      <div class="status-item">
+        <label>Imagination Tail MSE</label>
+        <span id="mse-imag">--</span>
+      </div>
+      <div class="status-item">
+        <label>Tail dims</label>
+        <span id="tail-dims">--</span>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <canvas id="proof-chart" width="900" height="220" style="width:100%;max-width:100%;background:#111;border:1px solid #333;border-radius:10px;"></canvas>
+      <div class="muted" style="margin-top:8px;">
+        The imagination signal is packed into the last 16 action dims (planner/tool trace supervision). We track its MSE separately as a proof metric.
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="panel-ghost">
+        <div class="panel-eyebrow">Recent points</div>
+        <pre id="proof-json" style="max-height:240px;overflow:auto;"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function fetchTrainingStatus() {
+    const res = await fetch('/api/training/status', { cache: 'no-store' });
+    return await res.json();
+  }
+
+  function pickLog(status, loopName) {
+    try {
+      const loop = status?.[loopName];
+      const result = loop?.result;
+      const log = result?.proof_metrics_log || [];
+      const last = result?.proof_metrics || {};
+      return { log, last };
+    } catch (_) {
+      return { log: [], last: {} };
+    }
+  }
+
+  function fmt(x) {
+    if (x === null || x === undefined) return '--';
+    const n = Number(x);
+    if (!Number.isFinite(n)) return '--';
+    return n.toFixed(6);
+  }
+
+  function drawChart(canvas, seriesA, seriesB) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // background
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, w, h);
+
+    const pad = 28;
+    const innerW = w - pad * 2;
+    const innerH = h - pad * 2;
+
+    const xs = seriesA.map(p => p.step);
+    const ys = seriesA.map(p => p.v).concat(seriesB.map(p => p.v));
+    const xMin = Math.min(...xs, 0), xMax = Math.max(...xs, 1);
+    const yMin = Math.min(...ys, 0), yMax = Math.max(...ys, 1);
+    const ySpan = (yMax - yMin) || 1;
+    const xSpan = (xMax - xMin) || 1;
+
+    function xTo(u) { return pad + ((u - xMin) / xSpan) * innerW; }
+    function yTo(v) { return pad + innerH - ((v - yMin) / ySpan) * innerH; }
+
+    // axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, pad);
+    ctx.lineTo(pad, pad + innerH);
+    ctx.lineTo(pad + innerW, pad + innerH);
+    ctx.stroke();
+
+    // series A (main)
+    ctx.strokeStyle = '#7ad7ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    seriesA.forEach((p, i) => {
+      const x = xTo(p.step), y = yTo(p.v);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // series B (imagination tail)
+    ctx.strokeStyle = '#ff9f7a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    seriesB.forEach((p, i) => {
+      const x = xTo(p.step), y = yTo(p.v);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // legend
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+    ctx.fillText('main', pad + 6, pad - 10);
+    ctx.fillStyle = '#7ad7ff';
+    ctx.fillRect(pad + 42, pad - 18, 10, 10);
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fillText('imagination_tail', pad + 60, pad - 10);
+    ctx.fillStyle = '#ff9f7a';
+    ctx.fillRect(pad + 170, pad - 18, 10, 10);
+  }
+
+  async function refreshProof() {
+    const badge = document.getElementById('proof-status');
+    badge.textContent = 'Loading…';
+    try {
+      const status = await fetchTrainingStatus();
+      const loopName = document.getElementById('loop-select').value;
+      const { log, last } = pickLog(status, loopName);
+
+      document.getElementById('mse-main').textContent = fmt(last.mse_main);
+      document.getElementById('mse-imag').textContent = fmt(last.mse_imagination_tail);
+      document.getElementById('tail-dims').textContent = (last.imagination_tail_dims ?? '--');
+
+      const trimmed = (log || []).slice(-80);
+      const mainSeries = trimmed.map(p => ({ step: Number(p.step || 0), v: Number(p.mse_main || 0) }));
+      const imagSeries = trimmed.map(p => ({ step: Number(p.step || 0), v: Number(p.mse_imagination_tail || 0) }));
+      drawChart(document.getElementById('proof-chart'), mainSeries, imagSeries);
+
+      document.getElementById('proof-json').textContent = JSON.stringify(trimmed.slice(-12), null, 2);
+      badge.textContent = 'OK';
+    } catch (e) {
+      badge.textContent = 'Error';
+      document.getElementById('proof-json').textContent = String(e);
+    }
+  }
+
+  document.getElementById('loop-select').addEventListener('change', refreshProof);
+  refreshProof();
+  setInterval(refreshProof, 5000);
+</script>
+{% endblock %}
+
+

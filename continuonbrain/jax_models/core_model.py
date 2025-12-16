@@ -19,6 +19,7 @@ from flax import linen as nn
 import numpy as np
 
 from .config import CoreModelConfig
+from .mamba_ssm import MambaLikeWave
 
 
 class InputEncoder(nn.Module):
@@ -251,7 +252,19 @@ class HOPECore(nn.Module):
     config: CoreModelConfig
     
     def setup(self):
-        self.wave = WaveSubsystem(self.config)
+        # Canonical seed wave dynamics: Mamba-like selective SSM (portable, stable).
+        # Keep legacy WaveSubsystem available behind config flag.
+        if getattr(self.config, "use_mamba_wave", False):
+            self.wave = MambaLikeWave(
+                d_w=self.config.d_w,
+                d_in=self.config.d_p + self.config.d_c,
+                state_dim=getattr(self.config, "mamba_state_dim", 1),
+                dt_min=getattr(self.config, "mamba_dt_min", 1e-4),
+                dt_scale=getattr(self.config, "mamba_dt_scale", 1.0),
+                name="mamba_wave",
+            )
+        else:
+            self.wave = WaveSubsystem(self.config)
         self.particle = ParticleSubsystem(self.config)
         
         # Gate network
@@ -294,7 +307,11 @@ class HOPECore(nn.Module):
         z_t = self.z_projection(e_t)
         
         # Wave update
-        w_t = self.wave(w_prev, z_t, c_t)
+        if getattr(self.config, "use_mamba_wave", False):
+            w_in = jnp.concatenate([z_t, c_t], axis=-1)
+            w_t = self.wave(w_prev, w_in)
+        else:
+            w_t = self.wave(w_prev, z_t, c_t)
         
         # Particle update
         p_t = self.particle(p_prev, z_t, c_t)

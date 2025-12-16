@@ -101,6 +101,32 @@
             gap: 8px;
             align-items: center;
         }
+        .btn {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: var(--text);
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn:hover { border-color: rgba(122,215,255,0.7); }
+        .btn.danger { background: rgba(255, 80, 80, 0.12); border-color: rgba(255, 80, 80, 0.45); }
+        .btn.danger:hover { border-color: rgba(255, 80, 80, 0.85); }
+        .btn.secondary { background: rgba(122,215,255,0.10); border-color: rgba(122,215,255,0.35); }
+        .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            color: var(--muted);
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #0b1020;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -221,6 +247,32 @@
             </div>
             <div class="hint">These shortcuts appear contextually in UI and Control.</div>
         </div>
+
+        <div class="card">
+            <h2>Seed Brain · Reset</h2>
+            <div class="hint">Danger zone. Factory reset wipes base model + adapters + RLDS + trainer logs/checkpoints.</div>
+            <div class="field">
+                <label for="seed-reset-profile">Reset profile</label>
+                <select id="seed-reset-profile">
+                    <option value="factory">factory (wipe everything)</option>
+                    <option value="memories_only">memories_only (keep model folders)</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="seed-reset-token">Admin token</label>
+                <input id="seed-reset-token" type="text" placeholder="CONTINUON_ADMIN_TOKEN (or enable unsafe reset in dev)">
+                <div class="hint">Server requires token unless <span class="mono" style="display:inline;padding:2px 6px;">CONTINUON_ALLOW_UNSAFE_RESET=1</span>.</div>
+            </div>
+            <div class="field">
+                <label for="seed-reset-confirm">Type confirmation phrase</label>
+                <input id="seed-reset-confirm" type="text" placeholder='FACTORY RESET or CLEAR MEMORIES'>
+            </div>
+            <div class="btn-row">
+                <button class="btn secondary" id="seed-reset-dryrun" type="button">Dry run</button>
+                <button class="btn danger" id="seed-reset-run" type="button">Execute reset</button>
+            </div>
+            <div class="mono" id="seed-reset-output">Ready.</div>
+        </div>
     </div>
 
     <script>
@@ -323,6 +375,72 @@
             } catch (err) {
                 console.warn('Failed to restore persona', err);
             }
+        }
+
+        function _expectedConfirm(profile) {
+            return profile === 'factory' ? 'FACTORY RESET' : 'CLEAR MEMORIES';
+        }
+
+        async function runSeedReset(dryRun) {
+            const profile = document.getElementById('seed-reset-profile').value;
+            const token = document.getElementById('seed-reset-token').value || null;
+            const confirm = document.getElementById('seed-reset-confirm').value || '';
+            const expected = _expectedConfirm(profile);
+            const out = document.getElementById('seed-reset-output');
+
+            if (confirm.trim() !== expected) {
+                out.textContent = `Confirmation mismatch. Expected: "${expected}"`;
+                return;
+            }
+
+            out.textContent = 'Calling /api/admin/factory_reset ...';
+            try {
+                const res = await fetch('/api/admin/factory_reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile, confirm: expected, token, dry_run: !!dryRun }),
+                });
+                const data = await res.json().catch(() => ({ success: false, message: 'invalid json response' }));
+                out.textContent = JSON.stringify({ http: res.status, ...data }, null, 2);
+            } catch (err) {
+                out.textContent = 'Request failed: ' + (err && err.message ? err.message : String(err));
+            }
+        }
+
+        document.getElementById('seed-reset-dryrun').addEventListener('click', () => runSeedReset(true));
+        document.getElementById('seed-reset-run').addEventListener('click', () => runSeedReset(false));
+
+        async function runSeedPromote(dryRun) {
+            const token = document.getElementById('seed-reset-token').value || null;
+            const out = document.getElementById('seed-reset-output');
+            out.textContent = 'Calling /api/admin/promote_candidate ...';
+            try {
+                const res = await fetch('/api/admin/promote_candidate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, dry_run: !!dryRun }),
+                });
+                const data = await res.json().catch(() => ({ success: false, message: 'invalid json response' }));
+                out.textContent = JSON.stringify({ http: res.status, ...data }, null, 2);
+            } catch (err) {
+                out.textContent = 'Request failed: ' + (err && err.message ? err.message : String(err));
+            }
+        }
+
+        // Add promote controls (kept near reset output for a single audit pane)
+        const promoteRow = document.createElement('div');
+        promoteRow.className = 'btn-row';
+        promoteRow.innerHTML = `
+            <button class="btn secondary" id="seed-promote-dryrun" type="button">Dry run promote</button>
+            <button class="btn" id="seed-promote-run" type="button">Promote candidate → current</button>
+        `;
+        document.querySelector('.card h2:nth-of-type(1)'); // noop; keep DOMContentLoaded stable
+        // Insert before output box (same card)
+        const resetCard = document.getElementById('seed-reset-output')?.closest('.card');
+        if (resetCard) {
+            resetCard.insertBefore(promoteRow, document.getElementById('seed-reset-output'));
+            document.getElementById('seed-promote-dryrun').addEventListener('click', () => runSeedPromote(true));
+            document.getElementById('seed-promote-run').addEventListener('click', () => runSeedPromote(false));
         }
     </script>
 </body>

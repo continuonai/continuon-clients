@@ -39,6 +39,8 @@ TRAINING_PLAN_HTML = """
             <li>JAX sanity check (uses TFRecord or JSON fallback):<br>
                 <code>python -m continuonbrain.jax_models.train.local_sanity_check --rlds-dir /opt/continuonos/brain/rlds/episodes --arch-preset pi5 --max-steps 8 --batch-size 4 --metrics-path /tmp/jax_sanity.csv --checkpoint-dir /tmp/jax_ckpts</code>
             </li>
+            <li>Imagination proof metrics: the sanity check now logs <code>mse_main</code> and <code>mse_imagination_tail</code> (planner/tool supervision packed into the tail of the action vector).</li>
+            <li>Studio proof page: <a href="/training_proof"><code>/training_proof</code></a> plots <code>mse_main</code> vs <code>mse_imagination_tail</code> using <code>/api/training/status</code>.</li>
             <li>Convert RLDS to TFRecord for TPU: <code>python -m continuonbrain.jax_models.data.tfrecord_converter --input-dir /opt/continuonos/brain/rlds/episodes --output-dir /opt/continuonos/brain/rlds/tfrecord --compress</code></li>
             <li>Proof-of-learning demo (background learner): <code>python prove_learning_capability.py</code> → saves <code>proof_of_learning.json</code> for audit.</li>
         </ol>

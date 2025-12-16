@@ -5,18 +5,115 @@ package continuonxr.rlds.v1;
 // Draft RLDS schema for ContinuonXR. Matches docs/rlds-schema.md.
 
 message EpisodeMetadata {
+  // Optional schema version string ("1.0", "1.1"). When absent, treat as "1.0".
+  string schema_version = 100;
+  // Optional stable episode identifier (UUID or ep_<ts>).
+  string episode_id = 101;
+  // Optional robot identity and model.
+  string robot_id = 102;
+  string robot_model = 103;
+  // Optional pose frame convention (base_link/camera_link/etc).
+  string frame_convention = 104;
+  // Optional timing metadata for audit.
+  int64 start_time_unix_ms = 105;
+  int64 duration_ms = 106;
+
   string xr_mode = 1; // trainer | workstation | observer
   string control_role = 2; // human_teleop | human_supervisor | human_dev_xr
   string environment_id = 3; // lab-mock, pbos-dev01, etc.
   repeated string tags = 4;
 
   SoftwareVersions software = 5;
+
+  // Optional blocks for personalization, safety, and public sharing.
+  OwnerProfile owner = 110;
+  SafetyMetadata safety = 111;
+  ShareMetadata share = 112;
+  Provenance provenance = 113;
+  Capabilities capabilities = 114;
 }
 
 message SoftwareVersions {
   string xr_app = 1;
   string continuonbrain_os = 2;
   string glove_firmware = 3;
+}
+
+message OwnerProfile {
+  string owner_id = 1;
+  string display_name = 2;
+  string preferred_name = 3;
+  repeated string roles = 4;
+  map<string, string> preferences = 5;
+}
+
+message ContentRating {
+  string audience = 1; // general | teen | adult
+  string violence = 2; // none | mild | graphic
+  string language = 3; // clean | some | strong
+}
+
+message PiiAttestation {
+  bool pii_present = 1;
+  bool faces_present = 2;
+  bool name_present = 3;
+  bool consent = 4;
+}
+
+message SafetyMetadata {
+  ContentRating content_rating = 1;
+  PiiAttestation pii_attestation = 2;
+  bool pii_cleared = 3;
+  bool pii_redacted = 4;
+  bool pending_review = 5;
+}
+
+message ShareMetadata {
+  bool public = 1;
+  string slug = 2;
+  string title = 3;
+  string license = 4;
+  repeated string tags = 5;
+}
+
+message Provenance {
+  string origin = 1;
+  string source_commit = 2;
+  string source_host = 3;
+  string notes = 4;
+}
+
+message Capabilities {
+  ComputeCapabilities compute = 1;
+  SensorCapabilities sensors = 2;
+  ActuatorCapabilities actuators = 3;
+  SafetyLimits limits = 4;
+}
+
+message ComputeCapabilities {
+  string device = 1; // pi5 | jetson | laptop | tpu
+  float ram_gb = 2;
+  string gpu = 3;
+  string dtype = 4; // bf16 | fp16 | fp32
+}
+
+message SensorCapabilities {
+  bool rgb = 1;
+  bool depth = 2;
+  bool audio = 3;
+  bool imu = 4;
+  bool glove = 5;
+}
+
+message ActuatorCapabilities {
+  bool drive = 1;
+  bool arm = 2;
+  bool gripper = 3;
+}
+
+message SafetyLimits {
+  bool allow_motion = 1;
+  float max_speed_mps = 2;
 }
 
 message Episode {
@@ -37,6 +134,11 @@ message Observation {
   Diagnostics diagnostics = 9;
   Audio audio = 10;
   UiContext ui_context = 11;
+
+  // Optional multimodal and dialog blocks for v1.1+.
+  MediaBundle media = 50;
+  DialogTurn dialog = 51;
+  WorldModelSignals world_model = 52;
 }
 
 message Action {
@@ -44,6 +146,11 @@ message Action {
   string source = 2; // e.g., human_teleop_xr
   Annotation annotation = 3;
   UiAction ui_action = 4;
+
+  // Optional autonomy/tooling blocks for v1.1+.
+  DialogTurn dialog = 50;
+  PlannerTrace planner = 51;
+  repeated ToolCall tool_calls = 52;
 }
 
 message Pose {
@@ -116,4 +223,50 @@ message Step {
   Action action = 2;
   bool is_terminal = 3;
   map<string, string> step_metadata = 4;
+}
+
+message MediaRef {
+  string uri = 1;
+  string frame_id = 2;
+  int64 timestamp_ns = 3;
+  int32 width = 4;
+  int32 height = 5;
+  string format = 6;
+  string units = 7; // depth only (e.g., "mm")
+  int32 sample_rate_hz = 8; // audio only
+  int32 num_channels = 9; // audio only
+}
+
+message MediaBundle {
+  MediaRef rgb = 1;
+  MediaRef depth = 2;
+  MediaRef audio = 3;
+}
+
+message DialogTurn {
+  string speaker = 1; // user | assistant | system
+  string text = 2;
+  string turn_id = 3;
+  string conversation_id = 4;
+}
+
+message WorldModelSignals {
+  repeated int32 latent_tokens = 1;
+  float surprise = 2;
+  string belief_state_id = 3;
+}
+
+message PlannerTrace {
+  string intent = 1;
+  repeated string plan_steps = 2;
+  string selected_skill = 3;
+  float confidence = 4;
+}
+
+message ToolCall {
+  string tool = 1;
+  string name = 2;
+  string args_json = 3;
+  string result_json = 4;
+  bool ok = 5;
 }

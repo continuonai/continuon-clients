@@ -105,7 +105,7 @@ def compute_loss(
     state: Dict[str, Any],
     config: CoreModelConfig,
     sparsity_lambda: float = 0.0,
-) -> jnp.ndarray:
+) -> tuple[jnp.ndarray, tuple[Dict[str, Any], Dict[str, jnp.ndarray]]]:
     """
     Compute loss for a batch.
     
@@ -137,7 +137,7 @@ def compute_loss(
         w_prev = jnp.tile(w_prev[0:1], (batch_size, 1))
         p_prev = jnp.tile(p_prev[0:1], (batch_size, 1))
     
-    # Forward pass
+    # Forward pass (info contains next internal states)
     y_pred, info = apply_fn(
         params,
         obs,
@@ -150,8 +150,26 @@ def compute_loss(
         state['cms_keys'],
     )
     
-    # Simple MSE loss: predict action from observation
-    loss = jnp.mean((y_pred - action) ** 2)
+    # Proof metrics: separate "motor" vs "imagination" tail error.
+    # The action extractor can pack planner/tool traces into the last 16 dims.
+    # IMPORTANT: action_dim is static under jit; keep reserve as a Python int to avoid Tracer bool conversion.
+    action_dim = int(action.shape[-1])
+    reserve = min(16, action_dim)
+
+    err = (y_pred - action) ** 2  # [B, action_dim]
+    mse_total = jnp.mean(err)
+    if reserve > 0:
+        if action_dim - reserve > 0:
+            mse_main = jnp.mean(err[:, : action_dim - reserve])
+        else:
+            mse_main = jnp.array(0.0, dtype=err.dtype)
+        mse_imagination = jnp.mean(err[:, action_dim - reserve :])
+    else:
+        mse_main = mse_total
+        mse_imagination = jnp.array(0.0, dtype=err.dtype)
+
+    # Keep training objective unchanged (full action MSE), but log proof metrics.
+    loss = mse_total
 
     if sparsity_lambda > 0:
         l1 = sum(
@@ -161,7 +179,27 @@ def compute_loss(
         )
         loss = loss + sparsity_lambda * l1
     
-    return loss
+    updated_state = state
+    if isinstance(info, dict):
+        # Carry forward the recurrent state so the trainer exercises streaming dynamics.
+        try:
+            updated_state = {
+                **state,
+                "fast_state": info.get("fast_state", state["fast_state"]),
+                "wave_state": info.get("wave_state", state["wave_state"]),
+                "particle_state": info.get("particle_state", state["particle_state"]),
+            }
+        except Exception:
+            updated_state = state
+
+    metrics = {
+        "mse_total": mse_total,
+        "mse_main": mse_main,
+        "mse_imagination_tail": mse_imagination,
+        "imagination_tail_dims": jnp.array(float(reserve), dtype=jnp.float32),
+    }
+
+    return loss, (updated_state, metrics)
 
 
 @partial(jax.jit, static_argnums=(2, 5, 6, 7))
@@ -174,15 +212,15 @@ def train_step(
     config: CoreModelConfig,
     optimizer: optax.GradientTransformation,
     sparsity_lambda: float = 0.0,
-) -> tuple[Dict[str, Any], Any, jnp.ndarray, Dict[str, Any]]:
+) -> tuple[Dict[str, Any], Any, jnp.ndarray, Dict[str, Any], Dict[str, jnp.ndarray]]:
     """
     Single training step.
     
     Returns:
         (updated_params, updated_opt_state, loss, updated_state)
     """
-    # Compute loss and gradients
-    loss, grads = jax.value_and_grad(compute_loss)(
+    # Compute loss + next state and gradients
+    (loss, (next_state, metrics)), grads = jax.value_and_grad(compute_loss, has_aux=True)(
         params, apply_fn, batch, state, config, sparsity_lambda
     )
     
@@ -196,11 +234,7 @@ def train_step(
     updates, opt_state = optimizer.update(grads, opt_state, params)
     params = optax.apply_updates(params, updates)
     
-    # Update internal state (simplified - in practice, you'd update based on model output)
-    # For sanity check, we'll just keep the state as-is
-    updated_state = state
-    
-    return params, opt_state, loss, updated_state
+    return params, opt_state, loss, next_state, metrics
 
 
 def run_sanity_check(
@@ -323,15 +357,19 @@ def run_sanity_check(
         metrics_path = Path(metrics_path)
         metrics_path.parent.mkdir(parents=True, exist_ok=True)
         metrics_file = metrics_path.open("w", newline="")
-        csv_writer = csv.DictWriter(metrics_file, fieldnames=["step", "loss", "elapsed_s"])
+        csv_writer = csv.DictWriter(
+            metrics_file,
+            fieldnames=["step", "loss", "elapsed_s", "mse_main", "mse_imagination_tail", "imagination_tail_dims"],
+        )
         csv_writer.writeheader()
 
     try:
+        metrics_log: list[Dict[str, float]] = []
         for step in range(max_steps):
             batch = next(data_iter)
 
             # Training step
-            params, opt_state, loss, state = train_step(
+            params, opt_state, loss, state, step_metrics = train_step(
                 params,
                 opt_state,
                 model.apply,
@@ -344,13 +382,47 @@ def run_sanity_check(
 
             loss_val = float(loss)
             losses.append(loss_val)
+            metrics_log.append(
+                {
+                    "step": float(step),
+                    "loss": float(loss),
+                    "mse_total": float(step_metrics.get("mse_total", loss)),
+                    "mse_main": float(step_metrics.get("mse_main", loss)),
+                    "mse_imagination_tail": float(step_metrics.get("mse_imagination_tail", 0.0)),
+                    "imagination_tail_dims": float(step_metrics.get("imagination_tail_dims", 0.0)),
+                }
+            )
 
             if step % 2 == 0:
                 elapsed = time.time() - start_time
-                print(f"Step {step}: loss={loss_val:.6f} (elapsed={elapsed:.2f}s)")
+                print(
+                    f"Step {step}: loss={loss_val:.6f} "
+                    f"(main_mse={metrics_log[-1]['mse_main']:.6f}, imag_mse={metrics_log[-1]['mse_imagination_tail']:.6f}) "
+                    f"(elapsed={elapsed:.2f}s)"
+                )
 
             if csv_writer:
-                csv_writer.writerow({"step": step, "loss": loss_val, "elapsed_s": time.time() - start_time})
+                # Backward compatible: if the CSV was created with only old columns, ignore new ones.
+                row = {
+                    "step": step,
+                    "loss": loss_val,
+                    "elapsed_s": time.time() - start_time,
+                }
+                try:
+                    row.update(
+                        {
+                            "mse_main": metrics_log[-1]["mse_main"],
+                            "mse_imagination_tail": metrics_log[-1]["mse_imagination_tail"],
+                            "imagination_tail_dims": metrics_log[-1]["imagination_tail_dims"],
+                        }
+                    )
+                except Exception:
+                    pass
+                try:
+                    csv_writer.writerow(row)
+                except Exception:
+                    # If fieldnames don't match, fall back to legacy row.
+                    csv_writer.writerow({"step": step, "loss": loss_val, "elapsed_s": time.time() - start_time})
 
             # Check for NaN/Inf
             if not jnp.isfinite(loss):
@@ -379,28 +451,54 @@ def run_sanity_check(
         checkpoint_dir = Path(checkpoint_dir)
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         checkpoint_step = len(losses)
-        # Lightweight pickle checkpoint for portability (Orbax unavailable on this platform).
-        ckpt_file = checkpoint_dir / f"params_step_{checkpoint_step}.pkl"
-        with ckpt_file.open("wb") as f:
-            pickle.dump(
-                {
-                    "params": params,
-                    "opt_state": opt_state,
-                    "metadata": {
-                        "obs_dim": obs_dim,
-                        "action_dim": action_dim,
-                        "output_dim": output_dim,
-                        "learning_rate": learning_rate,
-                        "steps": len(losses),
-                        "checkpoint_step": checkpoint_step,
-                        "arch_preset": arch_preset,
-                        "sparsity_lambda": sparsity_lambda,
-                    },
+        # Prefer Orbax when available; fall back to a portable pickle.
+        try:
+            from ..export.checkpointing import CheckpointManager
+
+            manager = CheckpointManager(str(checkpoint_dir), use_gcs=False)
+            manager.save(
+                step=checkpoint_step,
+                params=params,
+                opt_state=opt_state,
+                metadata={
+                    "obs_dim": obs_dim,
+                    "action_dim": action_dim,
+                    "output_dim": output_dim,
+                    "learning_rate": learning_rate,
+                    "steps": len(losses),
+                    "checkpoint_step": checkpoint_step,
+                    "arch_preset": arch_preset,
+                    "sparsity_lambda": sparsity_lambda,
                 },
-                f,
             )
-        checkpoint_path = str(ckpt_file)
-        checkpoint_format = "pickle"
+
+            # Return a file path inside checkpoint_dir so callers using Path(...).parent get checkpoint_dir.
+            marker = checkpoint_dir / f"checkpoint_step_{checkpoint_step}.marker"
+            marker.write_text("ok")
+            checkpoint_path = str(marker)
+            checkpoint_format = "orbax"
+        except Exception:
+            ckpt_file = checkpoint_dir / f"params_step_{checkpoint_step}.pkl"
+            with ckpt_file.open("wb") as f:
+                pickle.dump(
+                    {
+                        "params": params,
+                        "opt_state": opt_state,
+                        "metadata": {
+                            "obs_dim": obs_dim,
+                            "action_dim": action_dim,
+                            "output_dim": output_dim,
+                            "learning_rate": learning_rate,
+                            "steps": len(losses),
+                            "checkpoint_step": checkpoint_step,
+                            "arch_preset": arch_preset,
+                            "sparsity_lambda": sparsity_lambda,
+                        },
+                    },
+                    f,
+                )
+            checkpoint_path = str(ckpt_file)
+            checkpoint_format = "pickle"
 
     results = {
         'status': 'ok',
@@ -409,6 +507,8 @@ def run_sanity_check(
         'avg_loss': np.mean(losses) if losses else None,
         'wall_time_s': wall_time,
         'losses': losses,
+        'proof_metrics': metrics_log[-1] if metrics_log else {},
+        'proof_metrics_log': metrics_log,
         'config': config,
         'arch_preset': arch_preset,
         'sparsity_lambda': sparsity_lambda,
@@ -433,7 +533,11 @@ def run_sanity_check(
         metrics_file.close()
         metrics_json = metrics_path.with_suffix(".json") if metrics_path else None
         if metrics_json:
-            metrics_json.write_text(json.dumps([{"step": i, "loss": l} for i, l in enumerate(losses)], indent=2))
+            # Prefer richer metrics log if available.
+            if metrics_log:
+                metrics_json.write_text(json.dumps(metrics_log, indent=2))
+            else:
+                metrics_json.write_text(json.dumps([{"step": i, "loss": l} for i, l in enumerate(losses)], indent=2))
 
     return results
 
@@ -444,6 +548,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="Run Pi SSM seed sanity check on Pi CPU")
     parser.add_argument("--rlds-dir", type=Path, help="Directory with TFRecord episodes (e.g., /opt/continuonos/brain/rlds/tfrecord)")
+    parser.add_argument("--arch-preset", type=str, default=None, help="Architecture preset (e.g., pi5, seed_local_2050, hybrid)")
     parser.add_argument("--obs-dim", type=int, default=128, help="Observation dimension")
     parser.add_argument("--action-dim", type=int, default=32, help="Action dimension")
     parser.add_argument("--output-dim", type=int, default=32, help="Output dimension")
@@ -452,11 +557,14 @@ def main():
     parser.add_argument("--learning-rate", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--use-synthetic", action="store_true", help="Use synthetic data")
     parser.add_argument("--metrics-path", type=Path, help="Optional path to write CSV metrics")
+    parser.add_argument("--checkpoint-dir", type=Path, default=None, help="Optional directory to write checkpoints")
+    parser.add_argument("--sparsity-lambda", type=float, default=0.0, help="Optional L1 sparsity regularizer weight")
     
     args = parser.parse_args()
     
     results = run_sanity_check(
         rlds_dir=args.rlds_dir,
+        arch_preset=args.arch_preset,
         obs_dim=args.obs_dim,
         action_dim=args.action_dim,
         output_dim=args.output_dim,
@@ -465,6 +573,8 @@ def main():
         learning_rate=args.learning_rate,
         use_synthetic_data=args.use_synthetic or args.rlds_dir is None,
         metrics_path=args.metrics_path,
+        checkpoint_dir=args.checkpoint_dir,
+        sparsity_lambda=float(args.sparsity_lambda or 0.0),
     )
     
     if results['status'] == 'ok':

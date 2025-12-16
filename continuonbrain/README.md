@@ -1,6 +1,7 @@
 # ContinuonBrain
 
 The Continuon Brain runtime and scaffolding now live together in this monorepo. Use this folder to ship production runtime assets alongside the existing **scaffolding and contracts** used by ContinuonXR:
+
 - `proto/continuonbrain_link.proto` (shared contract; mirror downstream).
 - `trainer/` offline Pi/Jetson adapter-training scaffold (bounded, RLDS-only, safety-gated) to align with ContinuonBrain/OS goals. Synthetic RLDS samples for dry-runs sit under `continuonbrain/rlds/episodes/`. Sample manifest in `continuonbrain/model/manifest.pi5.example.json` shows how Pi 5 + `flutter_gemma` can load base + LoRA without extra quantization.
 - Raspberry Pi 5 bring-up checklist (depth cam + PCA9685) lives in `continuonbrain/PI5_CAR_READINESS.md`.
@@ -13,6 +14,7 @@ Production runtime code belongs here; keep docs explicit about what is productio
 For training-time autonomy (when humans are away), keep the robot focused on safe, creator-aligned work items listed in `SELF_IMPROVEMENT_BACKLOG.md`. Tasks emphasize offline-first checks, system health validation, and strict adherence to the safety protocol.
 
 ### Pi 5 HAT vision seed (reference names)
+
 - Base model placeholder for HAT vision runs: `/opt/continuonos/brain/model/base_model/hat_vision_seed.pt`
 - Current adapter target: `/opt/continuonos/brain/model/adapters/current/lora_hat_vision.pt`
 - Candidate adapter target: `/opt/continuonos/brain/model/adapters/candidate/lora_hat_vision.pt`
@@ -20,6 +22,7 @@ For training-time autonomy (when humans are away), keep the robot focused on saf
 - If on-device LLM/tools (e.g., Gemma 3n 2B with MCP/http) are used, log tool traces into `step_metadata` for later cloud/JAX ingestion.
 - Hailo: prefer Hailo inference when available; placeholder HEF path `/opt/continuonos/brain/model/base_model/model.hef` with CPU fallback if SDK/hef are absent.
 - To route inference via Hailo with fallback, use `InferenceRunner`:
+
   ```python
   from pathlib import Path
   from continuonbrain.inference_runner import InferenceRunner
@@ -32,6 +35,7 @@ For training-time autonomy (when humans are away), keep the robot focused on saf
   ```
 
 ### Pi5 world-model + RAG (VQ-VAE + Librarian)
+
 - **Latent tokens on HAT:** VQ-VAE runs on the AI HAT to compress OAK-D RGB/depth into discrete token grids; log tokens and codebook IDs in RLDS (`observation.latent_tokens`) for replay/grounding.
 - **Predictor on Pi CPU:** Fast/Mid loops predict next latent tokens from prior tokens + actions; log a surprise signal (pred vs. actual) in `step_metadata` for closed-loop correction.
 - **RAG via Librarian:** Local wiki/episodic shards (see `docs/wiki-rag-plan.md`) are loaded by `continuonbrain.services.librarian.Librarian`. Shard manifests live under `/opt/continuonos/brain/memory/wiki/manifest.json` (default). Remote “unknown-answer” agent stays opt-in and budget-gated (`ALLOW_REMOTE_AGENT`, `MAX_API_CENTS_PER_DAY`).
@@ -46,27 +50,33 @@ Built SO-ARM101 + OAK-D Lite integration for design validation without physical 
 ### Components Built
 
 **Sensors** (`sensors/`):
+
 - `oak_depth.py` - OAK-D Lite depth camera capture (RGB + depth @ 30fps)
 - `hardware_detector.py` - Auto-detection for cameras, HATs, servos, IMUs
 
 **Actuators** (`actuators/`):
+
 - `pca9685_arm.py` - PCA9685 6-DOF servo control with safety bounds
 
 **Recording** (`recording/`):
+
 - `arm_episode_recorder.py` - RLDS episode recorder (depth + arm state + actions)
 - `episode_upload.py` - Episode packaging and upload pipeline
 
 **RLDS capture + eval logging**:
+
 - `recording/arm_episode_recorder.py` captures synchronized RGB/depth frames, robot joint state, and teleop or policy actions, writing RLDS steps that keep frame/action timestamps, source tags, and optional audio buffers aligned for training.【F:continuonbrain/recording/arm_episode_recorder.py†L22-L115】
 - Lightweight JSON/JSONL logging for JAX debugging lives in `jax_models/data/episode_logger.py`, which stamps each step with observation/action/reward/done fields plus a per-step timestamp and episode metadata tags for downstream TFRecord conversion.【F:continuonbrain/jax_models/data/episode_logger.py†L1-L93】【F:continuonbrain/jax_models/data/episode_logger.py†L98-L164】
 - Eval runners log directly to RLDS: `eval/hope_eval_runner.py` records graded Q&A with fallback model hints, storing model label, fallback order, and context counts per step; `eval/multi_model_compare_eval.py` queries HOPE + Gemma/Gemini variants and writes a winner selection with rationale into each RLDS step for later replay or voting analysis.【F:continuonbrain/eval/hope_eval_runner.py†L15-L88】【F:continuonbrain/eval/multi_model_compare_eval.py†L1-L92】
 
 **System Management**:
+
 - `system_health.py` - Comprehensive hardware/software health checks, including MCP/Gemini discovery and a $5/day API budget guard to stay offline-first
 - `startup_manager.py` - Startup orchestration with automatic wake checks and boot
   enforcement for system instructions + safety protocol
 
 **Testing** (`tests/`):
+
 - `integration_test.py` - Full stack test (mock + real hardware modes)
 
 ### Quick Start
@@ -95,18 +105,77 @@ PYTHONPATH=$PWD python3 continuonbrain/startup_manager.py
 See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devices and [System Health](../docs/system-health.md) for health checking.
 
 ### JAX Training & Inference (CoreModel + Gemma 3n JAX)
+
 - Local sanity check: `python -m continuonbrain.run_trainer --trainer jax --mode local --config-preset pi5 --max-steps 5`
+- Local GPU seed preset (RTX 2050/3050-class): `python -m continuonbrain.jax_models.train.local_sanity_check --arch-preset seed_local_2050 --max-steps 32 --batch-size 2 --checkpoint-dir /tmp/jax_ckpts`
 - TPU training: `python -m continuonbrain.run_trainer --trainer jax --mode tpu --data-path gs://... --output-dir gs://... --config-preset tpu --num-steps 10000`
 - CPU inference smoke: `python -m continuonbrain.jax_models.export.infer_cpu --model-path ./models/core_model_inference --obs-dim 128 --action-dim 32`
 - Gemma 3n JAX/Flax: ensure weights are present in HF cache; model detector will list them as `jax-gemma`.
 
+### Seed reset (factory vs memories-only)
+
+For fast iteration on seed brains, Studio exposes a reset endpoint and a Settings UI panel:
+
+- **API**: `POST /api/admin/factory_reset`
+  - Payload: `{ "profile": "factory"|"memories_only", "confirm": "FACTORY RESET"|"CLEAR MEMORIES", "token": "...", "dry_run": false }`
+  - Safety gate: requires `mode=idle` or `emergency_stop` and `allow_motion=false`.
+  - Auth: requires `CONTINUON_ADMIN_TOKEN` (or `admin_token.txt` under `/opt/continuonos/brain`) unless `CONTINUON_ALLOW_UNSAFE_RESET=1` in dev.
+- **CLI** (for Pi 5 / SSH): `python -m continuonbrain.scripts.factory_reset_seed --profile factory --confirm "FACTORY RESET" --token "$CONTINUON_ADMIN_TOKEN"`
+
+### WSL2 GPU seed build into canonical runtime paths
+
+If you’re developing on Windows + WSL2, you can generate a seed candidate artifact into the **same runtime paths used on Pi**:
+
+- **Canonical output paths** (inside WSL):
+  - Checkpoints: `/opt/continuonos/brain/trainer/checkpoints/core_model_seed/`
+  - Candidate export: `/opt/continuonos/brain/model/adapters/candidate/core_model_seed/`
+
+- **One-shot WaveCore loops (no server required)**:
+  - Activate your CUDA JAX venv in WSL, then run `WavecoreTrainer` (fast/mid/slow) with `arch_preset=seed_local_2050`.
+  - This repo includes a minimal “hardware-free” server entrypoint (`python -m continuonbrain.studio_training_server`) for Studio triggering, but WSL may stop background daemons when the session ends—run it in an interactive WSL terminal if you want it to stay up.
+
 #### v0 SSM-first inference pipeline (Pi 5)
+
 - **Default mid-loop predictor:** The `jax_models` export + `inference_router` should prefer the SSM/CoreModel bundle produced by the seed plan (Mamba/RWKV-style hidden state) and only route to Gemma/transformer fallback when the SSM bundle is absent.
+
+### Optional “teacher” helpers for better synthetic episodes (recommended)
+
+For bootstrapping, you can enrich RLDS episodes with outputs from **tiny helper models** (captioning, embeddings, suggested actions) and distill them into the seed model later.
+
+- **Why**: makes early training data more informative than random vectors; provides pseudo-labels for distillation without baking the teacher into runtime.
+- **How**: the recorder can call an **HTTP teacher** and store:
+  - `observation.command` = teacher embedding (if provided, length `obs_dim`)
+  - `step_metadata.teacher.*` = caption + extra tags
+  - `action.command` = teacher suggested action (if provided, length `action_dim`)
+  - `action.planner` / `action.tool_calls` = optional imagination supervision traces (symbolic search)
+
+Recorder CLI supports `--teacher-url` (see `continuonbrain/scripts/record_owner_realdepth_episode.py`).
+
+- **OpenAI-compatible teacher (vLLM/OpenWebUI/etc.)**: you can also point the recorder at an OpenAI-style server:
+  - Embeddings: `POST /v1/embeddings` (required for `observation.command`)
+  - Chat: `POST /v1/chat/completions` (optional; used for `action.planner` / `action.tool_calls` hints)
+
+Example (WSL or Linux):
+
+```bash
+python -m continuonbrain.scripts.record_owner_realdepth_episode \
+  --out-dir /opt/continuonos/brain/rlds/episodes \
+  --frames 48 \
+  --teacher-openai-base-url http://localhost:8000 \
+  --teacher-openai-embed-model your-embed-model \
+  --teacher-openai-chat-model your-chat-model
+```
+
+- **Imagination proof metrics**: the JAX sanity check logs:
+  - `mse_main`: MSE over the “normal” action dims
+  - `mse_imagination_tail`: MSE over the last 16 action dims, where planner/tool traces are packed for supervision
+  These appear in the metrics CSV/JSON and in `/opt/continuonos/brain/trainer/status.json` when running WaveCore loops.
 - **Fast loop reflex head:** Keep a lightweight continuous-time RNN/Liquid head colocated with the VQ-VAE token stream; refresh it with the same Pi RLDS slices used for the local sanity check to keep reflex latency flat.
 - **RAG + surprise logging:** During Pi inference, log `step_metadata.surprise` (pred vs actual token) and `observation.latent_tokens` so OTA reviews can detect drift before promoting an updated SSM core. Librarian-based RAG remains opt-in and should prepend context rather than expanding the SSM state size.
 - **Bundle expectations:** CPU/Hailo bundles remain the same; the only change is treating the SSM stateful forward pass as first-class in the router, with Gemma as the opt-in language fallback for slow-loop Q&A.
 
 ### Hailo (AI HAT+) status
+
 - Export pipeline JAX→TF→ONNX is available; `.hef` creation is a placeholder without the Hailo SDK. Runtime inference will skip Hailo if `.hef` is missing; full acceleration requires integrating Hailo compiler/runtime tools.
 - When `.hef` is missing or placeholder, the inference router falls back to CPU and logs a warning.
 - To use a provided HEF (e.g., model zoo), place it at `/opt/continuonos/brain/model/base_model/model.hef` (or pass `--hef-source` and `--install-hef-path` to `continuonbrain/jax_models/export/export_hailo.py`). The export step copies the HEF to the runtime path and records input/output vstream metadata when `hailo_platform` is installed.
@@ -115,24 +184,29 @@ See [Hardware Detection Guide](../docs/hardware-detection.md) for supported devi
 - Hailo inference path is now live in `inference_router.py`: it configures the HEF via `hailo_platform`, maps the first HEF input to `obs`, allocates output buffers, and runs synchronous inference. Shape must match the HEF input; extend mapping if your model has multiple inputs/outputs or a different tensor layout.
 
 ### OTA packaging
+
 - Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).
 - OTA apply is gated in the ContinuonAI app by robot ownership + paid subscription; device verifies checksums/signature before swap.
 
 Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
 
 ## Autostart on boot (systemd template)
+
 - A systemd unit template lives at `continuonbrain/systemd/continuonbrain-startup.service`.
 - Edit the `Environment=` paths to match your install (e.g., `PYTHONPATH=/home/pi/ContinuonXR`, `CONFIG_DIR=/opt/continuonos/brain`, `WorkingDirectory=/home/pi/ContinuonXR`).
 - Install and enable:
+
   ```bash
   sudo cp continuonbrain/systemd/continuonbrain-startup.service /etc/systemd/system/
   sudo systemctl daemon-reload
   sudo systemctl enable continuonbrain-startup.service
   sudo systemctl start continuonbrain-startup.service
   ```
+
 - The unit runs `python -m continuonbrain.startup_manager` on boot, which performs health checks and launches the Robot API in real-hardware mode. Check logs with `sudo journalctl -u continuonbrain-startup.service -f`.
 
 ### Boot safety + system instructions
+
 - Add non-negotiable instructions in `system_instructions.json` under your `CONFIG_DIR`.
   Defaults always include loading the safety protocol before enabling motion and rejecting
   unsafe commands; user-provided entries append to those defaults.
@@ -147,6 +221,7 @@ Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `
 ### Hardware Compatibility
 
 ✅ **Confirmed Compatible:**
+
 - PCA9685 (I2C 0x40) + AI HAT+ (PCIe + GPIO passthrough)
 - OAK-D Lite (USB3) + AI HAT+ (independent buses)
 - SO-ARM101 servos via PCA9685 (external 5-7V power required)

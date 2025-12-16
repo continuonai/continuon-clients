@@ -137,7 +137,8 @@ class WavecoreTrainer:
                         manifest = {
                             "model_type": "jax_core_model",
                             "checkpoint_path": str(ckpt_dst),
-                            "config": asdict(cfg),
+                            # Avoid json serialization issues (CoreModelConfig isn't a dataclass).
+                            "config": getattr(cfg, "__dict__", str(cfg)),
                             "input_dims": {
                                 "obs_dim": slow_result["request"]["obs_dim"],
                                 "action_dim": slow_result["request"]["action_dim"],
@@ -150,7 +151,7 @@ class WavecoreTrainer:
                             "compact": compact,
                         }
                         manifest_path = export_dir / "model_manifest.json"
-                        manifest_path.write_text(json.dumps(manifest, indent=2))
+                        manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
                         export_info = {
                             "export_dir": str(export_dir),
                             "format": "pickle",
@@ -206,7 +207,8 @@ class WavecoreTrainer:
             max_steps=cfg.max_steps,
             batch_size=cfg.batch_size,
             learning_rate=cfg.learning_rate,
-            use_synthetic_data=cfg.use_synthetic,
+            # If explicitly requested OR if rlds_dir is empty/missing, fall back to synthetic.
+            use_synthetic_data=cfg.use_synthetic or not (rlds_dir and Path(rlds_dir).exists() and any(Path(rlds_dir).glob("*.json"))),
             metrics_path=metrics_path,
             checkpoint_dir=checkpoint_dir if cfg.name == "slow" else None,
             sparsity_lambda=cfg.sparsity_lambda,
