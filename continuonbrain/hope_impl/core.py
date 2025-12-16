@@ -13,7 +13,7 @@ Math:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Optional
+from typing import Dict, Optional, Tuple, Union
 
 from .state import FastState
 
@@ -275,7 +275,11 @@ class HOPECore(nn.Module):
         p_prev: torch.Tensor,
         e_t: torch.Tensor,
         c_t: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return_info: bool = False,
+    ) -> Union[
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]],
+    ]:
         """
         HOPE Core update.
         
@@ -320,5 +324,15 @@ class HOPECore(nn.Module):
              
         # 3. Soft saturation to prevent drift if LayerNorm is off, or just as a safety
         s_t = torch.tanh(s_t) * self.saturation_limit # Configurable range (default 10.0)
-        
+
+        if return_info:
+            info = {
+                "fusion_input": fusion_input.detach(),
+                "z_t": z_t.detach(),
+                "gate": g_t.detach(),
+                "delta_p": delta_p.detach(),
+                "delta_w": delta_w.detach(),
+            }
+            return s_t, w_t, p_t, info
+
         return s_t, w_t, p_t
