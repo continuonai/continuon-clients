@@ -334,7 +334,15 @@ async function installSeedBundle() {
         });
         const data = await res.json();
         if (!res.ok || data.status === 'error') throw new Error(data.message || 'install failed');
-        if (statusEl) statusEl.textContent = `Installed to ${data.installed_to || data.edge_manifest || 'target'}`;
+        if (statusEl) {
+            if (data.installed_to) {
+                statusEl.textContent = `Installed to ${data.installed_to}`;
+            } else if (data.edge_manifest) {
+                statusEl.textContent = `Installed to ${data.edge_manifest}`;
+            } else {
+                statusEl.textContent = 'Installed, but the location is unknown. Please check the backend logs or contact support.';
+            }
+        }
         await refreshSeedReadiness();
         await listSeedExports();
     } catch (err) {
