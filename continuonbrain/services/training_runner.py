@@ -1,16 +1,41 @@
 import asyncio
+import json
+import logging
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Optional
 
 
 class TrainingRunner:
     """Run the local LoRA trainer in a background thread."""
 
-    def __init__(self, config_path: str = "continuonbrain/configs/pi5-donkey.json") -> None:
+    def __init__(
+        self,
+        config_path: str = "continuonbrain/configs/pi5-donkey.json",
+        config_dir: Optional[str] = None,
+    ) -> None:
         self.config_path = config_path
+        self.config_dir = config_dir
 
     async def run(self) -> None:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._run_sync)
+
+    def _base_dir(self) -> Path:
+        """Resolve the offline-first runtime directory for trainer artifacts."""
+
+        if self.config_dir:
+            return Path(self.config_dir)
+        return Path("/opt/continuonos/brain")
+
+    def _safe_write_status(self, status_path: Path, payload: dict[str, Any]) -> None:
+        """Persist trainer status without raising if the path is unavailable."""
+
+        try:
+            status_path.parent.mkdir(parents=True, exist_ok=True)
+            status_path.write_text(json.dumps(payload, indent=2))
+        except Exception as exc:  # noqa: BLE001
+            print(f"[TrainingRunner] Failed to write status to {status_path}: {exc}")
 
     def _run_sync(self) -> None:
         # Lazy imports to avoid heavy startup cost at module import time
@@ -24,6 +49,70 @@ class TrainingRunner:
             default_episode_loader,
         )
         from continuonbrain.trainer.local_lora_trainer import ModelHooks
+
+        base_dir = self._base_dir()
+        trainer_dir = base_dir / "trainer"
+        status_path = trainer_dir / "status.json"
+        logs_dir = trainer_dir / "logs"
+        log_path: Optional[Path] = None
+        log_dir_ready = False
+
+        logger = logging.getLogger("continuonbrain.training_runner")
+        logger.setLevel(logging.INFO)
+
+        try:
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            log_path = logs_dir / f"trainer_{timestamp}.log"
+            handler: logging.Handler = logging.FileHandler(log_path)
+            log_dir_ready = True
+        except Exception as exc:  # noqa: BLE001
+            print(f"[TrainingRunner] Falling back to stdout logging: {exc}")
+            handler = logging.StreamHandler()
+
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(handler)
+
+        start_time = datetime.utcnow().isoformat()
+
+        def write_status(
+            state: str,
+            steps: int = 0,
+            avg_loss: Optional[float] = None,
+            adapter_path: Optional[Path] = None,
+            message: Optional[str] = None,
+            completed_at: Optional[str] = None,
+        ) -> None:
+            payload = {
+                "state": state,
+                "steps": steps,
+                "avg_loss": avg_loss,
+                "adapter_path": str(adapter_path) if adapter_path else None,
+                "log_path": str(log_path) if log_path else None,
+                "started_at": start_time,
+                "updated_at": datetime.utcnow().isoformat(),
+            }
+            if completed_at:
+                payload["completed_at"] = completed_at
+            if message:
+                payload["message"] = message
+            self._safe_write_status(status_path, payload)
+
+        write_status("starting", steps=0, avg_loss=None, adapter_path=None)
+        logger.info("Starting LoRA training job using config %s", self.config_path)
+
+        config_path = Path(self.config_path)
+        cfg = LocalTrainerJobConfig.from_json(config_path)
+        if log_dir_ready:
+            cfg.log_dir = logs_dir
+        # Keep artifacts within the resolved base directory when possible.
+        if not cfg.adapters_out_dir.is_absolute() or str(cfg.adapters_out_dir).startswith("/opt/continuonos/brain"):
+            cfg.adapters_out_dir = base_dir / "model" / "adapters" / "candidate"
+        cfg.adapters_out_dir.mkdir(parents=True, exist_ok=True)
+
+        steps_seen = 0
+        total_loss = 0.0
+        batches_seen = 0
 
         class LoRALinear(nn.Module):
             def __init__(self, base: nn.Linear, rank: int = 8, alpha: float = 8.0):
@@ -124,7 +213,15 @@ class TrainingRunner:
                 loss.backward()
                 optimizer.step()
                 model.eval()
-                return float(loss.detach().cpu().item())
+                nonlocal steps_seen, total_loss, batches_seen
+                loss_value = float(loss.detach().cpu().item())
+                steps_seen += 1
+                total_loss += loss_value
+                batches_seen += 1
+                avg_loss = total_loss / max(1, batches_seen)
+                write_status("running", steps=steps_seen, avg_loss=avg_loss, adapter_path=None)
+                logger.info("Step %s avg_loss=%.6f", steps_seen, avg_loss)
+                return loss_value
 
             def save(model, path: Path):
                 lora_state = {k: v.cpu() for k, v in model.state_dict().items() if "A" in k or "B" in k}
@@ -150,9 +247,34 @@ class TrainingRunner:
                 eval_forward=eval_forward,
             )
 
-        config_path = Path(self.config_path)
-        cfg = LocalTrainerJobConfig.from_json(config_path)
         hooks = make_hooks()
-        result = run_local_lora_training_job(cfg, hooks, episode_loader=default_episode_loader)
-        print("RunTraining completed:", result.status, "steps", result.steps, "avg_loss", result.avg_loss)
-
+        try:
+            result = run_local_lora_training_job(cfg, hooks, episode_loader=default_episode_loader)
+            completed_at = datetime.utcnow().isoformat()
+            write_status(
+                result.status,
+                steps=result.steps,
+                avg_loss=result.avg_loss,
+                adapter_path=result.adapter_path,
+                completed_at=completed_at,
+            )
+            logger.info(
+                "RunTraining completed: status=%s steps=%s avg_loss=%.6f adapter=%s",
+                result.status,
+                result.steps,
+                result.avg_loss,
+                result.adapter_path,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Training run failed: %s", exc)
+            write_status(
+                "error",
+                steps=steps_seen,
+                avg_loss=(total_loss / max(1, batches_seen)) if batches_seen else None,
+                adapter_path=None,
+                message=str(exc),
+                completed_at=datetime.utcnow().isoformat(),
+            )
+        finally:
+            logger.removeHandler(handler)
+            handler.close()
