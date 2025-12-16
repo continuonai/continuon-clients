@@ -37,7 +37,19 @@ def main() -> None:
     p.add_argument("--camera-index", type=int, default=0)
     p.add_argument("--width", type=int, default=640)
     p.add_argument("--height", type=int, default=480)
-    p.add_argument("--source", type=str, default="auto", choices=["auto", "opencv", "realsense"])
+    p.add_argument("--source", type=str, default="auto", choices=["auto", "opencv", "realsense", "depthai"])
+    p.add_argument(
+        "--depth-mode",
+        type=str,
+        default="auto",
+        choices=["off", "on", "auto"],
+        help="Depth capture mode. For DepthAI OAK-D Lite: on=stereo depth required, off=RGB only, auto=best effort.",
+    )
+    p.add_argument(
+        "--use-hailo-features",
+        action="store_true",
+        help="If Hailo is available, use a Hailo-derived embedding vector for observation.command (fallbacks safely if absent).",
+    )
     p.add_argument("--teacher-url", type=str, default=None, help="Optional HTTP teacher endpoint to enrich episodes.")
     p.add_argument("--teacher-timeout-s", type=float, default=5.0)
     p.add_argument("--teacher-openai-base-url", type=str, default=None, help="OpenAI-compatible base URL (e.g. http://localhost:8000).")
@@ -68,6 +80,8 @@ def main() -> None:
         width=args.width,
         height=args.height,
         source=args.source,
+        depth_mode=args.depth_mode,
+        use_hailo_features=bool(args.use_hailo_features),
     )
 
     recorder = CameraEpisodeRecorder(cfg)

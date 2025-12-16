@@ -19,6 +19,29 @@ Goal: a repeatable Pi 5 setup that can record RLDS, train LoRA adapters locally,
 - Quick sanity capture (headless): `ffmpeg -f v4l2 -i /dev/video0 -frames:v 10 /tmp/depth_test.mkv` to verify bandwidth.
 - When emitting RLDS: store per-step depth frames and include camera intrinsics in `episode_metadata`; follow `docs/rlds-schema.md` to keep schema compatible.
 
+## OAK-D Lite (DepthAI) RLDS capture (RGB-only or RGB+depth)
+
+If you are using Luxonis OAK-D Lite via DepthAI (preferred for aligned RGB+depth on Pi), you can record a local RLDS episode with:
+
+```bash
+PYTHONPATH=$PWD python3 -m continuonbrain.scripts.record_owner_realdepth_episode \
+  --out-dir /opt/continuonos/brain/rlds/episodes \
+  --episode-id pi5_oakd_smoke_001 \
+  --source depthai \
+  --depth-mode auto \
+  --steps 20 --interval-s 0.2
+```
+
+Set `--depth-mode off` for RGB-only (OAK-1 style), or `--depth-mode on` to require stereo depth.
+
+Optional: offline segmentation labels can be generated with SAM3 and written back into RLDS (`observation.segmentation`):
+
+```bash
+PYTHONPATH=$PWD python3 -m continuonbrain.scripts.enrich_episode_sam3 \
+  --episode /opt/continuonos/brain/rlds/episodes/pi5_oakd_smoke_001.json \
+  --prompt \"person\"
+```
+
 ## PCA9685 control (steering/throttle)
 - Power servos separately from the Pi; only share ground. Keep PCA9685 on the default `0x40` unless you have multiple boards.
 - Suggested Python driver (optional, guard imports on-device): `adafruit-circuitpython-pca9685` + `adafruit-circuitpython-servokit`.

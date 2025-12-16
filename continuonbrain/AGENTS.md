@@ -32,5 +32,8 @@ Recent updates:
 - Speech endpoints (offline-first): `POST /api/audio/tts`, `POST /api/audio/record`, `GET /api/audio/devices` (avoid heavy STT deps by default).
 - Offline Wikipedia context (preferred): keep retrieval offline using a local corpus (e.g., `wikimedia/wikipedia` dump or JSONL) and wire it through `continuonbrain/eval/wiki_retriever.py`. Default behavior should remain a no-op when the corpus is absent.
 - YouTube / web learning (future, opt-in): treat any web/video learning as **manual/opt-in**, and run PII/safety scans before using content for training or public listing (see repo-level upload readiness + PII rules).
+- Pi5 OAK-D Lite (DepthAI) owner capture: `continuonbrain/scripts/record_owner_realdepth_episode.py` supports `--source depthai` and `--depth-mode off|on|auto` (RGB-only and RGB+depth).
+- SAM3 segmentation enrichment (offline): `continuonbrain/scripts/enrich_episode_sam3.py` writes `steps[*].observation.segmentation` with masks/boxes/prompt using [`facebook/sam3`](https://huggingface.co/facebook/sam3). Treat as optional and offline since it can be heavy on Pi.
+- Pi install + boot helpers: `scripts/pi/install_pi5_venv.sh` and `scripts/pi/install_pi5_systemd.sh` set up a repo-local `.venv` and enable `continuonbrain-startup.service` reliably on boot.
 
 Context: Conversation on 2025-12-10 about Pi5 startup/training is logged at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).

@@ -11,7 +11,6 @@ import pickle
 from continuonbrain.jax_models.train.local_sanity_check import run_sanity_check
 from continuonbrain.jax_models.export.export_jax import export_for_inference
 from continuonbrain.jax_models.core_model import CoreModelConfig
-from pathlib import Path
 
 
 @dataclass
@@ -72,9 +71,11 @@ class WavecoreTrainer:
             self.export_dir = Path(payload.get("export_dir", self.export_dir))
             quantization = payload.get("quantization")
 
-            fast_cfg = self._parse_loop(payload.get("fast"), default_lr=1e-3, default_steps=24, name="fast")
-            mid_cfg = self._parse_loop(payload.get("mid"), default_lr=5e-4, default_steps=48, name="mid")
-            slow_cfg = self._parse_loop(payload.get("slow"), default_lr=2e-4, default_steps=64, name="slow")
+            # Pi5-friendly defaults: small steps and disable_jit=True unless explicitly overridden.
+            # Users can still override per-loop in payload.
+            fast_cfg = self._parse_loop(payload.get("fast"), default_lr=1e-3, default_steps=12, name="fast")
+            mid_cfg = self._parse_loop(payload.get("mid"), default_lr=5e-4, default_steps=24, name="mid")
+            slow_cfg = self._parse_loop(payload.get("slow"), default_lr=2e-4, default_steps=32, name="slow")
 
             results = {
                 "fast": self._run_loop(fast_cfg),
@@ -240,7 +241,8 @@ class WavecoreTrainer:
             output_dim=int(data.get("output_dim", 32)),
             disable_jit=bool(data.get("disable_jit", True)),
             metrics_path=metrics_path,
-            arch_preset=data.get("arch_preset"),
+            # Default to pi5 preset for on-device runs.
+            arch_preset=data.get("arch_preset", "pi5"),
             sparsity_lambda=float(data.get("sparsity_lambda", 0.0)),
         )
 

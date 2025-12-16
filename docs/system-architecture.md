@@ -13,6 +13,7 @@ The ContinuonXR project employs a multi-loop learning architecture that spans on
 
 ### Training run plan alignment (JAX-first)
 - Edge capture + quick check: Pi logs RLDS under `/opt/continuonos/brain/rlds/episodes`, runs `continuonbrain.jax_models.train.local_sanity_check` for JAX sanity with optional JSON→TFRecord conversion (`jax_models.data.tfrecord_converter`).
+- Pi bootstrap (recommended): `scripts/pi/install_pi5_venv.sh` + `scripts/pi/install_pi5_systemd.sh` for a repo-local `.venv` and boot-time `continuonbrain-startup.service`.
 - Proof artifact: `prove_learning_capability.py` records `proof_of_learning.json` to accompany edge bundles.
 - Cloud train/export: TPU path uses `continuonbrain.run_trainer --trainer jax --mode tpu` with TFRecord input, then exports CPU/Hailo bundles via `jax_models.export.*`.
 - Bundle/OTA: `edge_manifest.json` + signed bundle assembled per `docs/bundle_manifest.md`; served back to Pi with Memory Plane preserved.

@@ -9,7 +9,7 @@ Scope: All files in this repository unless a deeper `AGENTS.md` overrides these 
   - **Continuon AI app**: mobile companion client.
   - **Continuon Cloud**: hosted services, APIs, and orchestration.
 - Favor the existing toolchains: Gradle wrapper for Kotlin/Android, Flutter CLI for Dart, Node/TypeScript for mocks, and Python tooling already in `continuonbrain`. Avoid introducing alternate package managers for the same language.
-- Proto/schema changes must stay backward-compatible. When editing files under `proto/`, run `./gradlew formatProto validateProtoSchemas` and regenerate language stubs where applicable before submitting.
+- Proto/schema changes must stay backward-compatible. When editing files under `proto/`, run `./gradlew validateProtoSchemas` (and `./gradlew generateProtoKotlin` if stubs need regeneration) before submitting.
 - Keep placeholder directories (e.g., cloud, org, web) lightweight: update specs and contracts here, but push production implementations to their dedicated repos as described in `README.md`.
 - For documentation updates, cross-link the product-specific READMEs when mentioning flows that span multiple products.
 - Testing expectations by area:

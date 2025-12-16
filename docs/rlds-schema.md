@@ -131,6 +131,12 @@ step {
   - `latent_tokens`: list<int> (VQ/VAE codes)
   - `surprise`: float (prediction error proxy)
   - `belief_state_id`: string (planner state pointer)
+- `segmentation`: optional block for per-frame segmentation artifacts (e.g., SAM3), generated offline after capture.
+  - `model`: string (e.g., `facebook/sam3`)
+  - `prompt`: string (text prompt used to produce masks; store for reproducibility/distillation)
+  - `masks`: list of `{ "uri": "...", "frame_id": "...", "format": "png", "instance_id": int32, "score": float }`
+  - `boxes_xyxy`: list of `{ "x1": float, "y1": float, "x2": float, "y2": float, "instance_id": int32, "score": float }`
+  - `notes`: optional string
 
 ### `action`
 - `command`: normalized control vector (e.g., EE velocity or joint delta).

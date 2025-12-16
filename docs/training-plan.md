@@ -10,6 +10,9 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
    - Gate: camera + PCA9685 detected; timestamp skew ≤5 ms; battery/thermal OK.
 
 2) **Seed model boot (headless)**
+   - Install once (repo `.venv` + deps + systemd):
+     - `scripts/pi/install_pi5_venv.sh`
+     - `scripts/pi/install_pi5_systemd.sh`
    - Start via systemd `continuonbrain-startup.service` (headless, background trainer off by default).
    - Gate: Robot API up, LAN discovery reachable, AUTONOMOUS mode armed but idle.
 
@@ -17,12 +20,19 @@ Scope: Pi 5 (8 GB) running Continuon Brain runtime + HOPE seed, logging RLDS, pr
    - Collect ≥16 episodes (pi5-donkey config) using XR/companion/manual teleop.
    - Target: 20–50 Hz action/state, depth RGB-D at stable 640x480@30; sync within ≤5 ms.
    - Storage: `/opt/continuonos/brain/rlds/episodes/…` (JSON/JSONL or TFRecord accepted).
+   - OAK-D Lite capture shortcut (DepthAI, RGB-only or RGB+depth):
+     - `python -m continuonbrain.scripts.record_owner_realdepth_episode --out-dir /opt/continuonos/brain/rlds/episodes --episode-id owner_seed_pi5_001 --source depthai --depth-mode auto --steps 30 --interval-s 0.2`
+   - Optional segmentation labels (offline): [`facebook/sam3`](https://huggingface.co/facebook/sam3) via `python -m continuonbrain.scripts.enrich_episode_sam3 --episode ... --prompt "person"`
 
 4) **On-device JAX sanity check (Pi)**
    - Config: JAX `arch_preset=pi5` (fast/mid HOPE state sizes). Optional `--sparsity-lambda` to mirror cloud regularization.
    - Run: `python -m continuonbrain.jax_models.train.local_sanity_check --rlds-dir /opt/continuonos/brain/rlds/episodes --arch-preset pi5 --max-steps 8 --batch-size 4 --metrics-path /tmp/jax_sanity.csv --checkpoint-dir /tmp/jax_ckpts`
    - Notes: Automatically falls back to JSON episode loading when TensorFlow is unavailable; writes lightweight pickle checkpoints if requested.
    - Gate: loss finite and decreasing; state shapes match config; no CRITICAL resource alerts.
+
+4b) **On-device WaveCore loops (fast/mid/slow)**
+   - Preferred: `POST /api/training/wavecore_loops` (keeps metrics in `/opt/continuonos/brain/trainer/status.json` for UI consumption).
+   - Optional oneshot (systemd): `sudo systemctl start continuonbrain-wavecore.service`
 
 5) **Proof-of-learning (artifact)**
    - Run: `python prove_learning_capability.py` (background learner with mocked resource headroom).

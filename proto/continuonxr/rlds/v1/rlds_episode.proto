@@ -139,6 +139,7 @@ message Observation {
   MediaBundle media = 50;
   DialogTurn dialog = 51;
   WorldModelSignals world_model = 52;
+  SegmentationBundle segmentation = 53;
 }
 
 message Action {
@@ -254,6 +255,31 @@ message WorldModelSignals {
   repeated int32 latent_tokens = 1;
   float surprise = 2;
   string belief_state_id = 3;
+}
+
+message SegmentationMaskRef {
+  string uri = 1;
+  string frame_id = 2;
+  string format = 3; // e.g., "png"
+  int32 instance_id = 4;
+  float score = 5;
+}
+
+message BoxXyxy {
+  float x1 = 1;
+  float y1 = 2;
+  float x2 = 3;
+  float y2 = 4;
+  int32 instance_id = 5;
+  float score = 6;
+}
+
+message SegmentationBundle {
+  string model = 1;  // e.g., "facebook/sam3"
+  string prompt = 2; // store the prompt for reproducibility/distillation
+  repeated SegmentationMaskRef masks = 3;
+  repeated BoxXyxy boxes_xyxy = 4;
+  string notes = 5;
 }
 
 message PlannerTrace {

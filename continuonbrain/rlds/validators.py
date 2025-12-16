@@ -133,7 +133,7 @@ def _validate_observation(step_idx: int, observation: Dict[str, Any], issues: Li
     # v1.1 additions are optional; allow them while keeping the validator strict.
     _flag_unexpected_fields(
         observation,
-        required_fields + ["audio", "ui_context", "media", "dialog", "world_model", "command"],
+        required_fields + ["audio", "ui_context", "media", "dialog", "world_model", "command", "segmentation"],
         prefix,
         issues,
     )

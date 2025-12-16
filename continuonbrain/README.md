@@ -2,7 +2,7 @@
 
 The Continuon Brain runtime and scaffolding now live together in this monorepo. Use this folder to ship production runtime assets alongside the existing **scaffolding and contracts** used by ContinuonXR:
 
-- **Training topology (v0.2):** See `docs/continuonbrain_training_topology.md` for the JAX-first, Google-aligned plan that starts with a Colab/TPU seed, seeds down to Pi 5 for HOPE loop embodiment, and scales back to Vertex TPU with OTA channels. RTX 3050 laptops are acceptable for the first tiny seed runs; Pi 5 **16GB** is the recommended drop-in upgrade for AI HAT+ deployments, with Jetson Orin Nano Super Dev Kit as an optional local consolidation companion.
+- **Training topology (v0.2):** See `docs/continuonbrain_training_topology.md` for the JAX-first, Google-aligned plan that starts with a Colab/TPU seed, seeds down to Pi 5 for HOPE loop embodiment, and scales back to Vertex TPU with OTA channels. RTX 3050 laptops are acceptable for the first tiny seed runs; Pi 5 **8GB is supported** and Pi 5 **16GB** is the recommended drop-in upgrade for heavier on-device workloads (AI HAT+/segmentation), with Jetson Orin Nano Super Dev Kit as an optional local consolidation companion.
 - `proto/continuonbrain_link.proto` (shared contract; mirror downstream).
 - `trainer/` offline Pi/Jetson adapter-training scaffold (bounded, RLDS-only, safety-gated) to align with ContinuonBrain/OS goals. Synthetic RLDS samples for dry-runs sit under `continuonbrain/rlds/episodes/`. Sample manifest in `continuonbrain/model/manifest.pi5.example.json` shows how Pi 5 + `flutter_gemma` can load base + LoRA without extra quantization.
 - Raspberry Pi 5 bring-up checklist (depth cam + PCA9685) lives in `continuonbrain/PI5_CAR_READINESS.md`.
@@ -161,11 +161,21 @@ Example (WSL or Linux):
 ```bash
 python -m continuonbrain.scripts.record_owner_realdepth_episode \
   --out-dir /opt/continuonos/brain/rlds/episodes \
-  --frames 48 \
+  --steps 48 \
   --teacher-openai-base-url http://localhost:8000 \
   --teacher-openai-embed-model your-embed-model \
   --teacher-openai-chat-model your-chat-model
 ```
+
+### Pi 5 install + boot (systemd)
+
+For a repeatable Pi setup (repo-local `.venv`, DepthAI, optional JAX/SAM3, and boot startup), use:
+- `scripts/pi/install_pi5_venv.sh`
+- `scripts/pi/install_pi5_systemd.sh`
+
+See also:
+- `PI5_EDGE_BRAIN_INSTRUCTIONS.md`
+- `PI5_CAR_READINESS.md`
 
 - **Imagination proof metrics**: the JAX sanity check logs:
   - `mse_main`: MSE over the “normal” action dims

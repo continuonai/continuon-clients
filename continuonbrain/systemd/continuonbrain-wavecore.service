@@ -1,0 +1,58 @@
+# continuonbrain-wavecore.service
+#
+# Optional systemd unit to run on-device WaveCore loops on-demand.
+#
+# Notes:
+# - Safe-by-default: this runs training only; it does NOT enable motion.
+# - This unit is optional; you can always trigger WaveCore loops via the Robot API:
+#   POST /api/training/wavecore_loops
+#
+# Install:
+#   sudo mkdir -p /etc/continuonbrain
+#   sudo cp continuonbrain/systemd/continuonbrain.env.example /etc/continuonbrain/continuonbrain.env
+#   sudo cp continuonbrain/systemd/continuonbrain-wavecore.service /etc/systemd/system/continuonbrain-wavecore.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now continuonbrain-wavecore.service
+#
+# Logs:
+#   sudo journalctl -u continuonbrain-wavecore.service -f
+
+[Unit]
+Description=ContinuonBrain WaveCore loops (on-device seed training)
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+
+# Site overrides (recommended).
+EnvironmentFile=-/etc/continuonbrain/continuonbrain.env
+
+# Defaults (can be overridden in /etc/continuonbrain/continuonbrain.env)
+Environment=CONTINUON_REPO=/opt/continuonos/ContinuonXR
+Environment=CONFIG_DIR=/opt/continuonos/brain
+Environment=PYTHONPATH=/opt/continuonos/ContinuonXR
+Environment=CONTINUON_PYTHON=/usr/bin/python3
+
+# Prefer JAX when available; keep JIT disabled by default for Pi stability.
+Environment=CONTINUON_PREFER_JAX=1
+Environment=JAX_DISABLE_JIT=1
+
+# Run via the Python service wrapper directly (no server required).
+# This uses the same canonical output paths under /opt/continuonos/brain/ by default.
+ExecStart=/usr/bin/env bash -lc '\
+  cd "$CONTINUON_REPO" && \
+  export PYTHONPATH="${PYTHONPATH:-$CONTINUON_REPO}" && \
+  PY=""; \
+  if [ -x "$CONTINUON_REPO/.venv/bin/python3" ]; then PY="$CONTINUON_REPO/.venv/bin/python3"; \
+  elif [ -x "$CONTINUON_REPO/.venv/bin/python" ]; then PY="$CONTINUON_REPO/.venv/bin/python"; \
+  elif [ -n "${CONTINUON_PYTHON:-}" ]; then PY="$CONTINUON_PYTHON"; \
+  else PY="/usr/bin/python3"; fi; \
+  exec "$PY" -c "from continuonbrain.services.wavecore_trainer import WavecoreTrainer; t=WavecoreTrainer(); t._run_sync({\"fast\":{}, \"mid\":{}, \"slow\":{}, \"compact_export\": True})" \
+'
+
+[Install]
+WantedBy=multi-user.target
+
+

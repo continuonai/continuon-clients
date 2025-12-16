@@ -50,6 +50,30 @@ def _try_import_realsense():
         return None
 
 
+def _try_import_depthai():
+    try:
+        import depthai as dai  # type: ignore
+
+        return dai
+    except Exception:
+        return None
+
+
+def _try_import_hailo_feature_extractor():
+    """
+    Optional Hailo feature extractor hook.
+
+    We keep this import guarded so Pi/Jetson environments without Hailo SDK can
+    still import the recorder. Real implementation should live behind this hook.
+    """
+    try:
+        from continuonbrain.runtime.hailo_feature_extractor import HailoFeatureExtractor  # noqa: WPS433
+
+        return HailoFeatureExtractor
+    except Exception:
+        return None
+
+
 def _now_ns() -> int:
     return time.time_ns()
 
@@ -94,11 +118,14 @@ class CaptureConfig:
     width: int = 640
     height: int = 480
     save_jpeg_quality: int = 90
-    source: str = "auto"  # auto | opencv | realsense
+    source: str = "auto"  # auto | opencv | realsense | depthai
+    depth_mode: str = "auto"  # off | on | auto
     # If camera/RealSense isn't available (common in WSL), fall back to synthetic frames so
     # the training pipeline can still be exercised end-to-end.
     allow_synthetic_fallback: bool = True
     synthetic_seed: int = 0
+    # Optional: when true and Hailo is available, use Hailo-derived embedding for observation.command.
+    use_hailo_features: bool = False
 
 
 class CameraEpisodeRecorder:
@@ -162,13 +189,100 @@ class CameraEpisodeRecorder:
         finally:
             pipeline.stop()
 
+    def _capture_depthai(self) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """
+        Capture a single RGB frame and optional aligned depth frame from a Luxonis OAK device.
+
+        - RGB is returned as BGR uint8 (OpenCV-compatible).
+        - Depth is returned as uint16 in millimeters when available/aligned.
+        """
+        dai = _try_import_depthai()
+        if dai is None:
+            raise RuntimeError("depthai not installed. Install `depthai` to use OAK-D Lite capture.")
+
+        depth_mode = (self.cfg.depth_mode or "auto").lower().strip()
+        if depth_mode not in {"off", "on", "auto"}:
+            raise RuntimeError(f"Invalid depth_mode={depth_mode}. Expected off|on|auto.")
+
+        # Build pipeline
+        pipeline = dai.Pipeline()
+
+        # Color camera
+        cam_rgb = pipeline.create(dai.node.ColorCamera)
+        cam_rgb.setBoardSocket(dai.CameraBoardSocket.RGB)
+        cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+        cam_rgb.setPreviewSize(int(self.cfg.width), int(self.cfg.height))
+        cam_rgb.setInterleaved(False)
+        cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+
+        xout_rgb = pipeline.create(dai.node.XLinkOut)
+        xout_rgb.setStreamName("rgb")
+        cam_rgb.preview.link(xout_rgb.input)
+
+        # Optional stereo depth (OAK-D Lite: left/right mono sensors)
+        want_depth = depth_mode in {"on", "auto"}
+        if want_depth:
+            mono_left = pipeline.create(dai.node.MonoCamera)
+            mono_right = pipeline.create(dai.node.MonoCamera)
+            mono_left.setBoardSocket(dai.CameraBoardSocket.LEFT)
+            mono_right.setBoardSocket(dai.CameraBoardSocket.RIGHT)
+            mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+            mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+
+            stereo = pipeline.create(dai.node.StereoDepth)
+            stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+            # Align to RGB for easy consumption in RLDS.
+            try:
+                stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
+            except Exception:
+                pass
+            stereo.setSubpixel(True)
+
+            mono_left.out.link(stereo.left)
+            mono_right.out.link(stereo.right)
+
+            xout_depth = pipeline.create(dai.node.XLinkOut)
+            xout_depth.setStreamName("depth")
+            stereo.depth.link(xout_depth.input)
+
+        # Open device and fetch one frame
+        with dai.Device(pipeline) as device:
+            q_rgb = device.getOutputQueue(name="rgb", maxSize=1, blocking=True)
+            q_depth = device.getOutputQueue(name="depth", maxSize=1, blocking=True) if want_depth else None
+
+            rgb_msg = q_rgb.get()
+            rgb = rgb_msg.getCvFrame()
+
+            depth = None
+            if q_depth is not None:
+                try:
+                    depth_msg = q_depth.get()
+                    depth = depth_msg.getFrame()
+                except Exception:
+                    depth = None
+
+        if rgb is None:
+            raise RuntimeError("Failed to read RGB frame from DepthAI device")
+        if depth_mode == "on" and depth is None:
+            raise RuntimeError("depth_mode=on but no depth frame available from DepthAI device")
+
+        return rgb, depth
+
     def _capture(self) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        if self.cfg.source == "depthai":
+            return self._capture_depthai()
         if self.cfg.source == "opencv":
             return self._capture_opencv()
         if self.cfg.source == "realsense":
             return self._capture_realsense()
 
         # auto
+        dai = _try_import_depthai()
+        if dai is not None:
+            try:
+                return self._capture_depthai()
+            except Exception:
+                pass
         rs = _try_import_realsense()
         if rs is not None:
             try:
@@ -231,6 +345,10 @@ class CameraEpisodeRecorder:
                 "notes": "Local owner identity capture; do not publish without PII review.",
             },
         }
+        if self.cfg.source == "depthai":
+            metadata["environment_id"] = "pi5_depthai_oakd"
+            metadata["tags"] = ["origin:pi5:oakd", "training:owner_identity"]
+            metadata["provenance"]["origin"] = "origin:pi5:oakd"
 
         if owner_display_name or owner_preferred_name or owner_id:
             metadata["owner"] = {
@@ -278,6 +396,15 @@ class CameraEpisodeRecorder:
                 metadata["capabilities"]["sensors"]["depth"] = True
 
             obs_vec = _downsample_grayscale_vector(rgb_bgr, self.cfg.obs_dim)
+            if self.cfg.use_hailo_features:
+                HailoExtractor = _try_import_hailo_feature_extractor()
+                if HailoExtractor is not None:
+                    try:
+                        extractor = HailoExtractor(output_dim=self.cfg.obs_dim)
+                        obs_vec = extractor.embed_rgb(rgb_bgr=rgb_bgr)
+                    except Exception:
+                        # Keep recorder robust; fall back to downsample vector on any failure.
+                        obs_vec = obs_vec
             act_vec = [0.0] * self.cfg.action_dim
 
             # Minimal pose/robot/glove placeholders to satisfy strict validators.

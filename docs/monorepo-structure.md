@@ -3,7 +3,7 @@
 This repo remains the **ContinuonXR** product, but it now documents how it fits into a decoupled, multi-repo architecture for the `@continuonai` org. Each repo keeps strict boundaries and versioned contracts.
 
 ## Core repos
-- **continuonos** (ContinuonBrain/OS runtime): platform-neutral core (`src/core/`), HAL adapters (`platform/`), backends (`backends/`), configs, and `rlds_logger/`.
+- **continuonos** (**Continuon Brain runtime**, formerly ContinuonBrain/OS): platform-neutral core (`src/core/`), HAL adapters (`platform/`), backends (`backends/`), configs, and `rlds_logger/`.
 - **ContinuonXR** (this repo): spatial UI + data capture rig; XR shell, glove BLE, RLDS logging, upload.
 - **ContinuonAI**: business/orchestration; master specs (`episode-schema.md`, `cloud-api-spec.md`, `xr-app-spec.md`). The Flutter companion app (consumer robot controller) and the WorldTape RLDS browser/annotation portal now live under `continuonai/` in this repo.
 - **Continuon-Cloud**: ingest/train/package; owns bundle manifest and definitive RLDS schema. Staging docs are consolidated under `continuonai/continuon-cloud/` here.

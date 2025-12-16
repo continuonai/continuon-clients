@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from typing import Any, Dict, List, Optional
 from urllib.request import Request, urlopen
@@ -69,13 +70,38 @@ class OpenAITeacher(Teacher):
             raw = resp.read()
         return json.loads(raw.decode("utf-8"))
 
+    @staticmethod
+    def _image_fingerprint_text(rgb_bgr: np.ndarray) -> str:
+        """
+        Produce a short, token-budget-friendly text hint for embeddings.
+
+        Important: embedding models often have small context windows (e.g., 512 tokens).
+        Do NOT send base64 image blobs to /v1/embeddings; they will exceed context limits.
+        """
+        try:
+            # Prefer hashing compressed JPEG bytes (stable across minor noise vs raw bytes).
+            import cv2  # type: ignore
+
+            ok, buf = cv2.imencode(".jpg", rgb_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+            data = buf.tobytes() if ok else rgb_bgr.tobytes()
+        except Exception:
+            data = rgb_bgr.tobytes()
+
+        h = int(getattr(rgb_bgr, "shape", [0, 0])[0] or 0)
+        w = int(getattr(rgb_bgr, "shape", [0, 0])[1] or 0)
+        arr = rgb_bgr.astype(np.float32)
+        mean = float(arr.mean() / 255.0) if arr.size else 0.0
+        std = float(arr.std() / 255.0) if arr.size else 0.0
+        sha = hashlib.sha256(data).hexdigest()[:32]
+        # Keep it compact and deterministic.
+        return f"image_sha256:{sha} size:{w}x{h} mean:{mean:.3f} std:{std:.3f}"
+
     def _get_embedding(self, *, rgb_bgr: np.ndarray, obs_dim: int) -> Optional[List[float]]:
         # In the upgraded flow, embeddings come from caption text (not raw image bytes).
-        # Keep a legacy fallback only if caption embedding isn't available.
+        # Fallback: embed a short fingerprint text (NOT base64) so small-context embed models work.
         if not self.embed_model:
             return None
-        rgb_b64 = _b64_jpeg(rgb_bgr)
-        payload = {"model": self.embed_model, "input": f"image_b64_hint:{rgb_b64[:2000]}"}
+        payload = {"model": self.embed_model, "input": self._image_fingerprint_text(rgb_bgr)}
         data = self._post_json(f"{self.embed_base_url}/v1/embeddings", payload)
         vec = None
         try:

@@ -57,6 +57,55 @@ This guide stitches together the core components needed for a “version zero”
   ```
   Episodes are written under `continuonbrain/rlds/episodes/` by default; sync depth + robot state within the ≤5 ms budget.
 
+### OAK-D Lite (DepthAI) owner episode capture (Pi5)
+
+Record using the lightweight RLDS recorder (writes a single `*.json` episode plus a `*_blobs/` directory of RGB/depth frames):
+
+RGB-only (no depth):
+
+```bash
+PYTHONPATH=$PWD python3 -m continuonbrain.scripts.record_owner_realdepth_episode \
+  --out-dir /opt/continuonos/brain/rlds/episodes \
+  --episode-id owner_seed_pi5_001 \
+  --source depthai \
+  --depth-mode off \
+  --steps 30 --interval-s 0.2
+```
+
+RGB + stereo depth (requires OAK-D Lite depth available):
+
+```bash
+PYTHONPATH=$PWD python3 -m continuonbrain.scripts.record_owner_realdepth_episode \
+  --out-dir /opt/continuonos/brain/rlds/episodes \
+  --episode-id owner_seed_pi5_depth_001 \
+  --source depthai \
+  --depth-mode on \
+  --steps 30 --interval-s 0.2
+```
+
+Optional: if your AI HAT/Hailo path is wired, you can request a Hailo-derived embedding for `observation.command` (falls back safely if not available):
+
+```bash
+PYTHONPATH=$PWD python3 -m continuonbrain.scripts.record_owner_realdepth_episode \
+  --out-dir /opt/continuonos/brain/rlds/episodes \
+  --episode-id owner_seed_pi5_hailo_001 \
+  --source depthai --depth-mode auto \
+  --use-hailo-features \
+  --steps 30 --interval-s 0.2
+```
+
+### Optional: offline SAM3 segmentation enrichment (after capture)
+
+Model: [`facebook/sam3`](https://huggingface.co/facebook/sam3).
+
+This writes `steps[*].observation.segmentation` and saves mask PNGs into the episode blobs directory.
+
+```bash
+PYTHONPATH=$PWD python3 -m continuonbrain.scripts.enrich_episode_sam3 \
+  --episode /opt/continuonos/brain/rlds/episodes/owner_seed_pi5_001.json \
+  --prompt \"person\"
+```
+
 ## 6) Train a LoRA adapter with safety guards
 - Use the Pi-ready config and stub hooks for IO validation:
   ```bash
@@ -80,3 +129,12 @@ This guide stitches together the core components needed for a “version zero”
 - Wiki/episodic shards (optional but recommended for RAG): place a manifest at `/opt/continuonos/brain/memory/wiki/manifest.json` (see `docs/wiki-rag-plan.md` and `continuonbrain/configs/pi5-rag.json`). Shards should include `embeddings.npy` + `metadata.jsonl` and a manifest entry with `id`, `dim`, `size`, `license`, and optional `domain/language`.
 - Librarian service: `continuonbrain.services.librarian.Librarian` loads the manifest and serves top-k retrievals to the planner; keep it offline-first. Remote “unknown-answer” agent stays gated by `ALLOW_REMOTE_AGENT` and `MAX_API_CENTS_PER_DAY`.
 - Latent tokens (when VQ-VAE/predictor is enabled): log discrete codes from the HAT encoder into RLDS as `observation.latent_tokens` along with the codebook ID. Log the surprise signal (pred vs. actual tokens) in `step_metadata.surprise`. Keep retrieval/tool traces in `step_metadata.retrievals` and `step_metadata.tool_calls` for replay and cloud distillation.
+
+## 10) Run WaveCore loops on-device (seed training)
+
+Preferred (when running the Robot API server): trigger loops via HTTP so metrics flow into the UI/status endpoints:
+- `POST /api/training/wavecore_loops` (see `/ui` → Training)
+
+Notes:
+- Outputs land under `/opt/continuonos/brain/trainer/` and `/opt/continuonos/brain/model/adapters/candidate/` by default.
+- Defaults are Pi-friendly (small step counts, `arch_preset=pi5`, `disable_jit=true` unless overridden).
