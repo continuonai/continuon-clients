@@ -99,7 +99,7 @@ function refreshMetrics() {
                 : '--';
 
             const adapterPath = data.adapter_path || data.adapterPath || '--';
-            document.getElementById('adapter-path').innerText = adapterPath || '--';
+            document.getElementById('adapter-path').innerText = adapterPath;
 
             document.getElementById('full-metrics-json').innerText = JSON.stringify(data, null, 2);
             document.getElementById('full-metrics-json').style.display = 'block';
