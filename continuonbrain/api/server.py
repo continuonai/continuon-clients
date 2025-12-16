@@ -794,9 +794,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
             if self.path == "/api/chat":
                 data = json.loads(body)
                 msg = data.get("message", "")
+                history = data.get("history", []) or []
+                session_id = data.get("session_id")
                 
-                result = brain_service.ChatWithGemma(msg, [])
-                result = brain_service.ChatWithGemma(msg, [])
+                # Match SimpleJSONServer payload semantics: accept history + session_id.
+                # Note: BrainService deprecates history in favor of session_id.
+                result = brain_service.ChatWithGemma(msg, history, session_id=session_id)
                 self.send_json(result)
             
             elif self.path == "/api/chat/history/clear":
@@ -1094,6 +1097,16 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     logger.error(f"Search failed: {e}")
                     self.send_json({"success": False, "error": str(e)}, status=500)
+
+            elif self.path == "/api/training/manual":
+                try:
+                    data = json.loads(body) if body else {}
+                    # RunManualTraining is async, so we must run it in a loop
+                    result = asyncio.run(brain_service.RunManualTraining(data))
+                    self.send_json(result)
+                except Exception as e:
+                    logger.error(f"Manual training failed: {e}")
+                    self.send_json({"status": "error", "message": str(e)}, status=500)
 
             elif self.path == "/api/agent/consolidate":
                 try:

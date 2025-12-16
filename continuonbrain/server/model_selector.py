@@ -73,13 +73,36 @@ def detect_models() -> List[ModelChoice]:
         )
     )
 
-    # Sort: JAX-first (if preferred), then transformers, then mock
+    # LiteRT availability
+    try:
+        from continuonbrain.services.chat.litert_chat import HAS_LITERT
+        if HAS_LITERT:
+             choices.append(
+                ModelChoice(
+                    id="litert-gemma",
+                    name="LiteRT Gemma",
+                    backend="litert",
+                    available=True,
+                    reason="MediaPipe GenAI detected",
+                )
+             )
+    except ImportError:
+        pass
+
+    # Sort: JAX-first (if preferred), then LiteRT (if preferred), then transformers, then mock
+    prefer_litert = os.environ.get("CONTINUON_PREFER_LITERT", "0").lower() in ("1", "true", "yes")
+
     def sort_key(c: ModelChoice):
         if c.backend == "jax":
+            # If JAX is preferred, it's 0. If LiteRT is preferred, JAX is 1. Else 0.
+            if prefer_litert:
+                return 1
             return 0 if prefer_jax_env else 1
+        if c.backend == "litert":
+            return 0 if prefer_litert else 1
         if c.backend == "transformers":
-            return 1
-        return 2
+            return 2
+        return 3
 
     choices.sort(key=sort_key)
     return choices

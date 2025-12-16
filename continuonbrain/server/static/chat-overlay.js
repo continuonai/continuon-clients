@@ -7,6 +7,7 @@
   const positionKey = storageKeyPrefix + '_position';
   const sizeKey = storageKeyPrefix + '_size';
   const expandedKey = storageKeyPrefix + '_expanded';
+  const speechKey = storageKeyPrefix + '_speak_replies';
   const MAX_HISTORY = 50;
 
   let state = {
@@ -20,6 +21,7 @@
     size: null,
     lastTaskCount: 0,
     lastHeartbeat: null,
+    sessionId: null,
     lastPosted: {
       mode: 0,
       gate: 0,
@@ -32,6 +34,62 @@
     return document.getElementById(id);
   }
 
+  function getSpeakEnabled() {
+    try {
+      return localStorage.getItem(speechKey) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setSpeakEnabled(v) {
+    try {
+      localStorage.setItem(speechKey, v ? '1' : '0');
+    } catch (e) { }
+  }
+
+  async function speakOnRobot(text) {
+    const msg = String(text || '').trim();
+    if (!msg) return;
+    try {
+      await fetch('/api/audio/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg.slice(0, 500), rate_wpm: 175, voice: 'en' }),
+      });
+    } catch (e) { }
+  }
+
+  function startBrowserSTT() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      appendMessage('Speech recognition unavailable in this browser. Tip: use Chrome, or add a server-side STT backend later.', 'system');
+      return;
+    }
+    const rec = new SpeechRecognition();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (ev) => {
+      try {
+        const text = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : '';
+        const input = qs('chat-input');
+        if (input && text) {
+          input.value = String(text).trim();
+          input.focus();
+        }
+      } catch (e) { }
+    };
+    rec.onerror = (ev) => {
+      appendMessage('Mic error: ' + (ev && ev.error ? ev.error : 'unknown'), 'system');
+    };
+    try {
+      rec.start();
+    } catch (e) {
+      appendMessage('Mic start failed: ' + (e && e.message ? e.message : String(e)), 'system');
+    }
+  }
+
   function loadState() {
     try {
       const raw = localStorage.getItem(historyKey);
@@ -39,6 +97,18 @@
     } catch (e) {
       console.warn('Chat history load failed', e);
       state.history = [];
+    }
+    try {
+      const sessionKey = storageKeyPrefix + '_session';
+      let sessionId = localStorage.getItem(sessionKey);
+      if (!sessionId) {
+        sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+        localStorage.setItem(sessionKey, sessionId);
+      }
+      state.sessionId = sessionId;
+    } catch (e) {
+      console.warn('Chat session load failed', e);
+      state.sessionId = null;
     }
     try {
       state.minimized = localStorage.getItem(minimizedKey) === 'true';
@@ -116,7 +186,9 @@
     const container = qs('chat-messages');
     if (!container) return;
     const div = document.createElement('div');
-    div.className = 'chat-message ' + role;
+    // Normalize role to safe CSS class (e.g. "Agent Manager" -> "agent_manager")
+    const safeRole = String(role || 'assistant').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    div.className = 'chat-message ' + safeRole;
     div.textContent = text;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -194,6 +266,21 @@
     saveState();
   }
 
+  function renderStructured(data) {
+    const pre = qs('chat-structured');
+    if (!pre) return;
+    const structured = data?.structured || data?.plan || null;
+    if (!structured) {
+      pre.textContent = '(no structured plan yet)';
+      return;
+    }
+    try {
+      pre.textContent = JSON.stringify(structured, null, 2);
+    } catch (e) {
+      pre.textContent = String(structured);
+    }
+  }
+
   async function sendChatMessage() {
     const input = qs('chat-input');
     if (!input) return;
@@ -208,19 +295,105 @@
     appendMessage('Thinking...', 'assistant', false);
 
     try {
+      const sel = qs('chat-agent-select');
+      const choice = sel ? String(sel.value || 'agent_manager') : 'agent_manager';
+      let model_hint = null;
+      let delegate_model_hint = null;
+      if (choice === 'hope-v1') {
+        model_hint = 'hope-v1';
+      } else if (choice.startsWith('consult:')) {
+        // HOPE v1 is the main agent; consult runs a subagent turn first.
+        model_hint = 'hope-v1';
+        delegate_model_hint = choice; // keep "consult:" prefix for backend behavior
+      } else if (choice.startsWith('direct:')) {
+        model_hint = choice.replace('direct:', '').trim() || null;
+      }
+      const attachEl = qs('chat-attach-camera');
+      const attach_camera_frame = !!(attachEl && attachEl.checked);
+      const thumb = qs('chat-camera-thumb');
+      if (thumb) {
+        if (attach_camera_frame) {
+          thumb.style.display = '';
+          thumb.src = `/api/camera/frame?t=${Date.now()}`;
+        } else {
+          thumb.style.display = 'none';
+          thumb.removeAttribute('src');
+        }
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
           history: state.history.slice(-10),
+          session_id: state.sessionId,
+          model_hint,
+          delegate_model_hint,
+          attach_camera_frame,
         }),
       });
       const data = await res.json();
       const reply = data?.response || data?.message || JSON.stringify(data);
       appendMessage(reply, 'assistant');
+      renderStructured(data);
+      const speakEl = qs('chat-speak-replies');
+      if (speakEl && speakEl.checked) {
+        speakOnRobot(reply);
+      }
     } catch (err) {
-      appendMessage('Error: ' + (err?.message || 'chat failed'), 'system');
+      const href = (window.location && window.location.href) ? window.location.href : '';
+      const host = (window.location && window.location.host) ? window.location.host : '';
+      const msg = err?.message || 'chat failed';
+      const nameNotResolved = /ERR_NAME_NOT_RESOLVED/i.test(msg);
+      if (!host || nameNotResolved) {
+        appendMessage(`Error: cannot resolve robot host from this page. Open the UI using the robot IP, e.g. http://<robot-ip>:8080/ui (current: ${href})`, 'system');
+      } else {
+        appendMessage('Error: ' + msg, 'system');
+      }
+    }
+  }
+
+  async function runChatLearn() {
+    // Manual agent↔subagent learning loop (server-side).
+    // Writes RLDS only when enabled (privacy gate).
+    try {
+      const topicEl = qs('chat-learn-topic');
+      const topic = topicEl ? String(topicEl.value || '').trim() : '';
+      const sel = qs('chat-agent-select');
+      const choice = sel ? String(sel.value || 'hope-v1') : 'hope-v1';
+
+      let model_hint = 'hope-v1';
+      let delegate_model_hint = null;
+      if (choice.startsWith('consult:')) {
+        delegate_model_hint = choice; // keep consult: prefix
+      } else if (choice.startsWith('direct:')) {
+        // Direct models are not "learning loops" in the intended sense; still allow.
+        model_hint = choice.replace('direct:', '').trim() || 'hope-v1';
+      } else if (choice === 'agent_manager') {
+        model_hint = null;
+      }
+
+      appendMessage(`Starting learn loop${topic ? `: ${topic}` : ''}...`, 'system');
+      const res = await fetch('/api/training/chat_learn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          turns: 10,
+          topic: topic || null,
+          model_hint,
+          delegate_model_hint,
+          session_id: state.sessionId ? `chat_learn_ui_${state.sessionId}` : null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status === 'error') {
+        throw new Error(data.message || ('HTTP ' + res.status));
+      }
+      appendMessage('Learn loop queued/completed (see Training dashboard + RLDS if enabled).', 'system');
+      renderStructured(data);
+    } catch (err) {
+      appendMessage('Learn loop failed: ' + (err?.message || err), 'system');
     }
   }
 
@@ -270,6 +443,25 @@
         if (e.key === 'Enter') sendChatMessage();
       });
     }
+
+    const micBtn = qs('chat-mic');
+    if (micBtn && !micBtn.dataset.wired) {
+      micBtn.dataset.wired = '1';
+      micBtn.addEventListener('click', startBrowserSTT);
+    }
+
+    const speakToggle = qs('chat-speak-replies');
+    if (speakToggle && !speakToggle.dataset.wired) {
+      speakToggle.dataset.wired = '1';
+      speakToggle.checked = getSpeakEnabled();
+      speakToggle.addEventListener('change', () => setSpeakEnabled(!!speakToggle.checked));
+    }
+
+    const learnBtn = qs('chat-learn');
+    if (learnBtn && !learnBtn.dataset.wired) {
+      learnBtn.dataset.wired = '1';
+      learnBtn.addEventListener('click', runChatLearn);
+    }
   }
 
   function attachStatusFeed() {
@@ -316,6 +508,12 @@
           state.lastTaskCount = count;
         }
       },
+      onChat: (msg) => {
+        if (!msg) return;
+        // Ignore user messages reflected back to avoid duplicates if local echo handled it
+        if (msg.role === 'user') return;
+        appendMessage(msg.content, msg.role, true);
+      },
       reconnectDelayMs: 3000,
     });
   }
@@ -333,6 +531,7 @@
   window.toggleChat = toggleChat;
   window.toggleChatSize = toggleChatSize;
   window.sendChatMessage = sendChatMessage;
+  window.runChatLearn = runChatLearn;
   window.renderChatMessage = appendMessage;
 
   if (document.readyState === 'loading') {

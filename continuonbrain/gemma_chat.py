@@ -9,10 +9,91 @@ import os
 import json
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
+
+def _resolve_hf_hub_dir() -> Path:
+    """
+    Resolve the HuggingFace Hub cache directory.
+
+    Priority:
+    - HUGGINGFACE_HUB_CACHE (explicit)
+    - HF_HOME/hub
+    - ~/.cache/huggingface/hub
+    - fallback to /home/craigm26/.cache/huggingface/hub (common on this device)
+      so root-run services can still use the pre-populated cache without downloading.
+    """
+    env_hub = os.environ.get("HUGGINGFACE_HUB_CACHE")
+    if env_hub:
+        return Path(env_hub)
+    hf_home = os.environ.get("HF_HOME")
+    if hf_home:
+        return Path(hf_home) / "hub"
+    default = Path.home() / ".cache" / "huggingface" / "hub"
+    if default.exists():
+        return default
+    shared = Path("/home/craigm26/.cache/huggingface/hub")
+    return shared
+
+def _allow_model_downloads() -> bool:
+    return os.environ.get("CONTINUON_ALLOW_MODEL_DOWNLOADS", "0").lower() in ("1", "true", "yes", "on")
+
+def _ensure_hf_cache_env() -> Path:
+    """
+    Ensure HuggingFace cache env points at our resolved cache location.
+
+    This matters for services running under different users (e.g., systemd root/continuon)
+    that should still reuse a pre-populated shared cache.
+    """
+    hub_dir = _resolve_hf_hub_dir()
+    # HuggingFace hub honors HUGGINGFACE_HUB_CACHE directly.
+    os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(hub_dir))
+    return hub_dir
+
+def _snapshot_download_path(model_id: str, hf_token: Optional[str]) -> Path:
+    """
+    Return a local snapshot path for a model.
+
+    - Tries local cache only first (offline-first).
+    - If CONTINUON_ALLOW_MODEL_DOWNLOADS=1, allows downloading missing files.
+    """
+    _ensure_hf_cache_env()
+    try:
+        from huggingface_hub import snapshot_download
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"huggingface_hub not available: {exc}") from exc
+
+    try:
+        return Path(
+            snapshot_download(
+                repo_id=model_id,
+                local_files_only=True,
+                token=hf_token,
+            )
+        )
+    except Exception as exc:
+        if not _allow_model_downloads():
+            raise RuntimeError(
+                f"Model {model_id} not available in local cache ({_resolve_hf_hub_dir()}); "
+                "downloads disabled (CONTINUON_ALLOW_MODEL_DOWNLOADS=0)."
+            ) from exc
+        return Path(
+            snapshot_download(
+                repo_id=model_id,
+                local_files_only=False,
+                token=hf_token,
+            )
+        )
+
+def _model_in_local_hf_cache(model_id: str) -> bool:
+    try:
+        _snapshot_download_path(model_id, hf_token=os.environ.get("HUGGINGFACE_TOKEN"))
+        return True
+    except Exception:
+        return False
 
 
 class GemmaChat:
@@ -22,7 +103,7 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-370m"  # prefer smallest first
+    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"  # Use model that's actually in cache
     # Fallbacks (retain prior defaults for larger variants):
     # "google/gemma-3n-E2B-it"
 
@@ -94,6 +175,14 @@ class GemmaChat:
                     AutoModelForImageTextToText = None
             
             logger.info(f"Loading Gemma model: {self.model_name}")
+            # Resolve snapshot path (local cache first).
+            snapshot_path = None
+            try:
+                snapshot_path = _snapshot_download_path(self.model_name, self.hf_token)
+                logger.info(f"✅ Using HuggingFace snapshot: {snapshot_path}")
+            except Exception as exc:
+                logger.error(f"Failed to resolve local snapshot for {self.model_name}: {exc}")
+                return False
             
             # --- VLM Loading Logic (Gemma 3N / PaliGemma) ---
             if "gemma-3n" in self.model_name or "paligemma" in self.model_name:
@@ -103,26 +192,59 @@ class GemmaChat:
                     if AutoModelForImageTextToText is None:
                         raise ImportError("AutoModelForImageTextToText not available in installed transformers version")
                         
-                    self.processor = AutoProcessor.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True
-                    )
+                    # We already resolved snapshot_path above.
+                    if not snapshot_path:
+                        raise RuntimeError("No snapshot path available for VLM load")
                     
-                    # Determine dtype and device map
-                    # For Pi 5 (CPU), we found that device_map="cpu" + bfloat16 works best
-                    # device_map="auto" failed with offloading errors
+                    # Load processor - ALWAYS try local first
+                    try:
+                        logger.info("Loading processor from snapshot (local_files_only=True)")
+                        self.processor = AutoProcessor.from_pretrained(
+                            str(snapshot_path),
+                            local_files_only=True,
+                            trust_remote_code=True,
+                        )
+                        logger.info("✅ Processor loaded")
+                    except Exception as e:
+                        logger.error(f"Failed to load processor from snapshot: {e}")
+                        raise
+                    
+                    # Determine dtype and device placement.
+                    # NOTE: Some transformer configs + low_cpu_mem_usage can leave parameters on the "meta" device
+                    # and crash with "Cannot copy out of meta tensor". For CPU, prefer a plain load without device_map.
                     dtype = torch.bfloat16
-                    device_map = "cpu"
+                    device_map = None
+                    low_cpu_mem_usage = False
                     
-                    self.model = AutoModelForImageTextToText.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True,
-                        device_map=device_map,
-                        torch_dtype=dtype,
-                        low_cpu_mem_usage=True
-                    )
+                    # Load model - ALWAYS use local cache if available
+                    try:
+                        logger.info("Loading VLM model from snapshot (local_files_only=True)")
+                        self.model = AutoModelForImageTextToText.from_pretrained(
+                            str(snapshot_path),
+                            local_files_only=True,
+                            trust_remote_code=True,
+                            device_map=device_map,
+                            torch_dtype=dtype,
+                            low_cpu_mem_usage=low_cpu_mem_usage,
+                        )
+                        logger.info("✅ VLM model loaded")
+                    except Exception as e:
+                        # If local load failed, try a more conservative CPU-only retry with
+                        # different settings than the initial attempt (mirrors CausalLM fallback).
+                        retry_dtype = None
+                        retry_low_cpu_mem_usage = True
+                        logger.warning(
+                            f"VLM load failed: {e}. Retrying on CPU with torch_dtype=None, low_cpu_mem_usage=True..."
+                        )
+                        self.model = AutoModelForImageTextToText.from_pretrained(
+                            str(snapshot_path),
+                            local_files_only=True,
+                            trust_remote_code=True,
+                            device_map=None,
+                            torch_dtype=retry_dtype,
+                            low_cpu_mem_usage=retry_low_cpu_mem_usage,
+                        )
+                        logger.info("✅ VLM model loaded on CPU")
                     
                     self.is_vlm = True
                     logger.info(" Gemma 3N VLM loaded successfully!")
@@ -135,12 +257,21 @@ class GemmaChat:
                     self.processor = None
 
             # --- CausalLM Loading Logic (Text Only / Fallback) ---
-            # Load tokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                token=self.hf_token,
-                trust_remote_code=True
-            )
+            if not snapshot_path:
+                raise RuntimeError("No snapshot path available for CausalLM load")
+            
+            # Load tokenizer - ALWAYS try local first, never download if cached
+            try:
+                logger.info("Loading tokenizer from snapshot (local_files_only=True)")
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    str(snapshot_path),
+                    local_files_only=True,
+                    trust_remote_code=True,
+                )
+                logger.info("✅ Tokenizer loaded")
+            except Exception as e:
+                logger.error(f"Failed to load tokenizer from snapshot: {e}")
+                raise
             
             # Load model with conservative defaults to avoid disk_offload errors on CPU
             use_device_map = None
@@ -163,27 +294,31 @@ class GemmaChat:
                     logger.warning("Accelerate not found. Disabling device_map='auto'")
                     use_device_map = None
 
+            # ALWAYS use local cache if available - never download
             try:
+                logger.info("Loading CausalLM model from snapshot (local_files_only=True)")
+                logger.info(f"  Snapshot: {snapshot_path}")
                 self.model = AutoModelForCausalLM.from_pretrained(
-                    self.model_name,
-                    token=self.hf_token,
+                    str(snapshot_path),
+                    local_files_only=True,
                     trust_remote_code=True,
                     device_map=use_device_map,
                     low_cpu_mem_usage=low_cpu_mem,
                     torch_dtype=torch_dtype,
                 )
+                logger.info("✅ Model loaded")
             except Exception as e:
-                if use_device_map == "auto":
-                    logger.warning(f"Failed with device_map='auto': {e}. Retrying on CPU without offload...")
-                    self.model = AutoModelForCausalLM.from_pretrained(
-                        self.model_name,
-                        token=self.hf_token,
-                        trust_remote_code=True,
-                        device_map=None,
-                        low_cpu_mem_usage=True,
-                    )
-                else:
-                    raise e
+                # If local load failed, try CPU-only retry (no device_map)
+                logger.warning(f"CausalLM load failed: {e}. Retrying on CPU...")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    str(snapshot_path),
+                    local_files_only=True,
+                    trust_remote_code=True,
+                    device_map=None,
+                    low_cpu_mem_usage=True,
+                    torch_dtype=None,
+                )
+                logger.info("✅ Model loaded on CPU")
             
             self.is_vlm = False
             logger.info("Gemma model loaded (CausalLM mode)")
@@ -248,14 +383,25 @@ class GemmaChat:
                 logger.error(f"API chat failed: {e}")
                 return f"Error from remote API: {str(e)}"
         
+        # --- PATH 1.5: Explicit Mock/Debug ---
+        if model_hint == "mock":
+            return f"Mock response. System Context length: {len(system_context) if system_context else 0}. Message received: {message}"
+
         # --- PATH 2: Local Transformers ---
         if model_hint and model_hint != self.model_name:
-            # Attempt to switch models if available
-            self.model_name = model_hint
-            self.model = None
-            self.tokenizer = None
-            self.processor = None
-            self.is_vlm = False
+
+            # Attempt to switch models ONLY if available locally (or downloads explicitly allowed).
+            if _model_in_local_hf_cache(model_hint) or _allow_model_downloads():
+                self.model_name = model_hint
+                self.model = None
+                self.tokenizer = None
+                self.processor = None
+                self.is_vlm = False
+            else:
+                logger.warning(
+                    f"Ignoring model_hint={model_hint} because it is not present in local HF cache "
+                    f"({_resolve_hf_hub_dir()}) and downloads are disabled."
+                )
 
         if self.model is None:
             # Pass return_error=True (we need to update load_model signature slightly or just capture it)
@@ -459,7 +605,11 @@ class MockGemmaChat:
 # Factory function to create appropriate chat instance
 def _install_missing_deps():
     """Best-effort install of core deps to avoid mock fallback."""
-    required = ["transformers", "accelerate", "timm"]
+    # NOTE: Auto-installing dependencies at runtime can violate offline-first and
+    # boot-reliability goals (and is undesirable under systemd). Keep this OFF by default.
+    if os.environ.get("CONTINUON_AUTO_INSTALL_PY_DEPS", "0").lower() not in ("1", "true", "yes", "on"):
+        return False
+    required = ["transformers", "accelerate", "timm", "ai-edge-litert", "ai-edge-litert"]
     missing = []
     for pkg in required:
         try:
@@ -511,7 +661,7 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
         import torch
         return GemmaChat(**kwargs)
     except ImportError as e:
-        logger.warning(f"transformers not available: {e}. Trying auto-install...")
+        logger.warning(f"transformers not available: {e}.")
         if _install_missing_deps():
             try:
                 import transformers
@@ -520,4 +670,100 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
             except Exception as exc:
                 logger.error(f"Deps installed but Gemma init still failed: {exc}")
         return MockGemmaChat(error_msg=str(e), **kwargs)
+
+# Exposed for brain_service fallback logic
+create_gemma_chat.DEFAULT_MODEL_ID = GemmaChat.DEFAULT_MODEL_ID
+
+
+def build_chat_service() -> Optional[Any]:
+    """
+    Public chat-service builder used by ChatAdapter and eval runners.
+
+    This is the canonical location for chat backend selection so call sites can do:
+      from continuonbrain.gemma_chat import build_chat_service
+
+    Policy:
+    - Prefer JAX/Flax Gemma when CONTINUON_PREFER_JAX=1 and the backend is available.
+    - Otherwise fall back to transformers-based Gemma (local-cache first).
+    - On headless targets, transformers fallback is disabled by default to keep boot light.
+      Override with CONTINUON_ALLOW_TRANSFORMERS_CHAT=1.
+    """
+    prefer_jax = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes", "on")
+    headless = os.environ.get("CONTINUON_HEADLESS", "0").lower() in ("1", "true", "yes", "on")
+    allow_transformers = os.environ.get("CONTINUON_ALLOW_TRANSFORMERS_CHAT", "0").lower() in ("1", "true", "yes", "on")
+    use_litert = os.environ.get("CONTINUON_USE_LITERT", "1").lower() in ("1", "true", "yes", "on") # Default enabled if avail
+
+    # Best-effort accelerator detection (non-fatal).
+    accelerator_device = None
+    try:
+        hailo_devices = list(Path("/dev").glob("hailo*"))
+        if hailo_devices:
+            accelerator_device = "hailo8l"
+    except Exception:
+        accelerator_device = None
+
+    enable_jax_chat = os.environ.get("CONTINUON_ENABLE_JAX_GEMMA_CHAT", "0").lower() in ("1", "true", "yes", "on")
+    if prefer_jax and enable_jax_chat:
+        try:
+            from continuonbrain.gemma_chat_jax import create_gemma_chat_jax
+
+            chat_jax = create_gemma_chat_jax(device="cpu", accelerator_device=accelerator_device)
+            if chat_jax:
+                logger.info("Using JAX/Flax Gemma chat backend")
+                return chat_jax
+        except Exception as exc:  # noqa: BLE001
+            logger.info(f"JAX/Flax Gemma chat unavailable ({exc}); falling back.")
+
+
+    # LiteRT Preference
+    use_litert = os.environ.get("CONTINUON_USE_LITERT", "1").lower() in ("1", "true", "yes", "on")
+    prefer_litert = os.environ.get("CONTINUON_PREFER_LITERT", "0").lower() in ("1", "true", "yes", "on")
+    
+    # Check for LiteRT availability (lazy check via import attempt or pkg util)
+    litert_available = False
+    try:
+        from continuonbrain.services.chat.litert_chat import HAS_LITERT, LiteRTGemmaChat
+        litert_available = HAS_LITERT
+    except ImportError:
+        pass
+
+    # If LiteRT is PREFERRED, try it BEFORE JAX
+    if prefer_litert and litert_available and use_litert:
+        try:
+             # Check for LiteRT model preference or default
+             chat = LiteRTGemmaChat(accelerator_device=accelerator_device)
+             logger.info("Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)")
+             return chat
+        except Exception as exc:
+             logger.warning(f"LiteRT Chat init failed: {exc}")
+
+    # Fallback to JAX/Flax if enabled
+    if prefer_jax and enable_jax_chat:
+        try:
+            from continuonbrain.gemma_chat_jax import create_gemma_chat_jax
+
+            chat_jax = create_gemma_chat_jax(device="cpu", accelerator_device=accelerator_device)
+            if chat_jax:
+                logger.info("Using JAX/Flax Gemma chat backend")
+                return chat_jax
+        except Exception as exc:  # noqa: BLE001
+            logger.info(f"JAX/Flax Gemma chat unavailable ({exc}); falling back.")
+
+
+    if headless and not allow_transformers and not litert_available:
+        logger.info("Headless mode: transformers chat disabled and LiteRT unavailable.")
+        return None
+
+    # If LiteRT was NOT preferred but is available, try it now (after JAX failed or wasn't preferred)
+    if litert_available and use_litert:
+         try:
+             return LiteRTGemmaChat(accelerator_device=accelerator_device)
+         except Exception as exc:
+             logger.warning(f"LiteRT Chat init failed: {exc}")
+
+    try:
+        return create_gemma_chat(use_mock=False, accelerator_device=accelerator_device)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Transformers Gemma init failed: {exc}")
+        return None
 

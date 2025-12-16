@@ -21,6 +21,8 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequ
 
 from datetime import datetime
 
+from continuonbrain.trainer.promotion import promote_candidate_adapter
+
 
 # ------------------------------- Data classes ------------------------------- #
 
@@ -423,20 +425,27 @@ def promote_candidate_adapters_if_safe(
         episode_loader=episode_loader,
         eval_files=eval_files,
     ):
+        # Reject: remove candidate and emit an audit record.
+        promote_candidate_adapter(
+            candidate_path=candidate_path,
+            current_dir=current_dir,
+            history_dir=history_dir,
+            log_dir=Path("/opt/continuonos/brain/trainer/logs"),
+            rlds_dir=Path("/opt/continuonos/brain/rlds/episodes"),
+            reason="rejected",
+        )
         candidate_path.unlink(missing_ok=True)
         return False
 
-    ensure_dir(current_dir)
-    ensure_dir(history_dir)
-
-    ts = time.strftime("%Y%m%dT%H%M%S")
-    current_adapter = current_dir / candidate_path.name
-    if current_adapter.exists():
-        archived = history_dir / f"{candidate_path.stem}_{ts}{candidate_path.suffix}"
-        shutil.move(str(current_adapter), str(archived))
-
-    shutil.move(str(candidate_path), str(current_adapter))
-    return True
+    record = promote_candidate_adapter(
+        candidate_path=candidate_path,
+        current_dir=current_dir,
+        history_dir=history_dir,
+        log_dir=Path("/opt/continuonos/brain/trainer/logs"),
+        rlds_dir=Path("/opt/continuonos/brain/rlds/episodes"),
+        reason="approved",
+    )
+    return bool(record.promoted)
 
 
 def default_action_distance(new_action: Any, old_action: Any) -> float:
@@ -524,14 +533,16 @@ def maybe_run_local_training(
     if getattr(hooks, "is_stub", False):
         current_dir = cfg.adapters_out_dir.parent / "current"
         history_dir = cfg.adapters_out_dir.parent / "history"
-        current_dir.mkdir(parents=True, exist_ok=True)
-        history_dir.mkdir(parents=True, exist_ok=True)
-        cur_path = current_dir / result.adapter_path.name
-        if cur_path.exists():
-            ts = time.strftime("%Y%m%dT%H%M%S")
-            history_path = history_dir / f"{result.adapter_path.stem}_{ts}{result.adapter_path.suffix}"
-            cur_path.replace(history_path)
-        result.adapter_path.replace(cur_path)
+        record = promote_candidate_adapter(
+            candidate_path=result.adapter_path,
+            current_dir=current_dir,
+            history_dir=history_dir,
+            log_dir=cfg.log_dir,
+            rlds_dir=cfg.rlds_dir if cfg.rlds_dir else Path("/opt/continuonos/brain/rlds/episodes"),
+            reason="approved",
+            environment_id="pi5-dev",
+        )
+        cur_path = Path(record.current_path)
         result.log = (result.log or []) + ["Stub hooks: wrote adapters directly to current/"]
         # Write status
         try:
@@ -542,7 +553,7 @@ def maybe_run_local_training(
                 "steps": result.steps,
                 "avg_loss": result.avg_loss,
                 "wall_time_s": result.wall_time_s,
-                "promoted": True,
+                "promoted": bool(record.promoted),
                 "current_adapter": {
                     "path": str(cur_path),
                     "exists": cur_path.exists(),
@@ -551,6 +562,7 @@ def maybe_run_local_training(
                 "jax_export": str(jax_npz) if jax_npz.exists() else None,
                 "history_count": len(list(history_dir.glob("*.pt"))),
                 "latest_log": str(result.log_path) if result.log_path else None,
+                "promotion_audit": record.to_dict(),
             }
             status_path.write_text(json.dumps(status, indent=2))
         except Exception:

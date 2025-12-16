@@ -3,33 +3,153 @@
 {% block content %}
 <div class="panel">
     <div class="panel-header">
-        <h2>World Model Proof Harness</h2>
+        <div>
+            <div class="panel-eyebrow">Science + measurement</div>
+            <h2>Research & Evidence Dashboard</h2>
+            <p class="panel-subtitle">HOPE / CMS / WaveCore / SSM + symbolic search — tied to measurable signals.</p>
+        </div>
+        <div class="panel-actions">
+            <button class="rail-btn" type="button" onclick="window.updateResearchDashboard?.()">Refresh</button>
+        </div>
     </div>
     <div class="panel-content">
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <h3>Reality Proof</h3>
-                <div id="reality-proof-score" class="score-display">--%</div>
-            </div>
-            <div class="metric-card">
-                <h3>Dream Consistency</h3>
-                <div id="dream-consistency-score" class="score-display">--%</div>
+        <div class="stack-list">
+            <div class="stack-item primary">
+                <div style="min-width:0;">
+                    <h4>Claims → Measurements → Evidence</h4>
+                    <div class="stack-meta">Each widget below maps a claim from the repo docs to a concrete signal and a visual.</div>
+                </div>
+                <div class="stack-flags">
+                    <span class="status-chip focus">fast loop ≤100ms</span>
+                    <span class="status-chip focus">RLDS validity ≥95%</span>
+                    <span class="status-chip focus">eval lift over time</span>
+                    <span class="status-chip focus">search invents plans</span>
+                </div>
             </div>
         </div>
-        <div class="chart-container" id="world-model-chart">
-            <!-- Chart will be rendered here -->
+        <div id="research-live-error" class="stack-meta" style="margin-top:10px;"></div>
+        <div class="stack-list" id="research-live-cards" style="margin-top:10px;">
+            <div class="stack-item"><span class="stack-meta">Loading live metrics…</span></div>
         </div>
     </div>
 </div>
 
 <div class="panel">
     <div class="panel-header">
-        <h2>Capability Matrix</h2>
+        <div>
+            <div class="panel-eyebrow">Hypotheses</div>
+            <h2>Claims → Evidence</h2>
+            <p class="panel-subtitle">What we claim, how we measure it, and what the runtime currently shows.</p>
+        </div>
     </div>
     <div class="panel-content">
-        <div id="capability-matrix">
-            <div class="loading-spinner">Loading capabilities...</div>
+        <div class="stack-list" id="research-claims">
+            <div class="stack-item"><span class="stack-meta">Loading claim cards…</span></div>
         </div>
     </div>
 </div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div>
+            <div class="panel-eyebrow">Symbolic search</div>
+            <h2>Tool router + planner demos</h2>
+            <p class="panel-subtitle">These are “search” surfaces: generate candidates, score them, and choose a plan/tool.</p>
+        </div>
+    </div>
+    <div class="panel-content">
+        <div class="panel-ghost">
+            <div class="panel-eyebrow">Tool router (symbolic search over tools)</div>
+            <div class="panel-subtitle">Prompt → top-k tool suggestions (from `/api/training/tool_router_predict`).</div>
+            <div class="metric-row" style="margin-top:10px;">
+                <div class="metric-label">Prompt</div>
+                <div class="metric-value">
+                    <input id="research-tool-router-prompt" class="input-compact" type="text" placeholder="e.g. Find info about HOPE eval metrics" style="width:320px;">
+                </div>
+            </div>
+            <div class="metric-row">
+                <div class="metric-label"></div>
+                <div class="metric-value">
+                    <button class="rail-btn" type="button" onclick="window.predictToolRouterResearch?.()">Suggest tools</button>
+                </div>
+            </div>
+            <div class="stack-list" id="research-tool-router-predictions" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="panel-ghost" style="margin-top:12px;">
+            <div class="panel-eyebrow">Arm plan search (beam search)</div>
+            <div class="panel-subtitle">If enabled on this robot, use `/api/arm/plan_search` for motion planning search.</div>
+            <div class="stack-item">
+                <div style="min-width:0;">
+                    <h4>Planner lives in the Agent rail</h4>
+                    <div class="stack-meta">Use the Planner panel in the right rail to run plan search and (optionally) execute steps.</div>
+                </div>
+                <div><span class="status-chip info">see right rail</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div>
+            <div class="panel-eyebrow">4D brain visualization</div>
+            <h2>HOPE Brain (3D + time)</h2>
+            <p class="panel-subtitle">A “4D” view: 3D structure + a time slider that scrubs recent live metrics onto the graph.</p>
+        </div>
+    </div>
+    <div class="panel-content">
+        <div class="panel-ghost">
+            <div class="mode-pills" style="margin-bottom:10px;">
+                <div class="panel-subtitle" style="margin:0; margin-right:10px;">Layout</div>
+                <button class="mode-pill current" id="brain-layout-graph" type="button">Graph</button>
+                <button class="mode-pill" id="brain-layout-columnar" type="button">Columnar</button>
+                <button class="mode-pill" id="brain-layout-hybrid" type="button">Hybrid</button>
+                <span style="flex:1;"></span>
+                <div class="panel-subtitle" style="margin:0; margin-right:10px;">Overlay</div>
+                <select id="brain-overlay" class="input-compact" style="width:220px;">
+                    <option value="all" selected>All (default)</option>
+                    <option value="control_loop">Control loop</option>
+                    <option value="wavecore">WaveCore loss</option>
+                    <option value="tool_search">Tool search</option>
+                    <option value="hope_eval">HOPE eval</option>
+                </select>
+                <div class="panel-subtitle" style="margin:0; margin-left:10px; margin-right:10px;">Flow</div>
+                <button class="mode-pill current" id="brain-flow-toggle" type="button">Show Flow</button>
+            </div>
+            <div class="metric-row">
+                <div class="metric-label">Time</div>
+                <div class="metric-value" style="display:flex; gap:10px; align-items:center;">
+                    <input id="brain-viz-time" type="range" min="0" max="100" value="100" style="width:320px;">
+                    <span class="stack-meta" id="brain-viz-time-label">latest</span>
+                </div>
+            </div>
+            <div id="brain-viz-container" style="height:440px; border-radius:14px; border:1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.12); overflow:hidden; position:relative;">
+                <div id="brain-viz-fallback" class="stack-meta" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:18px; text-align:center;">
+                    Loading 3D brain…
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Kick the research widgets after the base UI hydrates.
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.updateResearchDashboard) {
+            window.updateResearchDashboard();
+        }
+    });
+</script>
+
+<script type="module">
+    // Load Three.js brain visualization (best-effort; falls back gracefully).
+    try {
+        await import('/static/brain-viz.js');
+    } catch (e) {
+        const el = document.getElementById('brain-viz-fallback');
+        if (el) el.textContent = '3D brain view unavailable (module load failed). Check network/CSP or use the metrics cards above.';
+        console.warn('brain-viz load failed', e);
+    }
+</script>
 {% endblock %}

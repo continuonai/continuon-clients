@@ -49,6 +49,8 @@
 	<string>Need Bluetooth to scan for robots.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Need local network access to find robots via mDNS.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Need camera access to scan the robot pairing QR code.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_continuon._tcp</string>

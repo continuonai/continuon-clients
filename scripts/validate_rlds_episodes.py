@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """
-Validate RLDS episode JSON files against continuonbrain.rlds.validators.
-Intended for quick pre-commit/CI checks.
+Validate RLDS episodes with variant-aware rules.
+
+This repo contains multiple episode shapes (see docs/rlds-variants.md):
+- canonical episode_dir: <episode>/metadata.json + <episode>/steps/000000.jsonl
+- legacy studio/mock episode.json: {"metadata":..., "steps":[...]}
+
+This script auto-detects the path type and applies the appropriate validator.
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
-from continuonbrain.rlds.validators import validate_episode
+from continuonbrain.rlds.variant_validators import validate_path
 
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("Usage: validate_rlds_episodes.py <episode.json> [<episode2.json> ...]")
+        print("Usage: validate_rlds_episodes.py <episode_dir|episode.json> [<path2> ...]")
         return 1
 
     failures = 0
@@ -24,13 +28,7 @@ def main() -> int:
             print(f"{path}: missing")
             failures += 1
             continue
-        try:
-            data = json.loads(path.read_text())
-        except Exception as e:
-            print(f"{path}: failed to read/parse JSON: {e}")
-            failures += 1
-            continue
-        result = validate_episode(data)
+        result = validate_path(path)
         if result.errors:
             failures += 1
             print(f"{path}: FAIL")
@@ -38,6 +36,10 @@ def main() -> int:
                 print(f"  - {err}")
         else:
             print(f"{path}: OK")
+        if result.warnings:
+            print(f"{path}: WARN")
+            for warning in result.warnings:
+                print(f"  - {warning}")
     return failures
 
 

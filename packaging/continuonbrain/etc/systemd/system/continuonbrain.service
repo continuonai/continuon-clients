@@ -9,12 +9,12 @@ Type=simple
 User=continuon
 Group=continuon
 WorkingDirectory=/opt/continuonbrain/app
+EnvironmentFile=-/etc/continuonbrain/continuonbrain.env
 Environment="PATH=/opt/continuonbrain/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PYTHONPATH=/opt/continuonbrain/app"
-Environment="HUGGINGFACE_TOKEN=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"
 ExecStart=/opt/continuonbrain/venv/bin/python -m continuonbrain.startup_manager \
     --config-dir /opt/continuonbrain/config \
-    --no-trainer
+    --robot-name ContinuonBot
 Restart=always
 RestartSec=10
 StandardOutput=journal

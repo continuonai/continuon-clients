@@ -14,6 +14,11 @@ from typing import Any, Dict
 
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
+    "identity": {
+        # Human-readable, non-biometric label used for creator alignment in prompts and UI.
+        # Example: "Craig Michael Merry"
+        "creator_display_name": "Craig Michael Merry",
+    },
     "safety": {
         "allow_motion": True,
         "record_episodes": True,
@@ -23,6 +28,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "chat": {
         "persona": "operator",
         "temperature": 0.35,
+        # Opt-in: log chat turns to RLDS episodes for later training/eval replay.
+        "log_rlds": False,
     },
     "training": {
         "enable_sidecar_trainer": False,  # Disabled by default to save resources
@@ -37,6 +44,42 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "enable_autonomous_learning": True,
         "autonomous_learning_steps_per_cycle": 100,
         "autonomous_learning_checkpoint_interval": 1000,
+        # Offline-first: periodic "self-learning" chat turns that are logged to RLDS (if chat.log_rlds=true).
+        # This does NOT call the internet; it frames questions as "internet-search style" prompts about this repo.
+        "chat_learn": {
+            "enabled": False,
+            "interval_s": 600,  # 10 minutes
+            "turns_per_cycle": 10,
+            "model_hint": "google/gemma-3n-2b",
+            # Optional: run a second model as a subagent (agent manager ↔ subagent) and
+            # log the full dialogue to RLDS when chat.log_rlds=true.
+            # Empty/None disables subagent delegation.
+            "delegate_model_hint": "",
+            "topic": "coding this repository (ContinuonXR/continuonbrain/continuonai)",
+            # Which robot modes are allowed to run scheduled chat learning.
+            # Default is idle-only; set to ["autonomous"] to learn while autonomous.
+            "modes": ["idle"],
+        },
+        # Continuous learning orchestrator for autonomous mode.
+        # Runs bounded maintenance tasks (CMS compaction, evals, WaveCore loops, tool-router refresh)
+        # while respecting resource limits and pausing the learner around heavy jobs.
+        "autonomy_orchestrator": {
+            "enabled": False,
+            "modes": ["autonomous"],
+            "min_interval_s": 30,
+            "cms_compact_every_s": 600,
+            "hope_eval_every_s": 1800,
+            "facts_eval_every_s": 3600,
+            "wavecore_every_s": 1800,
+            "tool_router_every_s": 3600,
+            # Skip tasks when headroom drops below reserve+X MB (prevents compaction/evals from thrashing on low-memory Pi).
+            "min_memory_headroom_mb": 512,
+            # Bounded workloads (keep small on Pi)
+            "wavecore_steps_fast": 60,
+            "wavecore_steps_mid": 120,
+            "wavecore_steps_slow": 180,
+            "tool_router_steps": 200,
+        },
     },
 }
 
@@ -82,6 +125,14 @@ class SettingsStore:
         errors = []
         normalized = self._defaults()
 
+        identity = payload.get("identity", {}) if isinstance(payload, dict) else {}
+        creator = identity.get("creator_display_name", normalized["identity"]["creator_display_name"])
+        creator_str = str(creator or "").strip()
+        if len(creator_str) > 80:
+            errors.append("Creator display name must be <= 80 characters")
+        else:
+            normalized["identity"]["creator_display_name"] = creator_str
+
         safety = payload.get("safety", {}) if isinstance(payload, dict) else {}
         normalized["safety"]["allow_motion"] = bool(
             safety.get("allow_motion", normalized["safety"]["allow_motion"])
@@ -124,6 +175,8 @@ class SettingsStore:
         except (TypeError, ValueError):
             errors.append("Chat temperature must be a number")
 
+        normalized["chat"]["log_rlds"] = bool(chat.get("log_rlds", normalized["chat"]["log_rlds"]))
+
         if errors:
             raise SettingsValidationError("; ".join(errors))
         
@@ -157,6 +210,89 @@ class SettingsStore:
                 normalized["agent_manager"]["intervention_confidence_threshold"] = round(threshold_value, 2)
         except (TypeError, ValueError):
             errors.append("Intervention confidence threshold must be a number")
+
+        # Validate chat_learn scheduler config
+        chat_learn = agent_mgr.get("chat_learn", DEFAULT_SETTINGS["agent_manager"]["chat_learn"])
+        if not isinstance(chat_learn, dict):
+            chat_learn = DEFAULT_SETTINGS["agent_manager"]["chat_learn"]
+        normalized["agent_manager"]["chat_learn"] = {}
+        normalized["agent_manager"]["chat_learn"]["enabled"] = bool(
+            chat_learn.get("enabled", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["enabled"])
+        )
+        try:
+            interval_s = int(chat_learn.get("interval_s", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["interval_s"]))
+            interval_s = max(30, min(interval_s, 3600))
+        except (TypeError, ValueError):
+            interval_s = int(DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["interval_s"])
+        normalized["agent_manager"]["chat_learn"]["interval_s"] = interval_s
+        try:
+            turns = int(chat_learn.get("turns_per_cycle", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["turns_per_cycle"]))
+            turns = max(1, min(turns, 50))
+        except (TypeError, ValueError):
+            turns = int(DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["turns_per_cycle"])
+        normalized["agent_manager"]["chat_learn"]["turns_per_cycle"] = turns
+        model_hint = str(chat_learn.get("model_hint", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["model_hint"]) or "").strip()
+        normalized["agent_manager"]["chat_learn"]["model_hint"] = model_hint or DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["model_hint"]
+        delegate_hint = str(
+            chat_learn.get(
+                "delegate_model_hint",
+                DEFAULT_SETTINGS["agent_manager"]["chat_learn"].get("delegate_model_hint", ""),
+            )
+            or ""
+        ).strip()
+        # Keep it short and safe; empty disables delegation.
+        normalized["agent_manager"]["chat_learn"]["delegate_model_hint"] = delegate_hint[:80]
+        topic = str(chat_learn.get("topic", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["topic"]) or "").strip()
+        normalized["agent_manager"]["chat_learn"]["topic"] = topic[:200] if topic else DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["topic"]
+        allowed_modes = {"idle", "autonomous", "sleep_learning", "manual_training", "manual_control"}
+        modes_in = chat_learn.get("modes", DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["modes"])
+        modes: list[str] = []
+        if isinstance(modes_in, list):
+            for m in modes_in:
+                ms = str(m or "").strip().lower()
+                if ms in allowed_modes and ms not in modes:
+                    modes.append(ms)
+        if not modes:
+            modes = list(DEFAULT_SETTINGS["agent_manager"]["chat_learn"]["modes"])
+        normalized["agent_manager"]["chat_learn"]["modes"] = modes
+
+        # Autonomous orchestrator config
+        orch = agent_mgr.get("autonomy_orchestrator", DEFAULT_SETTINGS["agent_manager"]["autonomy_orchestrator"])
+        if not isinstance(orch, dict):
+            orch = DEFAULT_SETTINGS["agent_manager"]["autonomy_orchestrator"]
+        normalized["agent_manager"]["autonomy_orchestrator"] = {}
+        normalized["agent_manager"]["autonomy_orchestrator"]["enabled"] = bool(
+            orch.get("enabled", DEFAULT_SETTINGS["agent_manager"]["autonomy_orchestrator"]["enabled"])
+        )
+        modes_in2 = orch.get("modes", DEFAULT_SETTINGS["agent_manager"]["autonomy_orchestrator"]["modes"])
+        modes2: list[str] = []
+        if isinstance(modes_in2, list):
+            for m in modes_in2:
+                ms = str(m or "").strip().lower()
+                if ms in allowed_modes and ms not in modes2:
+                    modes2.append(ms)
+        if not modes2:
+            modes2 = list(DEFAULT_SETTINGS["agent_manager"]["autonomy_orchestrator"]["modes"])
+        normalized["agent_manager"]["autonomy_orchestrator"]["modes"] = modes2
+
+        def _ival(key: str, lo: int, hi: int, default: int) -> int:
+            try:
+                v = int(orch.get(key, default))
+            except (TypeError, ValueError):
+                v = default
+            return max(lo, min(hi, v))
+
+        normalized["agent_manager"]["autonomy_orchestrator"]["min_interval_s"] = _ival("min_interval_s", 10, 600, 30)
+        normalized["agent_manager"]["autonomy_orchestrator"]["cms_compact_every_s"] = _ival("cms_compact_every_s", 10, 86400, 600)
+        normalized["agent_manager"]["autonomy_orchestrator"]["hope_eval_every_s"] = _ival("hope_eval_every_s", 10, 86400, 1800)
+        normalized["agent_manager"]["autonomy_orchestrator"]["facts_eval_every_s"] = _ival("facts_eval_every_s", 10, 86400, 3600)
+        normalized["agent_manager"]["autonomy_orchestrator"]["wavecore_every_s"] = _ival("wavecore_every_s", 10, 86400, 1800)
+        normalized["agent_manager"]["autonomy_orchestrator"]["tool_router_every_s"] = _ival("tool_router_every_s", 10, 86400, 3600)
+
+        normalized["agent_manager"]["autonomy_orchestrator"]["wavecore_steps_fast"] = _ival("wavecore_steps_fast", 10, 1000, 60)
+        normalized["agent_manager"]["autonomy_orchestrator"]["wavecore_steps_mid"] = _ival("wavecore_steps_mid", 10, 2000, 120)
+        normalized["agent_manager"]["autonomy_orchestrator"]["wavecore_steps_slow"] = _ival("wavecore_steps_slow", 10, 3000, 180)
+        normalized["agent_manager"]["autonomy_orchestrator"]["tool_router_steps"] = _ival("tool_router_steps", 50, 5000, 200)
         
         normalized["agent_manager"]["enable_status_updates"] = bool(
             agent_mgr.get("enable_status_updates", DEFAULT_SETTINGS["agent_manager"]["enable_status_updates"])

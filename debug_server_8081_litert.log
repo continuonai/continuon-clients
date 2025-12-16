@@ -1,0 +1,231 @@
+WARNING:BrainServer:Port 8081 in use; bound to 8082 instead
+INFO:continuonbrain.resource_monitor:No resource limits config found at /tmp/continuonbrain_demo/config/resource_limits.json, using defaults
+INFO:continuonbrain.resource_monitor:Resource Monitor initialized: System reserve 2000MB, Brain max 2000MB
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> emergency: EMERGENCY: Memory at 96.3% - only 298MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for emergency
+INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'emergency', 'memory_percent': 96.3, 'available_mb': 298, 'swap_percent': 100.0, 'checkpoints_mb': 0.0, 'can_allocate': False, 'message': 'EMERGENCY: Memory at 96.3% - only 298MB available', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+INFO:continuonbrain.services.brain_service:📚 Experience logger initialized for active learning
+INFO:continuonbrain.services.brain_service:💬 Conversation session management initialized
+INFO:continuonbrain.services.brain_service:🤖 Personality initialized: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, verbosity_level=0.5, system_name='robot', identity_mode='Adaptive')
+WARNING:continuonbrain.services.chat.litert_chat:mediapipe-genai missing. Using MOCK LiteRT mode for verification.
+INFO:continuonbrain.gemma_chat:Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)
+INFO:continuonbrain.services.brain_service:Loaded agent settings: {'agent_model': 'hope-v1', 'enable_thinking_indicator': True, 'enable_intervention_prompts': True, 'intervention_confidence_threshold': 0.5, 'enable_status_updates': True, 'enable_autonomous_learning': True, 'autonomous_learning_steps_per_cycle': 100, 'autonomous_learning_checkpoint_interval': 1000, 'chat_learn': {'enabled': False, 'interval_s': 600, 'turns_per_cycle': 10, 'model_hint': 'google/gemma-3n-2b', 'delegate_model_hint': '', 'topic': 'coding this repository (ContinuonXR/continuonbrain/continuonai)', 'modes': ['idle']}, 'autonomy_orchestrator': {'enabled': False, 'modes': ['autonomous'], 'min_interval_s': 30, 'cms_compact_every_s': 600, 'hope_eval_every_s': 1800, 'facts_eval_every_s': 3600, 'wavecore_every_s': 1800, 'tool_router_every_s': 3600, 'min_memory_headroom_mb': 512, 'wavecore_steps_fast': 60, 'wavecore_steps_mid': 120, 'wavecore_steps_slow': 180, 'tool_router_steps': 200}}
+WARNING:continuonbrain.services.chat.litert_chat:mediapipe-genai missing. Using MOCK LiteRT mode for verification.
+INFO:continuonbrain.gemma_chat:Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)
+INFO:continuonbrain.services.chat.litert_chat:Loading LiteRT model via MediaPipe GenAI: /home/craigm26/.cache/huggingface/hub/models--google--gemma-3n-E2B-it-litert-lm/snapshots/c03b6f60b8da6c5400b6838a2cf26420f80c0a01/gemma-3n-E2B-it-int4.litertlm
+WARNING:continuonbrain.services.chat.litert_chat:Mocking LiteRT load (GenAI runtime missing).
+INFO:continuonbrain.resource_monitor:EMERGENCY: Memory at 96.3% - only 296MB available
+INFO:continuonbrain.resource_monitor:EMERGENCY: Memory at 96.3% - only 296MB available
+WARNING:continuonbrain.services.brain_service:Memory constrained: 296MB available, need 2000MB + reserve
+DEBUG_CMS_INIT: d_s=128, d_e=128, d_k=32, d_c=128, num_levels=3, cms_dims=[64, 128, 256]
+INFO:continuonbrain.resource_monitor:Registered cleanup callback for critical threshold
+INFO:BrainServer:Background learner not active; learning endpoints will report disabled
+INFO:continuonbrain.services.brain_service:Switching chat model to: hope-v1
+ERROR:continuonbrain.services.brain_service:Failed to switch model to hope-v1: 'function' object has no attribute 'DEFAULT_MODEL_ID'
+INFO:continuonbrain.gemma_chat:Using mock Gemma chat. Error: None
+Opening in existing browser session.
+Warning: adafruit-servokit not installed (mock mode)
+DEBUG: CMS MODULE LOADED FROM /home/craigm26/Downloads/ContinuonXR/continuonbrain/hope_impl/cms.py
+DEBUG: Loading ui_routes.py with Jinja2 templates
+Starting ContinuonBrain Server on port 8082...
+Scanning for hardware devices...
+
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
+✅ Found: Desktop Monitor
+
+============================================================
+AGENT SELF-ACTIVATION REPORT
+============================================================
+
+SHELL TYPE: Physical Robot (ARM)
+   OS: Linux (aarch64)
+   Hostname: robot
+
+
+BRAIN & MEMORY:
+   I possess 0 local memories (episodes).
+   I am operating on basic logic; no trained models found.
+
+BODY & HARDWARE:
+   I see the world through: OAK Camera.
+   I have no actuators detected.
+   I think fast with: Hailo AI HAT+.
+   My PCA9685 wiring for movement is configured:
+     - Steering: Channel 0
+     - Acceleration: Channel 1
+
+DESIGN & PURPOSE:
+   My core directives contain 0 safety rules and 0 instructions.
+
+ready_status: [INGESTION: OK] [PROCESSING: OK] [TASK_CREATION: WAITING]
+Status: Awaiting owner instructions in AUTONOMY mode.
+
+============================================================
+
+Agent Manager Settings:
+  Thinking Indicator: True
+  Intervention Prompts: True
+  Confidence Threshold: 0.5
+  Status Updates: True
+  Autonomous Learning: True
+Initializing Brain Service (REAL HARDWARE MODE)...
+Auto-detecting hardware...
+Scanning for hardware devices...
+
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
+✅ Found: Desktop Monitor
+
+============================================================
+Hardware Detection Summary
+============================================================
+Total devices found: 4
+
+Ai Accelerator:
+  • Hailo AI HAT+ (pcie)
+    Capabilities: ai, inference, neural_network, hailo8
+
+Depth Camera:
+  • OAK Camera (usb3: bus_002_dev_002)
+    Capabilities: rgb, depth, stereo, ai
+
+Display:
+  • Desktop Monitor (hdmi/dp)
+    Capabilities: visual_output
+
+Human Interface:
+  • Keyboard (usb/bt)
+    Capabilities: text_input
+
+============================================================
+
+🚀 Re-initializing Chat Agent with Accelerator: Hailo AI HAT+
+Loading Gemma Chat Model...
+Initializing episode recorder...
+Initializing hardware via ContinuonBrain...
+Auto-detecting hardware...
+Scanning for hardware devices...
+
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
+✅ Found: Desktop Monitor
+
+Using detected OAK Camera
+  No OAK devices found (DepthAI reported zero devices)
+  Camera initialization failed (continuing without camera)
+MOCK: Initializing PCA9685 at 0x40
+Arm controller initialized
+  Using mock microphone capture
+Microphone capture initialized
+Episode recorder ready
+Initializing drivetrain controller...
+MOCK: Initializing drivetrain controller (PCA9685 mock) with steering=servo[0], throttle=continuous_servo[1]
+Drivetrain ready (MOCK MODE)
+Initializing mode manager...
+Activating AUTONOMOUS mode (motion + inference + training enabled)
+============================================================
+ Mode Change: idle -> autonomous
+============================================================
+Time: 2025-12-15 12:23:58
+Motion: Enabled
+Recording: ON
+Inference: ON
+Self-Training: OFF
+
+Mode Configuration:
+  control_source: vla_policy
+  startup_time: 2025-12-15 12:23:58
+  auto_activated: True
+  self_training_enabled: True
+============================================================
+
+Mode manager ready
+Initializing HOPE brain...
+  Available memory: 296MB
+  Using Pi5-optimized config (low memory mode)
+    Forcing Pi5-optimized config due to memory constraints
+    Registered with web monitoring
+    HOPE brain ready (1,386,003 parameters, 5.3MB)
+============================================================
+Brain Service Ready
+============================================================
+ Server listening on http://0.0.0.0:8082
+DEBUG: do_GET called for path: /ui
+DEBUG: get_home_html called. TEMPLATE_DIR=/home/craigm26/Downloads/ContinuonXR/continuonbrain/server/templates
+DEBUG: Rendered content length: 31550
+DEBUG: Content snippet: <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" conten
+DEBUG: do_GET called for path: /api/camera/stream
+DEBUG: do_GET called for path: /static/ui.css
+DEBUG: do_GET called for path: /static/client.js
+DEBUG: do_GET called for path: /static/mobile-shell.js
+DEBUG: do_GET called for path: /static/chat-overlay.js
+DEBUG: do_GET called for path: /api/system/events?limit=40
+DEBUG: do_GET called for path: /api/training/data_quality?limit=40&step_cap=2500
+DEBUG: do_GET called for path: /api/training/eval_summary?limit=6
+DEBUG: do_GET called for path: /api/skills?include_ineligible=false
+DEBUG: do_GET called for path: /api/training/cloud_readiness
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/training/architecture_status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/training/metrics?limit=140
+DEBUG: do_GET called for path: /api/training/tool_dataset_summary?limit=2000
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/tasks?include_ineligible=false
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/mobile/summary
+DEBUG: do_GET called for path: /static/manifest.webmanifest
+DEBUG: do_GET called for path: /favicon.ico
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /static/icons/brain-icon.svg
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/mobile/summary
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/training/eval_summary?limit=6
+DEBUG: do_GET called for path: /api/tasks?include_ineligible=false
+DEBUG: do_GET called for path: /api/training/data_quality?limit=40&step_cap=2500
+DEBUG: do_GET called for path: /api/training/tool_dataset_summary?limit=2000
+DEBUG: do_GET called for path: /api/training/metrics?limit=140
+DEBUG: do_GET called for path: /api/skills?include_ineligible=false
+DEBUG: do_GET called for path: /api/training/cloud_readiness
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/system/events?limit=40
+DEBUG: do_GET called for path: /api/training/architecture_status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/mobile/summary
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/training/metrics?limit=140
+DEBUG: do_GET called for path: /api/tasks?include_ineligible=false
+DEBUG: do_GET called for path: /api/training/tool_dataset_summary?limit=2000
+DEBUG: do_GET called for path: /api/training/eval_summary?limit=6
+DEBUG: do_GET called for path: /api/training/data_quality?limit=40&step_cap=2500
+DEBUG: do_GET called for path: /api/skills?include_ineligible=false
+DEBUG: do_GET called for path: /api/training/cloud_readiness
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/training/architecture_status
+DEBUG: do_GET called for path: /api/system/events?limit=40
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/mobile/summary
+DEBUG: do_GET called for path: /api/status
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/training/status
+DEBUG: do_GET called for path: /api/training/metrics?limit=140
+DEBUG: do_GET called for path: /api/training/eval_summary?limit=6
+DEBUG: do_GET called for path: /api/tasks?include_ineligible=false
+DEBUG: do_GET called for path: /api/training/tool_dataset_summary?limit=2000
+DEBUG: do_GET called for path: /api/training/data_quality?limit=40&step_cap=2500
+DEBUG: do_GET called for path: /api/skills?include_ineligible=false

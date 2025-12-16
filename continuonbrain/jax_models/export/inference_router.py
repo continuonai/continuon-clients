@@ -105,11 +105,21 @@ class InferenceRouter:
             vdevice = hailo.VDevice()
             infer_model = vdevice.create_infer_model(str(hailo_path))
             input_meta = [
-                {"name": inp.name, "shape": inp.shape, "format": getattr(inp.format, "order", None)}
+                {
+                    "name": inp.name,
+                    "shape": inp.shape,
+                    "format_order": getattr(inp.format, "order", None),
+                    "format_type": getattr(inp.format, "type", None),
+                }
                 for inp in getattr(infer_model, "inputs", [])
             ]
             output_meta = [
-                {"name": out.name, "shape": out.shape, "format": getattr(out.format, "order", None)}
+                {
+                    "name": out.name,
+                    "shape": out.shape,
+                    "format_order": getattr(out.format, "order", None),
+                    "format_type": getattr(out.format, "type", None),
+                }
                 for out in getattr(infer_model, "outputs", [])
             ]
             self.hailo_model.update(
@@ -212,7 +222,8 @@ class InferenceRouter:
         target_name = target_input["name"]
         target_shape = tuple(target_input["shape"])
 
-        obs_np = np.asarray(obs)
+        # Convert to a writeable, owned numpy array. DeviceArray views can be read-only.
+        obs_np = np.array(np.asarray(obs), copy=True, order="C")
         # If obs is batched, try to reshape last dimensions to match target_shape.
         if obs_np.size != np.prod(target_shape):
             # If batch dimension present, flatten batch and then reshape per-frame
@@ -229,26 +240,36 @@ class InferenceRouter:
         # Create bindings and populate buffers
         bindings = configured.create_bindings()
         input_stream = bindings.input(target_name)
-        input_buffer = np.ascontiguousarray(obs_np, dtype=np.float32)
+        # Choose dtype based on HEF-declared format when available (many CV HEFs are UINT8).
+        in_dtype = np.float32
+        fmt_type = target_input.get("format_type")
+        if fmt_type is not None and str(fmt_type).endswith("UINT8"):
+            in_dtype = np.uint8
+        elif obs_np.dtype == np.uint8:
+            in_dtype = np.uint8
+        input_buffer = np.array(obs_np, dtype=in_dtype, copy=True, order="C")
+        if not input_buffer.flags["WRITEABLE"]:
+            input_buffer = input_buffer.copy()
         input_stream.set_buffer(input_buffer)
 
         outputs: dict = {}
         for spec in output_specs:
             name = spec["name"]
             shape = tuple(spec["shape"])
-            out_buf = np.empty(shape, dtype=np.float32)
+            out_dtype = np.float32
+            fmt_type = spec.get("format_type")
+            if fmt_type is not None and str(fmt_type).endswith("UINT8"):
+                out_dtype = np.uint8
+            out_buf = np.empty(shape, dtype=out_dtype)
             bindings.output(name).set_buffer(out_buf)
             outputs[name] = out_buf
 
         # Run synchronously
         configured.run([bindings], timeout=5000)
 
-        # Collect outputs; use tf_format=None to avoid transformations
-        results = {}
-        for name, buf in outputs.items():
-            results[name] = bindings.output(name).get_buffer(tf_format=None)
-
-        return jnp.array(list(results.values()))
+        # Collect outputs from our allocated buffers to avoid returning SDK-managed views.
+        results = [np.array(buf, copy=True) for _, buf in outputs.items()]
+        return jnp.asarray(np.stack([r.reshape(-1) for r in results], axis=0))
     
     def _infer_jax(self, obs: jnp.ndarray, action: jnp.ndarray, reward: jnp.ndarray) -> jnp.ndarray:
         """Run inference on JAX backend (CPU/GPU/TPU)."""

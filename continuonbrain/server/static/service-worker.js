@@ -1,17 +1,29 @@
-const CACHE_NAME = 'continuonbrain-mobile-shell-v1';
+const CACHE_NAME = 'continuonbrain-mobile-shell-v4';
 const OFFLINE_ASSETS = [
   '/',
   '/ui',
+  '/research',
   '/static/ui.css',
   '/static/client.js',
   '/static/mobile-shell.js',
+  '/static/brain-viz.js',
+  '/static/vendor/three/three.module.js',
+  '/static/vendor/three/OrbitControls.js',
   '/static/manifest.webmanifest',
   '/static/icons/brain-icon.svg'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_ASSETS)).catch(() => Promise.resolve())
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        // First cache local assets (same-origin).
+        await cache.addAll(OFFLINE_ASSETS);
+      } catch (_) {
+        // ignore install cache failures; UI should still work online
+      }
+    })()
   );
   self.skipWaiting();
 });

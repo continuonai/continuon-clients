@@ -8,6 +8,7 @@ import '../theme/continuon_theme.dart';
 
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
+import 'pair_robot_screen.dart';
 import '../services/brain_client.dart';
 import '../services/scanner_service.dart';
 
@@ -62,6 +63,14 @@ class _RobotListScreenState extends State<RobotListScreen> {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
       Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+    }
+  }
+
+  Future<void> _openPairing() async {
+    await Navigator.pushNamed(context, PairRobotScreen.routeName);
+    if (mounted) {
+      // Best-effort refresh after pairing.
+      setState(() {});
     }
   }
 
@@ -192,6 +201,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
             icon: const Icon(Icons.vpn_key),
             tooltip: 'Set auth token',
             onPressed: _showAuthTokenDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Pair robot (QR)',
+            onPressed: _openPairing,
           ),
           IconButton(
             icon: const Icon(Icons.radar),

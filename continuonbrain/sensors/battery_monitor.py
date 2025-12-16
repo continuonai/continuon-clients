@@ -14,7 +14,8 @@ try:
     INA219_AVAILABLE = True
 except ImportError:
     INA219_AVAILABLE = False
-    logger.warning("ina219 library not available - install with: pip install pi-ina219")
+    # Don't log warning - this is optional hardware, not a critical error
+    # logger.warning("ina219 library not available - install with: pip install pi-ina219")
 
 
 @dataclass
@@ -86,7 +87,8 @@ class BatteryMonitor:
                 logger.error(f"Failed to initialize INA219: {e}")
                 self.ina = None
         else:
-            logger.warning("INA219 library not available")
+            # INA219 is optional hardware - don't log warning, just continue without it
+            pass
     
     def read_status(self) -> Optional[BatteryStatus]:
         """

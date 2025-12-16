@@ -94,7 +94,7 @@ class WavecoreTrainer:
                             questions_path=Path(payload.get("questions_path") or self.questions_path),
                             rlds_dir=Path(payload.get("eval_rlds_dir") or self.default_rlds_dir),
                             use_fallback=bool(payload.get("eval_use_fallback", True)),
-                            fallback_order=payload.get("eval_fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"],
+                            fallback_order=payload.get("eval_fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"],
                             episode_prefix="hope_eval",
                             model_label="hope-agent",
                         )
@@ -114,7 +114,7 @@ class WavecoreTrainer:
                             questions_path=Path(payload.get("facts_questions_path") or self.facts_questions_path),
                             rlds_dir=Path(payload.get("eval_rlds_dir") or self.default_rlds_dir),
                             use_fallback=bool(payload.get("facts_use_fallback", True)),
-                            fallback_order=payload.get("facts_fallback_order") or ["hailo", "google/gemma-370m", "google/gemma-3n-2b"],
+                            fallback_order=payload.get("facts_fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"],
                             episode_prefix="facts_eval",
                             model_label="facts-lite",
                         )

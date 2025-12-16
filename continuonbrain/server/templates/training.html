@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h2>Training Control Center</h2>
+        <div class="status-badge" id="training-status-badge">Unknown</div>
+    </div>
+    <div class="panel-content">
+        <div class="rail-actions">
+            <button class="rail-btn primary" onclick="startAutonomousTraining()">▶ Start Autonomous Training</button>
+            <button class="rail-btn" onclick="startManualTraining()">🛠 Start Manual Training Step</button>
+            <button class="rail-btn input-warn" onclick="testManualTraining()">🧪 Test Manual Training</button>
+            <button class="rail-btn" onclick="stopTraining()">⏹ Stop Training</button>
+        </div>
+        <div style="margin-top: 15px;">
+            <h3>WaveCore Loops</h3>
+            <div class="rail-actions">
+                <button class="rail-btn" onclick="runWaveCoreLoop('fast')">⚡ Run Fast Loop</button>
+                <button class="rail-btn" onclick="runWaveCoreLoop('mid')">🌊 Run Mid Loop</button>
+                <button class="rail-btn" onclick="runWaveCoreLoop('slow')">🐢 Run Slow Loop</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2>Real-time Metrics</h2>
+        <button class="rail-btn" onclick="refreshMetrics()">↻ Refresh</button>
+    </div>
+    <div class="panel-content">
+        <div class="status-grid" id="metrics-grid">
+            <div class="status-item">
+                <label>State</label>
+                <span id="trainer-state">--</span>
+            </div>
+            <div class="status-item">
+                <label>Steps</label>
+                <span id="metric-steps">--</span>
+            </div>
+            <div class="status-item">
+                <label>Avg Loss</label>
+                <span id="metric-loss">--</span>
+            </div>
+            <div class="status-item">
+                <label>Adapter Path</label>
+                <span id="adapter-path">--</span>
+            </div>
+        </div>
+        <div id="full-metrics-json"
+            style="margin-top: 20px; white-space: pre-wrap; font-family: monospace; background: #111; padding: 10px; border-radius: 4px; display: none;">
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div>
+            <h2>Seed Bundle</h2>
+            <div class="stack-meta">Offline-first export/install helpers for cloud or edge handoffs.</div>
+        </div>
+        <div class="status-badge" id="seed-readiness-chip">Checking…</div>
+    </div>
+    <div class="panel-content">
+        <div class="stack" id="seed-readiness-gates">
+            <div class="stack-item"><span class="stack-meta">Running readiness check…</span></div>
+        </div>
+        <div class="stack-meta" id="seed-readiness-meta"></div>
+
+        <div class="panel-subtitle" style="margin-top: 16px;">Export seed bundle</div>
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+            <label class="input-group"><input type="checkbox" id="cloud-export-episodes" checked> Episodes (RLDS)</label>
+            <label class="input-group"><input type="checkbox" id="cloud-export-seed" checked> Seed export</label>
+            <label class="input-group"><input type="checkbox" id="cloud-export-checkpoints" checked> Checkpoints</label>
+            <label class="input-group"><input type="checkbox" id="cloud-export-tfrecord"> TFRecord cache</label>
+            <label class="input-group" style="grid-column: span 2;">
+                Export name
+                <input id="seed-export-name" type="text" placeholder="cloud_handoff_2024-01-15.zip">
+            </label>
+            <label class="input-group" style="grid-column: span 2;">
+                Episode limit (optional)
+                <input id="cloud-export-episode-limit" type="number" min="1" placeholder="All recent episodes">
+            </label>
+        </div>
+        <div class="rail-actions" style="margin-top: 10px;">
+            <button class="rail-btn" onclick="buildSeedExportZip()">⬇ Build export zip</button>
+            <button class="rail-btn" onclick="listSeedExports()">↻ Refresh exports</button>
+        </div>
+        <div class="stack-meta" id="cloud-export-status"></div>
+        <div class="stack" id="cloud-export-list"></div>
+
+        <div class="panel-subtitle" style="margin-top: 18px;">Install bundle</div>
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;">
+            <label class="input-group">
+                Kind
+                <select id="cloud-install-kind">
+                    <option value="jax_seed_manifest">JAX seed manifest</option>
+                    <option value="edge_bundle">Edge bundle (edge_manifest.json)</option>
+                    <option value="vertex_edge">Vertex Edge (auto-detect)</option>
+                </select>
+            </label>
+            <label class="input-group">
+                Source URL
+                <input id="cloud-install-url" type="url" placeholder="https://.../bundle.zip" aria-describedby="cloud-install-url-help">
+                <span id="cloud-install-url-help" class="input-help">Requires readiness</span>
+            </label>
+            <label class="input-group">
+                Local path
+                <input id="cloud-install-path" type="text" placeholder="/opt/continuonos/brain/exports/my_bundle.zip">
+            </label>
+            <label class="input-group">
+                Path helper (pi5 defaults)
+                <select id="seed-path-helper" onchange="applySeedPathHelper(this.value)">
+                    <option value="">Select a helper…</option>
+                    <option value="candidate-manifest">Candidate seed manifest (core_model_seed)</option>
+                    <option value="default-manifest">Example manifest (pi5)</option>
+                    <option value="adapter-dir">Current adapter dir (pi5)</option>
+                </select>
+            </label>
+        </div>
+        <div class="rail-actions" style="margin-top: 10px;">
+            <button class="rail-btn primary" onclick="installSeedBundle()">⬆ Install bundle</button>
+            <button class="rail-btn" onclick="refreshSeedReadiness()">↻ Re-run readiness</button>
+        </div>
+        <div class="stack-meta" id="cloud-install-status"></div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2>Training Logs</h2>
+        <button class="rail-btn" onclick="refreshLogs()">↻ Refresh Logs</button>
+    </div>
+    <div class="panel-content">
+        <div style="display: flex; gap: 10px; align-items: stretch;">
+            <div id="training-log-list" style="width: 260px; max-width: 50%; background: #0a0a0a; color: #0f0; border-radius: 4px; padding: 8px; font-family: monospace; overflow-y: auto; max-height: 320px;">
+                Loading log list...
+            </div>
+            <pre id="training-logs"
+                style="flex: 1; height: 300px; overflow-y: auto; background: #000; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace;">Waiting for logs...</pre>
+        </div>
+    </div>
+</div>
+
+<script src="/static/training.js?v=test3"></script>
+{% endblock %}

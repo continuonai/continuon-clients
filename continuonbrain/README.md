@@ -2,6 +2,7 @@
 
 The Continuon Brain runtime and scaffolding now live together in this monorepo. Use this folder to ship production runtime assets alongside the existing **scaffolding and contracts** used by ContinuonXR:
 
+- **Training topology (v0.2):** See `docs/continuonbrain_training_topology.md` for the JAX-first, Google-aligned plan that starts with a Colab/TPU seed, seeds down to Pi 5 for HOPE loop embodiment, and scales back to Vertex TPU with OTA channels. RTX 3050 laptops are acceptable for the first tiny seed runs; Pi 5 **16GB** is the recommended drop-in upgrade for AI HAT+ deployments, with Jetson Orin Nano Super Dev Kit as an optional local consolidation companion.
 - `proto/continuonbrain_link.proto` (shared contract; mirror downstream).
 - `trainer/` offline Pi/Jetson adapter-training scaffold (bounded, RLDS-only, safety-gated) to align with ContinuonBrain/OS goals. Synthetic RLDS samples for dry-runs sit under `continuonbrain/rlds/episodes/`. Sample manifest in `continuonbrain/model/manifest.pi5.example.json` shows how Pi 5 + `flutter_gemma` can load base + LoRA without extra quantization.
 - Raspberry Pi 5 bring-up checklist (depth cam + PCA9685) lives in `continuonbrain/PI5_CAR_READINESS.md`.
@@ -188,6 +189,26 @@ python -m continuonbrain.scripts.record_owner_realdepth_episode \
 - Follow the signed bundle contract in `docs/bundle_manifest.md` when preparing edge bundles (CPU/Hailo artifacts + safety manifest).
 - OTA apply is gated in the ContinuonAI app by robot ownership + paid subscription; device verifies checksums/signature before swap.
 
+## Local pairing / ownership claim (QR, LAN-only)
+This runtime supports a **non-biometric**, offline-first ownership claim flow intended for local-network setup with the Continuon AI app (iPhone) or a phone browser.
+
+- **Robot UI path**: open `http://<robot-ip>:8080/ui`, expand **Agent Details → Pair phone**, click **Start pairing**.
+  - The UI shows a **6-digit confirm code** and a QR code.
+- **Phone path**: scan QR → open `GET /pair?token=...` → enter the confirm code → claim.
+- **Artifacts**: successful claim writes `/opt/continuonos/brain/ownership.json`.
+- **APIs**:
+  - `POST /api/ownership/pair/start`
+  - `GET /api/ownership/pair/qr` (PNG)
+  - `POST /api/ownership/pair/confirm`
+  - `GET /api/ownership/status` (includes both nested `ownership` and legacy flat keys)
+
+## Speech I/O (offline-first)
+- **TTS**: `POST /api/audio/tts` uses `espeak-ng`/`espeak` (install `espeak-ng` on Pi).
+- **Mic record**: `POST /api/audio/record` uses `sounddevice` or `arecord` (install `alsa-utils`); `GET /api/audio/devices` helps debug ALSA capture devices.
+
+## Multimodal chat (vision)
+- **Attach camera frame**: `POST /api/chat` supports `attach_camera_frame=true` to attach the latest `/api/camera/frame` JPEG to the Agent Manager (best-effort; structured metadata includes whether vision was requested/attached).
+
 Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
 
 ## Autostart on boot (systemd template)
@@ -197,10 +218,13 @@ Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `
 - Install and enable:
 
   ```bash
-  sudo cp continuonbrain/systemd/continuonbrain-startup.service /etc/systemd/system/
+  sudo mkdir -p /etc/continuonbrain
+  sudo cp continuonbrain/systemd/continuonbrain.env.example /etc/continuonbrain/continuonbrain.env
+  sudo nano /etc/continuonbrain/continuonbrain.env  # set CONTINUON_REPO/CONFIG_DIR/CONTINUON_PYTHON as needed
+
+  sudo cp continuonbrain/systemd/continuonbrain-startup.service /etc/systemd/system/continuonbrain-startup.service
   sudo systemctl daemon-reload
-  sudo systemctl enable continuonbrain-startup.service
-  sudo systemctl start continuonbrain-startup.service
+  sudo systemctl enable --now continuonbrain-startup.service
   ```
 
 - The unit runs `python -m continuonbrain.startup_manager` on boot, which performs health checks and launches the Robot API in real-hardware mode. Check logs with `sudo journalctl -u continuonbrain-startup.service -f`.

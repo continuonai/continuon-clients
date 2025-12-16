@@ -131,6 +131,13 @@ account.
 - After claim + initial install, remote control/OTA/Robot Editor access is allowed for the owner over TLS; enforce ownership + subscription on remote sessions.
 - Local LAN access remains available for the owner even if remote reachability is blocked; discovery/claim always requires local presence.
 
+### QR pairing (local, non-biometric)
+The robot runtime supports an offline-first **QR + 6-digit confirm code** pairing flow.
+
+- **Robot UI**: `http://<robot-ip>:8080/ui` → Agent Details → Pair phone → Start pairing (shows confirm code + QR).
+- **Continuon AI app**: open **Robots** → tap the QR icon (**Pair robot (QR)**) → scan the robot QR → enter the 6-digit code → pair.
+- **Endpoints**: `POST /api/ownership/pair/start`, `GET /api/ownership/pair/qr`, `POST /api/ownership/pair/confirm`, `GET /api/ownership/status`, plus `GET /pair?token=...` for browser/app webview fallback.
+
 ### UX states to surface
 - **Local claim required**: Robot visible on LAN, not owned; show “claim locally to proceed” and disable remote/OTA actions.
 - **Initial install pending**: Claim succeeded but seed bundle not applied; force local install flow.

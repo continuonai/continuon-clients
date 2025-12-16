@@ -46,6 +46,12 @@ class ManualTrainer:
         return await loop.run_in_executor(None, self._run_sync, request)
 
     def _run_sync(self, request: ManualTrainerRequest) -> Dict[str, Any]:
+        # Guard against missing JAX
+        try:
+            import jax
+        except ImportError:
+             return {"status": "error", "message": "JAX not installed. Manual training requires JAX."}
+
         env_backup = {k: os.environ.get(k) for k in ("CONTINUON_PREFER_JAX", "JAX_DISABLE_JIT")}
         try:
             os.environ["CONTINUON_PREFER_JAX"] = "1"

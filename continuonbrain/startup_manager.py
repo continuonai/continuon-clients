@@ -9,6 +9,7 @@ import json
 import subprocess
 import socket
 import platform
+import threading
 from pathlib import Path
 from typing import Optional
 from enum import Enum
@@ -37,29 +38,42 @@ class StartupManager:
     
     def __init__(
         self, 
-        config_dir: str = "/opt/continuonos/brain",
+        config_dir: Optional[str] = None,
         start_services: bool = True,
         robot_name: str = "ContinuonBot",
         headless: bool = False,
+        port: int = 8080,
     ):
-        self.config_dir = Path(config_dir)
+        self.config_dir = Path(config_dir or os.environ.get("CONTINUON_CONFIG_DIR", "/opt/continuonos/brain"))
         self.state_file = self.config_dir / ".startup_state"
         self.last_wake_time: Optional[int] = None
         self.start_services = start_services
         self.robot_name = robot_name
         env_headless = self._env_flag("CONTINUON_HEADLESS", default=self._default_headless())
         self.headless = headless or env_headless
-        self.service_port = 8080
+        self.service_port = port
+        self.processes: List[subprocess.Popen] = []
         # Background trainer defaults to off on Pi-class boards to keep boot fast and memory low.
         self.enable_background_trainer = self._env_flag(
             "CONTINUON_ENABLE_BACKGROUND_TRAINER",
             default=not self._default_headless(),
         )
+
+        # Optional "curiosity" learning: run small offline Wikipedia sessions at boot if corpus is present.
+        # Default is OFF unless a corpus path is explicitly configured.
+        self.enable_wiki_curiosity = self._env_flag(
+            "CONTINUON_ENABLE_WIKI_CURIOSITY",
+            default=bool(os.environ.get("CONTINUON_WIKI_JSONL")),
+        )
+        self.wiki_jsonl = os.environ.get("CONTINUON_WIKI_JSONL")
         
         # Services
         self.discovery_service: Optional[LANDiscoveryService] = None
         self.mode_manager: Optional[RobotModeManager] = None
         self.robot_api_process: Optional[subprocess.Popen] = None
+        self._robot_api_log_fh = None
+        self.wiki_curiosity_process: Optional[subprocess.Popen] = None
+        self._wiki_curiosity_log_fh = None
         self.system_instructions: Optional[SystemInstructions] = None
         self.event_logger = SystemEventLogger(config_dir=str(self.config_dir))
     
@@ -277,8 +291,10 @@ class StartupManager:
         print(f"🌐 Starting Robot API server on port {self.service_port}...")
         try:
             repo_root = Path(__file__).parent.parent
-            server_module = "continuonbrain.api.server"
-            server_path = repo_root / "continuonbrain" / "api" / "server.py"
+            # Prefer the lightweight robot API server (async, dependency-light) for boot.
+            # The Flask API server is heavier and pulls optional deps; keep boot reliable.
+            server_module = "continuonbrain.robot_api_server"
+            server_path = repo_root / "continuonbrain" / "robot_api_server.py"
             
             if server_path.exists():
                 # Start in background
@@ -295,25 +311,62 @@ class StartupManager:
                 # Force usage of venv python if available/detected relative to repo root
                 venv_python = repo_root / ".venv" / "bin" / "python3"
                 python_exec = str(venv_python) if venv_python.exists() else sys.executable
+                env["CONTINUON_PYTHON"] = python_exec
+
+                # Capture child process logs to a persistent file so boot failures are diagnosable.
+                log_dir = self.config_dir / "logs"
+                log_dir.mkdir(parents=True, exist_ok=True)
+                robot_log_path = log_dir / "robot_api_server.log"
+                self._robot_api_log_fh = robot_log_path.open("a", buffering=1)
+                self._robot_api_log_fh.write(f"\n=== robot_api_server start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
 
                 self.robot_api_process = subprocess.Popen(
-                    [
+                    ([
                         python_exec,
                         "-m",
                         server_module,
+                        "--host",
+                        "0.0.0.0",
                         "--port",
                         str(self.service_port),
                         "--config-dir",
                         self.config_dir,
-                        "--real-hardware",  # production path uses real controllers; fail fast if missing
-                    ],
+                    ]
+                    + (["--skip-motion-hw"] if self._env_flag("CONTINUON_SKIP_MOTION_HW", default=False) else [])
+                    # Hardware mode policy:
+                    # - DEFAULT: Real hardware mode on boot for production alignment.
+                    # - CONTINUON_FORCE_REAL_HARDWARE defaults to True (real hardware by default).
+                    # - Only use mock hardware if CONTINUON_FORCE_MOCK_HARDWARE is explicitly set.
+                    # - This ensures production systems always start with real hardware unless explicitly overridden.
+                    + (["--mock-hardware"] if self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False) else [])
+                    + (
+                        ["--real-hardware"]
+                        if (
+                            not self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False)
+                            and self._env_flag("CONTINUON_FORCE_REAL_HARDWARE", default=True)  # DEFAULT: True (real hardware)
+                        )
+                        else []
+                    )
+                    ),
                     env=env,
-                    # Inherit stdout/stderr to see logs in systemd
-                    # stdout=subprocess.PIPE,
-                    # stderr=subprocess.PIPE
+                    stdout=self._robot_api_log_fh,
+                    stderr=self._robot_api_log_fh,
                 )
                 print(f"   Robot API started (PID: {self.robot_api_process.pid})")
                 print(f"   Endpoint: http://localhost:{self.service_port}")
+
+                def _watch_child(proc: subprocess.Popen) -> None:
+                    code = proc.wait()
+                    try:
+                        if self._robot_api_log_fh:
+                            self._robot_api_log_fh.write(f"\n=== robot_api_server exited code={code} at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                            self._robot_api_log_fh.flush()
+                    except Exception:
+                        pass
+                    # If the API server dies, force a non-zero exit so systemd restarts the whole startup sequence.
+                    os._exit(1)  # noqa: WPS437
+
+                threading.Thread(target=_watch_child, args=(self.robot_api_process,), daemon=True).start()
                 
                 # Start Nested Learning Sidecar (optional for Pi5; disabled via env)
                 if self.enable_background_trainer:
@@ -321,7 +374,7 @@ class StartupManager:
                     trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
                     if trainer_path.exists():
                         self.trainer_process = subprocess.Popen(
-                            [sys.executable, "-m", "continuonbrain.run_trainer", "--trainer", "auto", "--mode", "local"],
+                            [python_exec, "-m", "continuonbrain.run_trainer", "--trainer", "auto", "--mode", "local"],
                             env=env,
                             stdout=subprocess.DEVNULL,  # Keep console clean
                             stderr=subprocess.DEVNULL
@@ -331,6 +384,38 @@ class StartupManager:
                         print(f"   ⚠️ Trainer script not found: {trainer_path}")
                 else:
                     print("🧠 Background trainer disabled (CONTINUON_ENABLE_BACKGROUND_TRAINER=0)")
+
+                # Optional wiki curiosity sidecar (offline-first; bounded; non-fatal)
+                if self.enable_wiki_curiosity and self.wiki_jsonl:
+                    try:
+                        logs_dir = self.config_dir / "logs"
+                        logs_dir.mkdir(parents=True, exist_ok=True)
+                        wiki_log_path = logs_dir / "wiki_curiosity.log"
+                        # Subprocess stdout/stderr writes bytes to file descriptors; use binary mode.
+                        self._wiki_curiosity_log_fh = wiki_log_path.open("ab")
+                        try:
+                            header = f"\n=== wiki_curiosity start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                            self._wiki_curiosity_log_fh.write(header.encode("utf-8", errors="replace"))
+                        except Exception:
+                            pass
+                        print("📚 Starting Wiki Curiosity (offline) sidecar...")
+                        self.wiki_curiosity_process = subprocess.Popen(
+                            [python_exec, "-m", "continuonbrain.eval.wiki_curiosity_boot", "--config-dir", str(self.config_dir)],
+                            env=env,
+                            stdout=self._wiki_curiosity_log_fh,
+                            stderr=self._wiki_curiosity_log_fh,
+                        )
+                        print(f"   Wiki curiosity started (PID: {self.wiki_curiosity_process.pid})")
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"   ⚠️ Wiki curiosity sidecar failed to start: {exc}")
+                        try:
+                            if self._wiki_curiosity_log_fh:
+                                self._wiki_curiosity_log_fh.close()
+                        except Exception:
+                            pass
+                        self._wiki_curiosity_log_fh = None
+                else:
+                    print("📚 Wiki curiosity disabled (set CONTINUON_WIKI_JSONL and CONTINUON_ENABLE_WIKI_CURIOSITY=1 to enable)")
 
             else:
                 print(f"   ⚠️  Robot API module not found: {server_path}")
@@ -397,13 +482,22 @@ class StartupManager:
                     
                     cmd = [
                         browser_cmd, 
+                        "--kiosk",
                         "--password-store=basic", 
                         "--no-default-browser-check",
                         "--no-first-run",
+                        "--noerrdialogs",
+                        "--disable-infobars",
+                        "--check-for-update-interval=31536000",
+                        "--simulated-keyring",
                         # "--user-data-dir=" + user_data_dir, # Optional: isolate session
                         url
                     ]
                     
+                    # Check for kiosk override from env
+                    if not self._env_flag("CONTINUON_BROWSER_KIOSK", default=True):
+                         cmd.remove("--kiosk")
+
                     subprocess.Popen(
                         cmd,
                         stdout=subprocess.DEVNULL, 
@@ -438,6 +532,11 @@ class StartupManager:
                 self.robot_api_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.robot_api_process.kill()
+        try:
+            if self._robot_api_log_fh:
+                self._robot_api_log_fh.close()
+        except Exception:
+            pass
         
         if hasattr(self, 'trainer_process') and self.trainer_process:
             self.trainer_process.terminate()
@@ -445,6 +544,25 @@ class StartupManager:
                 self.trainer_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.trainer_process.kill()
+
+        # Stop Wiki curiosity sidecar (if started)
+        if getattr(self, "wiki_curiosity_process", None):
+            try:
+                self.wiki_curiosity_process.terminate()
+                self.wiki_curiosity_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    self.wiki_curiosity_process.kill()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        try:
+            if getattr(self, "_wiki_curiosity_log_fh", None):
+                self._wiki_curiosity_log_fh.close()
+        except Exception:
+            pass
+        self._wiki_curiosity_log_fh = None
         
         print("✅ Services stopped.")
     
@@ -667,7 +785,7 @@ def main():
         "--max-sleep-training-hours",
         type=float,
         default=6.0,
-        help="Max hours to allow self-training during sleep (default: 6)",
+        help="Max duration for sleep training",
     )
     parser.add_argument(
         "--max-download-bytes",
@@ -676,12 +794,24 @@ def main():
         help="Download ceiling for model/assets during sleep training (default: 1GiB)",
     )
     
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Service port (default: 8080)"
+    )
+    
     args = parser.parse_args()
     
+    # If --config-dir passed, set expected env var so sub-processes see it
+    if args.config_dir:
+        os.environ["CONTINUON_CONFIG_DIR"] = args.config_dir
+
     manager = StartupManager(
         config_dir=args.config_dir,
         start_services=not args.no_services,
-        robot_name=args.robot_name
+        robot_name=args.robot_name,
+        port=args.port,
     )
     
     if args.prepare_sleep:

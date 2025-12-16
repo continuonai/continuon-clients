@@ -454,6 +454,13 @@ class RobotModeManager:
             "max_download_bytes": max_download_bytes,
             "bandwidth": limiter.snapshot(),
         }
+        # Attach latest trainer status/promote audit if present.
+        try:
+            status_path = Path("/opt/continuonos/brain/trainer/status.json")
+            if status_path.exists():
+                log_payload["trainer_status"] = json.loads(status_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
         self._write_watchdog_log(log_payload)
 
         if stop_reason:

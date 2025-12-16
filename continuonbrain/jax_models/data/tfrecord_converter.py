@@ -195,19 +195,23 @@ def convert_episode_to_tfrecord(
     )
     
     # Write TFRecord
-    open_fn = gzip.open if compress else open
-    mode = 'wb' if compress else 'w'
-    
-    with open_fn(output_path, mode) as f:
-        # TFRecordWriter expects a string path; Path objects trigger a TypeError on Windows.
-        writer = tf.io.TFRecordWriter(f.name if compress else str(output_path))
-        
+    # NOTE: Do not wrap the output file with gzip.open() when using TFRecordWriter.
+    # TFRecordWriter handles compression via TFRecordOptions; double-wrapping (or wrapping
+    # without writing through it) creates invalid files that can't be read with
+    # TFRecordDataset(compression_type="GZIP").
+    writer_kwargs = {}
+    if compress:
+        writer_kwargs["options"] = tf.io.TFRecordOptions(compression_type="GZIP")
+
+    # TFRecordWriter expects a string path; Path objects trigger a TypeError on Windows.
+    writer = tf.io.TFRecordWriter(str(output_path), **writer_kwargs)
+    try:
         for step_index, step in enumerate(steps):
             example = convert_step_to_tfrecord(step, episode_id, step_index)
             writer.write(example.SerializeToString())
             if step_index and step_index % 500 == 0:
                 print(f"  wrote {step_index}/{step_count} steps...", flush=True)
-        
+    finally:
         writer.close()
     
     print(f"  done {episode_path.name}: {step_count} steps", flush=True)

@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+VENV_PY3="$REPO_ROOT/.venv/bin/python3"
+VENV_PY="$REPO_ROOT/.venv/bin/python"
+
+if [[ -x "$VENV_PY3" ]]; then
+  PY="$VENV_PY3"
+elif [[ -x "$VENV_PY" ]]; then
+  PY="$VENV_PY"
+else
+  PY="${PYTHON:-python3}"
+fi
+
+export PYTHONPATH="${PYTHONPATH:-$REPO_ROOT}"
+
+usage() {
+  cat <<'EOF'
+Continuon Brain repo helper (uses .venv when present)
+
+Usage:
+  ./cb <command> [args...]
+
+Commands:
+  startup [--config-dir DIR] [extra args...]   Run startup manager (default DIR=/tmp/continuonbrain_demo)
+  health  [--config-dir DIR]                  Run quick system health check
+  train   [args...]                           Run training_manager (pass through args)
+  export  --episodes-dir DIR --output-dir DIR  Run RLDS export pipeline
+  test    [--detect-only]                     Run integration test module
+  python  [args...]                           Run python using selected interpreter
+
+Examples:
+  ./cb startup --config-dir /tmp/continuonbrain_demo --force-health-check
+  ./cb train --health --convert-tfrecord --train-local --export \
+    --episodes-dir continuonbrain/rlds/episodes \
+    --tfrecord-dir /tmp/continuonbrain_tfrecord \
+    --trainer-data-path /tmp/continuonbrain_tfrecord \
+    --export-dir /tmp/continuonbrain_export
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  help|-h|--help)
+    usage
+    ;;
+
+  python)
+    exec "$PY" "$@"
+    ;;
+
+  startup)
+    # Default config dir for local smoke runs.
+    CONFIG_DIR="/tmp/continuonbrain_demo"
+    if [[ "${1:-}" == "--config-dir" && -n "${2:-}" ]]; then
+      CONFIG_DIR="$2"
+      shift 2
+    fi
+    exec "$PY" -m continuonbrain.startup_manager --config-dir "$CONFIG_DIR" "$@"
+    ;;
+
+  health)
+    CONFIG_DIR="/tmp/continuonbrain_demo"
+    if [[ "${1:-}" == "--config-dir" && -n "${2:-}" ]]; then
+      CONFIG_DIR="$2"
+      shift 2
+    fi
+    exec "$PY" -m continuonbrain.system_health --quick --config-dir "$CONFIG_DIR" "$@"
+    ;;
+
+  train)
+    exec "$PY" -m continuonbrain.services.training_manager "$@"
+    ;;
+
+  export)
+    exec "$PY" -m continuonbrain.rlds.export_pipeline "$@"
+    ;;
+
+  test)
+    exec "$PY" -m continuonbrain.tests.integration_test "$@"
+    ;;
+
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage
+    exit 2
+    ;;
+esac

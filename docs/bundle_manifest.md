@@ -14,6 +14,17 @@ This note captures the required fields for the signed edge bundle manifest and t
 - `created_at_unix_ms`: creation time for audit/rollback.
 - `source`: producer identifier (e.g., `continuon.brain_runtime` or `continuon.cloud`).
 
+## Precision / quantization notes (non-normative)
+This repo currently uses **two related manifests**:
+- **OTA edge bundle manifest** (`edge_manifest.json`, this doc): integrity + artifact routing for deployments.
+- **On-device runtime manifest** (e.g., `continuonbrain/model/manifest.pi5.example.json`): how the local runtime loads base model + adapters.
+
+To stay backward-compatible, prefer **documenting quantization in the runtime manifest** (`runtime.quantization`) and keep the OTA manifest focused on signed artifacts + checksums.
+
+For Nested Learning / HOPE-style systems with **mutable fast state**, treat that state as:
+- **Local runtime state** (Memory Plane) rather than an OTA-delivered artifact, unless explicitly packaged and signed.
+- **Telemetry/RLDS metadata**: log precision/format and any fast-state resets/promotions in RLDS `step_metadata` for auditability.
+
 ## OTA checklist (subscription-gated)
 1. **Ownership + subscription**: Robot is registered in the ContinuonAI app and marked paid/active before OTA is offered.
 2. **Bundle integrity**: All artifacts are checksummed; manifest is signed. Reject OTA if signature or checksums fail.

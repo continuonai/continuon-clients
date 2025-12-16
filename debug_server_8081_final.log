@@ -1,0 +1,26 @@
+INFO:continuonbrain.resource_monitor:No resource limits config found at /tmp/continuonbrain_demo/config/resource_limits.json, using defaults
+INFO:continuonbrain.resource_monitor:Resource Monitor initialized: System reserve 2000MB, Brain max 2000MB
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> emergency: EMERGENCY: Memory at 94.3% - only 456MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for emergency
+INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'emergency', 'memory_percent': 94.3, 'available_mb': 456, 'swap_percent': 100.0, 'checkpoints_mb': 0.0, 'can_allocate': False, 'message': 'EMERGENCY: Memory at 94.3% - only 456MB available', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+INFO:continuonbrain.services.brain_service:📚 Experience logger initialized for active learning
+INFO:continuonbrain.services.brain_service:💬 Conversation session management initialized
+INFO:continuonbrain.services.brain_service:🤖 Personality initialized: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, verbosity_level=0.5, system_name='robot', identity_mode='Adaptive')
+WARNING:continuonbrain.services.chat.litert_chat:mediapipe-genai missing. Using MOCK LiteRT mode for verification.
+INFO:continuonbrain.gemma_chat:Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)
+INFO:continuonbrain.services.brain_service:Loaded agent settings: {'agent_model': 'hope-v1', 'enable_thinking_indicator': True, 'enable_intervention_prompts': True, 'intervention_confidence_threshold': 0.5, 'enable_status_updates': True, 'enable_autonomous_learning': True, 'autonomous_learning_steps_per_cycle': 100, 'autonomous_learning_checkpoint_interval': 1000, 'chat_learn': {'enabled': False, 'interval_s': 600, 'turns_per_cycle': 10, 'model_hint': 'google/gemma-3n-2b', 'delegate_model_hint': '', 'topic': 'coding this repository (ContinuonXR/continuonbrain/continuonai)', 'modes': ['idle']}, 'autonomy_orchestrator': {'enabled': False, 'modes': ['autonomous'], 'min_interval_s': 30, 'cms_compact_every_s': 600, 'hope_eval_every_s': 1800, 'facts_eval_every_s': 3600, 'wavecore_every_s': 1800, 'tool_router_every_s': 3600, 'min_memory_headroom_mb': 512, 'wavecore_steps_fast': 60, 'wavecore_steps_mid': 120, 'wavecore_steps_slow': 180, 'tool_router_steps': 200}}
+WARNING:continuonbrain.services.chat.litert_chat:mediapipe-genai missing. Using MOCK LiteRT mode for verification.
+INFO:continuonbrain.gemma_chat:Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)
+INFO:continuonbrain.services.chat.litert_chat:Loading LiteRT model via MediaPipe GenAI: /home/craigm26/.cache/huggingface/hub/models--google--gemma-3n-E2B-it-litert-lm/snapshots/c03b6f60b8da6c5400b6838a2cf26420f80c0a01/gemma-3n-E2B-it-int4.litertlm
+WARNING:continuonbrain.services.chat.litert_chat:Mocking LiteRT load (GenAI runtime missing).
+INFO:continuonbrain.resource_monitor:EMERGENCY: Memory at 94.6% - only 438MB available
+INFO:continuonbrain.resource_monitor:EMERGENCY: Memory at 94.6% - only 438MB available
+WARNING:continuonbrain.services.brain_service:Memory constrained: 438MB available, need 2000MB + reserve
+DEBUG_CMS_INIT: d_s=128, d_e=128, d_k=32, d_c=128, num_levels=3, cms_dims=[64, 128, 256]
+INFO:continuonbrain.resource_monitor:Registered cleanup callback for critical threshold
+INFO:BrainServer:Background learner not active; learning endpoints will report disabled
+INFO:continuonbrain.services.brain_service:Switching chat model to: hope-v1
+INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
+INFO:continuonbrain.gemma_chat:✅ Using HuggingFace snapshot: /home/craigm26/.cache/huggingface/hub/models--google--gemma-3n-E2B-it/snapshots/5e092ebca197cdcd8d8b195040accf22693501bc
+INFO:continuonbrain.gemma_chat:Attempting to load VLM: google/gemma-3n-E2B-it
+INFO:continuonbrain.gemma_chat:Loading processor from snapshot (local_files_only=True)

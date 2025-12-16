@@ -14,9 +14,32 @@
         /* Base layout specific styles */
         .workspace-grid {
             display: grid;
-            grid-template-columns: 320px 10px 1fr 10px 360px;
+            /* Left-to-right: Agent rail, Nav tabs, Page content */
+            grid-template-columns: minmax(360px, 42vw) 10px 320px 10px 1fr;
+            grid-template-areas: "agent agent-resizer nav nav-resizer content";
             height: calc(100vh - 48px);
             overflow: hidden;
+        }
+
+        /* Place existing columns into the new grid order without changing HTML structure. */
+        .right-column {
+            grid-area: agent;
+        }
+
+        .left-column {
+            grid-area: nav;
+        }
+
+        .center-column {
+            grid-area: content;
+        }
+
+        .col-resizer[data-resize="right"] {
+            grid-area: agent-resizer;
+        }
+
+        .col-resizer[data-resize="left"] {
+            grid-area: nav-resizer;
         }
 
         .column {
@@ -84,11 +107,7 @@
                 min-height: 300px;
             }
 
-            .right-column {
-                order: 3;
-                /* Ensure chat is at the bottom or accessible */
-                border-top: 1px solid #333;
-            }
+            /* Mobile uses flex column; DOM order already keeps rail accessible. */
         }
     </style>
 </head>
@@ -107,7 +126,8 @@
             <div class="mobile-action-row">
                 <button class="mobile-action-btn" id="mobile-refresh" type="button">Refresh status</button>
                 <button class="mobile-action-btn ghost" id="mobile-rail-toggle" type="button">Hide agent rail</button>
-                <span class="mobile-action-hint">Prefer the Continuon AI app? Point it at this robot to use the mobile summary endpoint.</span>
+                <span class="mobile-action-hint">Prefer the Continuon AI app? Point it at this robot to use the mobile
+                    summary endpoint.</span>
             </div>
         </div>
         <div class="workspace-grid" id="workspace-grid">
@@ -155,17 +175,22 @@
 
             <!-- RIGHT COLUMN: Agent Chat Manager (Persistent) -->
             <aside class="column right-column resizable" data-column="right">
-                <div class="panel">
+                <!-- LIVE INTERACTION: always visible on load -->
+                <div class="panel agent-live-panel">
                     <div class="panel-header">
                         <div>
                             <div class="panel-eyebrow">Continuon AI Agent Manager</div>
-                            <h2>Threads & Guidance</h2>
-                            <p class="panel-subtitle">Inline rail; no overlays for Flutter embed.</p>
+                            <h2>Chat & Planning</h2>
+                            <p class="panel-subtitle">Primary interaction surface (chat + planner).</p>
                             <div id="persona-badge" class="persona-badge">Persona: default</div>
                         </div>
-                        <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
-                            <span>Human mode</span>
-                            <strong id="human-toggle-state">Off</strong>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <button class="rail-btn" id="agent-details-toggle" onclick="toggleAgentDetails()"
+                                aria-expanded="false" type="button">Show details</button>
+                            <div class="human-toggle" id="human-toggle" onclick="toggleHumanMode()">
+                                <span>Human mode</span>
+                                <strong id="human-toggle-state">Off</strong>
+                            </div>
                         </div>
                     </div>
                     <div class="rail-actions">
@@ -173,41 +198,263 @@
                         <button class="rail-btn" onclick="pauseAgents()">⏸️ Pause agents</button>
                         <button class="rail-btn" onclick="reviewLearning()">📒 Review learning</button>
                     </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Active Agents</div>
-                        <div class="agent-thread-list" id="agent-thread-list"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Model Stack & Fallbacks</div>
-                        <div class="stack-list" id="model-stack-list"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Sub-agents & Tools</div>
-                        <div class="stack-list" id="toolchain-list"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Training & Memories</div>
-                        <div class="stack-list" id="training-memory-list"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Robot Mode Self-Learning</div>
-                        <div class="milestone-list" id="learning-milestones"></div>
-                    </div>
-                    <div class="panel-ghost">
-                        <div class="panel-eyebrow">Recent Learning Events</div>
-                        <div class="learning-list" id="learning-events"></div>
-                    </div>
+
                     <div class="panel-ghost">
                         <div class="panel-eyebrow">Agent Chat</div>
                         <div class="chat-rail">
                             <div class="chat-messages inline" id="chat-messages"></div>
+                            <div class="chat-structured-block" id="chat-structured-block" style="margin-top:12px;">
+                                <div class="panel-eyebrow">Structured (goals / probes / plan)</div>
+                                <pre id="chat-structured"
+                                    style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:260px; overflow:auto;">(no structured plan yet)</pre>
+                            </div>
                             <div class="chat-input-area inline">
+                                <select id="chat-agent-select" class="input-compact"
+                                    style="width:220px; margin-right:8px;">
+                                    <option value="hope-v1" selected>HOPE v1 (main)</option>
+                                    <option value="agent_manager">Agent Manager (LLM)</option>
+                                    <option value="consult:google/gemma-3n-2b">HOPE v1 + Gemma 3n (subagent)
+                                    </option>
+                                    <option value="consult:google/gemma-370m">HOPE v1 + Gemma 370m (subagent)
+                                    </option>
+                                    <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
+                                    <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
+                                </select>
+                                <label
+                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                    <input id="chat-attach-camera" type="checkbox">
+                                    Vision
+                                </label>
+                                <img id="chat-camera-thumb" alt="camera frame"
+                                    style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
+                                <button class="rail-btn" id="chat-mic" type="button" title="Push-to-talk">🎙️</button>
+                                <label
+                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
+                                    <input id="chat-speak-replies" type="checkbox">
+                                    Speak
+                                </label>
                                 <input type="text" class="chat-input" id="chat-input"
                                     placeholder="Ask about robot status, control tips..."
                                     aria-label="Chat message input"
                                     onkeypress="if(event.key==='Enter') sendChatMessage()">
                                 <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
+                                <button class="rail-btn" id="chat-learn" type="button" onclick="runChatLearn()"
+                                    title="Run an agent↔subagent learning loop (writes RLDS only if enabled)">Learn</button>
                             </div>
+                            <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                                <input id="chat-learn-topic" class="input-compact" type="text"
+                                    placeholder="Learning topic (optional)" style="flex:1; min-width:220px;">
+                                <span class="stack-meta" style="font-size:12px;">Tip: enable RLDS logging with <code>CONTINUON_LOG_CHAT_RLDS=1</code></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Planner</div>
+                        <div class="stack-list" id="planning-panel">
+                            <div class="panel-subtitle">Goal in normalized joint space ([-1, 1])</div>
+                            <div class="metric-row">
+                                <div class="metric-label">J0</div>
+                                <div class="metric-value"><input id="plan-goal-j0" class="input-compact" type="number"
+                                        step="0.05" value="0.2" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J1</div>
+                                <div class="metric-value"><input id="plan-goal-j1" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J2</div>
+                                <div class="metric-value"><input id="plan-goal-j2" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J3</div>
+                                <div class="metric-value"><input id="plan-goal-j3" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J4</div>
+                                <div class="metric-value"><input id="plan-goal-j4" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">J5</div>
+                                <div class="metric-value"><input id="plan-goal-j5" class="input-compact" type="number"
+                                        step="0.05" value="0.0" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Auto-exec step 0</div>
+                                <div class="metric-value"><input id="plan-execute" type="checkbox"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Motion gate</div>
+                                <div class="metric-value">
+                                    <span class="status-chip info" id="plan-motion-gate">--</span>
+                                </div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label"> </div>
+                                <div class="metric-value">
+                                    <button class="rail-btn primary" onclick="window.runArmPlanner()">Plan</button>
+                                    <button class="rail-btn" onclick="window.executeNextPlanStep()">Execute
+                                        next</button>
+                                    <button class="rail-btn" onclick="window.clearPlan()">Clear</button>
+                                </div>
+                            </div>
+                            <div class="panel-subtitle">Plan steps</div>
+                            <div id="plan-steps" class="stack-list"></div>
+                            <div class="metric-row" style="margin-top:10px;">
+                                <div class="metric-label">Show raw</div>
+                                <div class="metric-value"><input id="plan-show-raw" type="checkbox"></div>
+                            </div>
+                            <pre id="plan-output"
+                                style="display:none; white-space:pre-wrap; font-size:12px; color:#cfe9ff; background:#0b1220; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height:240px; overflow:auto;">(no plan yet)</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DETAILS: collapsed by default, but can be expanded -->
+                <div class="panel agent-details-panel" id="agent-details-panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">HOPE internals</div>
+                            <h2>Agent Details</h2>
+                            <p class="panel-subtitle">Threads, tools, training, and recent learning signals.</p>
+                        </div>
+                    </div>
+                    <div class="panel-content" id="agent-details-content">
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Active Agents</div>
+                            <div class="agent-thread-list" id="agent-thread-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Model Stack & Fallbacks</div>
+                            <div class="stack-list" id="model-stack-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Sub-agents & Tools</div>
+                            <div class="stack-list" id="toolchain-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Training & Memories</div>
+                            <div class="stack-list" id="training-memory-list"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Training Progress</div>
+                            <div class="panel-subtitle">Loss curves, eval signals, and capability coverage.</div>
+                            <div class="rail-actions" style="margin-top:10px;">
+                                <button class="rail-btn" type="button"
+                                    onclick="window.updateTrainingDashboard()">Refresh</button>
+                            </div>
+                            <div class="panel-subtitle" id="training-status" style="margin-top:8px;">—</div>
+                            <div class="stack-list" id="training-dashboard-list" style="margin-top:10px;"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Cloud training (TPU) handoff</div>
+                            <div class="panel-subtitle">Offline-first readiness + packaging + re-acquire
+                                (manual/opt-in).</div>
+                            <div class="rail-actions" style="margin-top:10px;">
+                                <button class="rail-btn primary" type="button"
+                                    onclick="window.refreshCloudReadiness()">Check readiness</button>
+                                <button class="rail-btn" type="button" onclick="window.listCloudExports()">List
+                                    exports</button>
+                            </div>
+                            <div class="stack-list" id="cloud-readiness-list" style="margin-top:10px;"></div>
+
+                            <div class="panel-subtitle" style="margin-top:14px;">Build export zip</div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include episodes</div>
+                                <div class="metric-value"><input id="cloud-export-episodes" type="checkbox" checked>
+                                </div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include TFRecords</div>
+                                <div class="metric-value"><input id="cloud-export-tfrecord" type="checkbox"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include seed export</div>
+                                <div class="metric-value"><input id="cloud-export-seed" type="checkbox" checked></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Include checkpoints</div>
+                                <div class="metric-value"><input id="cloud-export-checkpoints" type="checkbox" checked>
+                                </div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Episode limit (newest)</div>
+                                <div class="metric-value"><input id="cloud-export-episode-limit" class="input-compact"
+                                        type="number" step="1" min="0" placeholder="(all)" style="width:120px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label"> </div>
+                                <div class="metric-value">
+                                    <button class="rail-btn" type="button" onclick="window.buildCloudExportZip()">Build
+                                        zip</button>
+                                </div>
+                            </div>
+                            <div class="panel-subtitle" id="cloud-export-status" style="margin-top:6px;">—</div>
+
+                            <div class="panel-subtitle" style="margin-top:14px;">Re-acquire / install</div>
+                            <div class="metric-row">
+                                <div class="metric-label">Kind</div>
+                                <div class="metric-value">
+                                    <select id="cloud-install-kind" class="input-compact" style="width:220px;">
+                                        <option value="jax_seed_manifest">Install as JAX seed (candidate)</option>
+                                        <option value="edge_bundle">Stage OTA edge bundle</option>
+                                        <option value="vertex_edge">Vertex AI Edge (auto-detect zip type)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">Source URL</div>
+                                <div class="metric-value"><input id="cloud-install-url" class="input-compact"
+                                        type="text" placeholder="https://.../bundle.zip" style="width:260px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label">OR source path</div>
+                                <div class="metric-value"><input id="cloud-install-path" class="input-compact"
+                                        type="text" placeholder="/abs/path/to/bundle.zip" style="width:260px;"></div>
+                            </div>
+                            <div class="metric-row">
+                                <div class="metric-label"> </div>
+                                <div class="metric-value">
+                                    <button class="rail-btn" type="button"
+                                        onclick="window.installCloudBundle()">Install</button>
+                                </div>
+                            </div>
+                            <div class="panel-subtitle" id="cloud-install-status" style="margin-top:6px;">—</div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Robot Mode Self-Learning</div>
+                            <div class="milestone-list" id="learning-milestones"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Recent Learning Events</div>
+                            <div class="learning-list" id="learning-events"></div>
+                        </div>
+                        <div class="panel-ghost">
+                            <div class="panel-eyebrow">Pair phone (Continuon AI app / browser)</div>
+                            <div class="panel-subtitle">Scan QR on your iPhone (local network) and enter the 6‑digit
+                                confirm code shown here.</div>
+                            <div class="rail-actions" style="margin-top:10px;">
+                                <button class="rail-btn primary" type="button"
+                                    onclick="window.startPhonePairing()">Start pairing</button>
+                                <button class="rail-btn" type="button" onclick="window.refreshOwnershipStatus()">Refresh
+                                    status</button>
+                            </div>
+                            <div class="stack-list" id="pairing-status-list" style="margin-top:10px;"></div>
+                            <div class="metric-row" style="margin-top:10px;">
+                                <div class="metric-label">Confirm code</div>
+                                <div class="metric-value"><span class="status-chip info"
+                                        id="pairing-confirm-code">—</span></div>
+                            </div>
+                            <div class="panel-subtitle" style="margin-top:10px;">Scan this QR</div>
+                            <img id="pairing-qr" alt="pair QR"
+                                style="display:none; width:220px; height:220px; border-radius:16px; border:1px solid rgba(255,255,255,0.12); background:#fff;">
+                            <div class="panel-subtitle" style="margin-top:10px;">Or open URL</div>
+                            <pre id="pairing-url"
+                                style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);">(not started)</pre>
                         </div>
                     </div>
                 </div>
@@ -226,11 +473,14 @@
                 const leftHandle = document.querySelector('[data-resize="left"]');
                 const rightHandle = document.querySelector('[data-resize="right"]');
                 let leftWidth = 320;
-                let rightWidth = 360;
+                // Agent rail should be prominent on desktop so chat is visible immediately.
+                let rightWidth = Math.round(window.innerWidth * 0.42);
                 const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
                 const apply = () => {
-                    if (window.innerWidth > 768) {
-                        grid.style.gridTemplateColumns = `${leftWidth}px 10px 1fr 10px ${rightWidth}px`;
+                    if (window.innerWidth > 1024) {
+                        const agentWidth = clamp(rightWidth, 320, 980);
+                        const navWidth = clamp(leftWidth, 240, 520);
+                        grid.style.gridTemplateColumns = `${agentWidth}px 10px ${navWidth}px 10px 1fr`;
                     } else {
                         grid.style.gridTemplateColumns = '1fr';
                     }
@@ -249,9 +499,11 @@
                         function onMove(e) {
                             const delta = e.clientX - startX;
                             if (type === 'left') {
+                                // Nav column resizer (between nav and content)
                                 leftWidth = clamp(startLeft + delta, 240, 520);
                             } else {
-                                rightWidth = clamp(startRight - delta, 260, 520);
+                                // Agent rail resizer (between agent and nav)
+                                rightWidth = clamp(startRight + delta, 320, 980);
                             }
                             apply();
                         }
@@ -272,6 +524,27 @@
             if (window.hydrateChatOverlay) {
                 window.hydrateChatOverlay();
             }
+
+            // Agent details collapse/expand (default collapsed so chat is visible immediately)
+            const detailsKey = 'continuonbrain_agent_details_open';
+            const detailsPanel = document.getElementById('agent-details-panel');
+            const detailsToggle = document.getElementById('agent-details-toggle');
+            const setDetailsOpen = (open) => {
+                document.body.classList.toggle('agent-details-open', !!open);
+                if (detailsPanel) detailsPanel.style.display = open ? '' : 'none';
+                if (detailsToggle) {
+                    detailsToggle.textContent = open ? 'Hide details' : 'Show details';
+                    detailsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                }
+                try { localStorage.setItem(detailsKey, open ? '1' : '0'); } catch (e) { }
+            };
+            window.toggleAgentDetails = () => {
+                const open = document.body.classList.contains('agent-details-open');
+                setDetailsOpen(!open);
+            };
+            let initialOpen = false;
+            try { initialOpen = localStorage.getItem(detailsKey) === '1'; } catch (e) { initialOpen = false; }
+            setDetailsOpen(initialOpen);
         });
     </script>
 </body>

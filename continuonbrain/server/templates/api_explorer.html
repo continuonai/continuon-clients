@@ -1,24 +1,225 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="panel full-height">
+<div class="panel full-height" style="padding: 20px; overflow-y: auto;">
     <div class="panel-header">
-        <h2>API Explorer</h2>
+        <h2>API Explorer & Documentation</h2>
+        <p class="panel-subtitle">Complete API reference for ContinuonBrain robot control and training</p>
     </div>
-    <div class="panel-content">
-        <iframe src="/docs" style="width: 100%; height: 100%; border: none;"></iframe>
-        <!-- Fallback if /docs is not available or for custom explorer -->
-        <div id="api-endpoints-list">
-            <h3>Available Endpoints</h3>
-            <ul>
-                <li>GET /api/status</li>
-                <li>GET /api/loops</li>
-                <li>GET /api/tasks</li>
-                <li>GET /api/skills</li>
-                <li>POST /api/command</li>
-                <li>POST /api/chat</li>
+    
+    <div class="panel-content" style="max-width: 1200px; margin: 0 auto;">
+        <!-- Core Status & Control -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                Core Status & Control
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/status</h4>
+                <p>Get current robot status, mode, hardware state, and capabilities.</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>{
+  "status": "ok",
+  "mode": "autonomous",
+  "hardware_mode": "real",
+  "capabilities": {...},
+  "system_instructions": {...}
+}</code></pre>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/mode/&lt;mode&gt;</h4>
+                <p>Change robot operational mode (autonomous, idle, manual_control, manual_training).</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>POST /api/mode/autonomous
+Response: {"success": true, "mode": "autonomous"}</code></pre>
+            </div>
+        </section>
+        
+        <!-- Training & Learning -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                Training & Learning
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/training/architecture_status</h4>
+                <p>Get comprehensive training system status including background learner, chat learning, orchestrator, and HOPE brain state.</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>{
+  "background_learner": {
+    "running": true,
+    "total_steps": 3757,
+    "learning_updates": 376
+  },
+  "chat_learn": {
+    "enabled": true,
+    "interval_s": 300
+  },
+  "autonomy_orchestrator": {...}
+}</code></pre>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/training/chat_learn</h4>
+                <p>Trigger agent manager to subagent learning conversation. Generates RLDS episodes for continuous learning.</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>POST /api/training/chat_learn
+Body: {
+  "turns": 20,
+  "model_hint": "google/gemma-3n-2b",
+  "delegate_model_hint": "google/gemma-3n-2b",
+  "topic": "How HOPE can learn to be more helpful"
+}</code></pre>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/training/metrics</h4>
+                <p>Get training metrics for WaveCore loops and tool router.</p>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/training/wavecore_loops</h4>
+                <p>Run WaveCore fast/mid/slow training loops using JAX CoreModel.</p>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/training/tool_router_predict</h4>
+                <p>Symbolic search: Predict top-k tools for a given prompt (text → tool mapping).</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>POST /api/training/tool_router_predict
+Body: {"prompt": "search for information", "k": 5}
+Response: {
+  "predictions": [
+    {"tool": "search", "score": 0.85},
+    ...
+  ]
+}</code></pre>
+            </div>
+        </section>
+        
+        <!-- Agent Manager & Chat -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                Agent Manager & Chat
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/chat</h4>
+                <p>Chat with the Agent Manager (Gemma 3n). Supports multi-agent conversations with subagent delegation.</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>POST /api/chat
+Body: {
+  "message": "How can HOPE learn better?",
+  "delegate_model_hint": "google/gemma-3n-2b"
+}</code></pre>
+            </div>
+        </section>
+        
+        <!-- Motion & Control -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                Motion & Control
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/robot/drive</h4>
+                <p>Control drivetrain with safety checks. Requires manual_control or manual_training mode.</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>POST /api/robot/drive
+Body: {
+  "steering": 0.0,  // -1.0 to 1.0
+  "throttle": 0.0   // -1.0 to 1.0
+}</code></pre>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/arm/plan_search</h4>
+                <p>Symbolic search: Beam search planning for arm movements using Mamba world model.</p>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>POST /api/arm/plan_search
+Body: {
+  "joints": [0, 0, 0, 0, 0, 0],
+  "goal_joint_pos": [0.5, 0.3, 0.2, 0.1, 0.0, 0.0],
+  "horizon": 6,
+  "beam_width": 6,
+  "execute": false
+}</code></pre>
+            </div>
+        </section>
+        
+        <!-- HOPE Brain -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                HOPE Brain
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/hope/structure</h4>
+                <p>Get HOPE brain topology and state for visualization.</p>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/hope/compact</h4>
+                <p>Trigger CMS (Continuum Memory System) compaction to consolidate memories and flush episodic data.</p>
+            </div>
+        </section>
+        
+        <!-- Safety -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                Safety
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/safety/hold</h4>
+                <p>Trigger safety hold (emergency stop).</p>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>POST /api/safety/reset</h4>
+                <p>Reset safety gates after hold.</p>
+            </div>
+        </section>
+        
+        <!-- Tasks & Skills -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                Tasks & Skills
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/tasks</h4>
+                <p>Get task library with eligibility information.</p>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/skills</h4>
+                <p>Get skill library with eligibility information.</p>
+            </div>
+        </section>
+        
+        <!-- System Information -->
+        <section style="margin-bottom: 40px;">
+            <h3 style="color: var(--accent-color); border-bottom: 2px solid var(--accent-color); padding-bottom: 10px;">
+                System Information
+            </h3>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/settings</h4>
+                <p>Get current system settings.</p>
+            </div>
+            
+            <div class="api-endpoint" style="background: var(--card-bg); padding: 20px; margin: 15px 0; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4>GET /api/loops</h4>
+                <p>Get HOPE loop health metrics (fast/mid/slow).</p>
+            </div>
+        </section>
+        
+        <!-- Quick Reference -->
+        <section style="background: var(--accent-dim); padding: 20px; border-radius: 8px; margin-top: 40px;">
+            <h3 style="color: var(--accent-color);">Quick Reference</h3>
+            <ul style="line-height: 2;">
+                <li><strong>Base URL:</strong> http://localhost:8080</li>
+                <li><strong>All endpoints:</strong> Return JSON</li>
+                <li><strong>Safety:</strong> All motion commands are validated against safety protocol</li>
+                <li><strong>Modes:</strong> autonomous, idle, manual_control, manual_training</li>
+                <li><strong>Hardware:</strong> Defaults to real hardware mode on startup</li>
+                <li><strong>Learning:</strong> Continuous learning via background learner, chat learning, and orchestrator</li>
             </ul>
-        </div>
+        </section>
     </div>
 </div>
 {% endblock %}

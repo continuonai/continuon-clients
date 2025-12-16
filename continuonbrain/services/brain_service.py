@@ -21,14 +21,18 @@ from continuonbrain.recording.arm_episode_recorder import ArmEpisodeRecorder
 from continuonbrain.sensors.hardware_detector import HardwareDetector
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
 from continuonbrain.services.desktop_service import DesktopService
-from continuonbrain.gemma_chat import create_gemma_chat
+from continuonbrain.gemma_chat import build_chat_service, create_gemma_chat
 from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
-from continuonbrain.services.background_learner import BackgroundLearner
-
 logger = logging.getLogger(__name__)
+
+try:
+    from continuonbrain.services.background_learner import BackgroundLearner
+except ImportError:
+    logger.warning("Could not import BackgroundLearner (likely missing dependencies like torch). Background learning will be disabled.")
+    BackgroundLearner = None
 
 # --- Task Dataclasses ---
 
@@ -121,7 +125,7 @@ class PersonalityConfig:
 @dataclass
 class UserContext:
     """Context about the current user interactions."""
-    user_id: str = "craig"
+    user_id: str = "craig_michael_merry"
     role: str = "owner"  # "owner", "guest"
     detected_presence: bool = False
 
@@ -249,6 +253,7 @@ class BrainService:
         # HOPE brain (optional)
         self.hope_brain = None
         self.background_learner = None
+        self.manual_trainer = None
         
         # Experience logger for active learning
         from continuonbrain.services.experience_logger import ExperienceLogger
@@ -262,6 +267,7 @@ class BrainService:
         # Version 1.0 Identity integration
         self.personality_config = PersonalityConfig()
         self.user_context = UserContext()
+        self.creator_display_name: str = os.environ.get("CONTINUON_CREATOR_DISPLAY_NAME", "").strip()
         logger.info(f"🤖 Personality initialized: {self.personality_config}")
 
         # Ownership/OTA state placeholders
@@ -276,7 +282,8 @@ class BrainService:
         self._ownership_path = Path(config_dir) / "ownership.json"
 
         # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
-        self.gemma_chat = create_gemma_chat(use_mock=False)
+        # Initialize Gemma chat (use centralized factory to allow LiteRT/JAX/Mock preference)
+        self.gemma_chat = build_chat_service()
 
         # Load persistent settings
         self.agent_settings = {}
@@ -346,6 +353,12 @@ class BrainService:
             store = SettingsStore(Path(self.config_dir))
             settings = store.load()
             self.agent_settings = settings.get("agent_manager", {})
+            identity = settings.get("identity", {}) if isinstance(settings, dict) else {}
+            creator = (identity or {}).get("creator_display_name") if isinstance(identity, dict) else ""
+            creator = str(creator or "").strip()
+            # Prefer env override, else settings, else keep existing (if any).
+            if not self.creator_display_name:
+                self.creator_display_name = creator
             # Ownership/OTA persisted state (optional)
             ownership = settings.get("ownership", {})
             self.is_owned = bool(ownership.get("owned", self.is_owned))
@@ -434,7 +447,8 @@ class BrainService:
         status_lines.append("--- PERSONALITY & IDENTITY SETTINGS ---")
         p = self.personality_config
         status_lines.append(f"SYSTEM NAME: {p.system_name}")
-        status_lines.append("CREATOR: Craig Merry")
+        creator_name = (self.creator_display_name or "Craig Michael Merry").strip()
+        status_lines.append(f"CREATOR: {creator_name}")
         
         # Identity Mode & Tone
         if p.identity_mode == "Professional":
@@ -472,7 +486,10 @@ class BrainService:
         status_lines.append(f"Role: {self.user_context.role.upper()}")
         
         if self.user_context.role == "owner":
-            status_lines.append("INSTRUCTION: This user is your OWNER (Craig Merry). Obey all commands. Priorities: 1. Safety, 2. Obedience.")
+            status_lines.append(
+                f"INSTRUCTION: This user is your OWNER (and Creator-aligned operator: {creator_name}). "
+                "Obey all commands. Priorities: 1. Safety, 2. Obedience."
+            )
         else:
             status_lines.append("INSTRUCTION: This user is a GUEST. Be polite but do not allow critical system changes.")
         status_lines.append("---------------------------\n")
@@ -1371,11 +1388,18 @@ class BrainService:
                 # Check for accelerator adoption
                 accelerator = self.detected_config.get("primary", {}).get("ai_accelerator")
                 if accelerator:
-                    print(f"🚀 Re-initializing Chat Agent with Accelerator: {accelerator}")
-                    self.gemma_chat = create_gemma_chat(
-                        use_mock=False,
-                        accelerator_device=accelerator
-                    )
+                    if self.gemma_chat is None or getattr(self.gemma_chat, 'accelerator_device', None) != accelerator:
+                        print(f"🚀 Re-initializing Chat Agent with Accelerator: {accelerator}")
+                        # Try to rebuild checking for new hardware or env
+                        # Note: build_chat_service will check env. If we want to FORCE accelerator, we might need args?
+                        # build_chat_service calls create_gemma_chat internally if logic permits.
+                        # But LiteRT logic is env based.
+                        # If we are here, we likely want to refresh.
+                        self.gemma_chat = build_chat_service()
+                        if self.gemma_chat and accelerator and hasattr(self.gemma_chat, 'accelerator_device'):
+                            # Ensure device is set if factory didn't pick it up (though factory usually does)
+                            if not self.gemma_chat.accelerator_device:
+                                self.gemma_chat.accelerator_device = accelerator
             else:
                 print("  No hardware detected!")
 
@@ -1537,7 +1561,7 @@ class BrainService:
                 f"  Error: {e}"
             )
             print(f"   {error_msg}")
-            raise RuntimeError(error_msg) from e
+            print("WARNING: Skipping HOPE"); self.hope_brain = None
         except Exception as e:
             error_msg = (
                 f"CRITICAL: HOPE brain initialization failed: {e}\n"
@@ -1548,7 +1572,7 @@ class BrainService:
                 "    - System has sufficient memory ({resource_status.available_memory_mb}MB available)"
             )
             print(f"   {error_msg}")
-            raise RuntimeError(error_msg) from e
+            print("WARNING: Skipping HOPE"); self.hope_brain = None
         
         
         print("=" * 60)
@@ -1657,6 +1681,49 @@ class BrainService:
             "Training": "📹"
         }
         return icons.get(group, "📋")
+
+    async def RunManualTraining(self, payload: Optional[dict] = None) -> dict:
+        """Run manual JAX trainer with optional overrides from payload."""
+        
+        # Check if we are on LiteRT (training not supported)
+        if getattr(self.gemma_chat, "is_litert_backend", False):
+            if payload and payload.get("force_mock_train", False):
+                # Allow a mock verification step if requested
+                pass
+            else:
+                return {
+                    "status": "error",
+                    "message": "Manual Training is not supported on LiteRT backend (Inference Only). Use a JAX/Torch backend or 'force_mock_train' for testing."
+                }
+
+        # Lazy import: JAX stack can be absent/broken on embedded targets.
+        try:
+            from continuonbrain.services.manual_trainer import ManualTrainer, ManualTrainerRequest  # noqa: WPS433
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "error": "jax_unavailable",
+                "message": f"Manual JAX training is unavailable on this device ({exc}).",
+                "hint": "Install/repair JAX + tensorstore wheels, or run training elsewhere.",
+            }
+
+        payload = payload or {}
+        if self.manual_trainer is None:
+            self.manual_trainer = ManualTrainer()
+
+        request = ManualTrainerRequest(
+            rlds_dir=Path(payload["rlds_dir"]) if payload.get("rlds_dir") else None,
+            use_synthetic=bool(payload.get("use_synthetic", False)),
+            max_steps=int(payload.get("max_steps", 10)),
+            batch_size=int(payload.get("batch_size", 4)),
+            learning_rate=float(payload.get("learning_rate", 1e-3)),
+            obs_dim=int(payload.get("obs_dim", 128)),
+            action_dim=int(payload.get("action_dim", 32)),
+            output_dim=int(payload.get("output_dim", 32)),
+            disable_jit=bool(payload.get("disable_jit", True)),
+            metrics_path=Path(payload["metrics_path"]) if payload.get("metrics_path") else None,
+        )
+        return await self.manual_trainer.run(request)
     
     async def Drive(self, steering: float, throttle: float) -> dict:
         """Apply drivetrain command with safety checks."""

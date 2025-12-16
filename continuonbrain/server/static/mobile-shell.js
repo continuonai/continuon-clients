@@ -64,7 +64,18 @@
       renderStatus(data);
     } catch (err) {
       console.warn('Mobile summary fetch failed', err);
-      if (statusChip) statusChip.textContent = 'Unable to load status';
+      if (statusChip) {
+        const href = (window.location && window.location.href) ? window.location.href : '';
+        const host = (window.location && window.location.host) ? window.location.host : '';
+        const msg = err && err.message ? err.message : String(err || 'fetch failed');
+        const nameNotResolved = /ERR_NAME_NOT_RESOLVED/i.test(msg);
+        if (!host || nameNotResolved) {
+          statusChip.textContent = 'Disconnected · open via robot IP (http://<robot-ip>:8080/ui)';
+        } else {
+          statusChip.textContent = 'Unable to load status';
+        }
+        statusChip.title = href;
+      }
     } finally {
       if (refreshBtn) refreshBtn.disabled = false;
     }

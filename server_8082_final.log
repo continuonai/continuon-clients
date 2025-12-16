@@ -1,0 +1,7 @@
+[DEBUG] server_routes imported from: /home/craigm26/Downloads/ContinuonXR/continuonbrain/server/routes.py
+  Detected Hailo AI HAT+ (1 device(s)) - enabling offloading
+  CONTINUON_PREFER_JAX=1 and JAX detected -> Enforcing JAX chat init.
+JAX not available - install with: pip install jax jaxlib flax
+JAX or transformers not available - cannot create GemmaChatJAX
+HUGGINGFACE_TOKEN not set - gated models will not be accessible
+  [Startup] Pre-loading model checkpoints...

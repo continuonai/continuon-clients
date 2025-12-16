@@ -1,102 +1,44 @@
 Starting Server Manual Debug (Unbuffered)...
-DEBUG: CMS MODULE LOADED FROM /home/craigm26/ContinuonXR/continuonbrain/hope_impl/cms.py
-🧠 Starting ContinuonBrain Server on port 8080...
-🔍 Scanning for hardware devices...
+DEBUG: CMS MODULE LOADED FROM /home/craigm26/Downloads/ContinuonXR/continuonbrain/hope_impl/cms.py
+DEBUG: Loading ui_routes.py with Jinja2 templates
+WARNING:BrainServer:Port 8080 in use; bound to 8081 instead
+Starting ContinuonBrain Server on port 8081...
+Scanning for hardware devices...
 
-✅ Found: OAK-D Lite (USB 3.0)
-✅ Found: PCA9685 16-Channel PWM at I2C address 0x40
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
 ✅ Found: Desktop Monitor
 
 ============================================================
-🤖 AGENT SELF-ACTIVATION REPORT
+AGENT SELF-ACTIVATION REPORT
 ============================================================
 
-🏠 SHELL TYPE: Physical Robot (ARM)
+SHELL TYPE: Physical Robot (ARM)
    OS: Linux (aarch64)
    Hostname: robot
 
 
-🧠 BRAIN & MEMORY:
+BRAIN & MEMORY:
    I possess 0 local memories (episodes).
    I am operating on basic logic; no trained models found.
 
-🦾 BODY & HARDWARE:
-   I see the world through: OAK-D Lite.
-   I act upon the world using: PCA9685 16-Channel PWM.
+BODY & HARDWARE:
+   I see the world through: OAK Camera.
+   I have no actuators detected.
+   I think fast with: Hailo AI HAT+.
    My PCA9685 wiring for movement is configured:
      - Steering: Channel 0
      - Acceleration: Channel 1
 
-📜 DESIGN & PURPOSE:
+DESIGN & PURPOSE:
    My core directives contain 0 safety rules and 0 instructions.
-   My mission is: Below is a tight, high-resolution articulation of the mission you just described—clear enough to serve as a manifesto, a homepage headline, or an internal guiding north star for the Continuon AI ecosystem.
-
-⸻
-
-Continuon AI — Mission Statement (Refined)
-
-Continuon AI exists to build a robotic ecosystem whose sole purpose is to help people and strengthen humanity. Our north star is a world where robots aren’t isolated products, but contributors to a shared, unified intelligence that grows with collective experience.
-
-We are building a global robotic knowledge network—a Continuon Brain—that allows every robot, device, and agent to learn from the experiences of all others, while always prioritizing human values, human well-being, and human flourishing.
-
-Just as humanity’s progress has come from accumulating shared knowledge across generations, Continuon AI aims to create a collective intelligence for robotics: a distributed, evolving memory of skills, behaviors, and problem-solving patterns that any robot can access, regardless of form factor or environment.
-
-Continuon AI builds the infrastructure, operating system, and ethical foundations for this next era:
-robots that are safe, aligned, helpful, and continuously improving—never replacing humanity, but expanding what humanity is capable of.
-
-⸻
-
-Core Pillars
-
-1. Humanity-First Robotics
-
-Every system we build is governed by one principle: robots exist to help humans, not the other way around.
-Safety, alignment, and long-term societal benefit are not features—they are architectural constraints.
-
-2. A Unified Collective Robotic Intelligence
-
-Each robot contributes its experiences to a shared Continuon Brain.
-Each robot becomes better because all robots learn.
-This is a synthetic analogue to humanity’s long arc of collective learning.
-
-3. Always-On Learning Across the Ecosystem
-
-From household helpers to industrial systems to autonomous vehicles, everything feeds into a single evolving intelligence.
-This knowledge is distilled, generalized, and redistributed as new “skills” that any robot can instantly adopt.
-
-4. Embodied, Distributed Intelligence—Not Centralized AGI
-
-Continuon AI rejects the idea of a monolithic superintelligence.
-Instead, intelligence is embodied, local-first, and distributed, running safely on-device.
-The collective brain is emergent—never a single entity that could exert control.
-
-5. The Most Useful Knowledge Network Ever Built
-
-By capturing real-world sensorimotor experience—motion, perception, physics interactions, tasks—we create humanity’s first global “robotic memory layer.”
-This becomes a durable asset for civilization: a living library of how machines can assist humans across all domains.
-
-⸻
-
-Why This Matters
-
-Humanity’s progress has always been tied to the question:
-How well can we transfer what we’ve learned?
-
-Continuon AI extends that tradition into robotics.
-
-Your mission—articulated cleanly—is not to build robots.
-It is to build the ecosystem that makes robots smarter together.
-
-A shared intelligence
-For all robots
-In service of all humans.
 
 ready_status: [INGESTION: OK] [PROCESSING: OK] [TASK_CREATION: WAITING]
 Status: Awaiting owner instructions in AUTONOMY mode.
 
 ============================================================
 
-📋 Agent Manager Settings:
+Agent Manager Settings:
   Thinking Indicator: True
   Intervention Prompts: True
   Confidence Threshold: 0.5
@@ -104,16 +46,21 @@ Status: Awaiting owner instructions in AUTONOMY mode.
   Autonomous Learning: True
 INFO:continuonbrain.resource_monitor:No resource limits config found at /tmp/continuonbrain_demo/config/resource_limits.json, using defaults
 INFO:continuonbrain.resource_monitor:Resource Monitor initialized: System reserve 2000MB, Brain max 2000MB
-INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'normal', 'memory_percent': 50.9, 'available_mb': 3959, 'swap_percent': 23.9, 'checkpoints_mb': 0.0, 'can_allocate': True, 'message': 'Normal: 3959MB available (50.9% used)', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
+WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> emergency: EMERGENCY: Memory at 93.6% - only 520MB available
+INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for emergency
+INFO:continuonbrain.services.brain_service:📊 Resource Monitor initialized: {'level': 'emergency', 'memory_percent': 93.6, 'available_mb': 520, 'swap_percent': 100.0, 'checkpoints_mb': 0.0, 'can_allocate': False, 'message': 'EMERGENCY: Memory at 93.6% - only 520MB available', 'limits': {'system_reserve_mb': 2000, 'max_brain_mb': 2000}}
 INFO:continuonbrain.services.brain_service:📚 Experience logger initialized for active learning
 INFO:continuonbrain.services.brain_service:💬 Conversation session management initialized
-INFO:continuonbrain.services.brain_service:🤖 Personality initialized: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, identity_mode='TARS')
+INFO:continuonbrain.services.brain_service:🤖 Personality initialized: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, verbosity_level=0.5, system_name='robot', identity_mode='Adaptive')
+WARNING:continuonbrain.services.chat.litert_chat:mediapipe-genai missing. Using MOCK LiteRT mode for verification.
+INFO:continuonbrain.gemma_chat:Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)
+INFO:continuonbrain.services.brain_service:Loaded agent settings: {'agent_model': 'hope-v1', 'enable_thinking_indicator': True, 'enable_intervention_prompts': True, 'intervention_confidence_threshold': 0.5, 'enable_status_updates': True, 'enable_autonomous_learning': True, 'autonomous_learning_steps_per_cycle': 100, 'autonomous_learning_checkpoint_interval': 1000, 'chat_learn': {'enabled': False, 'interval_s': 600, 'turns_per_cycle': 10, 'model_hint': 'google/gemma-3n-2b', 'delegate_model_hint': '', 'topic': 'coding this repository (ContinuonXR/continuonbrain/continuonai)', 'modes': ['idle']}, 'autonomy_orchestrator': {'enabled': False, 'modes': ['autonomous'], 'min_interval_s': 30, 'cms_compact_every_s': 600, 'hope_eval_every_s': 1800, 'facts_eval_every_s': 3600, 'wavecore_every_s': 1800, 'tool_router_every_s': 3600, 'min_memory_headroom_mb': 512, 'wavecore_steps_fast': 60, 'wavecore_steps_mid': 120, 'wavecore_steps_slow': 180, 'tool_router_steps': 200}}
 Initializing Brain Service (REAL HARDWARE MODE)...
-🔍 Auto-detecting hardware...
-🔍 Scanning for hardware devices...
+Auto-detecting hardware...
+Scanning for hardware devices...
 
-✅ Found: OAK-D Lite (USB 3.0)
-✅ Found: PCA9685 16-Channel PWM at I2C address 0x40
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
 ✅ Found: Desktop Monitor
 
 ============================================================
@@ -121,8 +68,12 @@ Hardware Detection Summary
 ============================================================
 Total devices found: 4
 
+Ai Accelerator:
+  • Hailo AI HAT+ (pcie)
+    Capabilities: ai, inference, neural_network, hailo8
+
 Depth Camera:
-  • OAK-D Lite (usb3: bus_001_dev_005)
+  • OAK Camera (usb3: bus_002_dev_002)
     Capabilities: rgb, depth, stereo, ai
 
 Display:
@@ -133,47 +84,45 @@ Human Interface:
   • Keyboard (usb/bt)
     Capabilities: text_input
 
-Servo Controller:
-  • PCA9685 16-Channel PWM (i2c: 0x40)
-    Capabilities: pwm, servo, led
-
 ============================================================
 
-🤖 Loading Gemma Chat Model...
-INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-3n-E2B-it
-INFO:continuonbrain.gemma_chat:Attempting to load VLM: google/gemma-3n-E2B-it
-`torch_dtype` is deprecated! Use `dtype` instead!
-Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards:  33%|███▎      | 1/3 [00:00<00:01,  1.89it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00,  3.73it/s]Loading checkpoint shards: 100%|██████████| 3/3 [00:00<00:00,  3.39it/s]
-INFO:continuonbrain.gemma_chat:✅ Gemma 3N VLM loaded successfully!
-📼 Initializing episode recorder...
-🦾 Initializing hardware via ContinuonBrain...
-🔍 Auto-detecting hardware...
-🔍 Scanning for hardware devices...
+🚀 Re-initializing Chat Agent with Accelerator: Hailo AI HAT+
+WARNING:continuonbrain.services.chat.litert_chat:mediapipe-genai missing. Using MOCK LiteRT mode for verification.
+INFO:continuonbrain.gemma_chat:Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)
+Loading Gemma Chat Model...
+INFO:continuonbrain.services.chat.litert_chat:Loading LiteRT model via MediaPipe GenAI: /home/craigm26/.cache/huggingface/hub/models--google--gemma-3n-E2B-it-litert-lm/snapshots/c03b6f60b8da6c5400b6838a2cf26420f80c0a01/gemma-3n-E2B-it-int4.litertlm
+WARNING:continuonbrain.services.chat.litert_chat:Mocking LiteRT load (GenAI runtime missing).
+Initializing episode recorder...
+Initializing hardware via ContinuonBrain...
+Auto-detecting hardware...
+Scanning for hardware devices...
 
-✅ Found: OAK-D Lite (USB 3.0)
-✅ Found: PCA9685 16-Channel PWM at I2C address 0x40
+✅ Found: OAK Camera (USB 3.0)
+✅ Found: Hailo AI HAT+ (PCIe)
 ✅ Found: Desktop Monitor
 
-Using detected OAK-D Lite
-✅ Device connected: OAK-D-LITE
-OAK-D started: baseline=7.50cm
-✅ OAK-D camera initialized
-Using detected PCA9685 16-Channel PWM at 0x40
-Arm moved to default safe positions
-✅ PCA9685 initialized at 0x40
-✅ Arm controller initialized
-🎙️  Using mock microphone capture
-✅ Microphone capture initialized
-✅ Episode recorder ready
-🛞 Initializing drivetrain controller...
-✅ Drivetrain controller ready at 0x40 using steering=servo[0], throttle=continuous_servo[1]
-✅ Drivetrain ready (REAL MODE)
-🎮 Initializing mode manager...
-🤖 Activating AUTONOMOUS mode (motion + inference + training enabled)
+Using detected OAK Camera
+  No OAK devices found (DepthAI reported zero devices)
+  Camera initialization failed (continuing without camera)
+ERROR: Failed to initialize PCA9685: No I2C device at address: 0x40
+  Arm initialization failed (continuing without arm)
+  Using mock microphone capture
+Microphone capture initialized
+  Real hardware initialization incomplete
+  Continuing with available hardware (network access enabled)
+Using MOCK hardware mode
+  Using mock microphone capture
+Microphone capture initialized
+Episode recorder ready
+Initializing drivetrain controller...
+ERROR: Failed to initialize drivetrain controller at 0x40 (steering=servo[0], throttle=continuous_servo[1]): No I2C device at address: 0x40
+  Drivetrain controller unavailable
+Initializing mode manager...
+Activating AUTONOMOUS mode (motion + inference + training enabled)
 ============================================================
-🤖 Mode Change: idle → autonomous
+ Mode Change: idle -> autonomous
 ============================================================
-Time: 2025-12-08 11:28:47
+Time: 2025-12-15 12:19:30
 Motion: Enabled
 Recording: ON
 Inference: ON
@@ -181,119 +130,38 @@ Self-Training: OFF
 
 Mode Configuration:
   control_source: vla_policy
-  startup_time: 2025-12-08 11:28:47
+  startup_time: 2025-12-15 12:19:30
   auto_activated: True
   self_training_enabled: True
 ============================================================
 
-✅ Mode manager ready
-🧠 Initializing HOPE brain...
-  Available memory: 3466MB
-  Using development config (medium memory mode)
-WARNING:continuonbrain.services.brain_service:Memory constrained: 3466MB available, need 2000MB + reserve
-  ⚠️  Forcing Pi5-optimized config due to memory constraints
+Mode manager ready
+Initializing HOPE brain...
+INFO:continuonbrain.resource_monitor:EMERGENCY: Memory at 94.4% - only 453MB available
+  Available memory: 453MB
+  Using Pi5-optimized config (low memory mode)
+INFO:continuonbrain.resource_monitor:EMERGENCY: Memory at 94.4% - only 453MB available
+WARNING:continuonbrain.services.brain_service:Memory constrained: 453MB available, need 2000MB + reserve
+    Forcing Pi5-optimized config due to memory constraints
 DEBUG_CMS_INIT: d_s=128, d_e=128, d_k=32, d_c=128, num_levels=3, cms_dims=[64, 128, 256]
 INFO:continuonbrain.resource_monitor:Registered cleanup callback for critical threshold
-  ✓ Registered with web monitoring
-  ✓ HOPE brain ready (1,386,003 parameters, 5.3MB)
+    Registered with web monitoring
+    HOPE brain ready (1,386,003 parameters, 5.3MB)
 ============================================================
-✅ Brain Service Ready
+Brain Service Ready
 ============================================================
-🚀 Server listening on http://0.0.0.0:8080
-INFO:BrainServer:Model change detected: mock -> google/gemma-2b-it
-INFO:continuonbrain.services.brain_service:Switching chat model to: google/gemma-2b-it
-INFO:continuonbrain.services.brain_service:Unloading previous model: google/gemma-3n-E2B-it
-INFO:continuonbrain.services.brain_service:Successfully switched to model: google/gemma-2b-it
-INFO:continuonbrain.services.brain_service:Personality updated: PersonalityConfig(humor_level=0.5, sarcasm_level=0.5, empathy_level=0.5, identity_mode='TARS')
-INFO:continuonbrain.services.brain_service:HOPE confidence for 'what do you see from the camera?...': 0.10
-INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
-INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-INFO:continuonbrain.services.experience_logger:Loaded sentence-transformers model for semantic search
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  3.53it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  3.52it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 12.26it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 11.15it/s]
-INFO:continuonbrain.gemma_chat:Loading Gemma model: google/gemma-2b-it
-INFO:continuonbrain.gemma_chat:Accelerate available: 1.12.0
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 75.1% - 2011MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.5% - 1895MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.0% - 1692MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.7% - 1719MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.1% - 1926MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1870MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.4% - 1905MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.3% - 1989MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.4% - 1981MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.3% - 1988MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.6% - 1968MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.7% - 1959MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1909MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1914MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.9% - 1946MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.3% - 1991MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2022MB available (74.9% used)
-Loading checkpoint shards:  50%|█████     | 1/2 [00:57<00:57, 57.53s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:57<00:00, 28.77s/it]
-WARNING:accelerate.big_modeling:Some parameters are on the meta device because they were offloaded to the disk and cpu.
-INFO:continuonbrain.gemma_chat:Gemma model loaded (CausalLM mode)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 75.0% - 2015MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.9% - 1943MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.9% - 1943MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.4% - 1906MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.9% - 1863MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2024MB available (74.9% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 76.7% - 1880MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2100MB available (74.0% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 77.2% - 1841MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2054MB available (74.5% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 76.3% - 1911MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1910MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2196MB available (72.8% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.0% - 1773MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.3% - 1908MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.0% - 1692MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.5% - 1737MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.4% - 1742MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.1% - 1768MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1871MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1871MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.6% - 1807MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2104MB available (73.9% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 76.8% - 1870MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 76.8% - 1870MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2043MB available (74.7% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.2% - 1760MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.6% - 1725MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.2% - 2000MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.6% - 1807MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.6% - 1804MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2060MB available (74.5% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.1% - 1762MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.2% - 1835MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.8% - 1791MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.3% - 1831MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.4% - 1822MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2125MB available (73.6% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 77.3% - 1828MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.5% - 1736MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 75.7% - 1960MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.1% - 1763MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 77.9% - 1783MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2049MB available (74.6% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 78.2% - 1760MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.0% - 1773MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.1% - 1683MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 79.0% - 1693MB available
-INFO:continuonbrain.resource_monitor:WARNING: Memory at 78.1% - 1767MB available
-WARNING:continuonbrain.resource_monitor:Resource level changed: warning -> normal: Normal: 2334MB available (71.1% used)
-WARNING:continuonbrain.resource_monitor:Resource level changed: normal -> warning: WARNING: Memory at 75.3% - 1991MB available
-INFO:continuonbrain.resource_monitor:Triggering 0 cleanup callbacks for warning
+INFO:BrainServer:Background learner not active; learning endpoints will report disabled
+INFO:continuonbrain.services.brain_service:Switching chat model to: hope-v1
+ERROR:continuonbrain.services.brain_service:Failed to switch model to hope-v1: 'function' object has no attribute 'DEFAULT_MODEL_ID'
+INFO:continuonbrain.gemma_chat:Using mock Gemma chat. Error: None
+ Server listening on http://0.0.0.0:8081
+[?1049h[22;0;0t[1;24r(B[m[4l[?7h[?1h=[?1h=[39;49m[39;49m[37m[40m[H[2J[14d[39;49m(B[m[J[H[37m[40m[K[2d[K[3d[K[4d[K[5d[K[6d[K[7d[K[8d[K[9d[K[10d[K[11d[K[12d[K[13d[K[H[39;49m(B[m[93m[44mGetting http://localhost:8081/ui[39;49m(B[m[93m[44mLooking up localhost:8081[39;49m(B[m[93m[44mSending HTTP request.[39;49m(B[mDEBUG: do_GET called for path: /ui
+DEBUG: get_home_html called. TEMPLATE_DIR=/home/craigm26/Downloads/ContinuonXR/continuonbrain/server/templates
+DEBUG: Rendered content length: 31550
+DEBUG: Content snippet: <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" conten
+[1;49H[37m[40m[1K [35m[40mContinuonBrain New UI (p1 of 2)[2;4H[37m[40mContinuonBrain[3;4HConnected[4;4HLoading robot status…[5;4HHealth checks pending[6;4H(BUTTON) Refresh status (BUTTON) Hide agent rail Prefer the Continuon[7;4HAI app? Point it at this robot to use the mobile summary endpoint.[8;4H[35m[40m  * [32m[40mHome / Status[9;4H[35m[40m  * [32m[40mOperator & Safety[10;4H[35m[40m  * [32m[40mAutonomy Tasks[11;4H[35m[40m  * [32m[40mSkill Library[12;4H[35m[40m  * [32m[40mResearch & World Model[33m[40m class="nav-link ">API Explorer[13;4H[35m[40m  * [32m[40mTraining Dashboard[37m[40mSystem Info   Loading...Robot Status   Initializing...[6;28H[39;49m(B[m[93m[44m** Bad HTML!! Use -trace to diagnose. **[37m[40m[K[39;49m(B[m[1;79H[35m[40m7[6;29H[37m[40mBUTTON[28G[39;49m(B[m[37m[40m[K[39;49m(B[m[5G[93m[40mBUTTON[4G[39;49m(B[m[H[37m[40m[K[2d[K[3d[K[4d[K[5d[K[6d[K[7d[K[8d[K[9d[K[10d[K[11d[K[12d[K[13d[K[H[39;49m(B[m[1;50H[35m[40mContinuonBrain New UI (p1 of 7)[2;4H[37m[40mContinuonBrain[3;4HConnected[4;4HLoading robot status…[5;4HHealth checks pending[6;4H(BUTTON) Refresh status (BUTTON) Hide agent rail Prefer the Continuon[7;4HAI app? Point it at this robot to use the mobile summary endpoint.[8;4H[35m[40m  * [32m[40mHome / Status[9;4H[35m[40m  * [32m[40mOperator & Safety[10;4H[35m[40m  * [32m[40mAutonomy Tasks[11;4H[35m[40m  * [32m[40mSkill Library[12;4H[35m[40m  * [32m[40mResearch & World Model[33m[40m class="nav-link ">API Explorer[13;4H[35m[40m  * [32m[40mTraining Dashboard[37m[40mSystem Info   Loading...Robot Status   Initializing...[6;28H[39;49m(B[m[37m[40m[K[39;49m(B[m[5G[93m[40mBUTTON[4G[39;49m(B[m[37m[40m[K   [39;49m(B[m[24;1H[?1049l[23;0;0t[?1l>
