@@ -346,14 +346,17 @@ class SimpleJSONServer:
             if not requested_path.exists() or not requested_path.is_file():
                 return self._json_response({"status": "error", "message": "log file not found"}, status_code=404)
 
-            tail_lines = self._tail_file(requested_path, line_count)
-            payload = {
-                "status": "ok",
-                "path": str(requested_path),
-                "lines": line_count,
-                "content": "".join(tail_lines),
-            }
-            return self._json_response(payload)
+            try:
+                tail_lines = self._tail_file(requested_path, line_count)
+                payload = {
+                    "status": "ok",
+                    "path": str(requested_path),
+                    "lines": line_count,
+                    "content": "".join(tail_lines),
+                }
+                return self._json_response(payload)
+            except Exception as exc:
+                return self._json_response({"status": "error", "message": f"Failed to read log file: {exc}"}, status_code=500)
         elif path == "/api/training/run" and method == "POST":
             # Trigger a background training run (non-blocking). Service must implement RunTraining().
             try:
