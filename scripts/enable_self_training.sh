@@ -26,9 +26,14 @@ if [[ -z "${PY}" ]]; then
   exit 1
 fi
 
-DEFAULT_CONFIG_DIR="/opt/continuonos/brain"
+# Prefer a repo-local config dir for desktop/dev runs (keeps writes local, no sudo).
+DEFAULT_CONFIG_DIR="${REPO_ROOT}/brain_config"
 if [[ -d "${DEFAULT_CONFIG_DIR}" ]]; then
   CONFIG_DIR="${CONFIG_DIR:-${DEFAULT_CONFIG_DIR}}"
+elif [[ -d "/opt/continuonbrain/config" ]]; then
+  CONFIG_DIR="${CONFIG_DIR:-/opt/continuonbrain/config}"
+elif [[ -d "/opt/continuonos/brain" ]]; then
+  CONFIG_DIR="${CONFIG_DIR:-/opt/continuonos/brain}"
 else
   CONFIG_DIR="${CONFIG_DIR:-${HOME}/.continuonbrain}"
 fi
@@ -55,14 +60,19 @@ settings.setdefault("chat", {})["log_rlds"] = True
 settings.setdefault("training", {})["enable_sidecar_trainer"] = True
 
 agent_mgr = settings.setdefault("agent_manager", {})
+# Ensure autonomous/background learning remains enabled.
+agent_mgr["enable_autonomous_learning"] = bool(agent_mgr.get("enable_autonomous_learning", True))
 chat_learn = agent_mgr.setdefault("chat_learn", {})
 chat_learn["enabled"] = True
 chat_learn["modes"] = ["idle", "autonomous"]
-chat_learn["interval_s"] = int(chat_learn.get("interval_s") or 600)
-chat_learn["turns_per_cycle"] = int(chat_learn.get("turns_per_cycle") or 10)
-chat_learn["model_hint"] = str(chat_learn.get("model_hint") or "google/gemma-3n-2b")
-chat_learn["delegate_model_hint"] = str(chat_learn.get("delegate_model_hint") or "google/gemma-370m")
-chat_learn["topic"] = str(chat_learn.get("topic") or "self-training on this repository (ContinuonXR/continuonbrain/continuonai)")
+# Force desired schedule defaults (overwrite any old values).
+chat_learn["interval_s"] = 300
+chat_learn["turns_per_cycle"] = 12
+# Main agent is HOPE v1. Subagent teaching is provided via consult:<model>.
+chat_learn["model_hint"] = "hope-v1"
+# Prefer a subagent model that matches the default local-cache model id (offline-first).
+chat_learn["delegate_model_hint"] = "consult:google/gemma-3n-E2B-it"
+chat_learn["topic"] = "curiosity-driven HOPE v1 self-improvement: CMS, safety, planning, tool-use, and robot skills"
 
 orch = agent_mgr.setdefault("autonomy_orchestrator", {})
 orch["enabled"] = True

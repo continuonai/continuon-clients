@@ -34,7 +34,12 @@ def _load_sounddevice():
     sd_spec = importlib.util.find_spec("sounddevice")
     if not sd_spec:
         return None
-    return importlib.import_module("sounddevice")
+    try:
+        # sounddevice can be installed but still unusable if the PortAudio system library
+        # is missing. Treat any import-time failure as "unavailable" and fall back to mock audio.
+        return importlib.import_module("sounddevice")
+    except Exception:
+        return None
 
 
 @dataclass

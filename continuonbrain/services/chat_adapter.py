@@ -58,6 +58,8 @@ class ChatAdapter:
         self.gemma_chat = gemma_chat
         self.on_chat_event = on_chat_event
         self.hope_agent_provider = hope_agent_provider
+        # Lazily created "real" subagent backend (non-mock). Used when consult is requested.
+        self._real_subagent_chat: Optional[object] = None
         
         # Optional Hailo vision offload (subprocess-safe). Used only when an image is attached.
         self._hailo_vision = None
@@ -162,19 +164,44 @@ class ChatAdapter:
             # Optional: consult a sub-agent (e.g., Gemma 3n) and feed its answer back into the Agent Manager.
             # This is purely advisory: no auto-execution.
             # 2. If 'consult:' prefix, we do a sub-agent "thought" turn first
+            subagent_info: Dict[str, Any] = {}
             if delegate_model_hint and "consult:" in delegate_model_hint:
                 print(f"[ChatAdapter] Consulting subagent: {delegate_model_hint}")
+                # Require a non-mock subagent by default (so learning doesn't silently train on mock text).
+                require_non_mock = os.environ.get("CONTINUON_SUBAGENT_REQUIRE_NON_MOCK", "1").lower() in ("1", "true", "yes", "on")
                 if self.gemma_chat:
                     try:
                         # Parse out the sub-model name if needed, or just ask gemma
                         # We'll just pass the user text to the sub-agent for now
+                        delegate_model = delegate_model_hint.replace("consult:", "").strip()
                         sub_text = self.gemma_chat.chat(
                             message=message,
                             system_context=prompt, # Pass the full prompt for context
-                            model_hint=delegate_model_hint.replace("consult:", "").strip() # Extract model hint
+                            model_hint=delegate_model, # Extract model hint
                         )
                         
                         print(f"[ChatAdapter] Subagent response len: {len(sub_text)}")
+                        # If the active backend is mock (LiteRT mock / MockGemmaChat), try a real fallback.
+                        if require_non_mock and self._looks_mock_response(str(sub_text)):
+                            real = self._get_real_subagent_chat()
+                            if real is not None:
+                                sub_text = real.chat(
+                                    message=message,
+                                    system_context=prompt,
+                                    model_hint=delegate_model,
+                                )
+
+                        if require_non_mock and self._looks_mock_response(str(sub_text)):
+                            raise RuntimeError("Subagent backend returned mock output; no real subagent available")
+                        if self._looks_model_error(str(sub_text)):
+                            raise RuntimeError(str(sub_text).strip())
+
+                        subagent_info = {
+                            "model_hint": delegate_model,
+                            "response": str(sub_text)[:2000],
+                            "mode": "consult",
+                            "non_mock": True,
+                        }
                         if self.on_chat_event:
                             print(f"[ChatAdapter] Emitting subagent event")
                             try:
@@ -182,7 +209,7 @@ class ChatAdapter:
                                     "role": "subagent",
                                     "name": "Gemma 3n",  # UI label
                                     "text": sub_text[:2000],
-                                    "model": delegate_model_hint,
+                                    "model": delegate_model,
                                     "timestamp": datetime.datetime.now().isoformat(),
                                 })
                             except Exception as e:
@@ -192,17 +219,37 @@ class ChatAdapter:
                         prompt = (
                             prompt
                             + "\n\nSub-agent consult (advisory):\n"
-                            + f"- model_hint: {delegate_model_hint}\n"
+                            + f"- model_hint: {delegate_model}\n"
                             + f"- response: {sub_text[:2000]}\n"
                         )
                     except Exception as exc:  # noqa: BLE001
                         # Non-fatal.
                         print(f"[ChatAdapter] Subagent consult failed: {exc}")
+                        subagent_info = {"model_hint": delegate_model_hint, "error": str(exc), "mode": "consult", "non_mock": False}
                         pass # Continue without subagent info
                 else:
                     print(f"[ChatAdapter] Subagent consult skipped: gemma_chat not available")
+                    # Try to spin up a real backend for subagent consult even if the main chat backend is absent.
+                    try:
+                        delegate_model = delegate_model_hint.replace("consult:", "").strip()
+                        real = self._get_real_subagent_chat()
+                        if real is None:
+                            raise RuntimeError("no real subagent backend available")
+                        sub_text = real.chat(message=message, system_context=prompt, model_hint=delegate_model)
+                        if require_non_mock and self._looks_mock_response(str(sub_text)):
+                            raise RuntimeError("real subagent backend returned mock output")
+                        if self._looks_model_error(str(sub_text)):
+                            raise RuntimeError(str(sub_text).strip())
+                        subagent_info = {"model_hint": delegate_model, "response": str(sub_text)[:2000], "mode": "consult", "non_mock": True}
+                        prompt = (
+                            prompt
+                            + "\n\nSub-agent consult (advisory):\n"
+                            + f"- model_hint: {delegate_model}\n"
+                            + f"- response: {str(sub_text)[:2000]}\n"
+                        )
+                    except Exception as exc:
+                        subagent_info = {"model_hint": delegate_model_hint, "error": str(exc), "mode": "consult", "non_mock": False}
 
-            subagent_info: Dict[str, Any] = {}
             if delegate_model_hint and "consult:" not in delegate_model_hint: # Only process if not already handled by "consult:"
                 try:
                     sub_raw = self._call_model(message, prompt, history, model_hint=delegate_model_hint, image=image_obj)
@@ -530,6 +577,55 @@ class ChatAdapter:
         except Exception:
             # Fall back to existing model call path (may return a generic fallback).
             return self._call_model(message, writer_prompt, history, model_hint=None, image=image)
+
+    @staticmethod
+    def _looks_mock_response(text: str) -> bool:
+        """Heuristic detection for mock backends (LiteRT mock / MockGemmaChat)."""
+        s = (text or "").strip()
+        if not s:
+            return True
+        # Known mock markers in this repo.
+        if s.startswith("[LiteRT Mock]"):
+            return True
+        if s.startswith("[Mock]") or "I'm a mock Gemma assistant" in s:
+            return True
+        return False
+
+    @staticmethod
+    def _looks_model_error(text: str) -> bool:
+        s = (text or "").strip()
+        if not s:
+            return True
+        # GemmaChat emits these when transformers backend is present but the model can't load.
+        if s.startswith("Error: Gemma model failed to load"):
+            return True
+        if s.startswith("Error: Gemma model not available"):
+            return True
+        if s.startswith("Error from remote API:"):
+            return True
+        if s.startswith("Error generating response:"):
+            return True
+        return False
+
+    def _get_real_subagent_chat(self) -> Optional[object]:
+        """
+        Best-effort: return a non-mock chat backend for subagent consults.
+
+        Strategy:
+        - Create a transformers-based GemmaChat instance (offline-first; local cache preferred).
+        - Never return MockGemmaChat output as "real"; caller verifies via _looks_mock_response.
+        """
+        if self._real_subagent_chat is not None:
+            return self._real_subagent_chat
+        try:
+            # Avoid LiteRT here (it can fall back to a mock implementation on systems without mediapipe-genai).
+            from continuonbrain.gemma_chat import create_gemma_chat
+
+            self._real_subagent_chat = create_gemma_chat(use_mock=False)
+            return self._real_subagent_chat
+        except Exception:
+            self._real_subagent_chat = None
+            return None
 
     def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None, image: Any = None) -> str:
         # Try to use actual model first
