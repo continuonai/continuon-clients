@@ -28,7 +28,7 @@
       "interval_s": 300,
       "turns_per_cycle": 12,
       "model_hint": "hope-v1",
-      "delegate_model_hint": "consult:google/gemma-3n-E2B-it",
+      "delegate_model_hint": "consult:TinyLlama/TinyLlama-1.1B-Chat-v1.0",
       "topic": "curiosity-driven HOPE v1 self-improvement: CMS, safety, planning, tool-use, and robot skills",
       "modes": [
         "idle",

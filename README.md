@@ -668,7 +668,11 @@ cp continuonbrain/configs/pi5-donkey.json /opt/continuonos/brain/train/pi5-donke
 4) Python deps (venv recommended)  ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install torch  # choose the Pi build you use
+pip install torch "jax[cpu]" tensorflow tensorflow-datasets
+# Install VZM/VLM dependencies
+pip install diffusers transformers accelerate
+python scripts/prepare_wiki_data_jax.py
+python scripts/prepare_vlm_data_jax.py
 ```
 
 5) Optional: runtime manifest for flutter_gemma  ```bash

@@ -304,6 +304,50 @@
                     <div class="proof-log" id="surprise-log"></div>
                 </div>
 
+                <!-- NEW: Training & Imagination Panel -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">JAX World Model</div>
+                            <h2>Training & Imagination</h2>
+                            <p class="panel-subtitle">On-device learning loop and symbolic planning.</p>
+                        </div>
+                        <div class="status-badge" id="training-status">Idle</div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="train-step">0</div>
+                            <div class="stat-label">Global Step</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="train-loss">--</div>
+                            <div class="stat-label">Current Loss</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="imagination-depth">0</div>
+                            <div class="stat-label">Search Depth</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="plan-score">--</div>
+                            <div class="stat-label">Plan Score</div>
+                        </div>
+                    </div>
+
+                    <div class="control-row" style="margin-top: 16px; display: flex; gap: 12px;">
+                        <button class="rail-btn primary" onclick="startJaxTraining()" style="flex: 1;">
+                            ⚡ Train (JAX/Wiki/VLM)
+                        </button>
+                        <button class="rail-btn" onclick="startSymbolicSearch()" style="flex: 1;">
+                            🔮 Imagine/Search
+                        </button>
+                    </div>
+
+                    <div class="proof-log" id="training-log" style="height: 120px; margin-top: 12px;">
+                        <div class="log-entry system">System ready. Load datasets to begin.</div>
+                    </div>
+                </div>
+
                 <div class="panel research-only">
                     <div class="panel-header">
                         <div>

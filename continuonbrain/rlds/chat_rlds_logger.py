@@ -50,6 +50,7 @@ def log_chat_turn(
     session_id: Optional[str] = None,
     model_hint: Optional[str] = None,
     agent_label: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Append a chat turn as an RLDS step.
@@ -98,6 +99,12 @@ def log_chat_turn(
             "timestamp": now,
         },
     }
+    # Backward-compatible metadata passthrough: callers may attach extra provenance fields.
+    if isinstance(metadata, dict) and metadata:
+        try:
+            step["step_metadata"].update(metadata)
+        except Exception:
+            pass
     steps.append(step)
     out_path.write_text(json.dumps(episode, indent=2, default=str))
     return {"path": str(out_path), "steps": len(steps)}

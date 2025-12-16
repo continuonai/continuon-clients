@@ -174,8 +174,9 @@ class ChatAdapter:
                         # Parse out the sub-model name if needed, or just ask gemma
                         # We'll just pass the user text to the sub-agent for now
                         delegate_model = delegate_model_hint.replace("consult:", "").strip()
+                        sub_message = f"{message}\n\nRespond concisely (<=80 tokens)."
                         sub_text = self.gemma_chat.chat(
-                            message=message,
+                            message=sub_message,
                             system_context=prompt, # Pass the full prompt for context
                             model_hint=delegate_model, # Extract model hint
                         )
@@ -186,7 +187,7 @@ class ChatAdapter:
                             real = self._get_real_subagent_chat()
                             if real is not None:
                                 sub_text = real.chat(
-                                    message=message,
+                                    message=sub_message,
                                     system_context=prompt,
                                     model_hint=delegate_model,
                                 )
@@ -235,7 +236,8 @@ class ChatAdapter:
                         real = self._get_real_subagent_chat()
                         if real is None:
                             raise RuntimeError("no real subagent backend available")
-                        sub_text = real.chat(message=message, system_context=prompt, model_hint=delegate_model)
+                        sub_message = f"{message}\n\nRespond concisely (<=80 tokens)."
+                        sub_text = real.chat(message=sub_message, system_context=prompt, model_hint=delegate_model)
                         if require_non_mock and self._looks_mock_response(str(sub_text)):
                             raise RuntimeError("real subagent backend returned mock output")
                         if self._looks_model_error(str(sub_text)):
