@@ -13,6 +13,7 @@ import zipfile
 import hashlib
 import random
 import subprocess
+from collections import deque
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
@@ -322,6 +323,37 @@ class SimpleJSONServer:
             payload = [{"path": str(p), "mtime": p.stat().st_mtime} for p in logs]
             response_body = json.dumps(payload)
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/training/logs/tail":
+            log_dir = (self._base_dir() / "trainer" / "logs").resolve()
+            raw_path = (query_params.get("path") or [""])[0]
+            raw_lines = (query_params.get("lines") or ["200"])[0]
+            try:
+                line_count = max(1, min(2000, int(raw_lines)))
+            except Exception:
+                line_count = 200
+
+            if not raw_path:
+                return self._json_response({"status": "error", "message": "path is required"}, status_code=400)
+
+            requested_path = Path(raw_path)
+            if not requested_path.is_absolute():
+                requested_path = (log_dir / requested_path).resolve()
+            try:
+                requested_path.relative_to(log_dir)
+            except Exception:
+                return self._json_response({"status": "error", "message": "requested log is outside trainer/logs"}, status_code=400)
+
+            if not requested_path.exists() or not requested_path.is_file():
+                return self._json_response({"status": "error", "message": "log file not found"}, status_code=404)
+
+            tail_lines = self._tail_file(requested_path, line_count)
+            payload = {
+                "status": "ok",
+                "path": str(requested_path),
+                "lines": line_count,
+                "content": "".join(tail_lines),
+            }
+            return self._json_response(payload)
         elif path == "/api/training/run" and method == "POST":
             # Trigger a background training run (non-blocking). Service must implement RunTraining().
             try:
@@ -872,6 +904,18 @@ class SimpleJSONServer:
             f"Content-Disposition: attachment; filename=\"{safe}\"\r\n\r\n"
         )
         return header.encode("utf-8") + content
+
+    def _tail_file(self, path: Path, line_count: int) -> list[str]:
+        """Return the last ``line_count`` lines from ``path`` safely."""
+
+        if line_count <= 0:
+            return []
+
+        buffer: deque[str] = deque(maxlen=line_count)
+        with path.open("r", errors="replace") as handle:
+            for line in handle:
+                buffer.append(line)
+        return list(buffer)
 
     def _read_training_metrics(self, query_params: Dict[str, Any]) -> Dict[str, Any]:
         """
