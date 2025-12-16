@@ -106,7 +106,10 @@ class TrainingRunner:
         if log_dir_ready:
             cfg.log_dir = logs_dir
         # Keep artifacts within the resolved base directory when possible.
-        if not cfg.adapters_out_dir.is_absolute() or str(cfg.adapters_out_dir).startswith("/opt/continuonos/brain"):
+        # Ensure adapters_out_dir is within the resolved base directory when possible.
+        default_dir = Path("/opt/continuonos/brain").resolve()
+        adapters_out_dir_resolved = cfg.adapters_out_dir.resolve() if isinstance(cfg.adapters_out_dir, Path) else Path(cfg.adapters_out_dir).resolve()
+        if not adapters_out_dir_resolved.is_absolute() or adapters_out_dir_resolved.is_relative_to(default_dir):
             cfg.adapters_out_dir = base_dir / "model" / "adapters" / "candidate"
         cfg.adapters_out_dir.mkdir(parents=True, exist_ok=True)
 
