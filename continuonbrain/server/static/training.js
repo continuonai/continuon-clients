@@ -1,4 +1,9 @@
 
+const seedBundleState = {
+    readiness: null,
+    baseDir: "/opt/continuonos/brain",
+};
+
 function startAutonomousTraining() {
     fetch('/api/training/run', { method: 'POST' })
         .then(response => response.json())
@@ -83,17 +88,26 @@ function refreshMetrics() {
     fetch('/api/training/status')
         .then(response => response.json())
         .then(data => {
+            const statusBadge = document.getElementById('training-status-badge');
+            const state = data.state || data.status || 'unknown';
+            statusBadge.innerText = state;
+            document.getElementById('trainer-state').innerText = state;
+
+            const steps = data.steps ?? data?.fast?.result?.steps ?? data?.fast?.steps;
+            document.getElementById('metric-steps').innerText = steps !== undefined ? steps : '--';
+
+            const lossValue = typeof data.avg_loss === 'number'
+                ? data.avg_loss
+                : data?.fast?.result?.metrics?.loss;
+            document.getElementById('metric-loss').innerText = typeof lossValue === 'number'
+                ? lossValue.toFixed(4)
+                : '--';
+
+            const adapterPath = data.adapter_path || data.adapterPath || '--';
+            document.getElementById('adapter-path').innerText = adapterPath;
+
             document.getElementById('full-metrics-json').innerText = JSON.stringify(data, null, 2);
             document.getElementById('full-metrics-json').style.display = 'block';
-
-            // Try to extract key metrics if available
-            // Structure varies, but usually data.fast.result.metrics or similar
-            if (data.fast && data.fast.result && data.fast.result.metrics) {
-                const m = data.fast.result.metrics;
-                document.getElementById('metric-loss').innerText = m.loss ? m.loss.toFixed(4) : '--';
-                document.getElementById('metric-accuracy').innerText = m.accuracy ? (m.accuracy * 100).toFixed(1) + '%' : '--';
-            }
-            // If data is just from the status file, it might contain "trainer_status"
         })
         .catch(err => console.error('Error fetching metrics:', err));
 }
@@ -206,5 +220,225 @@ function stopLogAutoRefresh() {
 // Auto-refresh on load
 document.addEventListener('DOMContentLoaded', function () {
     refreshMetrics();
-    refreshLogs();
+    // Poll every 10 seconds?
+    // setInterval(refreshMetrics, 10000);
+
+    refreshSeedReadiness();
+    listSeedExports();
 });
+
+/**
+ * Derives the base directory from the payload.
+ * Precedence: RLDS dir takes precedence over seed export dir.
+ */
+function deriveBaseDir(payload) {
+    const rldsDir = payload?.rlds?.dir;
+    if (typeof rldsDir === 'string' && rldsDir.includes('/rlds/episodes')) {
+        // RLDS dir has highest precedence
+        return rldsDir.split('/rlds/episodes')[0];
+    }
+    const seedExport = payload?.seed?.export_dir;
+    if (typeof seedExport === 'string' && seedExport.includes('/model/adapters/candidate/core_model_seed')) {
+        // Fallback to seed export dir if RLDS dir is not available
+        return seedExport.split('/model/adapters/candidate/core_model_seed')[0];
+    }
+    // Default fallback
+    return seedBundleState.baseDir;
+}
+
+function renderGates(gates) {
+    if (!Array.isArray(gates) || gates.length === 0) {
+        return '<div class="stack-item"><span class="stack-meta">No readiness gates reported.</span></div>';
+    }
+    return gates.map(g => {
+        const ok = g?.ok === true;
+        const chipClass = ok ? 'status-chip active' : 'status-chip warning';
+        const chipText = ok ? 'OK' : 'BLOCKED';
+        return (
+            '<div class="stack-item">' +
+            '<div>' +
+            `<h4>${g?.name || 'gate'}</h4>` +
+            `<div class="stack-meta">${g?.detail || ''}</div>` +
+            '</div>' +
+            `<div><span class="${chipClass}">${chipText}</span></div>` +
+            '</div>'
+        );
+    }).join('');
+}
+
+function applySeedPathHelper(value) {
+    const pathInput = document.getElementById('cloud-install-path');
+    if (!pathInput) return;
+    const base = seedBundleState.baseDir || '/opt/continuonos/brain';
+    if (value === 'candidate-manifest') {
+        pathInput.value = `${base}/model/adapters/candidate/core_model_seed/model_manifest.json`;
+    } else if (value === 'default-manifest') {
+        pathInput.value = `${base}/model/manifest.pi5.example.json`;
+    } else if (value === 'adapter-dir') {
+        pathInput.value = `${base}/model/adapters/current`;
+    }
+    // Reset the helper dropdown to its default value
+    const helperSelect = document.getElementById('cloud-install-path-helper');
+    if (helperSelect) {
+        helperSelect.value = "";
+    }
+}
+
+async function refreshSeedReadiness() {
+    const gatesEl = document.getElementById('seed-readiness-gates');
+    const metaEl = document.getElementById('seed-readiness-meta');
+    const chipEl = document.getElementById('seed-readiness-chip');
+    if (gatesEl) {
+        gatesEl.innerHTML = '<div class="stack-item"><span class="stack-meta">Running readiness check…</span></div>';
+    }
+    if (chipEl) {
+        chipEl.textContent = 'Checking…';
+        chipEl.className = 'status-badge';
+    }
+    if (metaEl) metaEl.textContent = '';
+    try {
+        const res = await fetch('/api/training/cloud_readiness');
+        const data = await res.json();
+        seedBundleState.readiness = data;
+        seedBundleState.baseDir = deriveBaseDir(data);
+        if (gatesEl) {
+            gatesEl.innerHTML = renderGates(data.gates);
+        }
+        if (chipEl) {
+            const ok = data.ready_for_cloud_handoff === true;
+            chipEl.textContent = ok ? 'Ready' : 'Blocked';
+            chipEl.className = `status-badge ${ok ? 'active' : 'warning'}`;
+        }
+        if (metaEl) {
+            const seeds = data.seed || {};
+            const manifestStatus = seeds.manifest_exists ? 'found' : 'missing';
+            metaEl.textContent = `Base dir ${seedBundleState.baseDir} · Seed manifest ${manifestStatus}`;
+        }
+    } catch (err) {
+        console.error('refreshSeedReadiness failed', err);
+        if (gatesEl) gatesEl.innerHTML = '<div class="stack-item"><span class="stack-meta">Readiness check failed.</span></div>';
+        if (chipEl) {
+            chipEl.textContent = 'Error';
+            chipEl.className = 'status-badge warning';
+        }
+        if (metaEl) metaEl.textContent = 'Unable to read readiness; offline checks not updated.';
+    }
+}
+
+async function buildSeedExportZip() {
+    const statusEl = document.getElementById('cloud-export-status');
+    if (statusEl) statusEl.textContent = 'Building zip…';
+    const include = {
+        episodes: !!document.getElementById('cloud-export-episodes')?.checked,
+        tfrecord: !!document.getElementById('cloud-export-tfrecord')?.checked,
+        seed_export: !!document.getElementById('cloud-export-seed')?.checked,
+        checkpoints: !!document.getElementById('cloud-export-checkpoints')?.checked,
+        trainer_status: true,
+    };
+    const limitRaw = document.getElementById('cloud-export-episode-limit')?.value;
+    const nameRaw = document.getElementById('seed-export-name')?.value;
+    const episode_limit = limitRaw ? Number(limitRaw) : null;
+    const name = nameRaw && nameRaw.trim() ? nameRaw.trim() : null;
+    try {
+        const res = await fetch('/api/training/export_zip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ include, episode_limit, name }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.status === 'error') throw new Error(data.message || 'export failed');
+        if (statusEl) {
+            statusEl.innerHTML = `Built <strong>${data.zip_name}</strong> (${data.size_bytes} bytes)`;
+        }
+        await listSeedExports();
+    } catch (err) {
+        console.warn('buildSeedExportZip failed', err);
+        if (statusEl) statusEl.textContent = 'Export failed: ' + (err?.message || err);
+    }
+}
+
+async function listSeedExports() {
+    const listEl = document.getElementById('cloud-export-list');
+    const statusEl = document.getElementById('cloud-export-status');
+    if (statusEl && !statusEl.textContent) statusEl.textContent = 'Listing exports…';
+    if (listEl) listEl.innerHTML = '';
+    try {
+        const res = await fetch('/api/training/exports');
+        const data = await res.json();
+        if (!res.ok || data.status === 'error') throw new Error(data.message || 'list failed');
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (!items.length) {
+            if (statusEl) statusEl.textContent = 'No exports yet.';
+            if (listEl) listEl.innerHTML = '';
+            return;
+        }
+        if (listEl) {
+            listEl.innerHTML = items.map(item => {
+                const ts = new Date(item.mtime * 1000).toLocaleString();
+                return (
+                    '<div class="stack-item">' +
+                    `<div><div>${item.name}</div><div class="stack-meta">${item.size_bytes} bytes · ${ts}</div></div>` +
+                    `<div><a class="rail-btn" href="${item.download_url}" target="_blank">Download</a></div>` +
+                    '</div>'
+                );
+            }).join('');
+        }
+        if (statusEl) statusEl.textContent = '';
+    } catch (err) {
+        console.warn('listSeedExports failed', err);
+        if (statusEl) statusEl.textContent = 'List failed: ' + (err?.message || err);
+    }
+}
+
+async function installSeedBundle() {
+    const statusEl = document.getElementById('cloud-install-status');
+    if (statusEl) statusEl.textContent = 'Installing…';
+    const kind = document.getElementById('cloud-install-kind')?.value || 'jax_seed_manifest';
+    const source_url = document.getElementById('cloud-install-url')?.value?.trim();
+    const source_path = document.getElementById('cloud-install-path')?.value?.trim();
+    // Validate source_url if provided
+    if (source_url) {
+        let urlObj;
+        try {
+            urlObj = new URL(source_url);
+        } catch (e) {
+            if (statusEl) statusEl.textContent = 'Invalid URL format. Please enter a valid http(s) URL.';
+            return;
+        }
+        if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+            if (statusEl) statusEl.textContent = 'Only http(s) URLs are allowed.';
+            return;
+        }
+    }
+    if (!source_url && !source_path) {
+        if (statusEl) statusEl.textContent = 'Provide a source URL or local path to install.';
+        return;
+    }
+    if (source_url && seedBundleState.readiness?.ready_for_cloud_handoff !== true) {
+        if (statusEl) statusEl.textContent = 'External bundle downloads are blocked until the readiness check passes. Please verify local RLDS episodes and seed manifests exist, then re-run the readiness check.';
+        return;
+    }
+    try {
+        const res = await fetch('/api/training/install_bundle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind, source_url: source_url || null, source_path: source_path || null }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.status === 'error') throw new Error(data.message || 'install failed');
+        if (statusEl) {
+            if (data.installed_to) {
+                statusEl.textContent = `Installed to ${data.installed_to}`;
+            } else if (data.edge_manifest) {
+                statusEl.textContent = `Installed to ${data.edge_manifest}`;
+            } else {
+                statusEl.textContent = 'Installed, but the location is unknown. Please check the backend logs or contact support.';
+            }
+        }
+        await refreshSeedReadiness();
+        await listSeedExports();
+    } catch (err) {
+        console.warn('installSeedBundle failed', err);
+        if (statusEl) statusEl.textContent = 'Install failed: ' + (err?.message || err);
+    }
+}
