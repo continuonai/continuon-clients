@@ -41,6 +41,8 @@ def main() -> None:
     p.add_argument("--teacher-url", type=str, default=None, help="Optional HTTP teacher endpoint to enrich episodes.")
     p.add_argument("--teacher-timeout-s", type=float, default=5.0)
     p.add_argument("--teacher-openai-base-url", type=str, default=None, help="OpenAI-compatible base URL (e.g. http://localhost:8000).")
+    p.add_argument("--teacher-openai-embed-base-url", type=str, default=None, help="Optional separate base URL for embeddings (if served on a different port).")
+    p.add_argument("--teacher-openai-chat-base-url", type=str, default=None, help="Optional separate base URL for chat (if served on a different port).")
     p.add_argument("--teacher-openai-api-key", type=str, default=None, help="Optional API key for OpenAI-compatible server.")
     p.add_argument("--teacher-openai-embed-model", type=str, default=None, help="Embeddings model name for /v1/embeddings.")
     p.add_argument("--teacher-openai-chat-model", type=str, default=None, help="Chat model name for /v1/chat/completions (optional).")
@@ -52,6 +54,8 @@ def main() -> None:
     p.add_argument("--instruction", type=str, default="Learn the owner identity and ask for guidance politely.")
 
     args = p.parse_args()
+    if not str(args.episode_id).strip():
+        raise SystemExit("--episode-id must be a non-empty string")
 
     cfg = CaptureConfig(
         out_dir=args.out_dir,
@@ -74,6 +78,8 @@ def main() -> None:
 
             teacher = OpenAITeacher(
                 base_url=args.teacher_openai_base_url,
+                embed_base_url=args.teacher_openai_embed_base_url,
+                chat_base_url=args.teacher_openai_chat_base_url,
                 api_key=args.teacher_openai_api_key,
                 embed_model=args.teacher_openai_embed_model,
                 chat_model=args.teacher_openai_chat_model,

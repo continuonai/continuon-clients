@@ -35,6 +35,8 @@ class OpenAITeacher(Teacher):
         self,
         *,
         base_url: str,
+        embed_base_url: Optional[str] = None,
+        chat_base_url: Optional[str] = None,
         api_key: Optional[str] = None,
         embed_model: Optional[str] = None,
         chat_model: Optional[str] = None,
@@ -42,6 +44,8 @@ class OpenAITeacher(Teacher):
         allow_insecure_http: bool = True,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.embed_base_url = (embed_base_url or base_url).rstrip("/")
+        self.chat_base_url = (chat_base_url or base_url).rstrip("/")
         self.api_key = api_key
         self.embed_model = embed_model
         self.chat_model = chat_model
@@ -66,17 +70,13 @@ class OpenAITeacher(Teacher):
         return json.loads(raw.decode("utf-8"))
 
     def _get_embedding(self, *, rgb_bgr: np.ndarray, obs_dim: int) -> Optional[List[float]]:
+        # In the upgraded flow, embeddings come from caption text (not raw image bytes).
+        # Keep a legacy fallback only if caption embedding isn't available.
         if not self.embed_model:
             return None
-
-        # OpenAI-compatible servers often only support text embeddings. We pass a stable text proxy
-        # plus optional image bytes as base64 in the input; servers that ignore it still work.
         rgb_b64 = _b64_jpeg(rgb_bgr)
-        payload = {
-            "model": self.embed_model,
-            "input": f"image_b64:{rgb_b64[:4000]}",  # cap size to avoid huge payloads
-        }
-        data = self._post_json(f"{self.base_url}/v1/embeddings", payload)
+        payload = {"model": self.embed_model, "input": f"image_b64_hint:{rgb_b64[:2000]}"}
+        data = self._post_json(f"{self.embed_base_url}/v1/embeddings", payload)
         vec = None
         try:
             vec = data["data"][0]["embedding"]
@@ -97,19 +97,33 @@ class OpenAITeacher(Teacher):
         if not self.chat_model:
             return {}
 
-        # OpenAI vision format is not universally supported; use a conservative text-only prompt
-        # and include a small base64 hint. Real deployments should use a proper multimodal server.
-        rgb_hint = _b64_jpeg(rgb_bgr)[:2000]
+        rgb_b64 = _b64_jpeg(rgb_bgr)
+        # OpenAI multimodal schema (works with vLLM for vision models and many OpenAI-compatible servers)
         messages = [
-            {"role": "system", "content": "You are a small teacher model. Return strict JSON only."},
-            {"role": "user", "content": f"{prompt}\n\nimage_b64_hint:{rgb_hint}"},
+            {"role": "system", "content": "Return STRICT JSON only. No markdown. No prose outside JSON."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{rgb_b64}"}},
+                ],
+            },
         ]
         payload = {
             "model": self.chat_model,
             "messages": messages,
             "temperature": 0.2,
         }
-        data = self._post_json(f"{self.base_url}/v1/chat/completions", payload)
+        try:
+            data = self._post_json(f"{self.chat_base_url}/v1/chat/completions", payload)
+        except Exception:
+            # Fallback for servers that don't support multimodal content arrays.
+            messages2 = [
+                {"role": "system", "content": "Return STRICT JSON only. No markdown."},
+                {"role": "user", "content": f"{prompt}\n\nimage_b64:{rgb_b64[:4000]}"},
+            ]
+            payload2 = {"model": self.chat_model, "messages": messages2, "temperature": 0.2}
+            data = self._post_json(f"{self.chat_base_url}/v1/chat/completions", payload2)
         text = ""
         try:
             text = data["choices"][0]["message"]["content"]
@@ -119,6 +133,24 @@ class OpenAITeacher(Teacher):
             return json.loads(text)
         except Exception:
             return {"caption": text[:500]}
+
+    def _embed_text(self, *, text: str, obs_dim: int) -> Optional[List[float]]:
+        if not self.embed_model:
+            return None
+        payload = {"model": self.embed_model, "input": text}
+        data = self._post_json(f"{self.embed_base_url}/v1/embeddings", payload)
+        try:
+            vec = data["data"][0]["embedding"]
+        except Exception:
+            return None
+        if not isinstance(vec, list) or not vec:
+            return None
+        arr = np.array(vec, dtype=np.float32).flatten()
+        if arr.size > obs_dim:
+            arr = arr[:obs_dim]
+        elif arr.size < obs_dim:
+            arr = np.pad(arr, (0, obs_dim - arr.size))
+        return arr.astype(np.float32).tolist()
 
     def infer(
         self,
@@ -130,16 +162,10 @@ class OpenAITeacher(Teacher):
         action_dim: int,
         context: Optional[Dict[str, Any]] = None,
     ) -> TeacherResult:
-        embedding = None
+        embedding: Optional[List[float]] = None
         caption = None
         planner = None
         tool_calls = None
-
-        # Best-effort embedding
-        try:
-            embedding = self._get_embedding(rgb_bgr=rgb_bgr, obs_dim=obs_dim)
-        except Exception:
-            embedding = None
 
         # Best-effort planner/caption/tool traces
         extra: Dict[str, Any] = {"teacher.backend": "openai_compatible"}
@@ -162,6 +188,21 @@ class OpenAITeacher(Teacher):
                 tool_calls = out.get("tool_calls")
         except Exception:
             pass
+
+        # Preferred: embed the caption (text embedding model) so observation.command is meaningful even when
+        # the VLA model is only used for perception/captioning.
+        if isinstance(caption, str) and caption.strip():
+            try:
+                embedding = self._embed_text(text=caption.strip(), obs_dim=obs_dim)
+            except Exception:
+                embedding = None
+
+        # Legacy fallback: some servers offer embeddings but no caption; try a weak image hint embedding.
+        if embedding is None:
+            try:
+                embedding = self._get_embedding(rgb_bgr=rgb_bgr, obs_dim=obs_dim)
+            except Exception:
+                embedding = None
 
         if tool_calls is not None:
             extra["tool_calls"] = tool_calls

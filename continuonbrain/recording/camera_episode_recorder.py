@@ -95,6 +95,10 @@ class CaptureConfig:
     height: int = 480
     save_jpeg_quality: int = 90
     source: str = "auto"  # auto | opencv | realsense
+    # If camera/RealSense isn't available (common in WSL), fall back to synthetic frames so
+    # the training pipeline can still be exercised end-to-end.
+    allow_synthetic_fallback: bool = True
+    synthetic_seed: int = 0
 
 
 class CameraEpisodeRecorder:
@@ -103,6 +107,19 @@ class CameraEpisodeRecorder:
         self.cfg.out_dir.mkdir(parents=True, exist_ok=True)
         self.blobs_dir = self.cfg.out_dir / f"{self.cfg.episode_id}_blobs"
         self.blobs_dir.mkdir(parents=True, exist_ok=True)
+
+    def _synthetic_frame(self, *, idx: int) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        rng = np.random.default_rng(int(self.cfg.synthetic_seed) + int(idx))
+        h, w = int(self.cfg.height), int(self.cfg.width)
+        # Gradient + noise so embeddings have signal and vary slightly per step.
+        x = np.linspace(0.0, 1.0, w, dtype=np.float32)[None, :]
+        y = np.linspace(0.0, 1.0, h, dtype=np.float32)[:, None]
+        base = 0.5 * x + 0.5 * y
+        noise = rng.normal(0.0, 0.03, size=(h, w)).astype(np.float32)
+        img = (base + noise).clip(0.0, 1.0)
+        bgr = np.stack([img, np.roll(img, 15, axis=1), np.roll(img, 25, axis=0)], axis=-1)
+        rgb_bgr = (bgr * 255.0).astype(np.uint8)
+        return rgb_bgr, None
 
     def _capture_opencv(self) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         cv2 = _try_import_cv2()
@@ -234,7 +251,12 @@ class CameraEpisodeRecorder:
 
         for idx in range(self.cfg.num_steps):
             t0 = _now_ns()
-            rgb_bgr, depth = self._capture()
+            try:
+                rgb_bgr, depth = self._capture()
+            except Exception:
+                if not self.cfg.allow_synthetic_fallback:
+                    raise
+                rgb_bgr, depth = self._synthetic_frame(idx=idx)
 
             frame_id = f"{self.cfg.episode_id}_frame_{idx:06d}"
             rgb_path = self.blobs_dir / f"{frame_id}.jpg"
