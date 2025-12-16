@@ -170,6 +170,11 @@ function applySeedPathHelper(value) {
     } else if (value === 'adapter-dir') {
         pathInput.value = `${base}/model/adapters/current`;
     }
+    // Reset the helper dropdown to its default value
+    const helperSelect = document.getElementById('cloud-install-path-helper');
+    if (helperSelect) {
+        helperSelect.value = "";
+    }
 }
 
 async function refreshSeedReadiness() {
