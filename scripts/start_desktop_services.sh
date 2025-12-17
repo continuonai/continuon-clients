@@ -28,6 +28,7 @@ set -euo pipefail
 #   CONTINUON_LOG_CHAT_RLDS=1|0
 #   CONTINUON_APPLY_SELF_TRAINING_SETTINGS=1|0
 #   CONTINUON_START_TRAINING_REPORT_DAEMON=1|0
+#   CONTINUON_RUN_WAVECORE=1|0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -58,6 +59,7 @@ LOG_FILE="${LOG_DIR}/startup_manager_console.log"
 
 PIDFILE="${CONFIG_DIR}/runtime_pids/startup_manager.pid"
 REPORT_PIDFILE="${CONFIG_DIR}/runtime_pids/training_report_daemon.pid"
+WAVECORE_PIDFILE="${CONFIG_DIR}/runtime_pids/wavecore_trainer.pid"
 
 mkdir -p "${LOG_DIR}"
 mkdir -p "$(dirname "${PIDFILE}")"
@@ -89,6 +91,7 @@ export CONTINUON_ENABLE_BACKGROUND_TRAINER="${CONTINUON_ENABLE_BACKGROUND_TRAINE
 export CONTINUON_LOG_CHAT_RLDS="${CONTINUON_LOG_CHAT_RLDS:-1}"
 export CONTINUON_APPLY_SELF_TRAINING_SETTINGS="${CONTINUON_APPLY_SELF_TRAINING_SETTINGS:-1}"
 export CONTINUON_START_TRAINING_REPORT_DAEMON="${CONTINUON_START_TRAINING_REPORT_DAEMON:-1}"
+export CONTINUON_RUN_WAVECORE="${CONTINUON_RUN_WAVECORE:-1}"
 
 # Prefer non-mock LLM backends on desktop (offline-first; uses local HF cache).
 # - LiteRT is disabled because it can silently fall back to a mock implementation without mediapipe-genai.
@@ -192,6 +195,17 @@ report_running() {
   return 1
 }
 
+wavecore_running() {
+  if [[ -f "${WAVECORE_PIDFILE}" ]]; then
+    local pid
+    pid="$(cat "${WAVECORE_PIDFILE}" 2>/dev/null || true)"
+    if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
 kill_stray_processes() {
   # Best-effort cleanup for stale services (common when ports are left bound).
   # We intentionally target module names to avoid killing unrelated python.
@@ -274,6 +288,36 @@ echo "Training: BACKGROUND_TRAINER=${CONTINUON_ENABLE_BACKGROUND_TRAINER} LOG_CH
       echo "Training report daemon started (pid=$(cat "${REPORT_PIDFILE}"))."
     fi
   fi
+
+  # Start Wavecore background trainer (seed model loops)
+  if [[ "${CONTINUON_RUN_WAVECORE}" == "1" ]]; then
+    if wavecore_running; then
+      echo "Wavecore trainer already running (pid=$(cat "${WAVECORE_PIDFILE}"))"
+    else
+      echo "Starting Wavecore trainer..."
+      # Use same logic/command as continuonbrain-wavecore.service
+      # We just run it in background with nohup/subshell.
+      # Note: This is an infinite(ish) loop or long running process depending on implementation, 
+      # but systemd service says 'oneshot' running '_run_sync' which implies it runs ONCE then exits? 
+      # Checking service file: Type=oneshot. 
+      # So it runs one set of loops then finishes. 
+      # If we want it to run periodically, we'd need a loop or timer. 
+      # However, for desktop startup, running it once on boot is the requested parity.
+      
+      WAVECORE_CMD="from continuonbrain.services.wavecore_trainer import WavecoreTrainer; t=WavecoreTrainer(); t._run_sync({'fast':{}, 'mid':{}, 'slow':{}, 'compact_export': True})"
+      
+      if needs_sudo; then
+        (
+          $(sudo_env_prefix) "${PY}" -c "${WAVECORE_CMD}"
+        ) >> "${LOG_FILE}" 2>&1 &
+      else
+        $(env_prefix) "${PY}" -c "${WAVECORE_CMD}" >> "${LOG_FILE}" 2>&1 &
+      fi
+      local wpid=$!
+      echo "${wpid}" > "${WAVECORE_PIDFILE}"
+      echo "Wavecore trainer started (pid=${wpid})."
+    fi
+  fi
 }
 
 cmd_stop() {
@@ -306,6 +350,18 @@ cmd_stop() {
     rm -f "${REPORT_PIDFILE}" || true
   fi
 
+  if wavecore_running; then
+    local wpid
+    wpid="$(cat "${WAVECORE_PIDFILE}")"
+    echo "Stopping Wavecore trainer pid=${wpid} ..."
+    if needs_sudo; then
+      sudo kill "${wpid}" 2>/dev/null || true
+    else
+      kill "${wpid}" 2>/dev/null || true
+    fi
+    rm -f "${WAVECORE_PIDFILE}" || true
+  fi
+
   # Also stop any strays not tracked by pidfiles.
   kill_stray_processes
 }
@@ -324,6 +380,11 @@ cmd_status() {
     echo "TRAINING_REPORT_DAEMON=RUNNING pid=$(cat "${REPORT_PIDFILE}")"
   else
     echo "TRAINING_REPORT_DAEMON=STOPPED"
+  fi
+  if wavecore_running; then
+    echo "WAVECORE_TRAINER=RUNNING pid=$(cat "${WAVECORE_PIDFILE}")"
+  else
+    echo "WAVECORE_TRAINER=STOPPED"
   fi
 }
 
