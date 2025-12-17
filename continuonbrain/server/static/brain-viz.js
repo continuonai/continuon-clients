@@ -9,6 +9,8 @@ async function init() {
   const slider = document.getElementById('brain-viz-time');
   const sliderLabel = document.getElementById('brain-viz-time-label');
   const overlaySel = document.getElementById('brain-overlay');
+  const stripCanvas = document.getElementById('brain-viz-strip');
+  const stripFallback = document.getElementById('brain-viz-strip-fallback');
   const layoutBtns = {
     graph: document.getElementById('brain-layout-graph'),
     columnar: document.getElementById('brain-layout-columnar'),
@@ -308,6 +310,91 @@ async function init() {
   const history = [];
   const historyMax = 120; // ~10 minutes at 5s refresh
 
+  // Optional 2D strip renderer
+  const stripTracks = [
+    { key: 'fast', color: '#ff8c42', speed: 2.6 },
+    { key: 'mid', color: '#8a52ff', speed: 1.6 },
+    { key: 'slow', color: '#67d3ff', speed: 1.0 },
+  ];
+  const stripCtx = stripCanvas ? stripCanvas.getContext('2d') : null;
+  if (stripFallback) stripFallback.style.display = stripCtx ? 'none' : 'flex';
+
+  function resizeStrip() {
+    if (!stripCanvas) return;
+    const targetWidth = container ? container.clientWidth : stripCanvas.clientWidth;
+    stripCanvas.width = Math.max(targetWidth || 0, 320);
+    stripCanvas.height = stripCanvas.clientHeight || 160;
+  }
+
+  function renderStrip(centerSnap) {
+    if (!stripCanvas || !stripCtx) {
+      if (stripFallback) stripFallback.style.display = 'flex';
+      return;
+    }
+    resizeStrip();
+    const ctx = stripCtx;
+    const w = stripCanvas.width;
+    const h = stripCanvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (!history.length || !centerSnap) {
+      if (stripFallback) stripFallback.style.display = 'flex';
+      return;
+    }
+    if (stripFallback) stripFallback.style.display = 'none';
+
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillRect(0, 0, w, h);
+
+    const midX = w / 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(midX, 6);
+    ctx.lineTo(midX, h - 6);
+    ctx.stroke();
+
+    const trackSpacing = h / (stripTracks.length + 1);
+    stripTracks.forEach((track, idx) => {
+      const y = trackSpacing * (idx + 1);
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+
+      for (const snap of history) {
+        const value = snap?.[track.key];
+        if (value == null || !Number.isFinite(snap?.t)) continue;
+        const deltaSec = (snap.t - centerSnap.t) / 1000;
+        const x = midX + deltaSec * track.speed;
+        if (x < -24 || x > w + 24) continue;
+        const magnitude = Number.isFinite(value) ? Math.max(0.2, Math.min(1.2, Math.abs(value))) : 0.5;
+        const boxW = 10 + 14 * magnitude;
+        const boxH = 16;
+        const ageFade = Math.max(0.25, 1 - Math.abs(deltaSec) / 120);
+        ctx.save();
+        ctx.globalAlpha = 0.45 + 0.45 * ageFade;
+        ctx.fillStyle = track.color;
+        ctx.fillRect(x - boxW / 2, y - boxH / 2, boxW, boxH);
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - boxW / 2, y - boxH / 2, boxW, boxH);
+        ctx.restore();
+      }
+    });
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.beginPath();
+    ctx.moveTo(midX, 6);
+    ctx.lineTo(midX - 5, 14);
+    ctx.lineTo(midX + 5, 14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
   async function refreshMetrics() {
     try {
       const [loopRes, metricsRes, evalRes] = await Promise.all([
@@ -345,6 +432,7 @@ async function init() {
       slider.max = String(Math.max(0, history.length - 1));
       // Default to latest
       slider.value = String(Math.max(0, history.length - 1));
+      renderStrip(sampleHistory(slider.value));
     } catch (e) {
       // ignore; keep last values
     }
@@ -367,10 +455,14 @@ async function init() {
   }
 
   function apply4DFromSnapshot(snap) {
-    if (!snap) return;
+    if (!snap) {
+      renderStrip(null);
+      return;
+    }
     const timeStr = new Date(snap.t).toLocaleTimeString();
     const isLatest = history.length && Number(slider.value) === (history.length - 1);
     if (sliderLabel) sliderLabel.textContent = (isLatest ? `latest • ${timeStr}` : timeStr);
+    renderStrip(snap);
 
     // Lower is better for losses and control-loop period; higher is better for toolTop1/hope.
     const tick = snap.tick;
@@ -508,6 +600,7 @@ async function init() {
     renderer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    renderStrip(sampleHistory(slider.value));
   };
   window.addEventListener('resize', onResize);
 
