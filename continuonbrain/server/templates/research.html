@@ -124,6 +124,24 @@
                     <span class="stack-meta" id="brain-viz-time-label">latest</span>
                 </div>
             </div>
+            <div class="panel-ghost brain-strip-panel">
+                <div class="brain-strip-header">
+                    <div>
+                        <div class="panel-eyebrow">CMS cross-section</div>
+                        <div class="stack-meta">Present stays fixed; fast/mid/slow loops slide relative to time.</div>
+                    </div>
+                    <div class="brain-strip-legend">
+                        <span class="brain-strip-chip brain-strip-chip-fast"></span><span class="stack-meta">Fast loop</span>
+                        <span class="brain-strip-chip brain-strip-chip-mid"></span><span class="stack-meta">Mid loop</span>
+                        <span class="brain-strip-chip brain-strip-chip-slow"></span><span class="stack-meta">Slow loop</span>
+                        <span class="brain-strip-chip brain-strip-chip-present"></span><span class="stack-meta">Present</span>
+                    </div>
+                </div>
+                <div class="brain-strip-canvas-wrap">
+                    <canvas id="brain-viz-strip" class="brain-strip-canvas" height="160"></canvas>
+                    <div id="brain-viz-strip-fallback" class="stack-meta brain-strip-fallback">Cross-section unavailable</div>
+                </div>
+            </div>
             <div id="brain-viz-container" style="height:440px; border-radius:14px; border:1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.12); overflow:hidden; position:relative;">
                 <div id="brain-viz-fallback" class="stack-meta" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:18px; text-align:center;">
                     Loading 3D brain…
