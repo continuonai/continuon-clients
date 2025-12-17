@@ -39,7 +39,7 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
     Icons.back_hand,
   ];
 
-  static const _defaultHost = 'brain.continuon.ai';
+  static const _defaultHost = 'brain.continuonai.com';
   static const _defaultPort = 443;
 
   bool _isRecording = false;
@@ -66,7 +66,8 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
         port: _defaultPort,
         useTls: true,
       );
-      widget.brainClient.streamRobotState(widget.brainClient.clientId).listen((state) {
+      widget.brainClient.streamRobotState(widget.brainClient.clientId).listen(
+          (state) {
         setState(() {
           _error = null;
           _isConnected = true;
@@ -104,7 +105,8 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
             padding: const EdgeInsets.all(8.0),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _isConnected ? Colors.green : Colors.red,
                   borderRadius: BorderRadius.circular(12),
@@ -143,24 +145,23 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
         children: [
           // Depth camera preview placeholder
           _buildCameraPreview(),
-          
+
           // Joint controls
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 // Joint sliders
-                for (int i = 0; i < 6; i++)
-                  _buildJointControl(i),
-                
+                for (int i = 0; i < 6; i++) _buildJointControl(i),
+
                 const SizedBox(height: 16),
-                
+
                 // Quick action buttons
                 _buildQuickActions(),
               ],
             ),
           ),
-          
+
           // Recording controls
           _buildRecordingControls(),
         ],
@@ -195,7 +196,7 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
               ],
             ),
           ),
-          
+
           // Recording indicator
           if (_isRecording)
             Positioned(
@@ -210,7 +211,8 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.fiber_manual_record, size: 12, color: Colors.white),
+                    const Icon(Icons.fiber_manual_record,
+                        size: 12, color: Colors.white),
                     const SizedBox(width: 4),
                     Text(
                       'REC $_stepCount steps',
@@ -239,7 +241,8 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
           children: [
             Row(
               children: [
-                Icon(_jointIcons[index], size: 20, color: Theme.of(context).primaryColor),
+                Icon(_jointIcons[index],
+                    size: 20, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 8),
                 Text(
                   _jointNames[index],
@@ -269,7 +272,7 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                   constraints: const BoxConstraints(),
                   tooltip: 'Set ${_jointNames[index]} to minimum (-100%)',
                 ),
-                
+
                 // Slider
                 Expanded(
                   child: Slider(
@@ -282,7 +285,7 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                     },
                   ),
                 ),
-                
+
                 // Quick max button
                 IconButton(
                   icon: const Icon(Icons.last_page, size: 20),
@@ -291,7 +294,7 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                   constraints: const BoxConstraints(),
                   tooltip: 'Set ${_jointNames[index]} to maximum (+100%)',
                 ),
-                
+
                 // Center button
                 IconButton(
                   icon: const Icon(Icons.center_focus_strong, size: 20),
@@ -367,14 +370,14 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[100],
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha((255 * 0.1).round()),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha((255 * 0.1).round()),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
       child: SafeArea(
         top: false,
         child: Column(
@@ -395,8 +398,10 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    icon: Icon(_isRecording ? Icons.stop : Icons.fiber_manual_record),
-                    label: Text(_isRecording ? 'Stop Recording' : 'Start Recording'),
+                    icon: Icon(
+                        _isRecording ? Icons.stop : Icons.fiber_manual_record),
+                    label: Text(
+                        _isRecording ? 'Stop Recording' : 'Start Recording'),
                     onPressed: _toggleRecording,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isRecording ? Colors.red : Colors.green,
@@ -411,7 +416,8 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                   label: const Text('Startup & flags'),
                   onPressed: _showRuntimeSettings,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
                   ),
                 ),
               ],
@@ -442,7 +448,9 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
     try {
       final res = await widget.brainClient.triggerSafetyHold();
       final ok = res['success'] == true || res['ok'] == true;
-      _showMessage(ok ? 'Safety hold triggered.' : 'Safety hold failed: ${res['message'] ?? 'unknown'}');
+      _showMessage(ok
+          ? 'Safety hold triggered.'
+          : 'Safety hold failed: ${res['message'] ?? 'unknown'}');
     } catch (e) {
       _showMessage('Safety hold failed: $e');
     }
@@ -452,7 +460,9 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
     try {
       final res = await widget.brainClient.resetSafetyGates();
       final ok = res['success'] == true || res['ok'] == true;
-      _showMessage(ok ? 'Safety gates reset.' : 'Reset failed: ${res['message'] ?? 'unknown'}');
+      _showMessage(ok
+          ? 'Safety gates reset.'
+          : 'Reset failed: ${res['message'] ?? 'unknown'}');
     } catch (e) {
       _showMessage('Reset failed: $e');
     }
@@ -467,9 +477,14 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
         return;
       }
       final raw = res['settings'];
-      final settings = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
-      final safety = (settings['safety'] is Map) ? Map<String, dynamic>.from(settings['safety'] as Map) : <String, dynamic>{};
-      final chat = (settings['chat'] is Map) ? Map<String, dynamic>.from(settings['chat'] as Map) : <String, dynamic>{};
+      final settings =
+          raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+      final safety = (settings['safety'] is Map)
+          ? Map<String, dynamic>.from(settings['safety'] as Map)
+          : <String, dynamic>{};
+      final chat = (settings['chat'] is Map)
+          ? Map<String, dynamic>.from(settings['chat'] as Map)
+          : <String, dynamic>{};
 
       await showDialog<void>(
         context: context,
@@ -485,13 +500,15 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                       title: const Text('Allow motion'),
                       subtitle: const Text('Safety gate: allow robot motion'),
                       value: (safety['allow_motion'] as bool?) ?? true,
-                      onChanged: (v) => setLocal(() => safety['allow_motion'] = v),
+                      onChanged: (v) =>
+                          setLocal(() => safety['allow_motion'] = v),
                     ),
                     SwitchListTile(
                       title: const Text('Record episodes'),
                       subtitle: const Text('Enable RLDS episode recording'),
                       value: (safety['record_episodes'] as bool?) ?? true,
-                      onChanged: (v) => setLocal(() => safety['record_episodes'] = v),
+                      onChanged: (v) =>
+                          setLocal(() => safety['record_episodes'] = v),
                     ),
                     SwitchListTile(
                       title: const Text('Log chat to RLDS'),
@@ -511,11 +528,14 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                   onPressed: () async {
                     settings['safety'] = safety;
                     settings['chat'] = chat;
-                    final saved = await widget.brainClient.saveSettings(settings);
+                    final saved =
+                        await widget.brainClient.saveSettings(settings);
                     if (!context.mounted) return;
                     final ok = saved['success'] == true;
                     Navigator.pop(context);
-                    _showMessage(ok ? 'Settings saved.' : 'Settings rejected: ${saved['message'] ?? 'unknown'}');
+                    _showMessage(ok
+                        ? 'Settings saved.'
+                        : 'Settings rejected: ${saved['message'] ?? 'unknown'}');
                   },
                   icon: const Icon(Icons.save),
                   label: const Text('Save'),
@@ -583,7 +603,8 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
           if (response['success'] == true) {
             setState(() {
               _isRecording = true;
-              _episodeId = (response['episode_id'] as String?) ?? 'episode_${DateTime.now().millisecondsSinceEpoch}';
+              _episodeId = (response['episode_id'] as String?) ??
+                  'episode_${DateTime.now().millisecondsSinceEpoch}';
               _stepCount = 0;
             });
             _showMessage('Recording started: $_episodeId');

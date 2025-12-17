@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../models/public_episode.dart';
-import '../models/rlds_models.dart';
+import '../models/rlds_models.dart' as rlds;
 import 'cloud_uploader.dart';
 
 class PublicEpisodesService {
@@ -16,9 +16,11 @@ class PublicEpisodesService {
     Uri? uploadSigner,
   })  : _client = httpClient ?? http.Client(),
         _uploader = uploader ?? CloudUploader(),
-        _apiBase = apiBase ?? Uri.parse('https://cloud.continuon.ai/api/public-episodes'),
+        _apiBase = apiBase ??
+            Uri.parse('https://cloud.continuonai.com/api/public-episodes'),
         _uploadSigner = uploadSigner ??
-            Uri.parse('https://cloud.continuon.ai/api/public-episodes/sign-uploads');
+            Uri.parse(
+                'https://cloud.continuonai.com/api/public-episodes/sign-uploads');
 
   final http.Client _client;
   final CloudUploader _uploader;
@@ -30,7 +32,8 @@ class PublicEpisodesService {
     final response = await _client.get(uri);
     if (response.statusCode == 404) return null;
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Failed to fetch episode: HTTP ${response.statusCode}');
+      throw HttpException(
+          'Failed to fetch episode: HTTP ${response.statusCode}');
     }
     final decoded = jsonDecode(response.body);
     final json = decoded is Map<String, dynamic>
@@ -44,7 +47,8 @@ class PublicEpisodesService {
   Future<List<PublicEpisode>> fetchPublicEpisodes() async {
     final response = await _client.get(_apiBase);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Failed to fetch episodes: HTTP ${response.statusCode}');
+      throw HttpException(
+          'Failed to fetch episodes: HTTP ${response.statusCode}');
     }
     final decoded = jsonDecode(response.body);
     final rawList = decoded is List
@@ -67,14 +71,15 @@ class PublicEpisodesService {
       body: jsonEncode({'share': share.toJson()}),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Failed to sign uploads: HTTP ${response.statusCode}');
+      throw HttpException(
+          'Failed to sign uploads: HTTP ${response.statusCode}');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
     return PublicEpisodeUploadSession.fromJson(payload);
   }
 
   Future<PublicEpisode> publishEpisode({
-    required EpisodeRecord record,
+    required rlds.EpisodeRecord record,
     required ShareMetadata share,
     required PublicEpisodeUploadSession uploadSession,
     List<int>? previewBytes,
@@ -92,7 +97,8 @@ class PublicEpisodesService {
     }
 
     final assets = uploadSession.assets.toJson();
-    assets['download'] = uploadSession.assets.downloadSignedUrl ?? uploadedEpisodeUrl.toString();
+    assets['download'] =
+        uploadSession.assets.downloadSignedUrl ?? uploadedEpisodeUrl.toString();
 
     final response = await _client.post(
       _apiBase,
@@ -105,9 +111,11 @@ class PublicEpisodesService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Failed to publish episode: HTTP ${response.statusCode}');
+      throw HttpException(
+          'Failed to publish episode: HTTP ${response.statusCode}');
     }
-    return PublicEpisode.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return PublicEpisode.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   bool _isPublicReady(PublicEpisode episode) {
@@ -115,7 +123,8 @@ class PublicEpisodesService {
     return share.isPublic && share.piiCleared && !share.pendingReview;
   }
 
-  Future<void> _putBytes(Uri url, List<int> bytes, {String? contentType}) async {
+  Future<void> _putBytes(Uri url, List<int> bytes,
+      {String? contentType}) async {
     final request = http.Request('PUT', url)
       ..bodyBytes = bytes
       ..headers.addAll({
@@ -150,14 +159,17 @@ class PublicEpisodeUploadSession {
     }
     return PublicEpisodeUploadSession(
       rldsUploadUrl: Uri.parse(rldsString),
-      previewUploadUrl: (uploads['preview'] ?? json['preview_upload_url']) != null
-          ? Uri.parse((uploads['preview'] ?? json['preview_upload_url']) as String)
-          : null,
-      timelineUploadUrl: (uploads['timeline'] ?? json['timeline_upload_url']) != null
-          ? Uri.parse((uploads['timeline'] ?? json['timeline_upload_url']) as String)
+      previewUploadUrl:
+          (uploads['preview'] ?? json['preview_upload_url']) != null
+              ? Uri.parse(
+                  (uploads['preview'] ?? json['preview_upload_url']) as String)
+              : null,
+      timelineUploadUrl: (uploads['timeline'] ?? json['timeline_upload_url']) !=
+              null
+          ? Uri.parse(
+              (uploads['timeline'] ?? json['timeline_upload_url']) as String)
           : null,
       assets: SignedAssetUrls.fromJson(Map<String, dynamic>.from(assets)),
     );
   }
 }
-

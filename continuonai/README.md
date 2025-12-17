@@ -51,7 +51,7 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
    flutter pub get
    ```
 3. Configure ContinuonBrain connectivity in the Connect screen:
-   - Default host: `brain.continuon.ai` port `443` with TLS enabled.
+   - Default host: `brain.continuonai.com` port `443` with TLS enabled.
    - Optional bearer token: passed as the `Authorization: Bearer <token>` gRPC header.
    - Enable "platform WebRTC bridge" to route transport through the native host for
      lower-latency data channels when available.
@@ -73,22 +73,6 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
 7. Build the module for Android:
    ```bash
    flutter build aar
-   ```
-   or for iOS:
-   ```bash
-   flutter build ios-framework --cocoapods
-   ```
-
-## Firebase auth & hosting setup
-
-- Enable the Google provider in Firebase Authentication, then add authorized domains: `localhost`, `127.0.0.1`, your LAN IP if you serve locally, the App Hosting/Hosting subdomain, and your production domain (for example `app.continuon.ai`).
-- Enable the Email/Password provider so users can create continuonai.com accounts from the web app; include `continuonai.com`/`app.continuon.ai` in authorized domains.
-- Two-factor: when ready, turn on Firebase multi-factor (TOTP/SMS). The UI surfaces a placeholder and will prompt once the project enforces a second factor.
-- Android: add release SHA-1/SHA-256 fingerprints in Firebase console and download a fresh `android/app/google-services.json` (package name stays `com.continuonxr.fluttercompanion.flutter_companion`).
-- iOS/macOS: add the Apple app in Firebase, download `ios/Runner/GoogleService-Info.plist`, and register the reversed client ID in URL types.
-- Web: the app already uses `FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider())`; no extra redirect URI is needed when the domain is authorized.
-- Firestore: a `[cloud_firestore/permission-denied]` error in the web UI indicates the current rules reject the request. Sign in first and ensure rules permit the intended reads/writes for authenticated users (or use the emulator for local-only tests).
-- Deploying the web build via Firebase App Hosting keeps auth/storage domains aligned with Firebase; add the hosted domain to authorized domains when you create it.
 
 ### Firebase project bootstrap (from repo root)
 1) Install CLIs if needed: `npm install -g firebase-tools` and `dart pub global activate flutterfire_cli`.

@@ -19,7 +19,7 @@ class ConnectScreen extends StatefulWidget {
 
 class _ConnectScreenState extends State<ConnectScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _hostController = TextEditingController(text: 'brain.continuon.ai');
+  final _hostController = TextEditingController(text: 'brain.continuonai.com');
   final _portController = TextEditingController(text: '443');
   final _authTokenController = TextEditingController();
   final ScannerService _scanner = ScannerService();
@@ -61,8 +61,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
     });
     final host = _hostController.text.trim();
     final port = int.tryParse(_portController.text.trim()) ?? 50051;
-    final authToken =
-        _authTokenController.text.trim().isNotEmpty ? _authTokenController.text.trim() : null;
+    final authToken = _authTokenController.text.trim().isNotEmpty
+        ? _authTokenController.text.trim()
+        : null;
     try {
       await widget.brainClient.connect(
         host: host,
@@ -151,14 +152,18 @@ class _ConnectScreenState extends State<ConnectScreen> {
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodySmall
-                                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                                        ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant)),
                               ],
                             ),
                             selected: _hostController.text.trim() == robot.host,
                             onSelected: (_) {
                               setState(() {
                                 _hostController.text = robot.host;
-                                _portController.text = robot.httpPort.toString();
+                                _portController.text =
+                                    robot.httpPort.toString();
                                 _useTls = false;
                               });
                             },
@@ -171,15 +176,18 @@ class _ConnectScreenState extends State<ConnectScreen> {
               ],
               TextFormField(
                 controller: _hostController,
-                decoration: const InputDecoration(labelText: 'ContinuonBrain host'),
-                validator: (value) => (value == null || value.isEmpty) ? 'Host required' : null,
+                decoration:
+                    const InputDecoration(labelText: 'ContinuonBrain host'),
+                validator: (value) =>
+                    (value == null || value.isEmpty) ? 'Host required' : null,
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _portController,
                 decoration: const InputDecoration(labelText: 'Port'),
                 keyboardType: TextInputType.number,
-                validator: (value) => int.tryParse(value ?? '') != null ? null : 'Port required',
+                validator: (value) =>
+                    int.tryParse(value ?? '') != null ? null : 'Port required',
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -197,7 +205,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
               SwitchListTile(
                 title: const Text('Use platform WebRTC bridge'),
                 value: _usePlatformBridge,
-                onChanged: (value) => setState(() => _usePlatformBridge = value),
+                onChanged: (value) =>
+                    setState(() => _usePlatformBridge = value),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../models/public_episode.dart';
-import '../models/rlds_models.dart';
+import '../models/rlds_models.dart' as rlds;
 import 'public_episodes_service.dart';
 import 'training_queue_service.dart';
 
@@ -14,7 +14,7 @@ class YoutubeImportResult {
     this.publishedEpisode,
   });
 
-  final EpisodeRecord record;
+  final rlds.EpisodeRecord record;
   final PublicEpisode? publishedEpisode;
 }
 
@@ -25,12 +25,12 @@ class YoutubeImportService {
     TrainingQueueService? trainingQueueService,
     Uri? importEndpoint,
   })  : _client = httpClient ?? http.Client(),
-        _publicEpisodesService =
-            publicEpisodesService ?? PublicEpisodesService(httpClient: httpClient),
-        _trainingQueueService =
-            trainingQueueService ?? TrainingQueueService(httpClient: httpClient),
+        _publicEpisodesService = publicEpisodesService ??
+            PublicEpisodesService(httpClient: httpClient),
+        _trainingQueueService = trainingQueueService ??
+            TrainingQueueService(httpClient: httpClient),
         _importEndpoint = importEndpoint ??
-            Uri.parse('https://cloud.continuon.ai/api/import/youtube');
+            Uri.parse('https://cloud.continuonai.com/api/import/youtube');
 
   final http.Client _client;
   final PublicEpisodesService _publicEpisodesService;
@@ -54,7 +54,8 @@ class YoutubeImportService {
       pendingReview: share.piiCleared ? share.pendingReview : true,
     );
 
-    final uploadSession = await _publicEpisodesService.prepareUpload(normalizedShare);
+    final uploadSession =
+        await _publicEpisodesService.prepareUpload(normalizedShare);
     final publishedEpisode = await _publicEpisodesService.publishEpisode(
       record: record,
       share: normalizedShare,
@@ -62,43 +63,56 @@ class YoutubeImportService {
     );
 
     if (robotHost != null && robotHost.isNotEmpty) {
+      final rldsShare = rlds.ShareMetadata(
+        isPublic: normalizedShare.isPublic,
+        slug: normalizedShare.slug,
+        title: normalizedShare.title,
+        license: normalizedShare.license,
+        tags: normalizedShare.tags,
+      );
+
       await _trainingQueueService.enqueueEpisode(
         robotHost: robotHost,
         httpPort: robotHttpPort,
         useTls: robotUseTls,
         authToken: robotAuthToken,
         record: record,
-        share: normalizedShare,
+        share: rldsShare,
         requestPublicListing: requestPublicListing,
       );
     }
 
-    return YoutubeImportResult(record: record, publishedEpisode: publishedEpisode);
+    return YoutubeImportResult(
+        record: record, publishedEpisode: publishedEpisode);
   }
 
-  Future<EpisodeRecord> _fetchTranscodeAndBuildRecord(String youtubeUrl) async {
+  Future<rlds.EpisodeRecord> _fetchTranscodeAndBuildRecord(
+      String youtubeUrl) async {
     final response = await _client.post(
       _importEndpoint,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'youtube_url': youtubeUrl}),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Import failed: HTTP ${response.statusCode} ${response.body}');
+      throw HttpException(
+          'Import failed: HTTP ${response.statusCode} ${response.body}');
     }
     final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    final classification = TaskClassification(
-      tasks: List<String>.from(payload['task_labels'] as List? ?? const ['unlabeled']),
-      motionPrimitives:
-          List<String>.from(payload['motion_primitives'] as List? ?? const ['unknown_motion']),
+    final classification = rlds.TaskClassification(
+      tasks: List<String>.from(
+          payload['task_labels'] as List? ?? const ['unlabeled']),
+      motionPrimitives: List<String>.from(
+          payload['motion_primitives'] as List? ?? const ['unknown_motion']),
       confidence: (payload['task_confidence'] as Map?)?.map(
         (key, value) => MapEntry('$key', double.tryParse('$value') ?? 0.0),
       ),
     );
-    final metadata = EpisodeMetadata(
+    final metadata = rlds.EpisodeMetadata(
       xrMode: payload['xr_mode'] as String? ?? 'youtube_tv',
       controlRole: payload['control_role'] as String? ?? 'observer',
       environmentId: payload['environment_id'] as String? ?? 'youtube_import',
-      tags: List<String>.from(payload['tags'] as List? ?? const ['youtube', 'import']),
+      tags: List<String>.from(
+          payload['tags'] as List? ?? const ['youtube', 'import']),
       source: 'youtube',
       provenance: {
         'video_url': youtubeUrl,
@@ -107,22 +121,24 @@ class YoutubeImportService {
           'transcode_bucket': payload['transcode_bucket'],
       },
     );
-    final steps = <EpisodeStep>[];
+    final steps = <rlds.EpisodeStep>[];
     final rawSteps = payload['steps'] as List?;
     if (rawSteps != null) {
       for (final step in rawSteps.whereType<Map>()) {
         steps.add(
-          EpisodeStep(
-            observation: Map<String, dynamic>.from(step['observation'] as Map? ?? {}),
+          rlds.EpisodeStep(
+            observation:
+                Map<String, dynamic>.from(step['observation'] as Map? ?? {}),
             action: Map<String, dynamic>.from(step['action'] as Map? ?? {}),
             isTerminal: step['is_terminal'] as bool? ?? false,
             stepMetadata: Map<String, String>.from(
-                step['step_metadata'] as Map? ?? const {'source': 'youtube_import'}),
+                step['step_metadata'] as Map? ??
+                    const {'source': 'youtube_import'}),
           ),
         );
       }
     }
-    return EpisodeRecord(
+    return rlds.EpisodeRecord(
       metadata: metadata,
       steps: steps,
       taskClassification: classification,

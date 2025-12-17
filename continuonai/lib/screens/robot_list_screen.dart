@@ -223,7 +223,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
         children: [
           _buildStatusBanner(),
           _buildHelpCard(),
-          Expanded(child: _user == null ? _buildGuestList() : _buildFirestoreList()),
+          Expanded(
+              child: _user == null ? _buildGuestList() : _buildFirestoreList()),
         ],
       ),
       floatingActionButton: TweenAnimationBuilder<double>(
@@ -265,7 +266,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
                   controller: _tokenController,
                   decoration: const InputDecoration(
                     labelText: 'Bearer token',
-                    helperText: 'Optional. Stored securely on-device when you tap Save.',
+                    helperText:
+                        'Optional. Stored securely on-device when you tap Save.',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -273,7 +275,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
                   controller: _accountIdController,
                   decoration: const InputDecoration(
                     labelText: 'Account ID',
-                    helperText: 'Used for ownership/subscription checks (optional).',
+                    helperText:
+                        'Used for ownership/subscription checks (optional).',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -304,8 +307,9 @@ class _RobotListScreenState extends State<RobotListScreen> {
           ElevatedButton(
             onPressed: () {
               setState(() {
-                _authToken =
-                    _tokenController.text.isNotEmpty ? _tokenController.text : null;
+                _authToken = _tokenController.text.isNotEmpty
+                    ? _tokenController.text
+                    : null;
                 if (_authToken != null) {
                   _brainClient.setAuthToken(_authToken!, persist: true);
                 }
@@ -325,9 +329,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
   Widget _buildStatusBanner() {
     final messages = <String>[];
     if (_user == null) {
-      messages.add('Guest mode: control/record/OTA disabled. Sign in to unlock.');
+      messages
+          .add('Guest mode: control/record/OTA disabled. Sign in to unlock.');
     } else if (!_lanLikely) {
-      messages.add('Not on robot LAN. Join the same Wi‑Fi/hotspot as the robot to claim.');
+      messages.add(
+          'Not on robot LAN. Join the same Wi‑Fi/hotspot as the robot to claim.');
     } else if (!_isOwned) {
       messages.add('Local claim required before remote control/OTA.');
     } else if (!_hasSeedInstalled) {
@@ -404,13 +410,19 @@ class _RobotListScreenState extends State<RobotListScreen> {
         children: [
           Text(
             'How to connect a new robot',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          _helpText('1) Join the same Wi‑Fi/LAN as the robot (or the robot’s hotspot).'),
-          _helpText('2) Find the robot IP (status screen or router). Defaults: gRPC 50051, HTTP 8080.'),
+          _helpText(
+              '1) Join the same Wi‑Fi/LAN as the robot (or the robot’s hotspot).'),
+          _helpText(
+              '2) Find the robot IP (status screen or router). Defaults: gRPC 50051, HTTP 8080.'),
           _helpText('3) Tap "Add Robot" and enter IP/ports.'),
-          _helpText('4) When on robot LAN, tap Claim (local), then Seed install. Remote control/OTA works after that.'),
+          _helpText(
+              '4) When on robot LAN, tap Claim (local), then Seed install. Remote control/OTA works after that.'),
         ],
       ),
     );
@@ -485,7 +497,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
     final deviceInfo = _deviceInfoByHost[host] ?? {};
     final deviceId = deviceInfo['device_id'] as String? ?? '';
     final statusAccountId = _deviceInfoByHost[host]?['account_id'] as String?;
-    final statusAccountType = _deviceInfoByHost[host]?['account_type'] as String?;
+    final statusAccountType =
+        _deviceInfoByHost[host]?['account_type'] as String?;
     final mismatch = (statusAccountId != null &&
             _accountId != null &&
             statusAccountId != _accountId) ||
@@ -567,7 +580,9 @@ class _RobotListScreenState extends State<RobotListScreen> {
                         IconButton(
                           icon: const Icon(Icons.refresh),
                           tooltip: 'Refresh status',
-                          onPressed: (isBusy || isGuest) ? null : () => _refreshStatus(data),
+                          onPressed: (isBusy || isGuest)
+                              ? null
+                              : () => _refreshStatus(data),
                         ),
                         if (isBusy)
                           const SizedBox(
@@ -578,25 +593,36 @@ class _RobotListScreenState extends State<RobotListScreen> {
                         if (isBusy) const SizedBox(width: 12),
                         if (!_isOwned)
                           ElevatedButton.icon(
-                            onPressed: (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                            onPressed: (isGuest ||
+                                    !_isLocalNetwork ||
+                                    isBusy ||
+                                    mismatch)
                                 ? null
                                 : () => _claimRobot(data),
                             icon: const Icon(Icons.how_to_reg),
                             label: const Text('Claim (local)'),
                           ),
-                        if (_isOwned && !_hasSeedInstalled) const SizedBox(width: 8),
+                        if (_isOwned && !_hasSeedInstalled)
+                          const SizedBox(width: 8),
                         if (_isOwned && !_hasSeedInstalled)
                           ElevatedButton.icon(
-                            onPressed: (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                            onPressed: (isGuest ||
+                                    !_isLocalNetwork ||
+                                    isBusy ||
+                                    mismatch)
                                 ? null
                                 : () => _installSeed(data),
                             icon: const Icon(Icons.system_update),
                             label: const Text('Seed install'),
                           ),
-                        if (_isOwned && _hasSeedInstalled) const SizedBox(width: 8),
+                        if (_isOwned && _hasSeedInstalled)
+                          const SizedBox(width: 8),
                         if (_isOwned && _hasSeedInstalled)
                           ElevatedButton.icon(
-                            onPressed: (isGuest || !_hasSubscription || isBusy || mismatch)
+                            onPressed: (isGuest ||
+                                    !_hasSubscription ||
+                                    isBusy ||
+                                    mismatch)
                                 ? null
                                 : () => _connectOrGateRemote(data),
                             icon: const Icon(Icons.power_settings_new),
@@ -651,6 +677,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       ),
     );
   }
+
   Future<void> _refreshStatus(Map<String, dynamic> data) async {
     final host = data['host'] as String? ?? '';
     final httpPort = data['httpPort'] as int? ?? 8080;
@@ -658,7 +685,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
       _brainClient.setAuthToken(_authToken!);
     }
     setState(() => _busyHosts.add(host));
-    final status = await _brainClient.fetchOwnershipStatus(host: host, httpPort: httpPort);
+    final status =
+        await _brainClient.fetchOwnershipStatus(host: host, httpPort: httpPort);
     final ping = await _brainClient.ping(host: host, httpPort: httpPort);
     if (mounted) {
       setState(() {
@@ -713,13 +741,15 @@ class _RobotListScreenState extends State<RobotListScreen> {
         'httpPort': httpPort,
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-              'Remote control requires ownership + subscription + seed install.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+                'Remote control requires ownership + subscription + seed install.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -759,7 +789,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
       _brainClient.setAuthToken(_authToken!);
     }
     setState(() => _busyHosts.add(host));
-    final ok = await _brainClient.installSeedBundle(host: host, httpPort: data['httpPort'] as int? ?? 8080);
+    final ok = await _brainClient.installSeedBundle(
+        host: host, httpPort: data['httpPort'] as int? ?? 8080);
     if (mounted) {
       setState(() {
         if (ok) {
@@ -788,17 +819,20 @@ class _RobotListScreenState extends State<RobotListScreen> {
     if (owned != null) {
       _ownedByHost
         ..clear()
-        ..addAll(Map<String, dynamic>.from(jsonDecode(owned)).map((k, v) => MapEntry(k, v == true)));
+        ..addAll(Map<String, dynamic>.from(jsonDecode(owned))
+            .map((k, v) => MapEntry(k, v == true)));
     }
     if (sub != null) {
       _subByHost
         ..clear()
-        ..addAll(Map<String, dynamic>.from(jsonDecode(sub)).map((k, v) => MapEntry(k, v == true)));
+        ..addAll(Map<String, dynamic>.from(jsonDecode(sub))
+            .map((k, v) => MapEntry(k, v == true)));
     }
     if (seed != null) {
       _seedByHost
         ..clear()
-        ..addAll(Map<String, dynamic>.from(jsonDecode(seed)).map((k, v) => MapEntry(k, v == true)));
+        ..addAll(Map<String, dynamic>.from(jsonDecode(seed))
+            .map((k, v) => MapEntry(k, v == true)));
     }
     setState(() => _stateLoaded = true);
   }

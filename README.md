@@ -934,7 +934,7 @@ We welcome contributions across all modules in this monorepo. Please:
 
 ## Learn More
 
-* **Website**: [continuon.ai](https://continuon.ai) *(in development)*
+* **Website**: [continuonai.com](https://continuonai.com) *(in development)*
 * **RLDS Browser**: ContinuonAI app web build (WorldTape RLDS portal; see `continuonai/README.md`)
 * **Research**: See `docs/hope-cms-vla.md` for technical details
 * **Community**: Discord server *(coming soon)*

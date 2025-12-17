@@ -51,11 +51,8 @@ class _ControlScreenState extends State<ControlScreen> {
     super.dispose();
   }
 
-  Future<void> _sendVelocity() async {
-    await _sendBaseTwist(linearMps: 0.1, yawRadS: 0.0);
-  }
-
-  Future<void> _sendBaseTwist({required double linearMps, required double yawRadS}) async {
+  Future<void> _sendBaseTwist(
+      {required double linearMps, required double yawRadS}) async {
     final command = ControlCommand(
       clientId: widget.brainClient.clientId,
       controlMode: ControlMode.eeVelocity,
@@ -113,7 +110,8 @@ class _ControlScreenState extends State<ControlScreen> {
             ),
           );
         } else {
-          setState(() => _error = 'Safety hold failed: ${result['message'] ?? 'unknown error'}');
+          setState(() => _error =
+              'Safety hold failed: ${result['message'] ?? 'unknown error'}');
         }
       }
     } catch (e) {
@@ -341,7 +339,9 @@ class _ControlScreenState extends State<ControlScreen> {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(ok ? 'Safety gates reset.' : 'Reset failed: ${res['message'] ?? 'unknown'}'),
+                            content: Text(ok
+                                ? 'Safety gates reset.'
+                                : 'Reset failed: ${res['message'] ?? 'unknown'}'),
                           ),
                         );
                       } finally {
@@ -437,7 +437,9 @@ class _ControlScreenState extends State<ControlScreen> {
                   icon: Icons.arrow_upward,
                   label: 'Forward',
                   tooltip: 'Drive forward (gRPC SendCommand)',
-                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.12, yawRadS: 0.0),
+                  onPressed: _sending
+                      ? null
+                      : () => _sendBaseTwist(linearMps: 0.12, yawRadS: 0.0),
                 ),
                 const SizedBox(width: 50),
               ],
@@ -450,7 +452,9 @@ class _ControlScreenState extends State<ControlScreen> {
                   icon: Icons.turn_left,
                   label: 'Left',
                   tooltip: 'Turn left (gRPC SendCommand)',
-                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.0, yawRadS: 0.35),
+                  onPressed: _sending
+                      ? null
+                      : () => _sendBaseTwist(linearMps: 0.0, yawRadS: 0.35),
                 ),
                 const SizedBox(width: 4),
                 _buildArrowButton(
@@ -458,14 +462,18 @@ class _ControlScreenState extends State<ControlScreen> {
                   label: 'Stop',
                   tooltip: 'Stop motion (gRPC SendCommand)',
                   isCenter: true,
-                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.0, yawRadS: 0.0),
+                  onPressed: _sending
+                      ? null
+                      : () => _sendBaseTwist(linearMps: 0.0, yawRadS: 0.0),
                 ),
                 const SizedBox(width: 4),
                 _buildArrowButton(
                   icon: Icons.turn_right,
                   label: 'Right',
                   tooltip: 'Turn right (gRPC SendCommand)',
-                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.0, yawRadS: -0.35),
+                  onPressed: _sending
+                      ? null
+                      : () => _sendBaseTwist(linearMps: 0.0, yawRadS: -0.35),
                 ),
               ],
             ),
@@ -478,7 +486,9 @@ class _ControlScreenState extends State<ControlScreen> {
                   icon: Icons.arrow_downward,
                   label: 'Reverse',
                   tooltip: 'Drive backward (gRPC SendCommand)',
-                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: -0.12, yawRadS: 0.0),
+                  onPressed: _sending
+                      ? null
+                      : () => _sendBaseTwist(linearMps: -0.12, yawRadS: 0.0),
                 ),
                 const SizedBox(width: 50),
               ],
@@ -504,10 +514,13 @@ class _ControlScreenState extends State<ControlScreen> {
         child: ElevatedButton(
           onPressed: onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: isCenter ? const Color(0xFF333333) : ContinuonColors.primaryBlue,
+            backgroundColor: isCenter
+                ? const Color(0xFF333333)
+                : ContinuonColors.primaryBlue,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -517,7 +530,8 @@ class _ControlScreenState extends State<ControlScreen> {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
               ),
             ],
           ),

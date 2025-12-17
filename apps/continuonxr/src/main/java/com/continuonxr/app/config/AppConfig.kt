@@ -61,7 +61,7 @@ object AppConfigLoader {
                 continuonBrainHost = "127.0.0.1",
                 continuonBrainPort = 50051,
                 useWebRtc = false,
-                cloudBaseUrl = "https://api.continuon.ai",
+                cloudBaseUrl = "https://api.continuonai.com",
                 signalingUrl = null,
                 iceServers = emptyList(),
             ),

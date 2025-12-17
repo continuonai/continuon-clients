@@ -104,6 +104,44 @@ class _RecordScreenState extends State<RecordScreen> {
   void _applyCaptureToInputs(MediaCaptureResult capture) {
     if (_includeDeviceMic && capture.deviceMic != null) {
       final mic = capture.deviceMic!;
+      _multimodalInputs.updateDeviceMic(
+        uri: Uri.file(mic.path).toString(),
+        frameId: mic.frameId,
+        timestampMs: mic.timestampMs,
+        sampleRateHz: mic.sampleRateHz,
+        numChannels: mic.numChannels,
+      );
+    }
+    if (_includeRobotMic && capture.robotMic != null) {
+      final mic = capture.robotMic!;
+      _multimodalInputs.updateRobotMic(
+        uri: Uri.file(mic.path).toString(),
+        frameId: mic.frameId,
+        timestampMs: mic.timestampMs,
+        sampleRateHz: mic.sampleRateHz,
+        numChannels: mic.numChannels,
+      );
+    }
+    if (_includeEgocentricVideo && capture.egocentric != null) {
+      final frame = capture.egocentric!;
+      _multimodalInputs.updateEgocentricFrame(
+        uri: Uri.file(frame.path).toString(),
+        frameId: frame.frameId,
+        timestampMs: frame.timestampMs,
+        mount: frame.mount,
+        depthUri: frame.depthPath != null
+            ? Uri.file(frame.depthPath!).toString()
+            : null,
+      );
+      _multimodalInputs.updateGaze(
+        origin: const Vector3(x: 0, y: 0, z: 0),
+        direction: const Vector3(x: 0, y: 0, z: -1),
+        confidence: 0.8,
+        targetId: 'ui:record_${frame.mount}',
+      );
+    }
+  }
+
   EpisodeMetadata _buildMetadata() {
     final classificationTags = _buildClassificationTags();
     final shareTags = _buildShareTags();
@@ -126,7 +164,8 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   SafetyMetadata _buildSafetyMetadata() {
-    final piiPresent = _includeDeviceMic || _includeRobotMic || _includeEgocentricVideo;
+    final piiPresent =
+        _includeDeviceMic || _includeRobotMic || _includeEgocentricVideo;
     return SafetyMetadata(
       contentRating: ContentRating(
         audience: _contentAudience,
@@ -171,64 +210,14 @@ class _RecordScreenState extends State<RecordScreen> {
     return metadata;
   }
 
-  void _populateMultimodalInputs() {
-    final frameId = DateTime.now().millisecondsSinceEpoch.toString();
-    if (_includeDeviceMic) {
-      _multimodalInputs.updateDeviceMic(
-        uri: Uri.file(mic.path).toString(),
-        frameId: mic.frameId,
-        timestampMs: mic.timestampMs,
-        sampleRateHz: mic.sampleRateHz,
-        numChannels: mic.numChannels,
-      );
-    }
-    if (_includeRobotMic && capture.robotMic != null) {
-      final mic = capture.robotMic!;
-      _multimodalInputs.updateRobotMic(
-        uri: Uri.file(mic.path).toString(),
-        frameId: mic.frameId,
-        timestampMs: mic.timestampMs,
-        sampleRateHz: mic.sampleRateHz,
-        numChannels: mic.numChannels,
-      );
-    }
-    if (!_includeDeviceMic) {
-      _multimodalInputs.clearDeviceMic();
-    }
-    if (!_includeRobotMic) {
-      _multimodalInputs.clearRobotMic();
-    }
-    if (!_includeDeviceMic && !_includeRobotMic) {
-      _multimodalInputs.clearAudio();
-    }
-
-    if (_includeEgocentricVideo && capture.egocentric != null) {
-      final frame = capture.egocentric!;
-      _multimodalInputs.updateEgocentricFrame(
-        uri: Uri.file(frame.path).toString(),
-        frameId: frame.frameId,
-        timestampMs: frame.timestampMs,
-        mount: frame.mount,
-        depthUri: frame.depthPath != null ? Uri.file(frame.depthPath!).toString() : null,
-      );
-      _multimodalInputs.updateGaze(
-        origin: const Vector3(x: 0, y: 0, z: 0),
-        direction: const Vector3(x: 0, y: 0, z: -1),
-        confidence: 0.8,
-        targetId: 'ui:record_${frame.mount}',
-      );
-    } else {
-      _multimodalInputs.clearEgocentricFrame();
-      _multimodalInputs.clearGaze();
-    }
-  }
-
   Future<void> _recordStep() async {
     setState(() {
       _status = 'Capturing sensors…';
-      if (_includeDeviceMic) _sensorStates['device_mic'] = SensorStatus.recording;
+      if (_includeDeviceMic)
+        _sensorStates['device_mic'] = SensorStatus.recording;
       if (_includeRobotMic) _sensorStates['robot_mic'] = SensorStatus.recording;
-      if (_includeEgocentricVideo) _sensorStates['egocentric'] = SensorStatus.recording;
+      if (_includeEgocentricVideo)
+        _sensorStates['egocentric'] = SensorStatus.recording;
     });
     try {
       final capture = await _captureService.capture(
@@ -252,15 +241,6 @@ class _RecordScreenState extends State<RecordScreen> {
             'source': 'human_teleop_xr',
             if (_voiceCommandController.text.isNotEmpty)
               'voice_command': _voiceCommandController.text,
-  void _recordStep() {
-    _refreshMetadata();
-    _populateMultimodalInputs();
-    _recorder.addStep(
-      EpisodeStep(
-        observation: _multimodalInputs.buildObservation(
-          uiContext: {
-            'notes': _notesController.text,
-            'voice_hint': _voiceCommandController.text,
           },
         ),
       );
@@ -268,16 +248,19 @@ class _RecordScreenState extends State<RecordScreen> {
       setState(() {
         _status = 'Recorded step ${DateTime.now().toIso8601String()}';
         if (_includeDeviceMic) {
-          _sensorStates['device_mic'] =
-              capture.deviceMic != null ? SensorStatus.queued : SensorStatus.error;
+          _sensorStates['device_mic'] = capture.deviceMic != null
+              ? SensorStatus.queued
+              : SensorStatus.error;
         }
         if (_includeRobotMic) {
-          _sensorStates['robot_mic'] =
-              capture.robotMic != null ? SensorStatus.queued : SensorStatus.error;
+          _sensorStates['robot_mic'] = capture.robotMic != null
+              ? SensorStatus.queued
+              : SensorStatus.error;
         }
         if (_includeEgocentricVideo) {
-          _sensorStates['egocentric'] =
-              capture.egocentric != null ? SensorStatus.queued : SensorStatus.error;
+          _sensorStates['egocentric'] = capture.egocentric != null
+              ? SensorStatus.queued
+              : SensorStatus.error;
         }
       });
     } catch (error) {
@@ -285,7 +268,8 @@ class _RecordScreenState extends State<RecordScreen> {
         _status = 'Capture failed: $error';
         if (_includeDeviceMic) _sensorStates['device_mic'] = SensorStatus.error;
         if (_includeRobotMic) _sensorStates['robot_mic'] = SensorStatus.error;
-        if (_includeEgocentricVideo) _sensorStates['egocentric'] = SensorStatus.error;
+        if (_includeEgocentricVideo)
+          _sensorStates['egocentric'] = SensorStatus.error;
       });
     }
   }
@@ -307,7 +291,7 @@ class _RecordScreenState extends State<RecordScreen> {
         return;
       }
       final signedUrl = await _cloudUploader.fetchSignedUploadUrl(
-        Uri.parse('https://upload.continuon.ai/episodes'),
+        Uri.parse('https://cloud.continuonai.com/episodes'),
         package.record.metadata,
       );
       await _cloudUploader.uploadEpisode(package.record, signedUrl);
@@ -318,9 +302,11 @@ class _RecordScreenState extends State<RecordScreen> {
           _transferring = true;
           _status = 'Transferring media to managed robot…';
         });
-        final remoteMap = await widget.brainClient.handoffEpisodeAssets(package);
+        final remoteMap =
+            await widget.brainClient.handoffEpisodeAssets(package);
         final updatedAssets = _recorder.markAssetsTransferred(remoteMap);
-        final refreshedRecord = _recorder.buildRecord(assetsOverride: updatedAssets);
+        final refreshedRecord =
+            _recorder.buildRecord(assetsOverride: updatedAssets);
         await _cloudUploader.uploadEpisode(refreshedRecord, signedUrl);
         setState(() {
           _status = 'Uploaded + handed off to robot';
@@ -328,10 +314,11 @@ class _RecordScreenState extends State<RecordScreen> {
               value == SensorStatus.queued ? SensorStatus.idle : value);
         });
       } else if (package.assets.isNotEmpty) {
-        setState(() => _status = 'Uploaded; waiting for robot connection to handoff media');
+        setState(() => _status =
+            'Uploaded; waiting for robot connection to handoff media');
       }
-        processedRecord.metadata,
-      );
+
+      // Re-upload processed record to ensure final state is captured
       await _cloudUploader.uploadEpisode(processedRecord, signedUrl);
       setState(() => _status = 'Uploaded to ${signedUrl.host}');
     } catch (error) {
@@ -365,7 +352,8 @@ class _RecordScreenState extends State<RecordScreen> {
       if (share.tags.isEmpty) {
         return 'Add at least one share tag before publishing';
       }
-      if (safety.intendedAudience.isEmpty || safety.contentRating.audience.isEmpty) {
+      if (safety.intendedAudience.isEmpty ||
+          safety.contentRating.audience.isEmpty) {
         return 'Provide content rating and intended audience for public sharing';
       }
       if (!safety.piiAttested) {
@@ -383,7 +371,8 @@ class _RecordScreenState extends State<RecordScreen> {
     // Simulate a local redaction pipeline that blurs faces/plates and runs OCR/ASR
     // scans before upload. This updates the metadata flags so cloud brokers can
     // block public listings until PII is cleared.
-    final scrubbed = _piiScrubbingEnabled || record.metadata.share?.isPublic == true;
+    final scrubbed =
+        _piiScrubbingEnabled || record.metadata.share?.isPublic == true;
     final safety = record.metadata.safety ?? _buildSafetyMetadata();
     final updatedSafety = safety.copyWith(
       piiRedacted: scrubbed,
@@ -402,12 +391,14 @@ class _RecordScreenState extends State<RecordScreen> {
       _piiRedacted = updatedSafety.piiRedacted;
       _pendingReview = updatedSafety.pendingReview;
     });
-    final updatedMetadata = record.metadata.copyWith(safety: updatedSafety, share: record.metadata.share);
+    final updatedMetadata = record.metadata
+        .copyWith(safety: updatedSafety, share: record.metadata.share);
     _recorder.updateMetadata(updatedMetadata);
     return EpisodeRecord(metadata: updatedMetadata, steps: record.steps);
   }
 
-  Widget _buildTagSelector(String label, List<String> options, Set<String> selection) {
+  Widget _buildTagSelector(
+      String label, List<String> options, Set<String> selection) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -454,9 +445,14 @@ class _RecordScreenState extends State<RecordScreen> {
                 helperText: 'Manual mode sets control_role=manual_driver',
               ),
               items: const [
-                DropdownMenuItem(value: 'human_teleop', child: Text('Automatic supervision')),
-                DropdownMenuItem(value: 'manual_driver', child: Text('Manual driver')),
-                DropdownMenuItem(value: 'autonomous_record', child: Text('Autonomous record')),
+                DropdownMenuItem(
+                    value: 'human_teleop',
+                    child: Text('Automatic supervision')),
+                DropdownMenuItem(
+                    value: 'manual_driver', child: Text('Manual driver')),
+                DropdownMenuItem(
+                    value: 'autonomous_record',
+                    child: Text('Autonomous record')),
               ],
               onChanged: (value) {
                 if (value == null) return;
@@ -540,8 +536,10 @@ class _RecordScreenState extends State<RecordScreen> {
                 helperText: 'Select chest or hat mount for egocentric camera',
               ),
               items: const [
-                DropdownMenuItem(value: 'chest', child: Text('Chest mount camera')),
-                DropdownMenuItem(value: 'hat', child: Text('Hat/helmet mount camera')),
+                DropdownMenuItem(
+                    value: 'chest', child: Text('Chest mount camera')),
+                DropdownMenuItem(
+                    value: 'hat', child: Text('Hat/helmet mount camera')),
               ],
               onChanged: _includeEgocentricVideo
                   ? (value) {
@@ -555,7 +553,8 @@ class _RecordScreenState extends State<RecordScreen> {
               controller: _voiceCommandController,
               decoration: const InputDecoration(
                 labelText: 'Voice command text',
-                helperText: 'Logged to action.voice_command to mirror XR speech control',
+                helperText:
+                    'Logged to action.voice_command to mirror XR speech control',
               ),
             ),
             const SizedBox(height: 24),
@@ -586,7 +585,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 _refreshMetadata();
               }),
               title: const Text('Mark episode as public'),
-              subtitle: const Text('Requires share block + safety metadata before upload'),
+              subtitle: const Text(
+                  'Requires share block + safety metadata before upload'),
             ),
             SwitchListTile(
               value: _piiScrubbingEnabled,
@@ -595,7 +595,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 _refreshMetadata();
               }),
               title: const Text('Enable PII scrubbing before upload'),
-              subtitle: const Text('Blur faces/plates and run OCR/ASR before publishing'),
+              subtitle: const Text(
+                  'Blur faces/plates and run OCR/ASR before publishing'),
             ),
             CheckboxListTile(
               value: _piiAttested,
@@ -604,7 +605,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 _refreshMetadata();
               }),
               title: const Text('I attest PII review for this episode'),
-              subtitle: const Text('Required to set safety.pii_attested for public uploads'),
+              subtitle: const Text(
+                  'Required to set safety.pii_attested for public uploads'),
             ),
             TextField(
               controller: _titleController,
@@ -629,8 +631,10 @@ class _RecordScreenState extends State<RecordScreen> {
               decoration: const InputDecoration(labelText: 'License'),
               items: const [
                 DropdownMenuItem(value: 'CC-BY-4.0', child: Text('CC-BY-4.0')),
-                DropdownMenuItem(value: 'CC-BY-NC-4.0', child: Text('CC-BY-NC-4.0')),
-                DropdownMenuItem(value: 'Proprietary', child: Text('Proprietary')),
+                DropdownMenuItem(
+                    value: 'CC-BY-NC-4.0', child: Text('CC-BY-NC-4.0')),
+                DropdownMenuItem(
+                    value: 'Proprietary', child: Text('Proprietary')),
               ],
               onChanged: (value) {
                 if (value == null) return;
@@ -646,7 +650,8 @@ class _RecordScreenState extends State<RecordScreen> {
               onChanged: (_) => _refreshMetadata(),
               decoration: const InputDecoration(
                 labelText: 'Public tags',
-                helperText: 'Comma-separated tags for public listing; classification tags are auto-included',
+                helperText:
+                    'Comma-separated tags for public listing; classification tags are auto-included',
               ),
             ),
             const SizedBox(height: 16),
@@ -656,11 +661,15 @@ class _RecordScreenState extends State<RecordScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _contentAudience,
-                    decoration: const InputDecoration(labelText: 'Content rating'),
+                    decoration:
+                        const InputDecoration(labelText: 'Content rating'),
                     items: const [
-                      DropdownMenuItem(value: 'general', child: Text('General / all ages')),
-                      DropdownMenuItem(value: 'teen', child: Text('Teen / 13+')),
-                      DropdownMenuItem(value: 'adult', child: Text('Adult / 18+')),
+                      DropdownMenuItem(
+                          value: 'general', child: Text('General / all ages')),
+                      DropdownMenuItem(
+                          value: 'teen', child: Text('Teen / 13+')),
+                      DropdownMenuItem(
+                          value: 'adult', child: Text('Adult / 18+')),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -675,11 +684,15 @@ class _RecordScreenState extends State<RecordScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _intendedAudience,
-                    decoration: const InputDecoration(labelText: 'Intended audience'),
+                    decoration:
+                        const InputDecoration(labelText: 'Intended audience'),
                     items: const [
-                      DropdownMenuItem(value: 'general', child: Text('General public')),
-                      DropdownMenuItem(value: 'research', child: Text('Research partners')),
-                      DropdownMenuItem(value: 'internal', child: Text('Internal QA only')),
+                      DropdownMenuItem(
+                          value: 'general', child: Text('General public')),
+                      DropdownMenuItem(
+                          value: 'research', child: Text('Research partners')),
+                      DropdownMenuItem(
+                          value: 'internal', child: Text('Internal QA only')),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -698,11 +711,13 @@ class _RecordScreenState extends State<RecordScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _violenceLevel,
-                    decoration: const InputDecoration(labelText: 'Violence rating'),
+                    decoration:
+                        const InputDecoration(labelText: 'Violence rating'),
                     items: const [
                       DropdownMenuItem(value: 'none', child: Text('None')),
                       DropdownMenuItem(value: 'mild', child: Text('Mild')),
-                      DropdownMenuItem(value: 'graphic', child: Text('Graphic')),
+                      DropdownMenuItem(
+                          value: 'graphic', child: Text('Graphic')),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -717,11 +732,14 @@ class _RecordScreenState extends State<RecordScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _languageLevel,
-                    decoration: const InputDecoration(labelText: 'Language rating'),
+                    decoration:
+                        const InputDecoration(labelText: 'Language rating'),
                     items: const [
                       DropdownMenuItem(value: 'clean', child: Text('Clean')),
-                      DropdownMenuItem(value: 'some', child: Text('Some language')),
-                      DropdownMenuItem(value: 'strong', child: Text('Strong language')),
+                      DropdownMenuItem(
+                          value: 'some', child: Text('Some language')),
+                      DropdownMenuItem(
+                          value: 'strong', child: Text('Strong language')),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -738,10 +756,14 @@ class _RecordScreenState extends State<RecordScreen> {
             Text(_status ?? 'Pending'),
             const SizedBox(height: 12),
             const Text('Recording flows'),
-            const Text('• Uses RLDS schema aligned with proto/rlds_episode.proto.'),
-            const Text('• Upload broker expected to return signed storage URL.'),
-            const Text('• Multimodal steps include audio (device + robot), egocentric video/depth, and gaze metadata.'),
-            const Text('• Recorded blobs are handed off to the managed robot when connected and mirrored into the RLDS manifest.'),
+            const Text(
+                '• Uses RLDS schema aligned with proto/rlds_episode.proto.'),
+            const Text(
+                '• Upload broker expected to return signed storage URL.'),
+            const Text(
+                '• Multimodal steps include audio (device + robot), egocentric video/depth, and gaze metadata.'),
+            const Text(
+                '• Recorded blobs are handed off to the managed robot when connected and mirrored into the RLDS manifest.'),
           ],
         ),
       ),

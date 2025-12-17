@@ -22,13 +22,15 @@ class TaskRecorder {
     _assets.addAll(assets);
   }
 
-  EpisodeRecord buildRecord({List<EpisodeAsset>? assetsOverride}) => EpisodeRecord(
-        metadata: metadata,
+  EpisodeRecord buildRecord({
+    EpisodeMetadata? metadataOverride,
+    List<EpisodeAsset>? assetsOverride,
+  }) =>
+      EpisodeRecord(
+        metadata: metadataOverride ?? metadata,
         steps: List.of(_steps),
         assets: assetsOverride ?? List.of(_assets),
       );
-  EpisodeRecord buildRecord({EpisodeMetadata? metadataOverride}) =>
-      EpisodeRecord(metadata: metadataOverride ?? metadata, steps: List.of(_steps));
 
   void updateMetadata(EpisodeMetadata value) {
     metadata = value;
@@ -39,7 +41,8 @@ class TaskRecorder {
         assets: List.of(_assets),
       );
 
-  List<EpisodeAsset> markAssetsTransferred(Map<String, String> remoteByLocalPath) {
+  List<EpisodeAsset> markAssetsTransferred(
+      Map<String, String> remoteByLocalPath) {
     final updated = _assets
         .map(
           (asset) => remoteByLocalPath.containsKey(asset.localUri)

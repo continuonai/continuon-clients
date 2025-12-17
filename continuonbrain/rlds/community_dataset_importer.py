@@ -31,7 +31,7 @@ class CommunityDatasetIngestConfig:
     environment_id: str = "hf_community_dataset_v3"
     xr_mode: str = "trainer"
     control_role: str = "human_supervisor"
-    software_xr_app: str = "continuon.ai-importer"
+    software_xr_app: str = "continuonai.com-importer"
     software_runtime: str = "continuonbrain-runtime"
     software_glove: str = "absent"
     default_frame_prefix: str = "hf_vla"
