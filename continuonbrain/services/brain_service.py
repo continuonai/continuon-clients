@@ -236,6 +236,7 @@ class BrainService:
         allow_mock_fallback: bool = False, 
         system_instructions: Optional[SystemInstructions] = None
     ):
+        print("DEBUG: BrainService.__init__ STARTING")
         self.config_dir = config_dir
         self.prefer_real_hardware = prefer_real_hardware
         self.auto_detect = auto_detect
@@ -322,6 +323,12 @@ class BrainService:
         self._orchestrator_lock = threading.Lock()
         self._last_autonomous_learner_action: Optional[dict] = None
         self._last_orchestrator: dict = {"last_run_ts": 0.0, "last_actions": {}}
+        
+        # Status Pulse
+        print("DEBUG: Calling _start_status_pulse")
+        self._status_pulse_thread: Optional[threading.Thread] = None
+        self._start_status_pulse()
+        print("DEBUG: _start_status_pulse returned")
         
         # --- Personality Config ---
         # Load persistent settings
@@ -1627,8 +1634,39 @@ class BrainService:
             self.mode_manager.return_to_idle()
         return self.mode_manager
 
+    def _start_status_pulse(self):
+        """Start the background status pulse thread."""
+        if self._status_pulse_thread is not None:
+             return
+             
+        def _pulse_worker():
+            while not self._bg_stop_event.is_set():
+                try:
+                    mode = "unknown"
+                    if self.mode_manager:
+                        mode = self.mode_manager.current_mode.value
+                        
+                    payload = {
+                        "status": {
+                            "uptime_seconds": self.uptime_seconds,
+                            "device_id": self.agent_id,
+                            "mode": mode,
+                            "ok": True
+                        }
+                    }
+                    self.chat_event_queue.put(payload)
+                except Exception as e:
+                    logger.error(f"Status pulse error: {e}")
+                
+                # Sleep for 2 seconds (or use an event wait)
+                self._bg_stop_event.wait(2.0)
+                
+        self._status_pulse_thread = threading.Thread(target=_pulse_worker, daemon=True)
+        self._status_pulse_thread.start()
+        logger.info("Started status pulse thread")
+
     def _now_iso(self) -> str:
-        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        return datetime.datetime.now().isoformat()
         
     @property
     def capabilities(self) -> Dict[str, bool]:

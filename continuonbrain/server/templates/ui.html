@@ -24,6 +24,12 @@
                 <button class="tool-btn" onclick="window.setMode('sleep_learning')">Sleep Learning</button>
                 <button class="tool-btn ghost" onclick="window.setMode('idle')">Idle</button>
                 <div class="divider"></div>
+                <!-- New view navigation -->
+                <button class="tool-btn" onclick="window.setViewMode('owner')">Command</button>
+                <button class="tool-btn" onclick="window.setViewMode('planning')">Planning</button>
+                <button class="tool-btn" onclick="window.setViewMode('docs')">Docs</button>
+                <button class="tool-btn" onclick="window.setViewMode('manual')">Controls</button>
+                <div class="divider"></div>
                 <button class="tool-btn" onclick="openSettingsModal()">Settings</button>
                 <button class="tool-btn ghost" onclick="window.triggerSafetyHold()">Safety Hold</button>
                 <button class="tool-btn ghost" onclick="window.resetSafetyGates()">Reset Gates</button>
@@ -64,7 +70,7 @@
                             <h3>Agent Chat</h3>
                         </div>
                         <div style="display: flex; gap: 8px;">
-                            <!-- Minimal options can go here if needed -->
+                            <!-- Dropdown "minimal options" removed as per request -->
                         </div>
                     </div>
 
@@ -571,6 +577,71 @@
                 </div>
             </aside>
         </div>
+
+        <!-- PLANNING VIEW PANEL (New) -->
+        <div class="panel planning-view" style="display:none;">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-eyebrow">Strategic Planning</div>
+                    <h2>Task & Motion Planning</h2>
+                    <p class="panel-subtitle">Create, simulate, and execute high-level plans.</p>
+                </div>
+            </div>
+            <!-- Moved Planning Tools Here -->
+            <div id="planning-tools-container" style="padding:20px;">
+                <!-- Content injected/managed by ui_logic.js if needed, or static forms here -->
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <h4>Arm Planner</h4>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-bottom:12px;">
+                            <input type="number" id="plan-goal-j0" placeholder="J0" step="0.1">
+                            <input type="number" id="plan-goal-j1" placeholder="J1" step="0.1">
+                            <input type="number" id="plan-goal-j2" placeholder="J2" step="0.1">
+                            <input type="number" id="plan-goal-j3" placeholder="J3" step="0.1">
+                            <input type="number" id="plan-goal-j4" placeholder="J4" step="0.1">
+                            <input type="number" id="plan-goal-j5" placeholder="J5" step="0.1">
+                        </div>
+                        <div style="display:flex; gap:12px;">
+                            <button class="btn primary" onclick="window.runArmPlanner()">Plan Motion</button>
+                            <label style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" id="plan-execute"> Execute
+                            </label>
+                        </div>
+                        <pre id="plan-output"
+                            style="margin-top:12px; background:rgba(0,0,0,0.3); padding:8px; border-radius:4px; max-height:200px; overflow:auto;">(No plan)</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MANUAL CONTROL VIEW PANEL (New) -->
+        <div class="panel manual-view" style="display:none;">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-eyebrow">Direct Control</div>
+                    <h2>Manual Teleoperation</h2>
+                    <p class="panel-subtitle">Keyboard and joystick control override.</p>
+                </div>
+            </div>
+            <div class="settings-grid" style="padding:20px;">
+                <div class="settings-card">
+                    <h4 style="margin-bottom:16px;">Keyboard Drive (WASD)</h4>
+                    <div style="display:flex; gap:12px; justify-content:center; margin-bottom:20px;">
+                        <div class="key-cap">W</div>
+                    </div>
+                    <div style="display:flex; gap:12px; justify-content:center;">
+                        <div class="key-cap">A</div>
+                        <div class="key-cap">S</div>
+                        <div class="key-cap">D</div>
+                    </div>
+                    <div style="text-align:center; margin-top:16px; color:var(--muted);">
+                        Click here to focus for keyboard control
+                    </div>
+                </div>
+            </div>
+        </div>
+        </main>
+    </div>
     </div>
 
     <div class="modal-backdrop" id="settings-backdrop"></div>

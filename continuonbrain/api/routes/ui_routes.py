@@ -55,7 +55,7 @@ def api_explorer():
 
 def get_home_html() -> str:
     print(f"DEBUG: get_home_html called. TEMPLATE_DIR={TEMPLATE_DIR}")
-    content = render_template("home.html", active_page="home")
+    content = render_template("ui.html", active_page="home")
     print(f"DEBUG: Rendered content length: {len(content)}")
     print(f"DEBUG: Content snippet: {content[:100]}")
     return content

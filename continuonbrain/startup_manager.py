@@ -94,6 +94,17 @@ class StartupManager:
         machine = platform.machine().lower()
         return machine.startswith("arm") or machine.startswith("aarch64")
         
+    def _resolve_module_path(self, module_name: str) -> Optional[str]:
+        """Resolve a python module string to a concrete file path."""
+        import importlib.util
+        try:
+            spec = importlib.util.find_spec(module_name)
+            if spec and spec.origin:
+                return spec.origin
+        except ImportError:
+            pass
+        return None
+
     def detect_startup_mode(self) -> StartupMode:
         """
         Detect how the system is starting up.
@@ -494,7 +505,7 @@ class StartupManager:
                     ]
                     
                     # Check for kiosk override from env
-                    if not self._env_flag("CONTINUON_BROWSER_KIOSK", default=True):
+                    if not self._env_flag("CONTINUON_BROWSER_KIOSK", default=False):
                          cmd.remove("--kiosk")
 
                     subprocess.Popen(

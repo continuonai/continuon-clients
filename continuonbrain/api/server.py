@@ -528,7 +528,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 # Back-compat: map route now points at unified HOPE monitor UI.
                 self.wfile.write(ui_routes.get_hope_dynamics_html().encode("utf-8"))
 
-            elif self.path == "/api/chat/events":
+            elif self.path in ("/api/events", "/api/chat/events"):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
                 self.send_header("Cache-Control", "no-cache")
@@ -537,10 +537,33 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 
                 try:
+                    last_pulse = 0
                     while True:
                         try:
+                            # Inline Status Pulse (Fallback)
+                            now = time.time()
+                            if now - last_pulse > 2.0:
+                                last_pulse = now
+                                mode = "unknown"
+                                if brain_service and brain_service.mode_manager:
+                                    mode = brain_service.mode_manager.current_mode.value
+                                status_payload = {
+                                    "status": {
+                                        "uptime_seconds": brain_service.uptime_seconds if brain_service else 0,
+                                        "device_id": brain_service.device_id if brain_service else "unknown",
+                                        "mode": mode,
+                                        "ok": True
+                                    }
+                                }
+                                # Inject directly to stream
+                                data = json.dumps(status_payload)
+                                self.wfile.write(f"data: {data}\n\n".encode("utf-8"))
+                                self.wfile.flush()
+                                
                             # Use timeout to allow checking connection status / keepalive
+                            # print("DEBUG: Waiting for event...", flush=True)
                             event = brain_service.chat_event_queue.get(timeout=1.0)
+                            print(f"DEBUG: Got event: {event}", flush=True)
                             data = json.dumps(event)
                             self.wfile.write(f"data: {data}\n\n".encode("utf-8"))
                             self.wfile.flush()
@@ -1490,8 +1513,16 @@ def main():
     brain_service = BrainService(
         config_dir=args.config_dir,
         prefer_real_hardware=prefer_real,
+        prefer_real_hardware=prefer_real,
         auto_detect=True
     )
+    import sys
+    try:
+        print(f"DEBUG: Loaded BrainService from: {sys.modules['continuonbrain.services.brain_service'].__file__}", flush=True)
+    except:
+        print("DEBUG: Could not determine BrainService file path", flush=True)
+    
+    # Store settings in brain_service for access by ChatWithGemma
     
     # Store settings in brain_service for access by ChatWithGemma
     brain_service.agent_settings = agent_settings

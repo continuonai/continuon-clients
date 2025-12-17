@@ -17,8 +17,8 @@
     --bp-laptop: 1100px;
     --bp-tablet: 900px;
     --bp-mobile: 640px;
-    --chat-min-width: 280px;
-    --chat-max-width: 520px;
+    --chat-min-width: 320px;
+    --chat-max-width: 800px;
 }
 
 body {
@@ -240,16 +240,32 @@ body {
 
 .column {
     min-height: 100%;
-    overflow: hidden; /* Prevent spillover */
+    overflow: hidden;
+    /* Prevent spillover */
 }
 
 /* Column mapping to Grid Areas */
-.left-column { grid-area: nav; display: flex; flex-direction: column; }
-.center-column { grid-area: content; }
-.right-column { grid-area: agent; }
+.left-column {
+    grid-area: nav;
+    display: flex;
+    flex-direction: column;
+}
 
-.col-resizer[data-resize="left"] { grid-area: nav-resizer; }
-.col-resizer[data-resize="right"] { grid-area: content-resizer; }
+.center-column {
+    grid-area: content;
+}
+
+.right-column {
+    grid-area: agent;
+}
+
+.col-resizer[data-resize="left"] {
+    grid-area: nav-resizer;
+}
+
+.col-resizer[data-resize="right"] {
+    grid-area: content-resizer;
+}
 
 .center-column {
     min-width: 320px;
@@ -258,7 +274,8 @@ body {
 /* Logger & Chat Styling */
 #logger-panel {
     background: #0d1117;
-    flex: 0 0 200px; /* Default height */
+    flex: 0 0 200px;
+    /* Default height */
     display: flex;
     flex-direction: column;
     border-bottom: 1px solid var(--border);
@@ -281,8 +298,14 @@ body {
     padding: 2px 0;
     word-break: break-all;
 }
-.log-line.system { color: #58a6ff; }
-.log-line.action { color: #7ad7ff; }
+
+.log-line.system {
+    color: #58a6ff;
+}
+
+.log-line.action {
+    color: #7ad7ff;
+}
 
 #chat-panel {
     flex: 1;
@@ -291,7 +314,8 @@ body {
     margin: 0;
     border-top: none;
     border-radius: 0 0 14px 14px;
-    min-height: 0; /* Enable flex scroll */
+    min-height: 0;
+    /* Enable flex scroll */
 }
 
 /* Ensure resizing handles represent the new gaps */

@@ -11,6 +11,41 @@ window.switchHomeTab = function (tabName) {
     });
 };
 // Global functions for onclick handlers
+window.setViewMode = function (mode) {
+    // Hide all main views
+    const views = ['owner-view', 'planning-view', 'docs-view', 'manual-view', 'settings-view'];
+    views.forEach(v => {
+        document.querySelectorAll('.panel.' + v).forEach(el => el.style.display = 'none');
+    });
+
+    // Show selected view
+    const targetMap = {
+        'owner': 'owner-view',
+        'planning': 'planning-view',
+        'docs': 'docs-view',
+        'manual': 'manual-view',
+        'settings': 'settings-view'
+    };
+
+    const targetClass = targetMap[mode] || 'owner-view';
+    document.querySelectorAll('.panel.' + targetClass).forEach(el => el.style.display = 'block');
+
+    // Update active nav state if needed (optional)
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    // Find button that triggered this? Hard without event, but acceptable for now.
+
+    // Special handling for Docs if needed (auto-refresh)
+    if (mode === 'docs' && window.fetchDocs) window.fetchDocs();
+};
+
+window.onChat = function (payload) {
+    if (window.renderIncomingChatMessage) {
+        window.renderIncomingChatMessage(payload);
+    } else {
+        console.warn('renderIncomingChatMessage not ready for chat payload', payload);
+    }
+};
+
 window.showMessage = function (message, isError) {
     if (typeof isError === 'undefined') { isError = false; }
     var msgDiv = document.getElementById('status-message');
@@ -1851,7 +1886,8 @@ if (window.StudioClient && window.StudioClient.startRealtime) {
         onLoops: (payload) => window.pollLoopHealth(payload),
         onTasks: (payload) => window.fetchTaskLibrary(payload),
         onSkills: (payload) => window.fetchSkillLibrary({ skills: payload }),
-        onChat: (payload) => window.renderIncomingChatMessage(payload),
+        onSkills: (payload) => window.fetchSkillLibrary({ skills: payload }),
+        onChat: (payload) => window.onChat(payload),
         fallbackPollMs: 8000,
     });
 } else {

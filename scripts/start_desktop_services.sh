@@ -150,7 +150,7 @@ env_prefix() {
   # Same as sudo_env_prefix but without sudo.
   cat <<EOF
 env \
-PYTHONPATH=${PYTHONPATH} \
+PYTHONPATH=${REPO_ROOT}:${PYTHONPATH} \
 CONFIG_DIR=${CONFIG_DIR} \
 GCOV_PREFIX=${GCOV_PREFIX} \
 GCOV_PREFIX_STRIP=${GCOV_PREFIX_STRIP} \
