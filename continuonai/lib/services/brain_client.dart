@@ -12,6 +12,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/teleop_models.dart';
 import 'platform_channels.dart';
+import 'task_recorder.dart';
 
 class BrainClient {
   static const _servicePrefix =
@@ -216,6 +217,42 @@ class BrainClient {
     } catch (e) {
       return {'error': e.toString()};
     }
+  }
+
+  /// Handoff recorded RLDS manifest + binary assets to a managed robot over LAN.
+  Future<Map<String, String>> handoffEpisodeAssets(EpisodePackage package) async {
+    if (_host == null) {
+      throw StateError('BrainClient not connected');
+    }
+    final request = http.MultipartRequest('POST', _httpUri('/api/training/episode_handoff'))
+      ..headers.addAll(_headers())
+      ..fields['manifest'] = jsonEncode(package.record.toJson())
+      ..fields['assets'] = jsonEncode(package.assets.map((a) => a.toJson()).toList());
+
+    for (final asset in package.assets) {
+      final file = File(asset.localUri);
+      if (!await file.exists()) continue;
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'asset',
+          file.path,
+          filename: file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : 'asset',
+        ),
+      );
+    }
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final remoteUris = (body['remote_uris'] as Map?)?.cast<String, String>();
+        return remoteUris ?? {};
+      } catch (_) {
+        return {};
+      }
+    }
+    throw HttpException('handoff failed: ${response.statusCode}');
   }
 
   /// Claim robot with optional account metadata.
