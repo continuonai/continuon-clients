@@ -150,7 +150,7 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 * **Continuon AI app (Flutter) + RLDS portal**: Connect/control/record flows and integrated WorldTape portal live here; OTA gated on ownership + subscription (see `continuonai/README.md`).
 * **Continuon Cloud (staging specs)**: Staging-only ingest/training notes live under `continuonai/continuon-cloud/README.md`; production code stays in the dedicated cloud repo.
 * **Contracts**: RLDS schema, Robot API, and bundle manifest remain the single source under `docs/` + `proto/`; cross-product changes must keep these synchronized.
-* **Upcoming (Continuon AI web)**: A public RLDS viewer stub exists at `/#/episodes`. When the Continuon Cloud public-episodes API is live, wire it with signed URLs and list only uploads that include a `share` block (public flag, slug, title, license, tags); never expose raw bucket paths.
+* **Continuon AI web public episodes**: The public RLDS viewer at `/#/episodes` now uses the Continuon Cloud public-episodes API with signed URLs. Only episodes carrying a complete `share` block (public flag, slug, title, license, tags, content rating, intended audience, `pii_attested`) and marked `pii_cleared=true`/`pending_review=false` list publicly; raw bucket paths stay hidden.
 * **Public safety/PII**: Public listings must carry content rating/audience fields and pass PII/safety scans (faces/plates blur, OCR/ASR for PII/profanity). Only list when `pii_cleared=true` and `pending_review=false`; prefer redacted assets when `pii_redacted=true`.
 
 ## Project Status & Milestones

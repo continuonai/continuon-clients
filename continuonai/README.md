@@ -29,12 +29,10 @@ A single Flutter app (web/iOS/Android/Linux) for Continuon teleop, RLDS capture,
 - Reuse the existing brain client and signed upload helpers to gate any review/export flows; ingest contracts stay aligned with `proto/rlds_episode.proto` and the upload checklist in `docs/upload-readiness-checklist.md`.
 - The `worldtapeai.com/` folder in the repo now serves as a redirect stub only; updates to portal behavior should land in this module and its docs.
 
-### Public RLDS episodes (viewer stub + upcoming wiring)
-- A public episodes viewer now exists at route `/#/episodes` (web) with mock data.
-- When the Continuon Cloud public-episodes API is ready, replace the mock service with a client that fetches signed URLs and metadata; list only episodes uploaded with a `share` block (`public=true`, slug, title, license, tags).
-- Detail view should render preview video/timeline and gated downloads via short-lived signed URLs; do not expose raw bucket paths.
-- Sharing controls in Continuon Brain/Studio/AI uploader must populate the `share` block and respect license/ownership rules before an episode is listed.
-- Safety/PII: require `content_rating` (general/13+/18+), `intended_audience`, and `pii_attested` in the `share` block. Run automated PII/safety scans (faces/plates blur, OCR + ASR for PII/profanity). Only list when `pii_cleared=true` and `pending_review=false`; if redacted, serve only redacted assets and badge accordingly.
+### Public RLDS episodes (viewer + YouTube import)
+- The public episodes viewer at route `/#/episodes` now pulls from the Continuon Cloud public-episodes API using signed URLs instead of mock data. Only `share.public=true` uploads with `pii_cleared=true` and `pending_review=false` render in the list; redacted assets are served when `pii_redacted=true`.
+- Detail view renders preview/timeline/download links from signed URLs and surfaces the `share` block (license, tags, content rating, intended audience, PII attestation/clearance).
+- The YouTube import screen (`/#/import/youtube`) downloads/transcodes a YouTube link in Cloud, wraps it as an RLDS `EpisodeRecord` with task/motion classifications, uploads through the public-episodes API (signed URLs), and can push the resulting episode into a managed robot’s local training queue. Enable public listing only after PII/safety checks succeed and the `share` block is complete (slug, title, license, tags, content rating, intended audience, `pii_attested`).
 
 ## Requirements
 

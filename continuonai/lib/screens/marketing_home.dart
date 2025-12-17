@@ -6,6 +6,7 @@ import '../widgets/marketing/manifesto_section.dart';
 import '../widgets/marketing/tech_stack_section.dart';
 import '../widgets/marketing/cta_section.dart';
 import 'research_screen.dart';
+import 'youtube_import_screen.dart';
 
 class MarketingHomeScreen extends StatelessWidget {
   const MarketingHomeScreen({super.key});
@@ -68,6 +69,15 @@ class MarketingHomeScreen extends StatelessWidget {
                     Navigator.pushNamed(context, '/episodes');
                   },
                   child: const Text('Public RLDS'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, YoutubeImportScreen.routeName);
+                  },
+                  child: const Text('Import YouTube'),
                 ),
               ),
             ],

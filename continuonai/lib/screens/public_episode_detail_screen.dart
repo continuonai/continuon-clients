@@ -62,6 +62,8 @@ class _PublicEpisodeDetailScreenState extends State<PublicEpisodeDetailScreen> {
               );
             }
             final durationMinutes = (episode.durationMs / 60000).toStringAsFixed(1);
+            final playbackUrl =
+                episode.previewVideoUrl ?? episode.assets.previewSignedUrl;
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -95,14 +97,14 @@ class _PublicEpisodeDetailScreenState extends State<PublicEpisodeDetailScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${episode.license} • ${episode.ownerHandle} • ${durationMinutes} min',
+                    '${episode.share.license} • ${episode.ownerHandle} • ${durationMinutes} min',
                     style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
-                    children: episode.tags
+                    children: episode.share.tags
                         .map((t) => Chip(
                               label: Text(t),
                               padding: EdgeInsets.zero,
@@ -114,13 +116,24 @@ class _PublicEpisodeDetailScreenState extends State<PublicEpisodeDetailScreen> {
                   _section(
                     context,
                     title: 'Playback',
-                    child: _PlaybackPlaceholder(previewUrl: episode.previewVideoUrl),
+                    child: _PlaybackPlaceholder(previewUrl: playbackUrl),
                   ),
                   _section(
                     context,
                     title: 'Download / Timeline',
-                    child: const Text(
-                      'This is a placeholder. The viewer will fetch signed URLs for timeline/steps and downloads once the Continuon Cloud public API is live.',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (episode.assets.timelineSignedUrl != null)
+                          Text('Timeline: ${episode.assets.timelineSignedUrl}'),
+                        if (episode.assets.downloadSignedUrl != null)
+                          Text('Download: ${episode.assets.downloadSignedUrl}'),
+                        if (episode.assets.redactedDownloadUrl != null)
+                          Text('Redacted: ${episode.assets.redactedDownloadUrl}'),
+                        if (episode.assets.timelineSignedUrl == null &&
+                            episode.assets.downloadSignedUrl == null)
+                          const Text('Signed URLs will populate after ingestion.'),
+                      ],
                     ),
                   ),
                   _section(
@@ -132,7 +145,12 @@ class _PublicEpisodeDetailScreenState extends State<PublicEpisodeDetailScreen> {
                         Text('Slug: ${episode.slug}'),
                         Text('Created: ${episode.createdAt.toIso8601String()}'),
                         Text('Owner: ${episode.ownerHandle}'),
-                        Text('License: ${episode.license}'),
+                        Text('License: ${episode.share.license}'),
+                        Text('Content rating: ${episode.share.contentRating}'),
+                        Text('Audience: ${episode.share.intendedAudience}'),
+                        Text('Public: ${episode.share.isPublic}'),
+                        Text('PII cleared: ${episode.share.piiCleared}'),
+                        Text('Redacted assets: ${episode.share.piiRedacted}'),
                       ],
                     ),
                   ),
