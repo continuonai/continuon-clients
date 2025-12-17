@@ -39,6 +39,66 @@ class Step:
 @dataclass
 class EpisodeMetadata:
     """Metadata for an RLDS episode."""
+
+    @dataclass
+    class ContentRating:
+        audience: str = "general"
+        violence: str = "none"
+        language: str = "clean"
+
+        def to_dict(self) -> Dict[str, Any]:
+            return asdict(self)
+
+    @dataclass
+    class PiiAttestation:
+        pii_present: bool = False
+        faces_present: bool = False
+        name_present: bool = False
+        consent: bool = False
+
+        def to_dict(self) -> Dict[str, Any]:
+            return asdict(self)
+
+    @dataclass
+    class SafetyMetadata:
+        content_rating: "EpisodeMetadata.ContentRating"
+        intended_audience: str = "local"
+        pii_attested: bool = False
+        pii_cleared: bool = False
+        pii_redacted: bool = False
+        pending_review: bool = True
+        pii_attestation: Optional["EpisodeMetadata.PiiAttestation"] = None
+
+        def to_dict(self) -> Dict[str, Any]:
+            data = {
+                "content_rating": self.content_rating.to_dict(),
+                "intended_audience": self.intended_audience,
+                "pii_attested": self.pii_attested,
+                "pii_cleared": self.pii_cleared,
+                "pii_redacted": self.pii_redacted,
+                "pending_review": self.pending_review,
+            }
+            if self.pii_attestation:
+                data["pii_attestation"] = self.pii_attestation.to_dict()
+            return data
+
+    @dataclass
+    class ShareMetadata:
+        public: bool = False
+        slug: Optional[str] = None
+        title: Optional[str] = None
+        license: Optional[str] = None
+        tags: List[str] = field(default_factory=list)
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "public": self.public,
+                "slug": self.slug,
+                "title": self.title,
+                "license": self.license,
+                "tags": self.tags,
+            }
+
     episode_id: str
     environment_id: str = "pi5-dev"
     xr_mode: str = "trainer"
@@ -46,10 +106,13 @@ class EpisodeMetadata:
     tags: List[str] = field(default_factory=list)
     robot_id: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    safety: Optional["EpisodeMetadata.SafetyMetadata"] = None
+    share: Optional["EpisodeMetadata.ShareMetadata"] = None
+    schema_version: str = "1.1"
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        return {
+        data = {
             "episode_id": self.episode_id,
             "environment_id": self.environment_id,
             "xr_mode": self.xr_mode,
@@ -57,7 +120,13 @@ class EpisodeMetadata:
             "tags": self.tags,
             "robot_id": self.robot_id,
             "created_at": self.created_at,
+            "schema_version": self.schema_version,
         }
+        if self.safety:
+            data["safety"] = self.safety.to_dict()
+        if self.share:
+            data["share"] = self.share.to_dict()
+        return data
 
 
 @dataclass
@@ -113,6 +182,9 @@ class EpisodeLogger:
         control_role: str = "human_teleop",
         tags: Optional[List[str]] = None,
         robot_id: Optional[str] = None,
+        safety: Optional[EpisodeMetadata.SafetyMetadata] = None,
+        share: Optional[EpisodeMetadata.ShareMetadata] = None,
+        schema_version: str = "1.1",
     ) -> str:
         """
         Start a new episode.
@@ -133,7 +205,17 @@ class EpisodeLogger:
         
         if episode_id is None:
             episode_id = str(uuid.uuid4())
-        
+
+        safety = safety or EpisodeMetadata.SafetyMetadata(
+            content_rating=EpisodeMetadata.ContentRating(),
+            intended_audience="local",
+            pii_attested=False,
+            pii_cleared=False,
+            pii_redacted=False,
+            pending_review=True,
+            pii_attestation=EpisodeMetadata.PiiAttestation(),
+        )
+
         metadata = EpisodeMetadata(
             episode_id=episode_id,
             environment_id=environment_id,
@@ -141,6 +223,9 @@ class EpisodeLogger:
             control_role=control_role,
             tags=tags or [],
             robot_id=robot_id,
+            safety=safety,
+            share=share,
+            schema_version=schema_version,
         )
         
         self.current_episode = Episode(metadata=metadata, steps=[])
