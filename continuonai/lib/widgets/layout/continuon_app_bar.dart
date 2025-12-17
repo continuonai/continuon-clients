@@ -88,6 +88,12 @@ class ContinuonAppBar extends StatelessWidget implements PreferredSizeWidget {
                       context, YoutubeImportScreen.routeName),
                 ),
                 const SizedBox(width: 24),
+              ] else ...[
+                IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openEndDrawer(),
+                ),
+                const SizedBox(width: 16),
               ],
 
               // 2.5 Screen Specific Actions

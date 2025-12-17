@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'continuon_app_bar.dart';
+import 'continuon_drawer.dart';
 
 class ContinuonLayout extends StatelessWidget {
   final Widget body;
@@ -29,6 +30,7 @@ class ContinuonLayout extends StatelessWidget {
       extendBodyBehindAppBar: extendBodyBehindAppBar,
       appBar: ContinuonAppBar(actions: appBarActions),
       body: body,
+      endDrawer: const ContinuonDrawer(),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
     );
