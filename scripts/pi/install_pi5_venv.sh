@@ -107,6 +107,10 @@ echo
 echo "✅ Done."
 echo "- venv: ${REPO_DIR}/.venv"
 echo "- episodes: /opt/continuonos/brain/rlds/episodes"
+echo "- episodes: /opt/continuonos/brain/rlds/episodes"
 echo "- next: run ./scripts/pi/install_pi5_systemd.sh to enable boot startup"
+
+# Ensure startup scripts are executable
+chmod +x "${REPO_DIR}/scripts/start_rpi.sh" "${REPO_DIR}/scripts/start_desktop_services.sh"
 
 

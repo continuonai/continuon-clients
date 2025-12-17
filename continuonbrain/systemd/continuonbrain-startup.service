@@ -25,7 +25,7 @@ Wants=network-online.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
+Type=forking
 User=root
 Group=root
 
@@ -37,23 +37,12 @@ Environment=CONTINUON_REPO=/opt/continuonos/ContinuonXR
 Environment=CONFIG_DIR=/opt/continuonos/brain
 Environment=PYTHONPATH=/opt/continuonos/ContinuonXR
 Environment=CONTINUON_PYTHON=/usr/bin/python3
-
-# Prefer headless mode and skip background trainer on Pi-class devices by default.
-Environment=CONTINUON_HEADLESS=1
-Environment=CONTINUON_ENABLE_BACKGROUND_TRAINER=0
+Environment=PIDFILE=/opt/continuonos/brain/runtime_pids/startup_manager.pid
 
 ExecStartPre=/usr/bin/test -d $CONTINUON_REPO
-ExecStart=/usr/bin/env bash -lc '\
-  cd "$CONTINUON_REPO" && \
-  export PYTHONPATH="${PYTHONPATH:-$CONTINUON_REPO}" && \
-  PY=""; \
-  if [ -x "$CONTINUON_REPO/.venv/bin/python3" ]; then PY="$CONTINUON_REPO/.venv/bin/python3"; \
-  elif [ -x "$CONTINUON_REPO/.venv/bin/python" ]; then PY="$CONTINUON_REPO/.venv/bin/python"; \
-  elif [ -n "${CONTINUON_PYTHON:-}" ]; then PY="$CONTINUON_PYTHON"; \
-  else PY="/usr/bin/python3"; fi; \
-  exec "$PY" -m continuonbrain.startup_manager --config-dir "$CONFIG_DIR" \
-'
-
+ExecStart=/usr/bin/env bash -lc '${CONTINUON_REPO}/scripts/start_rpi.sh start'
+ExecStop=/usr/bin/env bash -lc '${CONTINUON_REPO}/scripts/start_rpi.sh stop'
+PIDFile=/opt/continuonos/brain/runtime_pids/startup_manager.pid
 
 # Make "restart" robust (covers crashes and stop/start cycles).
 Restart=always
