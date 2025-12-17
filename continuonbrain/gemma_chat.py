@@ -103,7 +103,7 @@ class GemmaChat:
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
     """
-    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"  # Use model that's actually in cache
+    DEFAULT_MODEL_ID = "google/gemma-3-270m-it"  # Use model that's actually in cache
     # Fallbacks (retain prior defaults for larger variants):
     # "google/gemma-3n-E2B-it"
 
@@ -184,8 +184,8 @@ class GemmaChat:
                 logger.error(f"Failed to resolve local snapshot for {self.model_name}: {exc}")
                 return False
             
-            # --- VLM Loading Logic (Gemma 3N / PaliGemma) ---
-            if "gemma-3n" in self.model_name or "paligemma" in self.model_name:
+            # --- VLM Loading Logic (Gemma 3N / PaliGemma / Gemma 3) ---
+            if "gemma-3" in self.model_name or "paligemma" in self.model_name:
                 try:
                     logger.info(f"Attempting to load VLM: {self.model_name}")
                     

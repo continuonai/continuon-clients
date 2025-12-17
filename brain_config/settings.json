@@ -13,10 +13,10 @@
   "chat": {
     "persona": "operator",
     "temperature": 0.35,
-    "log_rlds": false
+    "log_rlds": true
   },
   "training": {
-    "enable_sidecar_trainer": false,
+    "enable_sidecar_trainer": true,
     "enable_sleep_learning": true
   },
   "agent_manager": {
@@ -24,18 +24,19 @@
     "enable_intervention_prompts": true,
     "intervention_confidence_threshold": 0.5,
     "chat_learn": {
-      "enabled": false,
-      "interval_s": 600,
-      "turns_per_cycle": 10,
-      "model_hint": "google/gemma-3n-2b",
-      "delegate_model_hint": "",
-      "topic": "coding this repository (ContinuonXR/continuonbrain/continuonai)",
+      "enabled": true,
+      "interval_s": 300,
+      "turns_per_cycle": 12,
+      "model_hint": "hope-v1",
+      "delegate_model_hint": "consult:google/gemma-3-270m-it",
+      "topic": "curiosity-driven HOPE v1 self-improvement: CMS, safety, planning, tool-use, and robot skills",
       "modes": [
-        "idle"
+        "idle",
+        "autonomous"
       ]
     },
     "autonomy_orchestrator": {
-      "enabled": false,
+      "enabled": true,
       "modes": [
         "autonomous"
       ],

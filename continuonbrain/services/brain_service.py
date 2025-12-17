@@ -228,6 +228,18 @@ class TaskLibrary:
 
 
 class BrainService:
+    def log_system_event(self, message: str):
+        """Push a system log message to the UI stream."""
+        payload = {
+            "type": "log_message",
+            "message": message,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        try:
+            self.chat_event_queue.put(payload, block=False)
+        except queue.Full:
+            pass
+
     def __init__(
         self, 
         config_dir: str = "/tmp/continuonbrain_demo", 
@@ -243,6 +255,9 @@ class BrainService:
         self.allow_mock_fallback = allow_mock_fallback
         self.system_instructions = system_instructions
         
+        # Real-time chat events for UI (SSE) - Init early for logging
+        self.chat_event_queue = queue.Queue(maxsize=100)
+
         self.desktop = DesktopService(storage_dir=config_dir)
         
         self.use_real_hardware = False
@@ -293,6 +308,7 @@ class BrainService:
 
         # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
         # Initialize Gemma chat (use centralized factory to allow LiteRT/JAX/Mock preference)
+        self.log_system_event("Initializing Gemma Chat Service...")
         self.gemma_chat = build_chat_service()
         self.pairing = PairingManager(config_dir)
         self.training_runner = TrainingRunner(config_dir=config_dir)
@@ -311,9 +327,6 @@ class BrainService:
         self.teacher_pending_question: Optional[str] = None
         self.teacher_response_event = asyncio.Event()
         self.teacher_response_text: Optional[str] = None
-        
-        # Real-time chat events for UI (SSE)
-        self.chat_event_queue = queue.Queue(maxsize=100)
 
         # Background supervisors
         self._bg_stop_event = threading.Event()
@@ -882,6 +895,7 @@ class BrainService:
 
     # ---- Chat backend fallbacks ----
     def _build_chat_with_fallback(self, preferred_models: Optional[list] = None) -> bool:
+        self.log_system_event("Attempting to build fallback chat backend...")
         """
         Try building chat backends in priority order until one loads.
         Order default: Gemma 3 270M IT (lightweight), Gemma 3 4B, mock.
@@ -1441,6 +1455,8 @@ class BrainService:
                         # build_chat_service calls create_gemma_chat internally if logic permits.
                         # But LiteRT logic is env based.
                         # If we are here, we likely want to refresh.
+                        # If we are here, we likely want to refresh.
+                        self.log_system_event(f"Re-initializing Chat Agent with Accelerator: {accelerator}")
                         self.gemma_chat = build_chat_service()
                         if self.gemma_chat and accelerator and hasattr(self.gemma_chat, 'accelerator_device'):
                             # Ensure device is set if factory didn't pick it up (though factory usually does)
@@ -1451,8 +1467,10 @@ class BrainService:
 
         # Load Gemma Model
         print("Loading Gemma Chat Model...")
+        self.log_system_event("Loading Gemma Chat Model weights (this may take a few seconds)...")
         loaded = self.gemma_chat.load_model()
         if not loaded:
+            self.log_system_event("❌ Gemma load failed. Starting fallback ladder.")
             logger.warning("Gemma load failed; trying fallback ladder (4B -> 270M -> mock).")
             self._build_chat_with_fallback()
 

@@ -56,7 +56,7 @@
     }
   }
 
-  function startEventStream({ onStatus, onLoops, onTasks, onSkills, reconnectDelayMs = 2000 }) {
+  function startEventStream({ onStatus, onLoops, onTasks, onSkills, onChat, reconnectDelayMs = 2000 }) {
     if (eventSource) {
       eventSource.close();
     }
@@ -74,6 +74,12 @@
           if (payload.tasks) emit("tasks", payload.tasks);
           if (payload.skills) emit("skills", payload.skills);
           if (payload.chat) emit("chat", payload.chat);
+
+          // Custom System Logs
+          if (payload.type === 'log_message') {
+            window.UILogger?.log?.('info', payload.message);
+          }
+
           // Throttle noisy logs; still surface chat immediately.
           const now = Date.now();
           if (payload.chat) {

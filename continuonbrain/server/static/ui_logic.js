@@ -60,19 +60,11 @@ window.showMessage = function (message, isError) {
 };
 
 // NEW: Action Logger
+// NEW: Action Logger (Consolidated)
 window.logAction = function (msg) {
-    const logContainer = document.getElementById('logger-content');
-    if (logContainer) {
-        const line = document.createElement('div');
-        line.className = 'log-line action';
-        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        logContainer.insertBefore(line, logContainer.firstChild); // Prepend for reverse order
-        // Limit history
-        if (logContainer.children.length > 100) {
-            logContainer.removeChild(logContainer.lastChild);
-        }
+    if (window.UILogger) {
+        window.UILogger.log('info', msg);
     } else {
-        // Fallback for missing container
         console.log('[Action Log]', msg);
     }
 }

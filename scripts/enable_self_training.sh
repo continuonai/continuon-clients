@@ -73,7 +73,7 @@ chat_learn["model_hint"] = "hope-v1"
 # Prefer a subagent model that matches the default local-cache model id (offline-first).
 # Prefer a smaller, non-gated subagent model so we avoid mock outputs.
 # If not cached, it can be downloaded when CONTINUON_ALLOW_MODEL_DOWNLOADS=1.
-chat_learn["delegate_model_hint"] = "consult:TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+chat_learn["delegate_model_hint"] = "consult:google/gemma-3-270m-it"
 chat_learn["topic"] = "curiosity-driven HOPE v1 self-improvement: CMS, safety, planning, tool-use, and robot skills"
 
 orch = agent_mgr.setdefault("autonomy_orchestrator", {})

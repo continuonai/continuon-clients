@@ -96,7 +96,8 @@ export CONTINUON_RUN_WAVECORE="${CONTINUON_RUN_WAVECORE:-0}"
 # Prefer non-mock LLM backends on desktop (offline-first; uses local HF cache).
 # - LiteRT is disabled because it can silently fall back to a mock implementation without mediapipe-genai.
 # - Transformers chat is allowed even when headless, so we can avoid mock text.
-export CONTINUON_USE_LITERT="${CONTINUON_USE_LITERT:-0}"
+export CONTINUON_USE_LITERT="${CONTINUON_USE_LITERT:-1}"
+export CONTINUON_PREFER_LITERT="${CONTINUON_PREFER_LITERT:-1}"
 export CONTINUON_ALLOW_TRANSFORMERS_CHAT="${CONTINUON_ALLOW_TRANSFORMERS_CHAT:-1}"
 export CONTINUON_PREFER_JAX="${CONTINUON_PREFER_JAX:-0}"
 export CONTINUON_ENABLE_JAX_GEMMA_CHAT="${CONTINUON_ENABLE_JAX_GEMMA_CHAT:-0}"
