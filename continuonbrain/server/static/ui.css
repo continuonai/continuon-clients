@@ -61,6 +61,87 @@ body {
     z-index: 10;
 }
 
+.topbar-center {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    justify-content: center;
+    min-width: 320px;
+}
+
+.context-switch {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.context-btn {
+    border: none;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    padding: 10px 12px;
+    cursor: pointer;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.context-btn:hover {
+    background: rgba(122, 215, 255, 0.08);
+}
+
+.context-btn.active {
+    background: rgba(79, 157, 255, 0.2);
+    color: #fff;
+}
+
+.context-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.context-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 6px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.context-opt input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+}
+
+.context-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .topbar-center {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
 .ide-topbar.sticky {
     position: sticky;
     top: 0;

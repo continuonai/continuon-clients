@@ -75,6 +75,12 @@ def get_research_html() -> str:
 def get_api_explorer_html() -> str:
     return render_template("api_explorer.html", active_page="api_explorer")
 
+def get_training_html() -> str:
+    return render_template("training.html", active_page="training")
+
+def get_training_proof_html() -> str:
+    return render_template("training_proof.html", active_page="training_proof")
+
 # Legacy/Placeholder routes (mapped to new UI or kept as is)
 def get_status_html() -> str:
     return get_home_html()

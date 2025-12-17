@@ -267,6 +267,7 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                   onPressed: () => _setJointPosition(index, -1.0),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
+                  tooltip: 'Set ${_jointNames[index]} to minimum (-100%)',
                 ),
                 
                 // Slider
@@ -288,13 +289,14 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                   onPressed: () => _setJointPosition(index, 1.0),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
+                  tooltip: 'Set ${_jointNames[index]} to maximum (+100%)',
                 ),
                 
                 // Center button
                 IconButton(
                   icon: const Icon(Icons.center_focus_strong, size: 20),
                   onPressed: () => _setJointPosition(index, 0.0),
-                  tooltip: 'Center',
+                  tooltip: 'Center ${_jointNames[index]} (0%)',
                 ),
               ],
             ),
@@ -340,12 +342,17 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                 ),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.warning, size: 18),
-                  label: const Text('Emergency Stop'),
+                  label: const Text('Safety hold (E-STOP)'),
                   onPressed: _emergencyStop,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                     foregroundColor: Colors.white,
                   ),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.lock_open, size: 18),
+                  label: const Text('Reset safety'),
+                  onPressed: _resetSafety,
                 ),
               ],
             ),
@@ -401,8 +408,8 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.settings),
-                  label: const Text('Settings'),
-                  onPressed: _showSettings,
+                  label: const Text('Startup & flags'),
+                  onPressed: _showRuntimeSettings,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   ),
@@ -431,56 +438,96 @@ class _ArmTeleopScreenState extends State<ArmTeleopScreen> {
     _sendCommand();
   }
 
-  void _emergencyStop() {
-    // Send emergency stop command
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Emergency Stop'),
-        content: const Text('Arm has been stopped. All servos are holding current positions.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _emergencyStop() async {
+    try {
+      final res = await widget.brainClient.triggerSafetyHold();
+      final ok = res['success'] == true || res['ok'] == true;
+      _showMessage(ok ? 'Safety hold triggered.' : 'Safety hold failed: ${res['message'] ?? 'unknown'}');
+    } catch (e) {
+      _showMessage('Safety hold failed: $e');
+    }
   }
 
-  void _showSettings() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Arm Settings'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SwitchListTile(
-              title: const Text('Enable Safety Bounds'),
-              value: true,
-              onChanged: (value) {},
-            ),
-            SwitchListTile(
-              title: const Text('Record Depth Frames'),
-              value: true,
-              onChanged: (value) {},
-            ),
-            ListTile(
-              title: const Text('Control Frequency'),
-              trailing: const Text('20 Hz'),
-              onTap: () {},
-            ),
-          ],
+  Future<void> _resetSafety() async {
+    try {
+      final res = await widget.brainClient.resetSafetyGates();
+      final ok = res['success'] == true || res['ok'] == true;
+      _showMessage(ok ? 'Safety gates reset.' : 'Reset failed: ${res['message'] ?? 'unknown'}');
+    } catch (e) {
+      _showMessage('Reset failed: $e');
+    }
+  }
+
+  Future<void> _showRuntimeSettings() async {
+    try {
+      final res = await widget.brainClient.getSettings();
+      if (!mounted) return;
+      if (res['success'] != true) {
+        _showMessage('Failed to load settings: ${res['message'] ?? 'unknown'}');
+        return;
+      }
+      final raw = res['settings'];
+      final settings = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+      final safety = (settings['safety'] is Map) ? Map<String, dynamic>.from(settings['safety'] as Map) : <String, dynamic>{};
+      final chat = (settings['chat'] is Map) ? Map<String, dynamic>.from(settings['chat'] as Map) : <String, dynamic>{};
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setLocal) {
+            return AlertDialog(
+              title: const Text('Startup & flags'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Allow motion'),
+                      subtitle: const Text('Safety gate: allow robot motion'),
+                      value: (safety['allow_motion'] as bool?) ?? true,
+                      onChanged: (v) => setLocal(() => safety['allow_motion'] = v),
+                    ),
+                    SwitchListTile(
+                      title: const Text('Record episodes'),
+                      subtitle: const Text('Enable RLDS episode recording'),
+                      value: (safety['record_episodes'] as bool?) ?? true,
+                      onChanged: (v) => setLocal(() => safety['record_episodes'] = v),
+                    ),
+                    SwitchListTile(
+                      title: const Text('Log chat to RLDS'),
+                      subtitle: const Text('Opt-in: persist chat turns'),
+                      value: (chat['log_rlds'] as bool?) ?? false,
+                      onChanged: (v) => setLocal(() => chat['log_rlds'] = v),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    settings['safety'] = safety;
+                    settings['chat'] = chat;
+                    final saved = await widget.brainClient.saveSettings(settings);
+                    if (!context.mounted) return;
+                    final ok = saved['success'] == true;
+                    Navigator.pop(context);
+                    _showMessage(ok ? 'Settings saved.' : 'Settings rejected: ${saved['message'] ?? 'unknown'}');
+                  },
+                  icon: const Icon(Icons.save),
+                  label: const Text('Save'),
+                ),
+              ],
+            );
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+      );
+    } catch (e) {
+      _showMessage('Failed to open settings: $e');
+    }
   }
 
   Future<void> _sendCommand() async {

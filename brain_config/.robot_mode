@@ -1,18 +1,13 @@
 {
-  "mode": "autonomous",
-  "timestamp": 1765936895.6280112,
+  "mode": "idle",
+  "timestamp": 1765946758.054817,
   "config": {
-    "mode": "autonomous",
-    "timestamp": 1765936895.6280112,
-    "allow_motion": true,
-    "record_episodes": true,
-    "run_inference": true,
+    "mode": "idle",
+    "timestamp": 1765946758.054817,
+    "allow_motion": false,
+    "record_episodes": false,
+    "run_inference": false,
     "self_train": false,
-    "metadata": {
-      "control_source": "vla_policy",
-      "startup_time": "2025-12-16 18:01:35",
-      "auto_activated": true,
-      "self_training_enabled": true
-    }
+    "metadata": {}
   }
 }

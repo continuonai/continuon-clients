@@ -199,7 +199,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.vpn_key),
-            tooltip: 'Set auth token',
+            tooltip: 'Set auth token (Bearer) + account metadata',
             onPressed: _showAuthTokenDialog,
           ),
           IconButton(
@@ -214,6 +214,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
             onPressed: _signOut,
           ),
         ],
@@ -253,25 +254,49 @@ class _RobotListScreenState extends State<RobotListScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Set Auth Token'),
-        content: TextField(
-          controller: _tokenController,
-          decoration: const InputDecoration(
-            labelText: 'Bearer token',
+        title: const Text('Connection credentials'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _tokenController,
+                  decoration: const InputDecoration(
+                    labelText: 'Bearer token',
+                    helperText: 'Optional. Stored securely on-device when you tap Save.',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _accountIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'Account ID',
+                    helperText: 'Used for ownership/subscription checks (optional).',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _accountTypeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Account type',
+                    helperText: 'Example: personal | org (optional).',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _ownerIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'Owner ID (display name)',
+                    helperText: 'Shown in pairing/claim flows (optional).',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _accountId = _accountIdController.text;
-                _accountType = _accountTypeController.text;
-                _ownerId = _ownerIdController.text;
-              });
-            },
-            child: const Text('Save Account Meta'),
-          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),

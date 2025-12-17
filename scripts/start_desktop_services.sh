@@ -265,8 +265,8 @@ echo "Training: BACKGROUND_TRAINER=${CONTINUON_ENABLE_BACKGROUND_TRAINER} LOG_CH
 
   if kill -0 "${pid}" 2>/dev/null; then
     echo "Started (pid=${pid})."
-    echo "UI: http://127.0.0.1:8080/ui"
-    echo "Status: http://127.0.0.1:8080/status"
+    echo "UI: http://127.0.0.1:8081/ui"
+    echo "Status: http://127.0.0.1:8081/status"
   else
     echo "Failed to start (pid exited). See logs: ${LOG_FILE}" >&2
     exit 1

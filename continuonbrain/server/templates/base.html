@@ -116,6 +116,37 @@
     <div class="ide-shell wide">
         <header class="ide-topbar sticky">
             <div class="logo">ContinuonBrain</div>
+            <div class="topbar-center">
+                <div class="context-switch" role="group" aria-label="UI context switcher">
+                    <button class="context-btn" id="ctx-inference" type="button"
+                        title="Inference context (operate/control)">Inference</button>
+                    <button class="context-btn" id="ctx-training" type="button"
+                        title="Training context (learn/metrics/logs)">Training</button>
+                </div>
+                <div class="context-meta">
+                    <label class="context-opt" title="When enabled, switching context also calls /api/mode/<mode>.">
+                        <input id="ctx-set-mode" type="checkbox" checked>
+                        Set robot mode on switch
+                    </label>
+                    <label class="context-opt">
+                        Inference preset (robot mode)
+                        <select id="ctx-mode-inference" class="input-compact" style="width: 180px;">
+                            <option value="autonomous" selected>autonomous (INFERENCE+RECORD)</option>
+                            <option value="manual_control">manual_control (TELEOP)</option>
+                            <option value="idle">idle (SAFE)</option>
+                        </select>
+                    </label>
+                    <label class="context-opt">
+                        Training preset (robot mode)
+                        <select id="ctx-mode-training" class="input-compact" style="width: 180px;">
+                            <option value="manual_training" selected>manual_training (TELEOP+RECORD)</option>
+                            <option value="sleep_learning">sleep_learning (SELF-TRAIN)</option>
+                            <option value="idle">idle (SAFE)</option>
+                        </select>
+                    </label>
+                    <span class="context-chip" id="ctx-runtime-chip" title="Live gates (from /api/status)">mode: — • inference: — • self-train: — • record: —</span>
+                </div>
+            </div>
             <div class="status-indicator" id="connection-status">Connected</div>
         </header>
         <div class="mobile-top-actions" id="mobile-actions" aria-live="polite">
@@ -140,6 +171,8 @@
                         <li class="nav-item"><a href="/safety"
                                 class="nav-link {% if active_page == 'safety' %}active{% endif %}">Operator & Safety</a>
                         </li>
+                        <li class="nav-item"><a href="/training"
+                                class="nav-link {% if active_page == 'training' %}active{% endif %}">Training</a></li>
                         <li class="nav-item"><a href="/tasks"
                                 class="nav-link {% if active_page == 'tasks' %}active{% endif %}">Autonomy Tasks</a>
                         </li>

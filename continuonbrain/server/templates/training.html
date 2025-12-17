@@ -7,18 +7,22 @@
         <div class="status-badge" id="training-status-badge">Unknown</div>
     </div>
     <div class="panel-content">
+        <div class="panel-subtitle">
+            <strong>Context:</strong> Training (learning systems, metrics, logs). Use the top-bar switcher to jump back to
+            Inference/Operate. In hybrid autonomy (<code>autonomous</code>), inference runs while episodes record.
+        </div>
         <div class="rail-actions">
-            <button class="rail-btn primary" onclick="startAutonomousTraining()">▶ Start Autonomous Training</button>
-            <button class="rail-btn" onclick="startManualTraining()">🛠 Start Manual Training Step</button>
-            <button class="rail-btn input-warn" onclick="testManualTraining()">🧪 Test Manual Training</button>
-            <button class="rail-btn" onclick="stopTraining()">⏹ Stop Training</button>
+            <button class="rail-btn primary" onclick="startAutonomousTraining()" title="POST /api/training/run">▶ Run autonomous training job</button>
+            <button class="rail-btn" onclick="startManualTraining()" title="POST /api/training/manual">🛠 Run one manual training step</button>
+            <button class="rail-btn input-warn" onclick="testManualTraining()" title="POST /api/training/manual (dry run)">🧪 Test training (dry run)</button>
+            <button class="rail-btn" onclick="stopTraining()" title="Stops the current trainer job if supported">⏹ Stop trainer</button>
         </div>
         <div style="margin-top: 15px;">
             <h3>WaveCore Loops</h3>
             <div class="rail-actions">
-                <button class="rail-btn" onclick="runWaveCoreLoop('fast')">⚡ Run Fast Loop</button>
-                <button class="rail-btn" onclick="runWaveCoreLoop('mid')">🌊 Run Mid Loop</button>
-                <button class="rail-btn" onclick="runWaveCoreLoop('slow')">🐢 Run Slow Loop</button>
+                <button class="rail-btn" onclick="runWaveCoreLoop('fast')" title="POST /api/training/wavecore_loops (fast)">⚡ Run WaveCore fast loop</button>
+                <button class="rail-btn" onclick="runWaveCoreLoop('mid')" title="POST /api/training/wavecore_loops (mid)">🌊 Run WaveCore mid loop</button>
+                <button class="rail-btn" onclick="runWaveCoreLoop('slow')" title="POST /api/training/wavecore_loops (slow)">🐢 Run WaveCore slow loop</button>
             </div>
         </div>
     </div>

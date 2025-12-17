@@ -52,13 +52,18 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   Future<void> _sendVelocity() async {
+    await _sendBaseTwist(linearMps: 0.1, yawRadS: 0.0);
+  }
+
+  Future<void> _sendBaseTwist({required double linearMps, required double yawRadS}) async {
     final command = ControlCommand(
       clientId: widget.brainClient.clientId,
       controlMode: ControlMode.eeVelocity,
       targetFrequencyHz: 30,
-      eeVelocity: const EeVelocityCommand(
-        linearMps: Vector3(x: 0.1, y: 0, z: 0),
-        angularRadS: Vector3(x: 0, y: 0.1, z: 0),
+      eeVelocity: EeVelocityCommand(
+        referenceFrame: ReferenceFrame.base,
+        linearMps: Vector3(x: linearMps, y: 0, z: 0),
+        angularRadS: Vector3(x: 0, y: 0, z: yawRadS),
       ),
     );
     await _safeSendCommand(command);
@@ -97,22 +102,22 @@ class _ControlScreenState extends State<ControlScreen> {
   Future<void> _triggerEStop() async {
     setState(() => _sending = true);
     try {
-      final result = await widget.brainClient.setRobotMode('emergency_stop');
+      final result = await widget.brainClient.triggerSafetyHold();
       if (mounted) {
-        if (result['success'] == true) {
+        if (result['success'] == true || result['ok'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('🛑 EMERGENCY STOP TRIGGERED 🛑'),
+              content: Text('SAFETY HOLD TRIGGERED (E-STOP)'),
               backgroundColor: Colors.red,
               duration: Duration(seconds: 5),
             ),
           );
         } else {
-          setState(() => _error = 'E-Stop Failed: ${result['message']}');
+          setState(() => _error = 'Safety hold failed: ${result['message'] ?? 'unknown error'}');
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'E-Stop Error: $e');
+      if (mounted) setState(() => _error = 'Safety hold error: $e');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -325,6 +330,31 @@ class _ControlScreenState extends State<ControlScreen> {
           const Spacer(),
           SizedBox(
             width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _sending
+                  ? null
+                  : () async {
+                      setState(() => _sending = true);
+                      try {
+                        final res = await widget.brainClient.resetSafetyGates();
+                        final ok = res['success'] == true || res['ok'] == true;
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? 'Safety gates reset.' : 'Reset failed: ${res['message'] ?? 'unknown'}'),
+                          ),
+                        );
+                      } finally {
+                        if (mounted) setState(() => _sending = false);
+                      }
+                    },
+              icon: const Icon(Icons.lock_open),
+              label: const Text('Reset safety gates'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _triggerEStop, // Trigger E-Stop
               style: ElevatedButton.styleFrom(
@@ -335,7 +365,7 @@ class _ControlScreenState extends State<ControlScreen> {
                     borderRadius: BorderRadius.circular(8)),
               ),
               icon: const Icon(Icons.stop_circle),
-              label: const Text('EMERGENCY STOP'),
+              label: const Text('SAFETY HOLD (E-STOP)'),
             ),
           ),
         ],
@@ -403,7 +433,12 @@ class _ControlScreenState extends State<ControlScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(width: 50),
-                _buildArrowButton(Icons.arrow_upward, onPressed: _sendVelocity),
+                _buildArrowButton(
+                  icon: Icons.arrow_upward,
+                  label: 'Forward',
+                  tooltip: 'Drive forward (gRPC SendCommand)',
+                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.12, yawRadS: 0.0),
+                ),
                 const SizedBox(width: 50),
               ],
             ),
@@ -411,11 +446,27 @@ class _ControlScreenState extends State<ControlScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildArrowButton(Icons.arrow_back),
+                _buildArrowButton(
+                  icon: Icons.turn_left,
+                  label: 'Left',
+                  tooltip: 'Turn left (gRPC SendCommand)',
+                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.0, yawRadS: 0.35),
+                ),
                 const SizedBox(width: 4),
-                _buildArrowButton(Icons.circle, isCenter: true),
+                _buildArrowButton(
+                  icon: Icons.stop_circle,
+                  label: 'Stop',
+                  tooltip: 'Stop motion (gRPC SendCommand)',
+                  isCenter: true,
+                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.0, yawRadS: 0.0),
+                ),
                 const SizedBox(width: 4),
-                _buildArrowButton(Icons.arrow_forward),
+                _buildArrowButton(
+                  icon: Icons.turn_right,
+                  label: 'Right',
+                  tooltip: 'Turn right (gRPC SendCommand)',
+                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: 0.0, yawRadS: -0.35),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -423,7 +474,12 @@ class _ControlScreenState extends State<ControlScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(width: 50),
-                _buildArrowButton(Icons.arrow_downward),
+                _buildArrowButton(
+                  icon: Icons.arrow_downward,
+                  label: 'Reverse',
+                  tooltip: 'Drive backward (gRPC SendCommand)',
+                  onPressed: _sending ? null : () => _sendBaseTwist(linearMps: -0.12, yawRadS: 0.0),
+                ),
                 const SizedBox(width: 50),
               ],
             ),
@@ -433,21 +489,39 @@ class _ControlScreenState extends State<ControlScreen> {
     );
   }
 
-  Widget _buildArrowButton(IconData icon,
-      {bool isCenter = false, VoidCallback? onPressed}) {
-    return SizedBox(
-      width: 50,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor:
-              isCenter ? const Color(0xFF333333) : ContinuonColors.primaryBlue,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  Widget _buildArrowButton({
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    bool isCenter = false,
+    VoidCallback? onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 64,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isCenter ? const Color(0xFF333333) : ContinuonColors.primaryBlue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
         ),
-        child: Icon(icon, color: Colors.white),
       ),
     );
   }

@@ -160,6 +160,7 @@ function describeConnectivityHint(err) {
 window.updateStatus = async function () {
   const badge = document.getElementById('connection-status');
   const sys = document.getElementById('system-info-content');
+  const ctxChip = document.getElementById('ctx-runtime-chip');
   if (badge) badge.textContent = 'Connecting…';
 
   try {
@@ -180,18 +181,146 @@ window.updateStatus = async function () {
     } catch (e) {
       // ignore
     }
+
+    // Topbar runtime chip (inference/training context helper)
+    try {
+      if (ctxChip && status && typeof status === 'object') {
+        const mode = status.mode || status.robot_mode || 'unknown';
+        const gates = status.gate_snapshot || status.gates || {};
+        const runInference = gates && typeof gates === 'object' && gates.run_inference != null
+          ? (gates.run_inference ? 'ON' : 'OFF')
+          : '—';
+        const selfTrain = gates && typeof gates === 'object' && gates.self_train != null
+          ? (gates.self_train ? 'ON' : 'OFF')
+          : '—';
+        const record = gates && typeof gates === 'object' && gates.record_episodes != null
+          ? (gates.record_episodes ? 'ON' : 'OFF')
+          : '—';
+        ctxChip.textContent = `mode: ${String(mode)} • inference: ${runInference} • self-train: ${selfTrain} • record: ${record}`;
+      }
+    } catch (e) {
+      // ignore
+    }
     return data;
   } catch (err) {
     if (badge) badge.textContent = 'Disconnected';
     if (sys) {
       sys.innerHTML = `<div class="panel-subtitle" style="color:#ffb3c0">${describeConnectivityHint(err)}</div>`;
     }
+    if (ctxChip) ctxChip.textContent = 'mode: — • inference: — • self-train: — • record: —';
     return null;
   }
 };
 
+function isTrainingPagePath(pathname) {
+  if (!pathname) return false;
+  return pathname.startsWith('/training') || pathname.startsWith('/training_proof') || pathname.startsWith('/ui/hope/training');
+}
+
+function setContextActiveButtons(context) {
+  const inf = document.getElementById('ctx-inference');
+  const trn = document.getElementById('ctx-training');
+  if (inf) inf.classList.toggle('active', context === 'inference');
+  if (trn) trn.classList.toggle('active', context === 'training');
+}
+
+window.switchUiContext = async function (context) {
+  const setMode = document.getElementById('ctx-set-mode');
+  const modeInf = document.getElementById('ctx-mode-inference');
+  const modeTrn = document.getElementById('ctx-mode-training');
+  const shouldSetMode = !!(setMode && setMode.checked);
+  const inferenceMode = modeInf && modeInf.value ? modeInf.value : 'manual_control';
+  const trainingMode = modeTrn && modeTrn.value ? modeTrn.value : 'manual_training';
+  const targetMode = context === 'training' ? trainingMode : inferenceMode;
+  const targetPath = context === 'training' ? '/training' : '/';
+
+  try { localStorage.setItem('continuon_ui_context', context); } catch (e) { }
+  setContextActiveButtons(context);
+
+  if (shouldSetMode) {
+    try {
+      // server supports GET as toggle, but POST is the canonical path
+      await postJson(`/api/mode/${encodeURIComponent(targetMode)}`);
+    } catch (err) {
+      console.warn('Context mode switch failed', err);
+    } finally {
+      if (typeof window.updateStatus === 'function') window.updateStatus();
+    }
+  }
+
+  if (window.location && window.location.pathname !== targetPath) {
+    window.location.href = targetPath;
+  }
+};
+
+function hydrateContextSwitcherFromStorage() {
+  const setMode = document.getElementById('ctx-set-mode');
+  const modeInf = document.getElementById('ctx-mode-inference');
+  const modeTrn = document.getElementById('ctx-mode-training');
+  if (!setMode || !modeInf || !modeTrn) return;
+  try {
+    const raw = localStorage.getItem('continuon_ui_context_prefs');
+    if (!raw) return;
+    const prefs = JSON.parse(raw);
+    if (prefs && typeof prefs === 'object') {
+      if (typeof prefs.setMode === 'boolean') setMode.checked = prefs.setMode;
+      if (typeof prefs.inferenceMode === 'string') modeInf.value = prefs.inferenceMode;
+      if (typeof prefs.trainingMode === 'string') modeTrn.value = prefs.trainingMode;
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function persistContextSwitcherPrefs() {
+  const setMode = document.getElementById('ctx-set-mode');
+  const modeInf = document.getElementById('ctx-mode-inference');
+  const modeTrn = document.getElementById('ctx-mode-training');
+  if (!setMode || !modeInf || !modeTrn) return;
+  try {
+    localStorage.setItem('continuon_ui_context_prefs', JSON.stringify({
+      setMode: !!setMode.checked,
+      inferenceMode: modeInf.value,
+      trainingMode: modeTrn.value,
+    }));
+  } catch (e) {
+    // ignore
+  }
+}
+
+window.initContextSwitcher = function () {
+  const inf = document.getElementById('ctx-inference');
+  const trn = document.getElementById('ctx-training');
+  const setMode = document.getElementById('ctx-set-mode');
+  const modeInf = document.getElementById('ctx-mode-inference');
+  const modeTrn = document.getElementById('ctx-mode-training');
+  if (!inf || !trn || !setMode || !modeInf || !modeTrn) return;
+
+  hydrateContextSwitcherFromStorage();
+
+  let context = isTrainingPagePath(window.location?.pathname) ? 'training' : 'inference';
+  try {
+    const saved = localStorage.getItem('continuon_ui_context');
+    if (saved === 'training' || saved === 'inference') {
+      // Only apply saved context if it matches the current page family; otherwise we'd "fight" navigation.
+      context = isTrainingPagePath(window.location?.pathname) ? 'training' : 'inference';
+    }
+  } catch (e) { }
+
+  setContextActiveButtons(context);
+
+  inf.addEventListener('click', () => window.switchUiContext('inference'));
+  trn.addEventListener('click', () => window.switchUiContext('training'));
+  setMode.addEventListener('change', persistContextSwitcherPrefs);
+  modeInf.addEventListener('change', persistContextSwitcherPrefs);
+  modeTrn.addEventListener('change', persistContextSwitcherPrefs);
+};
+
 // Initialize status quickly so users immediately see the agent/server connection state.
 document.addEventListener('DOMContentLoaded', () => {
+  if (typeof window.initContextSwitcher === 'function') {
+    window.initContextSwitcher();
+  }
   if (typeof window.updateStatus === 'function') {
     window.updateStatus();
     setInterval(() => window.updateStatus(), 12000);

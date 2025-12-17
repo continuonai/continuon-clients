@@ -412,6 +412,18 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_api_explorer_html().encode("utf-8"))
+            
+            elif self.path in ("/training", "/training/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_training_html().encode("utf-8"))
+            
+            elif self.path in ("/training_proof", "/training_proof/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_training_proof_html().encode("utf-8"))
 
             elif self.path.startswith("/static/"):
                 # Basic static file serving

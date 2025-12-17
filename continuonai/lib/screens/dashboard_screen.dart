@@ -20,6 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _timer;
   Map<String, dynamic> _status = {};
   bool _loading = false;
+  bool _openingSettings = false;
 
   @override
   void initState() {
@@ -63,6 +64,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _openStartupAndFlags() async {
+    if (_openingSettings) return;
+    setState(() => _openingSettings = true);
+    try {
+      final res = await widget.brainClient.getSettings();
+      if (!mounted) return;
+      if (res['success'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load settings: ${res['message'] ?? 'unknown error'}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        return;
+      }
+
+      final raw = res['settings'];
+      final settings = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) => _StartupFlagsSheet(
+          brainClient: widget.brainClient,
+          initialSettings: settings,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _openingSettings = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusData =
@@ -87,6 +121,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Container(color: Theme.of(context).dividerColor, height: 1),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Startup & flags (GET/POST /api/settings)',
+            onPressed: _openingSettings ? null : _openStartupAndFlags,
+            icon: const Icon(Icons.tune),
+          ),
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(16.0),
@@ -324,9 +363,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       children: [
         _buildActionButton(
-          '🎮 Manual Control',
-          ContinuonColors.primaryBlue,
-          () async {
+          title: 'Manual control',
+          subtitle: 'Set mode to manual_control (GET /api/mode/manual_control)',
+          color: ContinuonColors.primaryBlue,
+          onPressed: () async {
             await _setMode('manual_control');
             if (context.mounted) {
               Navigator.pushNamed(context, ControlScreen.routeName);
@@ -335,55 +375,294 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         _buildActionButton(
-          '📝 Manual Training',
-          ContinuonColors.primaryBlue,
-          () => _setMode('manual_training'),
+          title: 'Manual training',
+          subtitle: 'Set mode to manual_training (GET /api/mode/manual_training)',
+          color: ContinuonColors.primaryBlue,
+          onPressed: () => _setMode('manual_training'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
-          '🚀 Autonomous',
-          ContinuonColors.cmsViolet,
-          () => _setMode('autonomous'),
+          title: 'Autonomous',
+          subtitle: 'Set mode to autonomous (GET /api/mode/autonomous)',
+          color: ContinuonColors.cmsViolet,
+          onPressed: () => _setMode('autonomous'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
-          '💤 Sleep Learning',
-          ContinuonColors.particleOrange,
-          () => _setMode('sleep_learning'),
+          title: 'Sleep learning',
+          subtitle: 'Set mode to sleep_learning (GET /api/mode/sleep_learning)',
+          color: ContinuonColors.particleOrange,
+          onPressed: () => _setMode('sleep_learning'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
-          '⏸️ Idle',
-          ContinuonColors.gray700,
-          () => _setMode('idle'),
+          title: 'Idle',
+          subtitle: 'Set mode to idle (GET /api/mode/idle)',
+          color: ContinuonColors.gray700,
+          onPressed: () => _setMode('idle'),
         ),
         const SizedBox(height: 12),
         _buildActionButton(
-          '🛑 Emergency Stop',
-          Theme.of(context).colorScheme.error,
-          () => _setMode('emergency_stop'),
+          title: 'Emergency stop',
+          subtitle: 'Set mode to emergency_stop (GET /api/mode/emergency_stop)',
+          color: Theme.of(context).colorScheme.error,
+          onPressed: () => _setMode('emergency_stop'),
         ),
       ],
     );
   }
 
   Widget _buildActionButton(
-      String label, Color color, VoidCallback? onPressed) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+      {required String title,
+      required String subtitle,
+      required Color color,
+      required VoidCallback? onPressed}) {
+    return Tooltip(
+      message: subtitle,
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            elevation: 0,
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-          elevation: 0,
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
         ),
-        child: Text(label),
+      ),
+    );
+  }
+}
+
+class _StartupFlagsSheet extends StatefulWidget {
+  const _StartupFlagsSheet({
+    required this.brainClient,
+    required this.initialSettings,
+  });
+
+  final BrainClient brainClient;
+  final Map<String, dynamic> initialSettings;
+
+  @override
+  State<_StartupFlagsSheet> createState() => _StartupFlagsSheetState();
+}
+
+class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
+  late Map<String, dynamic> _settings;
+  bool _saving = false;
+  String? _error;
+
+  final TextEditingController _creatorController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = Map<String, dynamic>.from(widget.initialSettings);
+    _creatorController.text =
+        ((_settings['identity'] as Map?)?['creator_display_name'] as String?) ?? '';
+  }
+
+  @override
+  void dispose() {
+    _creatorController.dispose();
+    super.dispose();
+  }
+
+  Map<String, dynamic> _subMap(String key) {
+    final raw = _settings[key];
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return <String, dynamic>{};
+  }
+
+  void _setSubKey(String root, String key, dynamic value) {
+    final m = _subMap(root);
+    m[key] = value;
+    setState(() {
+      _settings[root] = m;
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      _setSubKey('identity', 'creator_display_name', _creatorController.text.trim());
+      final res = await widget.brainClient.saveSettings(_settings);
+      if (!mounted) return;
+      if (res['success'] == true) {
+        Navigator.pop(context);
+        return;
+      }
+      setState(() => _error = (res['message'] as String?) ?? 'Settings rejected by runtime');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safety = _subMap('safety');
+    final chat = _subMap('chat');
+    final training = _subMap('training');
+    final agentMgr = _subMap('agent_manager');
+    final chatLearn = (agentMgr['chat_learn'] is Map)
+        ? Map<String, dynamic>.from(agentMgr['chat_learn'] as Map)
+        : <String, dynamic>{};
+    final orchestrator = (agentMgr['autonomy_orchestrator'] is Map)
+        ? Map<String, dynamic>.from(agentMgr['autonomy_orchestrator'] as Map)
+        : <String, dynamic>{};
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Startup & flags', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(
+                'These settings persist on the runtime (GET/POST /api/settings).',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              if (_error != null) ...[
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                const SizedBox(height: 8),
+              ],
+              TextField(
+                controller: _creatorController,
+                decoration: const InputDecoration(
+                  labelText: 'Creator display name',
+                  helperText: 'Used for prompts/UI alignment (non-biometric).',
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Allow motion'),
+                subtitle: const Text('Safety gate: allow robot motion'),
+                value: (safety['allow_motion'] as bool?) ?? true,
+                onChanged: (v) => _setSubKey('safety', 'allow_motion', v),
+              ),
+              SwitchListTile(
+                title: const Text('Record episodes'),
+                subtitle: const Text('Enable RLDS episode recording'),
+                value: (safety['record_episodes'] as bool?) ?? true,
+                onChanged: (v) => _setSubKey('safety', 'record_episodes', v),
+              ),
+              SwitchListTile(
+                title: const Text('Require supervision'),
+                subtitle: const Text('If enabled, autonomous actions should be gated'),
+                value: (safety['require_supervision'] as bool?) ?? false,
+                onChanged: (v) => _setSubKey('safety', 'require_supervision', v),
+              ),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Log chat to RLDS'),
+                subtitle: const Text('Opt-in: persist chat turns for later training/eval'),
+                value: (chat['log_rlds'] as bool?) ?? false,
+                onChanged: (v) => _setSubKey('chat', 'log_rlds', v),
+              ),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Enable sleep learning'),
+                subtitle: const Text('Allow background learning in sleep_learning mode'),
+                value: (training['enable_sleep_learning'] as bool?) ?? true,
+                onChanged: (v) => _setSubKey('training', 'enable_sleep_learning', v),
+              ),
+              SwitchListTile(
+                title: const Text('Enable sidecar trainer'),
+                subtitle: const Text('Start trainer sidecar (resource heavy)'),
+                value: (training['enable_sidecar_trainer'] as bool?) ?? false,
+                onChanged: (v) => _setSubKey('training', 'enable_sidecar_trainer', v),
+              ),
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Enable autonomous learning'),
+                subtitle: const Text('Agent manager learning loop'),
+                value: (agentMgr['enable_autonomous_learning'] as bool?) ?? true,
+                onChanged: (v) => _setSubKey('agent_manager', 'enable_autonomous_learning', v),
+              ),
+              SwitchListTile(
+                title: const Text('Enable scheduled chat learning'),
+                subtitle: const Text('Runs periodic chat_learn turns (offline-first)'),
+                value: (chatLearn['enabled'] as bool?) ?? false,
+                onChanged: (v) {
+                  chatLearn['enabled'] = v;
+                  _setSubKey('agent_manager', 'chat_learn', chatLearn);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Enable autonomy orchestrator'),
+                subtitle: const Text('Runs bounded maintenance tasks in allowed modes'),
+                value: (orchestrator['enabled'] as bool?) ?? false,
+                onChanged: (v) {
+                  orchestrator['enabled'] = v;
+                  _setSubKey('agent_manager', 'autonomy_orchestrator', orchestrator);
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _saving ? null : () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                      label: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.save),
+                      label: Text(_saving ? 'Saving...' : 'Save to runtime'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

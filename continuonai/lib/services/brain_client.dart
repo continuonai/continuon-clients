@@ -71,6 +71,20 @@ class BrainClient {
     return _authToken != null ? {'authorization': 'Bearer $_authToken'} : {};
   }
 
+  Uri _httpUri(String path, {Map<String, String>? queryParameters}) {
+    final host = _host;
+    if (host == null || host.isEmpty) {
+      throw StateError('BrainClient not connected');
+    }
+    return Uri(
+      scheme: 'http',
+      host: host,
+      port: _httpPort,
+      path: path,
+      queryParameters: queryParameters,
+    );
+  }
+
   Future<void> loadAuthToken() async {
     const secure = FlutterSecureStorage();
     String? token = await secure.read(key: 'auth_token');
@@ -423,6 +437,77 @@ class BrainClient {
   Future<void> dispose() async {
     await _stateController?.close();
     await _channel?.shutdown();
+  }
+
+  /// Fetch runtime settings (/api/settings GET).
+  Future<Map<String, dynamic>> getSettings() async {
+    try {
+      final uri = _httpUri('/api/settings');
+      final resp = await http.get(uri, headers: _headers());
+      final decoded = jsonDecode(resp.body);
+      if (resp.statusCode != 200) {
+        return {
+          'success': false,
+          'message': 'HTTP ${resp.statusCode}',
+          'body': resp.body,
+        };
+      }
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// Save runtime settings (/api/settings POST). Payload must match the settings schema.
+  Future<Map<String, dynamic>> saveSettings(Map<String, dynamic> settings) async {
+    try {
+      final uri = _httpUri('/api/settings');
+      final resp = await http.post(
+        uri,
+        headers: {
+          ..._headers(),
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(settings),
+      );
+      final decoded = jsonDecode(resp.body);
+      if (resp.statusCode != 200) {
+        return decoded is Map
+            ? Map<String, dynamic>.from(decoded)
+            : {
+                'success': false,
+                'message': 'HTTP ${resp.statusCode}',
+                'body': resp.body,
+              };
+      }
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// Trigger safety hold (E-STOP style latch): POST /api/safety/hold
+  Future<Map<String, dynamic>> triggerSafetyHold() async {
+    try {
+      final uri = _httpUri('/api/safety/hold');
+      final resp = await http.post(uri, headers: _headers());
+      final decoded = jsonDecode(resp.body);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// Reset safety gates (requires operator intent): POST /api/safety/reset
+  Future<Map<String, dynamic>> resetSafetyGates() async {
+    try {
+      final uri = _httpUri('/api/safety/reset');
+      final resp = await http.post(uri, headers: _headers());
+      final decoded = jsonDecode(resp.body);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
   }
 }
 

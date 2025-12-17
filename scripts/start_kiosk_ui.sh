@@ -3,7 +3,7 @@
 # Waits for ContinuonBrain UI to be available, then launches Kiosk browser.
 # Add this to your Desktop Session Startup (e.g., ~/.config/autostart).
 
-TARGET_URL="http://localhost:8080/ui"
+TARGET_URL="http://localhost:8081/ui"
 MAX_RETRIES=60
 SLEEP_SEC=2
 

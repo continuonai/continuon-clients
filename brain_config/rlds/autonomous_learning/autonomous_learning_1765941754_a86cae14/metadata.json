@@ -1,0 +1,16 @@
+{
+  "xr_mode": "autonomous",
+  "control_role": "human_supervisor",
+  "environment_id": "pi5-dev",
+  "tags": [
+    "autonomous_learning",
+    "curiosity",
+    "control_role:autonomous_agent"
+  ],
+  "software": {
+    "xr_app": "n/a",
+    "continuonbrain_os": "dev",
+    "glove_firmware": "n/a"
+  },
+  "start_time_unix_ms": 1765941754974
+}
