@@ -53,6 +53,50 @@ class EpisodeMetadata {
       };
 }
 
+class EpisodeAsset {
+  EpisodeAsset({
+    required this.localUri,
+    required this.sensor,
+    required this.frameId,
+    required this.capturedAtMillis,
+    this.mount,
+    this.remoteUri,
+    this.mimeType,
+    this.status = 'queued',
+  });
+
+  final String localUri;
+  final String sensor;
+  final String frameId;
+  final int capturedAtMillis;
+  final String? mount;
+  final String? remoteUri;
+  final String? mimeType;
+  final String status;
+
+  Map<String, dynamic> toJson() => {
+        'local_uri': localUri,
+        'sensor': sensor,
+        'frame_id': frameId,
+        'captured_at_ms': capturedAtMillis,
+        if (mount != null) 'mount': mount,
+        if (remoteUri != null) 'remote_uri': remoteUri,
+        if (mimeType != null) 'mime_type': mimeType,
+        'status': status,
+      };
+
+  EpisodeAsset withRemote({required String uri}) => EpisodeAsset(
+        localUri: localUri,
+        sensor: sensor,
+        frameId: frameId,
+        capturedAtMillis: capturedAtMillis,
+        mount: mount,
+        mimeType: mimeType,
+        remoteUri: uri,
+        status: 'transferred',
+      );
+}
+
 class SoftwareVersions {
   const SoftwareVersions({
     this.xrApp,
@@ -239,13 +283,16 @@ class EpisodeRecord {
   EpisodeRecord({
     required this.metadata,
     this.steps = const [],
+    this.assets = const [],
   });
 
   final EpisodeMetadata metadata;
   final List<EpisodeStep> steps;
+  final List<EpisodeAsset> assets;
 
   Map<String, dynamic> toJson() => {
         'metadata': metadata.toJson(),
         'steps': steps.map((s) => s.toJson()).toList(),
+        if (assets.isNotEmpty) 'assets': assets.map((a) => a.toJson()).toList(),
       };
 }
