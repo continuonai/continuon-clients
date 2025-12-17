@@ -1,13 +1,16 @@
 {
-  "mode": "idle",
-  "timestamp": 1765946758.054817,
+  "mode": "autonomous",
+  "timestamp": 1765948658.9480264,
   "config": {
-    "mode": "idle",
-    "timestamp": 1765946758.054817,
-    "allow_motion": false,
-    "record_episodes": false,
-    "run_inference": false,
+    "mode": "autonomous",
+    "timestamp": 1765948658.9480264,
+    "allow_motion": true,
+    "record_episodes": true,
+    "run_inference": true,
     "self_train": false,
-    "metadata": {}
+    "metadata": {
+      "control_source": "vla_policy",
+      "restored_from_persisted": true
+    }
   }
 }

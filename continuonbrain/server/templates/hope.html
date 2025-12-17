@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div>
+            <h2>HOPE Monitor</h2>
+            <p class="panel-subtitle">Single consolidated monitoring surface (no external CDN dependencies).</p>
+        </div>
+        <div class="status-badge" id="hope-status-badge">Connecting…</div>
+    </div>
+    <div class="panel-content">
+        <div class="segmented-controls tight" style="margin-bottom: 14px;">
+            <a class="rail-btn {% if hope_section == 'training' %}primary{% endif %}" href="/ui/hope/training">Training</a>
+            <a class="rail-btn {% if hope_section == 'stability' %}primary{% endif %}" href="/ui/hope/stability">Stability</a>
+            <a class="rail-btn {% if hope_section == 'memory' %}primary{% endif %}" href="/ui/hope/memory">Memory</a>
+            <a class="rail-btn {% if hope_section == 'dynamics' %}primary{% endif %}" href="/ui/hope/dynamics">Dynamics</a>
+            <a class="rail-btn {% if hope_section == 'performance' %}primary{% endif %}" href="/ui/hope/performance">Performance</a>
+        </div>
+
+        <div class="status-grid" style="margin-bottom: 14px;">
+            <div class="status-item">
+                <label>Steps</label>
+                <span id="hope-steps">—</span>
+            </div>
+            <div class="status-item">
+                <label>Lyapunov</label>
+                <span id="hope-lyapunov">—</span>
+            </div>
+            <div class="status-item">
+                <label>State norm</label>
+                <span id="hope-state-norm">—</span>
+            </div>
+            <div class="status-item">
+                <label>Stable?</label>
+                <span id="hope-stable">—</span>
+            </div>
+        </div>
+
+        <div class="panel-ghost">
+            <div class="panel-eyebrow">Raw payload</div>
+            <pre id="hope-raw"
+                style="white-space:pre-wrap; font-size:12px; color:#cfe9ff; background:#0b1220; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); max-height: 420px; overflow:auto;">(waiting…)</pre>
+            <div class="panel-subtitle" style="margin-top: 10px;">
+                Tip: if this is running on a robot build without HOPE enabled, these endpoints may 404; the logger will show why.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const section = "{{ hope_section or 'training' }}";
+        const badge = document.getElementById('hope-status-badge');
+        const raw = document.getElementById('hope-raw');
+        const elSteps = document.getElementById('hope-steps');
+        const elLyap = document.getElementById('hope-lyapunov');
+        const elNorm = document.getElementById('hope-state-norm');
+        const elStable = document.getElementById('hope-stable');
+
+        const endpointBySection = {
+            training: '/api/hope/metrics',
+            performance: '/api/hope/metrics',
+            stability: '/api/hope/stability',
+            memory: '/api/hope/cms/level/0',
+            dynamics: '/api/hope/history?window=60',
+        };
+
+        const endpoint = endpointBySection[section] || '/api/hope/metrics';
+
+        async function fetchJson(url) {
+            if (window.StudioClient && window.StudioClient.fetchJson) {
+                return await window.StudioClient.fetchJson(url, { timeoutMs: 4000 });
+            }
+            const res = await fetch(url);
+            const data = await res.json();
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return data;
+        }
+
+        function setBadge(ok, text) {
+            if (!badge) return;
+            badge.textContent = text;
+            badge.className = 'status-badge ' + (ok ? 'success' : 'warning');
+        }
+
+        function setText(el, val) {
+            if (!el) return;
+            el.textContent = (val == null) ? '—' : String(val);
+        }
+
+        async function poll() {
+            try {
+                setBadge(true, `Connected · ${section}`);
+                const data = await fetchJson(endpoint);
+                if (raw) raw.textContent = JSON.stringify(data, null, 2);
+
+                // Normalize a few common keys across endpoints
+                const steps = data?.steps ?? data?.metrics?.steps ?? data?.status?.steps;
+                const lyap = data?.lyapunov_current ?? data?.metrics?.lyapunov_current ?? data?.lyapunov;
+                const norm = data?.state_norm ?? data?.metrics?.state_norm ?? data?.stability_metrics?.state_norm;
+                const stable = (data?.is_stable != null) ? data.is_stable : (data?.stable != null ? data.stable : undefined);
+
+                setText(elSteps, steps);
+                setText(elLyap, lyap != null ? Number(lyap).toFixed(4) : '—');
+                setText(elNorm, norm != null ? Number(norm).toFixed(4) : '—');
+                setText(elStable, stable === true ? 'yes' : (stable === false ? 'no' : '—'));
+            } catch (err) {
+                setBadge(false, `Unavailable · ${section}`);
+                if (raw) raw.textContent = `Failed to load ${endpoint}\n\n` + (err?.message || String(err));
+                try { window.UILogger?.log?.('warn', `HOPE monitor fetch failed (${endpoint}): ${err?.message || err}`); } catch (_) { }
+            }
+        }
+
+        poll();
+        setInterval(poll, 1500);
+    })();
+</script>
+{% endblock %}
+

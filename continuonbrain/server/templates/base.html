@@ -173,6 +173,8 @@
                         </li>
                         <li class="nav-item"><a href="/training"
                                 class="nav-link {% if active_page == 'training' %}active{% endif %}">Training</a></li>
+                        <li class="nav-item"><a href="/ui/hope/training"
+                                class="nav-link {% if active_page == 'hope' %}active{% endif %}">HOPE Monitor</a></li>
                         <li class="nav-item"><a href="/tasks"
                                 class="nav-link {% if active_page == 'tasks' %}active{% endif %}">Autonomy Tasks</a>
                         </li>
@@ -488,6 +490,28 @@
                             <div class="panel-subtitle" style="margin-top:10px;">Or open URL</div>
                             <pre id="pairing-url"
                                 style="white-space:pre-wrap; font-size:12px; color:#cfd7ff; background:#121826; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);">(not started)</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel ui-log-panel" id="ui-log-panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Operator visibility</div>
+                            <h2>UI Logger</h2>
+                            <p class="panel-subtitle">Client-side actions, API calls, errors, and SSE activity.</p>
+                        </div>
+                        <div class="rail-actions" style="margin:0; justify-content:flex-end;">
+                            <button class="rail-btn" type="button" onclick="window.UILogger?.copy?.()">Copy</button>
+                            <button class="rail-btn" type="button" onclick="window.UILogger?.clear?.()">Clear</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div id="ui-log-entries" class="ui-log-entries" aria-live="polite">
+                            <div class="ui-log-entry ui-log-entry--muted">
+                                <span class="ui-log-meta">—</span>
+                                <span class="ui-log-msg">Logger ready.</span>
+                            </div>
                         </div>
                     </div>
                 </div>

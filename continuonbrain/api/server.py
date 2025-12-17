@@ -484,6 +484,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(ui_routes.get_tasks_html().encode("utf-8"))
             
             # HOPE Monitoring Pages
+            elif self.path in ("/ui/hope", "/ui/hope/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_hope_training_html().encode("utf-8"))
+
             elif self.path == "/ui/hope/training":
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
@@ -518,7 +524,8 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_brain_map_html().encode("utf-8"))
+                # Back-compat: map route now points at unified HOPE monitor UI.
+                self.wfile.write(ui_routes.get_hope_dynamics_html().encode("utf-8"))
 
             elif self.path == "/api/training/pipeline":
                 # JSON mirror of /ui/training-plan for automation/tests

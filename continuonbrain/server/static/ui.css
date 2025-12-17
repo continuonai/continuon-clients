@@ -2059,3 +2059,60 @@ body {
     flex: 1;
     min-width: 250px;
 }
+
+/* --- UI Logger (client-side) --- */
+.ui-log-panel .panel-content {
+    padding-top: 8px;
+}
+
+.ui-log-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 220px;
+    overflow: auto;
+    padding-right: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ui-log-entry {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.ui-log-entry--muted {
+    opacity: 0.75;
+}
+
+.ui-log-entry--info {
+    border-left: 3px solid rgba(122, 215, 255, 0.75);
+}
+
+.ui-log-entry--warn {
+    border-left: 3px solid rgba(255, 204, 0, 0.75);
+}
+
+.ui-log-entry--error {
+    border-left: 3px solid rgba(255, 77, 109, 0.75);
+}
+
+.ui-log-entry--api {
+    border-left: 3px solid rgba(56, 217, 150, 0.75);
+}
+
+.ui-log-meta {
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+}
+
+.ui-log-msg {
+    color: rgba(255, 255, 255, 0.88);
+    overflow-wrap: anywhere;
+}

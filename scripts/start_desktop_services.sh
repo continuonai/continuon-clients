@@ -86,12 +86,12 @@ export CONTINUON_UI_AUTOLAUNCH="${CONTINUON_UI_AUTOLAUNCH:-1}"
 
 # (kept above; default is 1 for desktop)
 
-# Self-training controls (default ON for desktop convenience; override to 0 to disable)
-export CONTINUON_ENABLE_BACKGROUND_TRAINER="${CONTINUON_ENABLE_BACKGROUND_TRAINER:-1}"
-export CONTINUON_LOG_CHAT_RLDS="${CONTINUON_LOG_CHAT_RLDS:-1}"
+# Self-training controls (default OFF for lighter desktop mode; override to 1 to enable)
+export CONTINUON_ENABLE_BACKGROUND_TRAINER="${CONTINUON_ENABLE_BACKGROUND_TRAINER:-0}"
+export CONTINUON_LOG_CHAT_RLDS="${CONTINUON_LOG_CHAT_RLDS:-0}"
 export CONTINUON_APPLY_SELF_TRAINING_SETTINGS="${CONTINUON_APPLY_SELF_TRAINING_SETTINGS:-1}"
-export CONTINUON_START_TRAINING_REPORT_DAEMON="${CONTINUON_START_TRAINING_REPORT_DAEMON:-1}"
-export CONTINUON_RUN_WAVECORE="${CONTINUON_RUN_WAVECORE:-1}"
+export CONTINUON_START_TRAINING_REPORT_DAEMON="${CONTINUON_START_TRAINING_REPORT_DAEMON:-0}"
+export CONTINUON_RUN_WAVECORE="${CONTINUON_RUN_WAVECORE:-0}"
 
 # Prefer non-mock LLM backends on desktop (offline-first; uses local HF cache).
 # - LiteRT is disabled because it can silently fall back to a mock implementation without mediapipe-genai.

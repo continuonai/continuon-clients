@@ -1,6 +1,7 @@
 (function () {
   const subscribers = { status: [], loops: [], tasks: [], skills: [] };
   let eventSource = null;
+  let lastSseLogAt = 0;
 
   function emit(type, payload) {
     (subscribers[type] || []).forEach((fn) => {
@@ -16,6 +17,11 @@
     const controller = new AbortController();
     const timeoutMs = options.timeoutMs || 8000;
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const method = (options.method || 'GET').toUpperCase();
+    const startedAt = Date.now();
+    try {
+      window.UILogger?.log?.('api', `${method} ${url} (start)`);
+    } catch (_) { }
     try {
       const response = await fetch(url, { ...options, signal: controller.signal });
       const text = await response.text();
@@ -29,9 +35,22 @@
         const err = new Error(`HTTP ${response.status}`);
         err.status = response.status;
         err.data = data;
+        try {
+          window.UILogger?.log?.('error', `${method} ${url} -> HTTP ${response.status}`, data);
+        } catch (_) { }
         throw err;
       }
+      try {
+        const ms = Date.now() - startedAt;
+        window.UILogger?.log?.('api', `${method} ${url} -> 200 (${ms}ms)`);
+      } catch (_) { }
       return data;
+    } catch (err) {
+      try {
+        const ms = Date.now() - startedAt;
+        window.UILogger?.log?.('error', `${method} ${url} failed (${ms}ms): ${err?.message || err}`);
+      } catch (_) { }
+      throw err;
     } finally {
       clearTimeout(timeout);
     }
@@ -43,6 +62,9 @@
     }
     const connect = () => {
       eventSource = new EventSource("/api/events");
+      try {
+        window.UILogger?.log?.('info', 'SSE connected: /api/events');
+      } catch (_) { }
       eventSource.onmessage = (evt) => {
         if (!evt.data) return;
         try {
@@ -52,12 +74,25 @@
           if (payload.tasks) emit("tasks", payload.tasks);
           if (payload.skills) emit("skills", payload.skills);
           if (payload.chat) emit("chat", payload.chat);
+          // Throttle noisy logs; still surface chat immediately.
+          const now = Date.now();
+          if (payload.chat) {
+            try { window.UILogger?.log?.('info', 'SSE chat event received'); } catch (_) { }
+          } else if (now - lastSseLogAt > 1500) {
+            lastSseLogAt = now;
+            const keys = Object.keys(payload || {}).filter(Boolean);
+            try { window.UILogger?.log?.('info', `SSE event: ${keys.join(', ') || 'message'}`); } catch (_) { }
+          }
         } catch (err) {
           console.warn("SSE parse error", err);
+          try { window.UILogger?.log?.('warn', `SSE parse error: ${err?.message || err}`); } catch (_) { }
         }
       };
       eventSource.onerror = () => {
         eventSource.close();
+        try {
+          window.UILogger?.log?.('warn', `SSE disconnected; retrying in ${reconnectDelayMs}ms`);
+        } catch (_) { }
         setTimeout(connect, reconnectDelayMs);
       };
     };
@@ -99,6 +134,127 @@
     fetchJson,
     startRealtime,
   };
+})();
+
+// --- UI Logger (client-side) ---
+(function initUILogger() {
+  const MAX_ENTRIES = 200;
+  const entries = [];
+
+  function fmtTime(ts) {
+    try {
+      return new Date(ts).toLocaleTimeString();
+    } catch {
+      return '';
+    }
+  }
+
+  function normalizeLevel(level) {
+    const l = String(level || 'info').toLowerCase();
+    if (l === 'warning') return 'warn';
+    if (l === 'api' || l === 'info' || l === 'warn' || l === 'error') return l;
+    return 'info';
+  }
+
+  function getContainer() {
+    return document.getElementById('ui-log-entries');
+  }
+
+  function render() {
+    const container = getContainer();
+    if (!container) return;
+    if (!entries.length) {
+      container.innerHTML = `
+        <div class="ui-log-entry ui-log-entry--muted">
+          <span class="ui-log-meta">—</span>
+          <span class="ui-log-msg">No logs yet.</span>
+        </div>
+      `;
+      return;
+    }
+
+    // Render newest-first, small and safe (textContent).
+    container.innerHTML = '';
+    for (const e of entries) {
+      const row = document.createElement('div');
+      row.className = `ui-log-entry ui-log-entry--${e.level}`;
+      const meta = document.createElement('span');
+      meta.className = 'ui-log-meta';
+      meta.textContent = `[${fmtTime(e.ts)}] ${e.level.toUpperCase()}`;
+      const msg = document.createElement('span');
+      msg.className = 'ui-log-msg';
+      msg.textContent = e.msg;
+      row.appendChild(meta);
+      row.appendChild(msg);
+      container.appendChild(row);
+    }
+  }
+
+  function log(level, msg, data) {
+    const entry = {
+      ts: Date.now(),
+      level: normalizeLevel(level),
+      msg: String(msg || ''),
+      data: data == null ? null : data,
+    };
+    entries.unshift(entry);
+    if (entries.length > MAX_ENTRIES) entries.length = MAX_ENTRIES;
+    render();
+  }
+
+  function clear() {
+    entries.length = 0;
+    render();
+  }
+
+  async function copy() {
+    const payload = entries
+      .slice()
+      .reverse()
+      .map((e) => `${new Date(e.ts).toISOString()} ${e.level.toUpperCase()} ${e.msg}` + (e.data != null ? `\n${JSON.stringify(e.data, null, 2)}` : ''))
+      .join('\n');
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+        log('info', `Copied ${entries.length} log lines to clipboard`);
+        return;
+      }
+    } catch (_) {
+      // fallback below
+    }
+    try {
+      window.prompt('Copy UI logs:', payload);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  window.UILogger = { log, clear, copy };
+  window.uiLog = function (msg, level = 'info', data = null) {
+    log(level, msg, data);
+  };
+
+  // Capture unhandled errors (high-signal only).
+  window.addEventListener('error', (evt) => {
+    try {
+      const msg = evt?.message || 'Unhandled error';
+      log('error', msg);
+    } catch (_) { }
+  });
+  window.addEventListener('unhandledrejection', (evt) => {
+    try {
+      const reason = evt?.reason?.message || String(evt?.reason || 'Unhandled rejection');
+      log('error', reason);
+    } catch (_) { }
+  });
+
+  // Initial marker.
+  const boot = () => log('info', `UI loaded: ${window.location?.pathname || '/'}`);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 })();
 
 window.runArmPlanner = async function () {
@@ -394,6 +550,10 @@ function applyStatusToHomePanels(status) {
 }
 
 async function postJson(url, payload) {
+  const startedAt = Date.now();
+  try {
+    window.UILogger?.log?.('api', `POST ${url} (start)`);
+  } catch (_) { }
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -410,8 +570,16 @@ async function postJson(url, payload) {
     const err = new Error('HTTP ' + res.status);
     err.status = res.status;
     err.data = data;
+    try {
+      const ms = Date.now() - startedAt;
+      window.UILogger?.log?.('error', `POST ${url} -> HTTP ${res.status} (${ms}ms)`, data);
+    } catch (_) { }
     throw err;
   }
+  try {
+    const ms = Date.now() - startedAt;
+    window.UILogger?.log?.('api', `POST ${url} -> 200 (${ms}ms)`);
+  } catch (_) { }
   return data;
 }
 

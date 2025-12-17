@@ -36,6 +36,13 @@
             </div>
         </header>
 
+        <!-- New Action Log Strip -->
+        <div id="action-log-strip"
+            style="background:#0d1117; border-bottom:1px solid #30363d; padding:4px 16px; font-family:monospace; font-size:12px; color:#58a6ff; display:flex; align-items:center; gap:8px;">
+            <span style="opacity:0.5;">ACTION LOG:</span>
+            <span id="action-log-message">Ready.</span>
+        </div>
+
         <div class="workspace-grid" id="workspace-grid">
             <!-- LEFT COLUMN -->
             <section class="column left-column resizable" data-column="left">
@@ -77,6 +84,31 @@
                         <div class="status-card">
                             <div class="status-label">Safety head</div>
                             <div class="status-value" id="safety-head-path">--</div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Moved to Left -->
+                    <div class="panel soft">
+                        <div class="panel-header">
+                            <div class="panel-eyebrow">Direct Interaction</div>
+                            <h3>Agent Chat</h3>
+                        </div>
+                        <div class="chat-rail" style="margin-top:8px;">
+                            <div class="chat-messages inline" id="chat-messages"
+                                style="height:200px; overflow-y:auto; border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:8px; margin-bottom:8px; background:rgba(0,0,0,0.2);">
+                            </div>
+                            <div class="chat-input-area inline" style="display:flex; flex-direction:column; gap:8px;">
+                                <input type="text" class="chat-input" id="chat-input"
+                                    style="width:100%; box-sizing:border-box;" placeholder="Message HOPE..."
+                                    aria-label="Chat message input"
+                                    onkeypress="if(event.key==='Enter') sendChatMessage()">
+                                <div style="display:flex; gap:8px;">
+                                    <button class="chat-send-btn btn primary" id="chat-send" onclick="sendChatMessage()"
+                                        style="flex:1;">Send</button>
+                                    <button class="rail-btn" id="chat-mic" type="button"
+                                        title="Push-to-talk">🎙️</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="quick-actions">
@@ -509,38 +541,8 @@
                     </div>
 
                     <div class="panel-ghost">
-                        <div class="panel-eyebrow">Agent Chat</div>
-                        <div class="chat-rail">
-                            <div class="chat-messages inline" id="chat-messages"></div>
-                            <div class="chat-input-area inline">
-                                <select id="chat-agent-select" class="input-compact"
-                                    style="width:220px; margin-right:8px;">
-                                    <option value="hope-v1" selected>HOPE v1 (Main)</option>
-                                    <option value="consult:google/gemma-3n-2b">Consult: Gemma 3n (Subagent)</option>
-                                    <option value="consult:google/gemma-370m">Consult: Gemma 370m (Subagent)</option>
-                                    <option value="direct:google/gemma-3n-2b">Direct: Gemma 3n</option>
-                                    <option value="direct:google/gemma-370m">Direct: Gemma 370m</option>
-                                </select>
-                                <label
-                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
-                                    <input id="chat-attach-camera" type="checkbox">
-                                    Vision
-                                </label>
-                                <img id="chat-camera-thumb" alt="camera frame"
-                                    style="display:none; width:44px; height:44px; object-fit:cover; border-radius:10px; border:1px solid rgba(255,255,255,0.12); margin-right:8px;">
-                                <button class="rail-btn" id="chat-mic" type="button" title="Push-to-talk">🎙️</button>
-                                <label
-                                    style="display:flex; gap:6px; align-items:center; margin-right:8px; font-size:12px; color:rgba(255,255,255,0.75);">
-                                    <input id="chat-speak-replies" type="checkbox">
-                                    Speak
-                                </label>
-                                <input type="text" class="chat-input" id="chat-input"
-                                    placeholder="Ask about robot status, control tips..."
-                                    aria-label="Chat message input"
-                                    onkeypress="if(event.key==='Enter') sendChatMessage()">
-                                <button class="chat-send-btn" id="chat-send" onclick="sendChatMessage()">➤</button>
-                            </div>
-                        </div>
+                        <div class="panel-eyebrow">Context</div>
+                        <p style="color:var(--muted); font-size:0.9em;">Chat moved to left Command Deck.</p>
                     </div>
                 </div>
             </aside>
@@ -557,44 +559,46 @@
 
             <form id="settings-form">
                 <div class="settings-grid">
-                    <div class="settings-card">
-                        <h4>Safety Gates</h4>
-                        <div class="settings-row">
-                            <label for="settings-allow-motion">Allow motion</label>
-                            <input type="checkbox" id="settings-allow-motion">
-                        </div>
-                        <div class="settings-row">
-                            <label for="settings-record-episodes">Record episodes</label>
-                            <input type="checkbox" id="settings-record-episodes">
-                        </div>
-                        <div class="settings-row">
-                            <label for="settings-require-supervision">Require supervision</label>
-                            <input type="checkbox" id="settings-require-supervision">
+                    <div class="settings-card" style="grid-column: span 3;">
+                        <h4>Runtime Context</h4>
+                        <p style="color:var(--muted); font-size:0.9em; margin-bottom:16px;">Select the operational mode
+                            for the brain.</p>
+
+                        <div class="settings-row" style="justify-content:flex-start; gap:24px;">
+                            <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                <input type="radio" name="runtime-context" value="training">
+                                <div>
+                                    <strong style="display:block;">Training</strong>
+                                    <span style="font-size:0.85em; color:var(--muted);">Focus on learning loops.</span>
+                                </div>
+                            </label>
+                            <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                <input type="radio" name="runtime-context" value="inference">
+                                <div>
+                                    <strong style="display:block;">Inference</strong>
+                                    <span style="font-size:0.85em; color:var(--muted);">Optimize for
+                                        speed/execution.</span>
+                                </div>
+                            </label>
+                            <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                <input type="radio" name="runtime-context" value="hybrid" checked>
+                                <div>
+                                    <strong style="display:block;">Hybrid</strong>
+                                    <span style="font-size:0.85em; color:var(--muted);">Balanced operation
+                                        (Default).</span>
+                                </div>
+                            </label>
                         </div>
                     </div>
 
-                    <div class="settings-card">
-                        <h4>Telemetry</h4>
-                        <div class="settings-row">
-                            <label for="telemetry-rate">Broadcast rate (Hz)</label>
-                            <input type="number" id="telemetry-rate" min="0.1" max="30" step="0.1" value="2.0">
-                        </div>
-                    </div>
-
-                    <div class="settings-card">
-                        <h4>Chat Persona</h4>
-                        <div class="settings-row">
-                            <label for="chat-persona">Role</label>
-                            <select id="chat-persona">
-                                <option value="operator">Operator</option>
-                                <option value="safety_officer">Safety Officer</option>
-                                <option value="demo_host">Demo Host</option>
-                            </select>
-                        </div>
-                        <div class="settings-row">
-                            <label for="chat-temperature">Response creativity</label>
-                            <input type="number" id="chat-temperature" min="0" max="1" step="0.05" value="0.35">
-                        </div>
+                    <!-- Hidden legacy settings for now -->
+                    <div style="display:none;">
+                        <input type="number" id="telemetry-rate" value="2.0">
+                        <input type="text" id="chat-persona" value="operator">
+                        <input type="number" id="chat-temperature" value="0.35">
+                        <input type="checkbox" id="settings-allow-motion">
+                        <input type="checkbox" id="settings-record-episodes">
+                        <input type="checkbox" id="settings-require-supervision">
                     </div>
                 </div>
 

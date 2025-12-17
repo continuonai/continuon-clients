@@ -101,25 +101,19 @@ def get_manual_html() -> str:
 def get_brain_map_html() -> str:
     return render_template("wiring.html", active_page="wiring") # Assuming wiring.html exists
 
-# HOPE specific pages (keep the placeholders/templates we fixed earlier)
-from .ui_templates import PERFORMANCE_HTML, DYNAMICS_HTML, MEMORY_HTML, STABILITY_HTML
-
+# HOPE monitoring pages
+# Keep legacy /ui/hope/* URLs but serve the unified UI template so the UX is consistent.
 def get_hope_performance_html() -> str:
-    return PERFORMANCE_HTML
+    return render_template("hope.html", active_page="hope", hope_section="performance")
 
 def get_hope_dynamics_html() -> str:
-    return DYNAMICS_HTML
+    return render_template("hope.html", active_page="hope", hope_section="dynamics")
 
 def get_hope_memory_html() -> str:
-    return MEMORY_HTML
+    return render_template("hope.html", active_page="hope", hope_section="memory")
 
 def get_hope_stability_html() -> str:
-    return STABILITY_HTML
+    return render_template("hope.html", active_page="hope", hope_section="stability")
 
 def get_hope_training_html() -> str:
-    # Try to load from training_plan_page if available, else placeholder
-    try:
-        from continuonbrain.api.routes.training_plan_page import get_training_plan_html
-        return get_training_plan_html()
-    except ImportError:
-        return "<html><body><h1>HOPE Training</h1><p>Not available</p></body></html>"
+    return render_template("hope.html", active_page="hope", hope_section="training")

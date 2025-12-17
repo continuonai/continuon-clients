@@ -162,6 +162,33 @@ class SimpleJSONServer:
             response_body = self.render_template("training.html", {"active_page": "training"})
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
+
+        elif path == "/ui/hope":
+            response_body = self.render_template("hope.html", {"active_page": "hope", "hope_section": "training"})
+            response_bytes = response_body.encode("utf-8")
+            return (
+                f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode(
+                    "utf-8"
+                )
+                + response_bytes
+            )
+
+        elif path.startswith("/ui/hope/"):
+            # Consolidated HOPE monitor: keep legacy URLs but serve the unified template.
+            section = (path.split("/")[-1] or "training").strip().lower()
+            # Back-compat: some docs reference /ui/hope/map.
+            if section == "map":
+                section = "dynamics"
+            if section not in ("training", "stability", "memory", "dynamics", "performance"):
+                section = "training"
+            response_body = self.render_template("hope.html", {"active_page": "hope", "hope_section": section})
+            response_bytes = response_body.encode("utf-8")
+            return (
+                f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode(
+                    "utf-8"
+                )
+                + response_bytes
+            )
             
         elif path == "/wiring":
             response_body = self.get_wiring_html()
