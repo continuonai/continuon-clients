@@ -4,6 +4,8 @@ import '../models/public_episode.dart';
 import '../services/public_episodes_service.dart';
 import '../theme/continuon_theme.dart';
 import 'public_episode_detail_screen.dart';
+import '../widgets/layout/continuon_card.dart';
+import '../widgets/layout/continuon_layout.dart';
 
 class PublicEpisodesScreen extends StatefulWidget {
   const PublicEpisodesScreen({super.key});
@@ -37,8 +39,7 @@ class _PublicEpisodesScreenState extends State<PublicEpisodesScreen> {
     return episodes.where((e) {
       final licOk =
           _selectedLicense == null || e.share.license == _selectedLicense;
-      final tagOk =
-          _selectedTag == null || e.share.tags.contains(_selectedTag);
+      final tagOk = _selectedTag == null || e.share.tags.contains(_selectedTag);
       return licOk && tagOk;
     }).toList();
   }
@@ -47,25 +48,21 @@ class _PublicEpisodesScreenState extends State<PublicEpisodesScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brand = theme.extension<ContinuonBrandExtension>();
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Public RLDS Episodes'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _episodesFuture = _service.fetchPublicEpisodes();
-              });
-            },
-          ),
-        ],
-      ),
+    return ContinuonLayout(
+      appBarActions: [
+        IconButton(
+          tooltip: 'Refresh',
+          icon: const Icon(Icons.refresh),
+          onPressed: () {
+            setState(() {
+              _episodesFuture = _service.fetchPublicEpisodes();
+            });
+          },
+        ),
+      ],
       body: Container(
-        decoration: brand != null
-            ? BoxDecoration(gradient: brand.waveGradient)
-            : null,
+        decoration:
+            brand != null ? BoxDecoration(gradient: brand.waveGradient) : null,
         child: FutureBuilder<List<PublicEpisode>>(
           future: _episodesFuture,
           builder: (context, snapshot) {
@@ -76,7 +73,8 @@ class _PublicEpisodesScreenState extends State<PublicEpisodesScreen> {
               return Center(
                 child: Text(
                   'Failed to load episodes: ${snapshot.error}',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  style:
+                      theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
                   textAlign: TextAlign.center,
                 ),
               );
@@ -86,7 +84,8 @@ class _PublicEpisodesScreenState extends State<PublicEpisodesScreen> {
               return Center(
                 child: Text(
                   'No public episodes yet.\nPublish from Continuon Brain Studio or Continuon AI uploader with sharing enabled.',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: Colors.white70),
                   textAlign: TextAlign.center,
                 ),
               );
@@ -217,13 +216,11 @@ class _EpisodeCard extends StatelessWidget {
     final theme = Theme.of(context);
     final durationMinutes = (episode.durationMs / 60000).toStringAsFixed(1);
     final share = episode.share;
-    return Container(
+    return ContinuonCard(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.cardColor.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: ContinuonTokens.lowShadow,
-      ),
+      padding: EdgeInsets.zero,
+      backgroundColor: theme.cardColor
+          .withOpacity(0.9), // Keep opacity for glass effect if needed
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: Container(
@@ -233,11 +230,13 @@ class _EpisodeCard extends StatelessWidget {
             color: ContinuonColors.primaryBlue.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.play_circle_fill, color: ContinuonColors.primaryBlue),
+          child: const Icon(Icons.play_circle_fill,
+              color: ContinuonColors.primaryBlue),
         ),
         title: Text(
           episode.title,
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +249,8 @@ class _EpisodeCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '${share.license} • ${episode.ownerHandle} • ${durationMinutes} min',
-              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              style:
+                  theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 6),
             Wrap(
@@ -278,4 +278,3 @@ class _EpisodeCard extends StatelessWidget {
     );
   }
 }
-

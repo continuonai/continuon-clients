@@ -10,6 +10,9 @@ import '../theme/continuon_theme.dart';
 ///
 /// This is intentionally lightweight and self-contained so it can ship in the
 /// Flutter app (web/iOS/Android/desktop) without introducing new chart deps.
+import '../widgets/layout/continuon_layout.dart';
+import '../widgets/layout/continuon_card.dart';
+
 class ResearchScreen extends StatelessWidget {
   const ResearchScreen({super.key});
 
@@ -20,12 +23,11 @@ class ResearchScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final brand = theme.extension<ContinuonBrandExtension>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Research: HOPE Evidence'),
-      ),
+    return ContinuonLayout(
+      // No specific actions for Research screen, generic nav is fine
       body: Container(
-        decoration: brand != null ? BoxDecoration(gradient: brand.waveGradient) : null,
+        decoration:
+            brand != null ? BoxDecoration(gradient: brand.waveGradient) : null,
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           children: const [
@@ -58,7 +60,8 @@ class _ResearchHero extends StatelessWidget {
     final theme = Theme.of(context);
     return _ResearchCard(
       title: 'What we’re trying to prove',
-      subtitle: 'Measurements + visualizations tied to HOPE/CMS/WaveCore/SSM + symbolic search.',
+      subtitle:
+          'Measurements + visualizations tied to HOPE/CMS/WaveCore/SSM + symbolic search.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -91,11 +94,13 @@ class _HypothesisEvidenceSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ResearchCard(
       title: 'Claims → Measurements → Evidence',
-      subtitle: 'Ammaba-style cards: each claim has an observable metric and a visual.',
+      subtitle:
+          'Ammaba-style cards: each claim has an observable metric and a visual.',
       child: Column(
         children: const [
           _HypothesisCard(
-            claim: 'HOPE/CMS avoids catastrophic forgetting via nested fast/mid/slow updates.',
+            claim:
+                'HOPE/CMS avoids catastrophic forgetting via nested fast/mid/slow updates.',
             metric: 'HOPE eval score stays stable while new skills are added',
             status: _EvidenceStatus.partial,
             series: [0.46, 0.51, 0.58, 0.61, 0.64, 0.66, 0.69],
@@ -104,7 +109,8 @@ class _HypothesisEvidenceSection extends StatelessWidget {
           ),
           SizedBox(height: 12),
           _HypothesisCard(
-            claim: 'Edge runtime keeps reflex/teleop in-budget (50–100ms control ticks).',
+            claim:
+                'Edge runtime keeps reflex/teleop in-budget (50–100ms control ticks).',
             metric: 'p95 tick latency under threshold; safe-stop on overruns',
             status: _EvidenceStatus.supported,
             series: [42, 55, 61, 73, 88, 79, 64, 71, 58, 62],
@@ -113,8 +119,10 @@ class _HypothesisEvidenceSection extends StatelessWidget {
           ),
           SizedBox(height: 12),
           _HypothesisCard(
-            claim: 'Symbolic search invents plans using the world model (not pure imitation).',
-            metric: 'Search expands candidates then converges on a plan with higher goal score',
+            claim:
+                'Symbolic search invents plans using the world model (not pure imitation).',
+            metric:
+                'Search expands candidates then converges on a plan with higher goal score',
             status: _EvidenceStatus.partial,
             series: [0.10, 0.18, 0.33, 0.41, 0.55, 0.62, 0.71],
             note: 'Sample “best plan score by expansion step”.',
@@ -133,7 +141,8 @@ class _HopeCmsTimescalesSection extends StatelessWidget {
     final theme = Theme.of(context);
     return _ResearchCard(
       title: 'HOPE + CMS: multi-timescale recurrence',
-      subtitle: 'Fast / Mid / Slow loops with distinct responsibilities + measurable budgets.',
+      subtitle:
+          'Fast / Mid / Slow loops with distinct responsibilities + measurable budgets.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -252,16 +261,9 @@ class _ResearchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onCard = theme.colorScheme.onSurface;
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(ContinuonTokens.r16),
-        boxShadow: ContinuonTokens.lowShadow,
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.35),
-        ),
-      ),
-      padding: const EdgeInsets.all(16),
+    return ContinuonCard(
+      padding: const EdgeInsets.all(20),
+      backgroundColor: theme.cardColor.withOpacity(0.92),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -302,7 +304,8 @@ class _KpiPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.22)),
+        border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.22)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -368,11 +371,13 @@ class _HypothesisCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.35)),
+                  border:
+                      Border.all(color: statusColor.withValues(alpha: 0.35)),
                 ),
                 child: Text(
                   statusLabel,
@@ -386,7 +391,8 @@ class _HypothesisCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   claim,
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -470,7 +476,8 @@ class _SparklinePainter extends CustomPainter {
     final gridPaint = Paint()
       ..color = Colors.black.withValues(alpha: 0.06)
       ..strokeWidth = 1;
-    canvas.drawLine(Offset(0, size.height - 1), Offset(size.width, size.height - 1), gridPaint);
+    canvas.drawLine(Offset(0, size.height - 1),
+        Offset(size.width, size.height - 1), gridPaint);
 
     if (threshold != null) {
       final tNorm = ((threshold! - minV) / range).clamp(0.0, 1.0);
@@ -535,7 +542,8 @@ class _TimescaleBars extends StatelessWidget {
         const SizedBox(height: 10),
         _TimescaleBar(
           title: 'Slow',
-          subtitle: 'minutes–hours: consolidation, global alignment, distillation',
+          subtitle:
+              'minutes–hours: consolidation, global alignment, distillation',
           color: theme.colorScheme.primary,
           fill: 0.34,
           kpi: 'eval ↑',
@@ -576,13 +584,18 @@ class _TimescaleBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              Text(title,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(width: 10),
-              Text(kpi, style: theme.textTheme.bodySmall?.copyWith(color: color, fontWeight: FontWeight.w700)),
+              Text(kpi,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: color, fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 6),
-          Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(height: 1.3)),
+          Text(subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.3)),
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
@@ -591,7 +604,9 @@ class _TimescaleBar extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: Container(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                    child: Container(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.08)),
                   ),
                   Positioned.fill(
                     child: FractionallySizedBox(
@@ -629,7 +644,8 @@ class _MiniMetricRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final last = values.isNotEmpty ? values.last : 0.0;
-    final delta = values.length >= 2 ? (values.last - values[values.length - 2]) : 0.0;
+    final delta =
+        values.length >= 2 ? (values.last - values[values.length - 2]) : 0.0;
     final good = switch (goodDirection) {
       _GoodDirection.up => delta >= 0,
       _GoodDirection.down => delta <= 0,
@@ -641,7 +657,8 @@ class _MiniMetricRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(ContinuonTokens.r12),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.25)),
+        border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -649,11 +666,14 @@ class _MiniMetricRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                Text(label,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(
                   '${last.toStringAsFixed(2)} $unit  (${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)})',
-                  style: theme.textTheme.bodySmall?.copyWith(color: deltaColor, fontWeight: FontWeight.w700),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color: deltaColor, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -662,7 +682,8 @@ class _MiniMetricRow extends StatelessWidget {
           SizedBox(
             width: 140,
             height: 42,
-            child: _Sparkline(values: values, lineColor: theme.colorScheme.primary),
+            child: _Sparkline(
+                values: values, lineColor: theme.colorScheme.primary),
           ),
         ],
       ),
@@ -684,7 +705,17 @@ class _TwoPanelCharts extends StatelessWidget {
             title: 'SSM state norm (sample)',
             subtitle: 'recurrence keeps bounded memory',
             child: _Sparkline(
-              values: const [0.12, 0.18, 0.31, 0.45, 0.40, 0.36, 0.39, 0.33, 0.29],
+              values: const [
+                0.12,
+                0.18,
+                0.31,
+                0.45,
+                0.40,
+                0.36,
+                0.39,
+                0.33,
+                0.29
+              ],
               lineColor: theme.colorScheme.secondary,
             ),
           ),
@@ -692,7 +723,17 @@ class _TwoPanelCharts extends StatelessWidget {
             title: 'Compute proxy vs sequence length',
             subtitle: 'attention ~ n², SSM ~ n (illustrative)',
             child: _Sparkline(
-              values: const [0.06, 0.08, 0.11, 0.14, 0.18, 0.23, 0.29, 0.36, 0.44],
+              values: const [
+                0.06,
+                0.08,
+                0.11,
+                0.14,
+                0.18,
+                0.23,
+                0.29,
+                0.36,
+                0.44
+              ],
               lineColor: theme.colorScheme.primary,
             ),
           ),
@@ -719,7 +760,8 @@ class _TwoPanelCharts extends StatelessWidget {
 }
 
 class _MiniPanel extends StatelessWidget {
-  const _MiniPanel({required this.title, required this.subtitle, required this.child});
+  const _MiniPanel(
+      {required this.title, required this.subtitle, required this.child});
 
   final String title;
   final String subtitle;
@@ -733,14 +775,18 @@ class _MiniPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(ContinuonTokens.r12),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.25)),
+        border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text(title,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(height: 1.3)),
+          Text(subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.3)),
           const SizedBox(height: 10),
           SizedBox(height: 52, child: child),
         ],
@@ -760,7 +806,8 @@ class _SearchTreeDemo extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(ContinuonTokens.r12),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.25)),
+        border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -775,8 +822,10 @@ class _SearchTreeDemo extends StatelessWidget {
                 score: 0.41,
                 best: false,
                 children: [
-                  _TreeNode(label: 'push_left + lift', score: 0.55, best: false),
-                  _TreeNode(label: 'push_left + pull', score: 0.48, best: false),
+                  _TreeNode(
+                      label: 'push_left + lift', score: 0.55, best: false),
+                  _TreeNode(
+                      label: 'push_left + pull', score: 0.48, best: false),
                 ],
               ),
               _TreeNode(
@@ -784,8 +833,10 @@ class _SearchTreeDemo extends StatelessWidget {
                 score: 0.62,
                 best: true,
                 children: [
-                  _TreeNode(label: 'push_right + lift', score: 0.71, best: true),
-                  _TreeNode(label: 'push_right + pull', score: 0.60, best: false),
+                  _TreeNode(
+                      label: 'push_right + lift', score: 0.71, best: true),
+                  _TreeNode(
+                      label: 'push_right + pull', score: 0.60, best: false),
                 ],
               ),
               _TreeNode(label: 'do_nothing', score: 0.10, best: false),
@@ -818,7 +869,9 @@ class _TreeNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = best ? Colors.green.shade700 : theme.colorScheme.onSurface.withValues(alpha: 0.85);
+    final color = best
+        ? Colors.green.shade700
+        : theme.colorScheme.onSurface.withValues(alpha: 0.85);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Column(
@@ -830,7 +883,9 @@ class _TreeNode extends StatelessWidget {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: best ? Colors.green.shade600 : theme.colorScheme.primary.withValues(alpha: 0.35),
+                  color: best
+                      ? Colors.green.shade600
+                      : theme.colorScheme.primary.withValues(alpha: 0.35),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -838,7 +893,8 @@ class _TreeNode extends StatelessWidget {
               Expanded(
                 child: Text(
                   '$label  (score ${score.toStringAsFixed(2)})',
-                  style: theme.textTheme.bodySmall?.copyWith(color: color, fontWeight: best ? FontWeight.w800 : null),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color: color, fontWeight: best ? FontWeight.w800 : null),
                 ),
               ),
             ],
@@ -858,10 +914,12 @@ class _LiveRuntimeEvidenceSection extends StatefulWidget {
   const _LiveRuntimeEvidenceSection();
 
   @override
-  State<_LiveRuntimeEvidenceSection> createState() => _LiveRuntimeEvidenceSectionState();
+  State<_LiveRuntimeEvidenceSection> createState() =>
+      _LiveRuntimeEvidenceSectionState();
 }
 
-class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection> {
+class _LiveRuntimeEvidenceSectionState
+    extends State<_LiveRuntimeEvidenceSection> {
   final _host = TextEditingController(text: 'localhost');
   final _port = TextEditingController(text: '8080');
 
@@ -889,8 +947,10 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
       _error = null;
     });
     try {
-      final metricsRes = await http.get(_uri('/api/training/metrics', {'limit': '140'}));
-      final evalRes = await http.get(_uri('/api/training/eval_summary', {'limit': '6'}));
+      final metricsRes =
+          await http.get(_uri('/api/training/metrics', {'limit': '140'}));
+      final evalRes =
+          await http.get(_uri('/api/training/eval_summary', {'limit': '6'}));
       if (!mounted) return;
       if (metricsRes.statusCode != 200) {
         throw StateError('metrics HTTP ${metricsRes.statusCode}');
@@ -944,7 +1004,8 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
     return out;
   }
 
-  static double? _extractLatestRate(Map<String, dynamic>? evalSummary, String key) {
+  static double? _extractLatestRate(
+      Map<String, dynamic>? evalSummary, String key) {
     if (evalSummary == null) return null;
     final section = evalSummary[key];
     if (section is! Map) return null;
@@ -958,12 +1019,18 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final waveFast = _extractSeries(_metrics, path: const ['wavecore', 'fast', 'points'], yKey: 'loss');
-    final waveMid = _extractSeries(_metrics, path: const ['wavecore', 'mid', 'points'], yKey: 'loss');
-    final waveSlow = _extractSeries(_metrics, path: const ['wavecore', 'slow', 'points'], yKey: 'loss');
-    final toolAcc = _extractSeries(_metrics, path: const ['tool_router', 'acc', 'points'], yKey: 'acc');
-    final toolTop1 = _extractSeries(_metrics, path: const ['tool_router_eval', 'top1', 'points'], yKey: 'top1');
-    final toolTop5 = _extractSeries(_metrics, path: const ['tool_router_eval', 'top5', 'points'], yKey: 'top5');
+    final waveFast = _extractSeries(_metrics,
+        path: const ['wavecore', 'fast', 'points'], yKey: 'loss');
+    final waveMid = _extractSeries(_metrics,
+        path: const ['wavecore', 'mid', 'points'], yKey: 'loss');
+    final waveSlow = _extractSeries(_metrics,
+        path: const ['wavecore', 'slow', 'points'], yKey: 'loss');
+    final toolAcc = _extractSeries(_metrics,
+        path: const ['tool_router', 'acc', 'points'], yKey: 'acc');
+    final toolTop1 = _extractSeries(_metrics,
+        path: const ['tool_router_eval', 'top1', 'points'], yKey: 'top1');
+    final toolTop5 = _extractSeries(_metrics,
+        path: const ['tool_router_eval', 'top5', 'points'], yKey: 'top5');
 
     final hopeEvalSuccess = _extractLatestRate(_evalSummary, 'hope_eval');
 
@@ -983,7 +1050,8 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
                 width: 220,
                 child: TextField(
                   controller: _host,
-                  decoration: const InputDecoration(labelText: 'host (e.g. 192.168.1.42)'),
+                  decoration: const InputDecoration(
+                      labelText: 'host (e.g. 192.168.1.42)'),
                 ),
               ),
               SizedBox(
@@ -997,7 +1065,10 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
               ElevatedButton.icon(
                 onPressed: _loading ? null : _load,
                 icon: _loading
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.cloud_download),
                 label: Text(_loading ? 'Loading' : 'Load live metrics'),
               ),
@@ -1010,7 +1081,9 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
           ),
           if (_error != null) ...[
             const SizedBox(height: 10),
-            Text(_error!, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)),
+            Text(_error!,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.error)),
           ],
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -1019,33 +1092,51 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
               final panels = [
                 _MiniPanel(
                   title: 'WaveCore fast loss (live)',
-                  subtitle: waveFast.isEmpty ? 'no data yet' : 'last ${waveFast.last.toStringAsFixed(3)}',
-                  child: _Sparkline(values: waveFast, lineColor: theme.colorScheme.tertiary),
+                  subtitle: waveFast.isEmpty
+                      ? 'no data yet'
+                      : 'last ${waveFast.last.toStringAsFixed(3)}',
+                  child: _Sparkline(
+                      values: waveFast, lineColor: theme.colorScheme.tertiary),
                 ),
                 _MiniPanel(
                   title: 'WaveCore mid loss (live)',
-                  subtitle: waveMid.isEmpty ? 'no data yet' : 'last ${waveMid.last.toStringAsFixed(3)}',
-                  child: _Sparkline(values: waveMid, lineColor: theme.colorScheme.secondary),
+                  subtitle: waveMid.isEmpty
+                      ? 'no data yet'
+                      : 'last ${waveMid.last.toStringAsFixed(3)}',
+                  child: _Sparkline(
+                      values: waveMid, lineColor: theme.colorScheme.secondary),
                 ),
                 _MiniPanel(
                   title: 'WaveCore slow loss (live)',
-                  subtitle: waveSlow.isEmpty ? 'no data yet' : 'last ${waveSlow.last.toStringAsFixed(3)}',
-                  child: _Sparkline(values: waveSlow, lineColor: theme.colorScheme.primary),
+                  subtitle: waveSlow.isEmpty
+                      ? 'no data yet'
+                      : 'last ${waveSlow.last.toStringAsFixed(3)}',
+                  child: _Sparkline(
+                      values: waveSlow, lineColor: theme.colorScheme.primary),
                 ),
                 _MiniPanel(
                   title: 'Tool router acc (live)',
-                  subtitle: toolAcc.isEmpty ? 'no data yet' : 'last ${(toolAcc.last * 100).toStringAsFixed(1)}%',
-                  child: _Sparkline(values: toolAcc, lineColor: theme.colorScheme.primary),
+                  subtitle: toolAcc.isEmpty
+                      ? 'no data yet'
+                      : 'last ${(toolAcc.last * 100).toStringAsFixed(1)}%',
+                  child: _Sparkline(
+                      values: toolAcc, lineColor: theme.colorScheme.primary),
                 ),
                 _MiniPanel(
                   title: 'Tool router eval top1 (live)',
-                  subtitle: toolTop1.isEmpty ? 'no data yet' : 'last ${(toolTop1.last * 100).toStringAsFixed(1)}%',
-                  child: _Sparkline(values: toolTop1, lineColor: theme.colorScheme.secondary),
+                  subtitle: toolTop1.isEmpty
+                      ? 'no data yet'
+                      : 'last ${(toolTop1.last * 100).toStringAsFixed(1)}%',
+                  child: _Sparkline(
+                      values: toolTop1, lineColor: theme.colorScheme.secondary),
                 ),
                 _MiniPanel(
                   title: 'Tool router eval top5 (live)',
-                  subtitle: toolTop5.isEmpty ? 'no data yet' : 'last ${(toolTop5.last * 100).toStringAsFixed(1)}%',
-                  child: _Sparkline(values: toolTop5, lineColor: theme.colorScheme.tertiary),
+                  subtitle: toolTop5.isEmpty
+                      ? 'no data yet'
+                      : 'last ${(toolTop5.last * 100).toStringAsFixed(1)}%',
+                  child: _Sparkline(
+                      values: toolTop5, lineColor: theme.colorScheme.tertiary),
                 ),
               ];
 
@@ -1065,7 +1156,8 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
                 runSpacing: 12,
                 children: panels
                     .map(
-                      (p) => SizedBox(width: (constraints.maxWidth - 24) / 3, child: p),
+                      (p) => SizedBox(
+                          width: (constraints.maxWidth - 24) / 3, child: p),
                     )
                     .toList(),
               );
@@ -1076,4 +1168,3 @@ class _LiveRuntimeEvidenceSectionState extends State<_LiveRuntimeEvidenceSection
     );
   }
 }
-

@@ -7,10 +7,12 @@ import 'dart:convert';
 import '../theme/continuon_theme.dart';
 
 import 'dashboard_screen.dart';
-import 'login_screen.dart';
+
 import 'pair_robot_screen.dart';
 import '../services/brain_client.dart';
 import '../services/scanner_service.dart';
+import '../widgets/layout/continuon_layout.dart';
+import '../widgets/layout/continuon_card.dart';
 
 class RobotListScreen extends StatefulWidget {
   const RobotListScreen({super.key});
@@ -59,12 +61,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
     },
   ];
 
-  Future<void> _signOut() async {
-    await FirebaseAuth.instance.signOut();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, LoginScreen.routeName);
-    }
-  }
+  // _signOut handled by ContinuonAppBar now
 
   Future<void> _openPairing() async {
     await Navigator.pushNamed(context, PairRobotScreen.routeName);
@@ -183,42 +180,25 @@ class _RobotListScreenState extends State<RobotListScreen> {
       _loadCachedState();
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          _user == null ? 'My Robots (Guest)' : 'My Robots',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
+    return ContinuonLayout(
+      appBarActions: [
+        IconButton(
+          icon: const Icon(Icons.vpn_key),
+          tooltip: 'Set auth token (Bearer) + account metadata',
+          onPressed: _showAuthTokenDialog,
         ),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.vpn_key),
-            tooltip: 'Set auth token (Bearer) + account metadata',
-            onPressed: _showAuthTokenDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'Pair robot (QR)',
-            onPressed: _openPairing,
-          ),
-          IconButton(
-            icon: const Icon(Icons.radar),
-            tooltip: 'Scan for Robots',
-            onPressed: _scanForRobots,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-            onPressed: _signOut,
-          ),
-        ],
-      ),
+        IconButton(
+          icon: const Icon(Icons.qr_code_scanner),
+          tooltip: 'Pair robot (QR)',
+          onPressed: _openPairing,
+        ),
+        IconButton(
+          icon: const Icon(Icons.radar),
+          tooltip: 'Scan for Robots',
+          onPressed: _scanForRobots,
+        ),
+        // Logout is now in the User Badge of ContinuonAppBar
+      ],
       body: Column(
         children: [
           _buildStatusBanner(),
@@ -343,11 +323,16 @@ class _RobotListScreenState extends State<RobotListScreen> {
     } else {
       messages.add('Remote control/OTA allowed (owned + subscribed).');
     }
-    return Container(
-      width: double.infinity,
-      color: Colors.blueGrey.shade50,
-      padding: const EdgeInsets.all(12),
-      child: Text(messages.join(' ')),
+    return ContinuonCard(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      backgroundColor: Colors.blue.withOpacity(0.1),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: ContinuonColors.primaryBlue),
+          const SizedBox(width: 12),
+          Expanded(child: Text(messages.join(' '))),
+        ],
+      ),
     );
   }
 
@@ -401,21 +386,25 @@ class _RobotListScreenState extends State<RobotListScreen> {
   Widget _buildHelpCard() {
     final show = !_lanLikely || !_isOwned || !_hasSeedInstalled;
     if (!show) return const SizedBox.shrink();
-    return Container(
-      width: double.infinity,
-      color: Colors.blueGrey.shade50,
-      padding: const EdgeInsets.all(12),
+    return ContinuonCard(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'How to connect a new robot',
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(fontWeight: FontWeight.w600),
+          Row(
+            children: [
+              Icon(Icons.help_outline, size: 20, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(
+                'How to connect a new robot',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           _helpText(
               '1) Join the same Wi‑Fi/LAN as the robot (or the robot’s hotspot).'),
           _helpText(
@@ -506,174 +495,150 @@ class _RobotListScreenState extends State<RobotListScreen> {
             _accountType != null &&
             statusAccountType != _accountType);
 
-    return Container(
+    return ContinuonCard(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: ContinuonTokens.lowShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isGuest ? null : () => _connectOrGateRemote(data),
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
+      padding: const EdgeInsets.all(20),
+      onTap: isGuest ? null : () => _connectOrGateRemote(data),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: ContinuonColors.primaryBlue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.smart_toy,
+                color: ContinuonColors.primaryBlue, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: ContinuonColors.primaryBlue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.smart_toy,
-                      color: ContinuonColors.primaryBlue, size: 28),
+                Text(
+                  name,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                                fontSize: 18, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.green, // Success green
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(host,
-                              style: Theme.of(context).textTheme.bodyMedium),
-                          if (deviceId.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Text('id:$deviceId',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: Colors.grey)),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                const SizedBox(height: 4),
+                Row(
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.refresh),
-                          tooltip: 'Refresh status',
-                          onPressed: (isBusy || isGuest)
-                              ? null
-                              : () => _refreshStatus(data),
-                        ),
-                        if (isBusy)
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        if (isBusy) const SizedBox(width: 12),
-                        if (!_isOwned)
-                          ElevatedButton.icon(
-                            onPressed: (isGuest ||
-                                    !_isLocalNetwork ||
-                                    isBusy ||
-                                    mismatch)
-                                ? null
-                                : () => _claimRobot(data),
-                            icon: const Icon(Icons.how_to_reg),
-                            label: const Text('Claim (local)'),
-                          ),
-                        if (_isOwned && !_hasSeedInstalled)
-                          const SizedBox(width: 8),
-                        if (_isOwned && !_hasSeedInstalled)
-                          ElevatedButton.icon(
-                            onPressed: (isGuest ||
-                                    !_isLocalNetwork ||
-                                    isBusy ||
-                                    mismatch)
-                                ? null
-                                : () => _installSeed(data),
-                            icon: const Icon(Icons.system_update),
-                            label: const Text('Seed install'),
-                          ),
-                        if (_isOwned && _hasSeedInstalled)
-                          const SizedBox(width: 8),
-                        if (_isOwned && _hasSeedInstalled)
-                          ElevatedButton.icon(
-                            onPressed: (isGuest ||
-                                    !_hasSubscription ||
-                                    isBusy ||
-                                    mismatch)
-                                ? null
-                                : () => _connectOrGateRemote(data),
-                            icon: const Icon(Icons.power_settings_new),
-                            label: const Text('Connect'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ContinuonColors.primaryBlue,
-                              foregroundColor: Colors.white,
-                              elevation: 2,
-                            ),
-                          ),
-                      ],
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.green, // Success green
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                    if (isGuest)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          'Guest preview: sign in to enable control, recording, and OTA.',
+                    const SizedBox(width: 8),
+                    Text(host, style: Theme.of(context).textTheme.bodyMedium),
+                    if (deviceId.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text('id:$deviceId',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
-                              ?.copyWith(color: Colors.orange.shade700),
-                        ),
-                      ),
-                    if (mismatch && !isBusy)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Text(
-                          'Account mismatch',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.red),
-                        ),
-                      ),
-                    if (_errorByHost[host] != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          _errorByHost[host]!,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.red),
-                        ),
-                      ),
+                              ?.copyWith(color: Colors.grey)),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
-        ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Refresh status',
+                    onPressed:
+                        (isBusy || isGuest) ? null : () => _refreshStatus(data),
+                  ),
+                  if (isBusy)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  if (isBusy) const SizedBox(width: 12),
+                  if (!_isOwned)
+                    ElevatedButton.icon(
+                      onPressed:
+                          (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                              ? null
+                              : () => _claimRobot(data),
+                      icon: const Icon(Icons.how_to_reg),
+                      label: const Text('Claim (local)'),
+                    ),
+                  if (_isOwned && !_hasSeedInstalled) const SizedBox(width: 8),
+                  if (_isOwned && !_hasSeedInstalled)
+                    ElevatedButton.icon(
+                      onPressed:
+                          (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                              ? null
+                              : () => _installSeed(data),
+                      icon: const Icon(Icons.system_update),
+                      label: const Text('Seed install'),
+                    ),
+                  if (_isOwned && _hasSeedInstalled) const SizedBox(width: 8),
+                  if (_isOwned && _hasSeedInstalled)
+                    ElevatedButton.icon(
+                      onPressed:
+                          (isGuest || !_hasSubscription || isBusy || mismatch)
+                              ? null
+                              : () => _connectOrGateRemote(data),
+                      icon: const Icon(Icons.power_settings_new),
+                      label: const Text('Connect'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ContinuonColors.primaryBlue,
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                      ),
+                    ),
+                ],
+              ),
+              if (isGuest)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'Guest preview: sign in to enable control, recording, and OTA.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Colors.orange.shade700),
+                  ),
+                ),
+              if (mismatch && !isBusy)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: Text(
+                    'Account mismatch',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Colors.red),
+                  ),
+                ),
+              if (_errorByHost[host] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _errorByHost[host]!,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Colors.red),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

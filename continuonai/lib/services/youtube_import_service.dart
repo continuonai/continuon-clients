@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/public_episode.dart';
 import '../models/rlds_models.dart' as rlds;
+import '../models/video_metadata.dart';
 import 'public_episodes_service.dart';
 import 'training_queue_service.dart';
 
@@ -84,6 +85,25 @@ class YoutubeImportService {
 
     return YoutubeImportResult(
         record: record, publishedEpisode: publishedEpisode);
+  }
+
+  Future<VideoMetadata?> fetchMetadata(String youtubeUrl) async {
+    try {
+      // Use noembed as a CORS-friendly proxy for oEmbed if direct fails, or just standard oEmbed.
+      // Standard: https://www.youtube.com/oembed?url=...&format=json
+      // Note: Direct YouTube oEmbed often fails CORS in browser apps.
+      // Using noembed.com is a robust fallback for client-side fetches.
+      final uri = Uri.parse('https://noembed.com/embed?url=$youtubeUrl');
+      final response = await _client.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['error'] != null) return null;
+        return VideoMetadata.fromJson(data);
+      }
+    } catch (e) {
+      // Ignore errors, return null
+    }
+    return null;
   }
 
   Future<rlds.EpisodeRecord> _fetchTranscodeAndBuildRecord(
