@@ -4,6 +4,33 @@ const seedBundleState = {
     baseDir: "/opt/continuonos/brain",
 };
 
+const seedIterationPlan = [
+    {
+        id: 'collect-rlds',
+        title: 'Capture + triage RLDS episodes',
+        detail: 'Opt-in logging with PII-safe RLDS JSONL under /rlds/episodes; keep camera-only acceptable when PCA is down.',
+        check: (r) => r?.rlds?.episodes_present === true || (typeof r?.rlds?.count === 'number' && r.rlds.count > 0),
+    },
+    {
+        id: 'prime-small-corpora',
+        title: 'Prime with small HF corpora (VLM/VLA/LM)',
+        detail: 'Blend compact Hugging Face datasets into a TFRecord cache before local replay.',
+        check: (r) => r?.seed?.tfrecord_cache_present === true || r?.seed?.tfrecord_ready === true,
+    },
+    {
+        id: 'train-eval',
+        title: 'Run iterative train + eval loops',
+        detail: 'Manual step or WaveCore fast/mid/slow with HOPE eval episodes logging.',
+        check: (r) => r?.seed?.checkpoint_exists === true || r?.trainer?.last_run_ok === true,
+    },
+    {
+        id: 'export-install',
+        title: 'Export bundle + reinstall on edge',
+        detail: 'Build handoff zip, verify manifest, then install as candidate/core seed.',
+        check: (r) => r?.ready_for_cloud_handoff === true,
+    },
+];
+
 function startAutonomousTraining() {
     fetch('/api/training/run', { method: 'POST' })
         .then(response => response.json())
@@ -266,6 +293,36 @@ function renderGates(gates) {
     }).join('');
 }
 
+function renderIterationPlan(readiness) {
+    const planEl = document.getElementById('seed-iteration-plan');
+    const chipEl = document.getElementById('seed-iteration-chip');
+    if (!planEl) return;
+
+    const items = seedIterationPlan.map((step) => {
+        const ok = step?.check?.(readiness) === true;
+        const chipClass = ok ? 'status-chip active' : 'status-chip warning';
+        const chipText = ok ? 'OK' : 'PENDING';
+        return (
+            '<div class="stack-item">' +
+            '<div>' +
+            `<h4>${step.title}</h4>` +
+            `<div class="stack-meta">${step.detail}</div>` +
+            '</div>' +
+            `<div><span class="${chipClass}">${chipText}</span></div>` +
+            '</div>'
+        );
+    }).join('');
+
+    planEl.innerHTML = items || '<div class="stack-item"><span class="stack-meta">Plan unavailable.</span></div>';
+
+    if (chipEl) {
+        const completed = seedIterationPlan.every((step) => step?.check?.(readiness) === true);
+        const partial = seedIterationPlan.some((step) => step?.check?.(readiness) === true);
+        chipEl.textContent = completed ? 'Loop ready' : partial ? 'In progress' : 'Staging';
+        chipEl.className = `status-badge ${completed ? 'active' : partial ? '' : 'warning'}`;
+    }
+}
+
 function applySeedPathHelper(value) {
     const pathInput = document.getElementById('cloud-install-path');
     if (!pathInput) return;
@@ -301,6 +358,7 @@ async function refreshSeedReadiness() {
         const data = await res.json();
         seedBundleState.readiness = data;
         seedBundleState.baseDir = deriveBaseDir(data);
+        renderIterationPlan(data);
         if (gatesEl) {
             gatesEl.innerHTML = renderGates(data.gates);
         }
@@ -322,6 +380,7 @@ async function refreshSeedReadiness() {
             chipEl.className = 'status-badge warning';
         }
         if (metaEl) metaEl.textContent = 'Unable to read readiness; offline checks not updated.';
+        renderIterationPlan(null);
     }
 }
 

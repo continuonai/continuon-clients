@@ -61,6 +61,29 @@
 <div class="panel">
     <div class="panel-header">
         <div>
+            <h2>Seed Model Loop</h2>
+            <div class="stack-meta">Deliberate, reiterative path from local episodes → small HF corpora → edge/export bundle.</div>
+        </div>
+        <div class="status-badge" id="seed-iteration-chip">Staging…</div>
+    </div>
+    <div class="panel-content">
+        <div class="panel-subtitle">Iterative steps (repeatable)</div>
+        <div class="stack" id="seed-iteration-plan">
+            <div class="stack-item"><span class="stack-meta">Loading plan…</span></div>
+        </div>
+        <div class="panel-subtitle" style="margin-top: 14px;">Small HF datasets to blend</div>
+        <div class="stack-meta">Use compact corpora to prime the seed before replaying RLDS episodes. Keep merges auditable.</div>
+        <ul class="stack-meta" style="margin-top: 6px;">
+            <li><strong>VLM:</strong> <a href="https://huggingface.co/datasets/liuhaotian/LLaVA-Instruct-150K" target="_blank" rel="noreferrer">liuhaotian/LLaVA-Instruct-150K</a> (instruction-following image/text pairs)</li>
+            <li><strong>VLA (actions):</strong> <a href="https://huggingface.co/datasets/Open-X-Embodiment/bridge_data_v2" target="_blank" rel="noreferrer">Open-X-Embodiment/bridge_data_v2</a> (robot demo trajectories; subsample for Pi)</li>
+            <li><strong>LM (grounding text):</strong> <a href="https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k" target="_blank" rel="noreferrer">HuggingFaceH4/ultrachat_200k</a> (chat-style language scaffold)</li>
+        </ul>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div>
             <h2>Seed Bundle</h2>
             <div class="stack-meta">Offline-first export/install helpers for cloud or edge handoffs.</div>
         </div>
