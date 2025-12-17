@@ -43,8 +43,84 @@ def _load_sounddevice():
 
 
 @dataclass
+class ContentRating:
+    """Content rating for safety gating."""
+
+    audience: str = "general"
+    violence: str = "none"
+    language: str = "clean"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class PiiAttestation:
+    """PII attestation flags used for public sharing readiness."""
+
+    pii_present: bool = False
+    faces_present: bool = False
+    name_present: bool = False
+    consent: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class SafetyMetadata:
+    """Safety metadata required for public/share flows."""
+
+    content_rating: ContentRating
+    intended_audience: str = "local"
+    pii_attested: bool = False
+    pii_cleared: bool = False
+    pii_redacted: bool = False
+    pending_review: bool = True
+    pii_attestation: Optional[PiiAttestation] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = {
+            "content_rating": self.content_rating.to_dict(),
+            "intended_audience": self.intended_audience,
+            "pii_attested": self.pii_attested,
+            "pii_cleared": self.pii_cleared,
+            "pii_redacted": self.pii_redacted,
+            "pending_review": self.pending_review,
+        }
+        if self.pii_attestation:
+            data["pii_attestation"] = self.pii_attestation.to_dict()
+        return data
+
+
+@dataclass
+class ShareMetadata:
+    """Public sharing block (Continuon Cloud viewer)."""
+
+    public: bool = False
+    slug: Optional[str] = None
+    title: Optional[str] = None
+    license: Optional[str] = None
+    tags: List[str] = None
+
+    def __post_init__(self):
+        if self.tags is None:
+            self.tags = []
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "public": self.public,
+            "slug": self.slug,
+            "title": self.title,
+            "license": self.license,
+            "tags": self.tags,
+        }
+
+
+@dataclass
 class EpisodeMetadata:
     """Episode-level metadata per RLDS schema."""
+
     episode_id: str
     robot_type: str = "SO-ARM101"
     robot_id: Optional[str] = None
@@ -62,6 +138,9 @@ class EpisodeMetadata:
     glove_sample_rate_hz: Optional[float] = None
     glove_drop_count: int = 0
     glove_valid: bool = False
+    safety: Optional[SafetyMetadata] = None
+    share: Optional[ShareMetadata] = None
+    schema_version: str = "1.1"
     
     def __post_init__(self):
         if self.camera_config is None:
@@ -76,6 +155,15 @@ class EpisodeMetadata:
     def to_dict(self, language_instruction: Optional[str] = None) -> Dict[str, Any]:
         """Serialize metadata with continuon.* tags for downstream stratification."""
         metadata = asdict(self)
+        if self.safety:
+            metadata["safety"] = self.safety.to_dict()
+        else:
+            metadata.pop("safety", None)
+        if self.share:
+            metadata["share"] = self.share.to_dict()
+        else:
+            metadata.pop("share", None)
+
         # Namespaced continuon block mirrors docs/rlds-schema.md
         metadata["continuon"] = {
             "xr_mode": self.xr_mode,
@@ -436,6 +524,9 @@ class ArmEpisodeRecorder:
         frame_convention: str = "base_link",
         software: Optional[Dict[str, str]] = None,
         environment_id: Optional[str] = None,
+        safety: Optional[SafetyMetadata] = None,
+        share: Optional[ShareMetadata] = None,
+        schema_version: str = "1.1",
     ) -> str:
         """
         Start a new episode recording.
@@ -474,6 +565,16 @@ class ArmEpisodeRecorder:
                 "action_source must be one of human_teleop_xr|human_dev_xr|human_supervisor|vla_policy"
             )
 
+        safety = safety or SafetyMetadata(
+            content_rating=ContentRating(),
+            intended_audience="local",
+            pii_attested=False,
+            pii_cleared=False,
+            pii_redacted=False,
+            pending_review=True,
+            pii_attestation=PiiAttestation(),
+        )
+
         self.episode_metadata = EpisodeMetadata(
             episode_id=episode_id,
             robot_type=robot_model or "SO-ARM101",
@@ -489,6 +590,9 @@ class ArmEpisodeRecorder:
             glove_sample_rate_hz=None,
             glove_drop_count=0,
             glove_valid=False,
+            safety=safety,
+            share=share,
+            schema_version=schema_version,
         )
         
         print(f"\nStarted episode: {episode_id}")
