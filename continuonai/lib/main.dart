@@ -12,6 +12,7 @@ import 'screens/record_screen.dart';
 import 'screens/robot_list_screen.dart';
 import 'screens/pair_robot_screen.dart';
 import 'screens/research_screen.dart';
+import 'screens/youtube_import_screen.dart';
 import 'services/brain_client.dart';
 import 'services/gemma_runtime.dart';
 
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
         LoginScreen.routeName: (context) => const LoginScreen(),
         RobotListScreen.routeName: (context) => const RobotListScreen(),
         PairRobotScreen.routeName: (context) => const PairRobotScreen(),
+        YoutubeImportScreen.routeName: (context) => const YoutubeImportScreen(),
         PublicEpisodesScreen.routeName: (context) =>
             const PublicEpisodesScreen(),
         PublicEpisodeDetailScreen.routeName: (context) {

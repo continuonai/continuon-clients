@@ -35,8 +35,10 @@ class _PublicEpisodesScreenState extends State<PublicEpisodesScreen> {
 
   List<PublicEpisode> _filter(List<PublicEpisode> episodes) {
     return episodes.where((e) {
-      final licOk = _selectedLicense == null || e.license == _selectedLicense;
-      final tagOk = _selectedTag == null || e.tags.contains(_selectedTag);
+      final licOk =
+          _selectedLicense == null || e.share.license == _selectedLicense;
+      final tagOk =
+          _selectedTag == null || e.share.tags.contains(_selectedTag);
       return licOk && tagOk;
     }).toList();
   }
@@ -90,11 +92,11 @@ class _PublicEpisodesScreenState extends State<PublicEpisodesScreen> {
               );
             }
             final allTags = <String>{
-              for (final e in snapshot.data ?? []) ...e.tags,
+              for (final e in snapshot.data ?? []) ...e.share.tags,
             }.toList()
               ..sort();
             final licenses = <String>{
-              for (final e in snapshot.data ?? []) e.license,
+              for (final e in snapshot.data ?? []) e.share.license,
             }.toList()
               ..sort();
             return Column(
@@ -164,7 +166,7 @@ class _Filters extends StatelessWidget {
             onSelect: (value) => onChanged(selectedLicense, value),
           ),
           Text(
-            'Fetched from Continuon Cloud (public share only)',
+            'Fetched from Continuon Cloud (public share only; PII cleared)',
             style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
           ),
         ],
@@ -214,6 +216,7 @@ class _EpisodeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final durationMinutes = (episode.durationMs / 60000).toStringAsFixed(1);
+    final share = episode.share;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -241,19 +244,19 @@ class _EpisodeCard extends StatelessWidget {
           children: [
             const SizedBox(height: 4),
             Text(
-              '${episode.xrMode} • ${episode.controlRole} • ${episode.robotModel}',
+              '${episode.xrMode} • ${episode.controlRole} • ${episode.robotModel} • ${share.contentRating}',
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 4),
             Text(
-              '${episode.license} • ${episode.ownerHandle} • ${durationMinutes} min',
+              '${share.license} • ${episode.ownerHandle} • ${durationMinutes} min',
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               runSpacing: 4,
-              children: episode.tags
+              children: share.tags
                   .map((t) => Chip(
                         label: Text(t),
                         padding: EdgeInsets.zero,

@@ -5,6 +5,8 @@ class EpisodeMetadata {
     required this.environmentId,
     this.tags = const [],
     this.softwareVersions,
+    this.source,
+    this.provenance,
     this.safety,
     this.share,
     this.schemaVersion,
@@ -15,6 +17,8 @@ class EpisodeMetadata {
   final String environmentId;
   final List<String> tags;
   final SoftwareVersions? softwareVersions;
+  final String? source;
+  final Map<String, dynamic>? provenance;
   final SafetyMetadata? safety;
   final ShareMetadata? share;
   final String? schemaVersion;
@@ -47,6 +51,8 @@ class EpisodeMetadata {
         'environment_id': environmentId,
         'tags': tags,
         if (softwareVersions != null) 'software': softwareVersions!.toJson(),
+        if (source != null) 'source': source,
+        if (provenance != null) 'provenance': provenance,
         if (safety != null) 'safety': safety!.toJson(),
         if (share != null) 'share': share!.toJson(),
         if (schemaVersion != null) 'schema_version': schemaVersion,
@@ -279,20 +285,45 @@ class EpisodeStep {
       };
 }
 
+class TaskClassification {
+  const TaskClassification({
+    required this.tasks,
+    required this.motionPrimitives,
+    this.confidence,
+  });
+
+  final List<String> tasks;
+  final List<String> motionPrimitives;
+  final Map<String, double>? confidence;
+
+  Map<String, dynamic> toJson() => {
+        'tasks': tasks,
+        'motion_primitives': motionPrimitives,
+        if (confidence != null) 'confidence': confidence,
+      };
+}
+
 class EpisodeRecord {
   EpisodeRecord({
     required this.metadata,
     this.steps = const [],
+    this.taskClassification,
+    this.sourceContext,
     this.assets = const [],
   });
 
   final EpisodeMetadata metadata;
   final List<EpisodeStep> steps;
+  final TaskClassification? taskClassification;
+  final Map<String, dynamic>? sourceContext;
   final List<EpisodeAsset> assets;
 
   Map<String, dynamic> toJson() => {
         'metadata': metadata.toJson(),
         'steps': steps.map((s) => s.toJson()).toList(),
+        if (taskClassification != null)
+          'task_classification': taskClassification!.toJson(),
+        if (sourceContext != null) 'source_context': sourceContext,
         if (assets.isNotEmpty) 'assets': assets.map((a) => a.toJson()).toList(),
       };
 }
