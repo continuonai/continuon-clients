@@ -36,102 +36,54 @@
             </div>
         </header>
 
-        <!-- New Action Log Strip -->
-        <div id="action-log-strip"
-            style="background:#0d1117; border-bottom:1px solid #30363d; padding:4px 16px; font-family:monospace; font-size:12px; color:#58a6ff; display:flex; align-items:center; gap:8px;">
-            <span style="opacity:0.5;">ACTION LOG:</span>
-            <span id="action-log-message">Ready.</span>
-        </div>
+        <!-- Action Log Strip Removed -->
 
         <div class="workspace-grid" id="workspace-grid">
             <!-- LEFT COLUMN -->
-            <section class="column left-column resizable" data-column="left">
-                <div class="column-header">
-                    <div class="panel-eyebrow">Roles</div>
-                    <h2>Operator & Safety Deck</h2>
-                    <p class="panel-subtitle">Role-aware controls for owners, safety, and research.</p>
-                    <div class="view-toggle">
-                        <button id="owner-view-btn" class="active" onclick="window.setViewMode('owner')">Owner</button>
-                        <button id="research-view-btn" onclick="window.setViewMode('research')">Research</button>
-                        <button id="docs-view-btn" onclick="window.setViewMode('docs')">Docs</button>
+            <section class="column left-column resizable" data-column="left"
+                style="display: flex; flex-direction: column; gap: 0; overflow: hidden;">
+                <!-- LOGGER COMPONENT -->
+                <div id="logger-panel" class="panel soft"
+                    style="flex: 0 0 150px; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0; padding: 0; border-bottom: 1px solid var(--border);">
+                    <div class="panel-header" style="padding: 8px 12px; background: rgba(0,0,0,0.2);">
+                        <div class="panel-eyebrow">System Log</div>
+                    </div>
+                    <div id="logger-content"
+                        style="flex: 1; overflow-y: auto; padding: 8px 12px; font-family: monospace; font-size: 11px; color: var(--muted); display: flex; flex-direction: column-reverse;">
+                        <!-- Log lines will be appended here -->
+                        <div class="log-line system">[System] Logger ready.</div>
                     </div>
                 </div>
 
-                <div class="panel soft">
-                    <div class="panel-header">
+                <!-- CHAT SURFACE -->
+                <div id="chat-panel" class="panel soft"
+                    style="flex: 1; display: flex; flex-direction: column; margin: 0; border-top: none; border-radius: 0 0 14px 14px; overflow: hidden;">
+                    <div class="panel-header" style="padding: 12px;">
                         <div>
-                            <div class="panel-eyebrow">Command Deck</div>
-                            <h3>Modes & Gates</h3>
-                        </div>
-                    </div>
-                    <div class="command-grid">
-                        <button id="manual-control-btn" class="command-btn primary"
-                            onclick="startManualControl(this)">🎮 Manual Control</button>
-                        <button class="command-btn" onclick="setMode('autonomous')">🚀 Autonomous</button>
-                        <button class="command-btn" onclick="setMode('sleep_learning')">💤 Sleep Learning</button>
-                        <button class="command-btn subtle" onclick="setMode('idle')">⏸️ Idle</button>
-                    </div>
-                    <div class="mode-pills tight" id="mode-pill-container"></div>
-                    <div class="status-deck compact">
-                        <div class="status-card">
-                            <div class="status-label">Motion gate</div>
-                            <div class="status-value" id="gate-allow">--</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-label">Recording gate</div>
-                            <div class="status-value" id="gate-record">--</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-label">Safety head</div>
-                            <div class="status-value" id="safety-head-path">--</div>
-                        </div>
-                    </div>
-
-                    <!-- Chat Moved to Left -->
-                    <div class="panel soft">
-                        <div class="panel-header">
                             <div class="panel-eyebrow">Direct Interaction</div>
                             <h3>Agent Chat</h3>
                         </div>
-                        <div class="chat-rail" style="margin-top:8px;">
-                            <div class="chat-messages inline" id="chat-messages"
-                                style="height:200px; overflow-y:auto; border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:8px; margin-bottom:8px; background:rgba(0,0,0,0.2);">
-                            </div>
-                            <div class="chat-input-area inline" style="display:flex; flex-direction:column; gap:8px;">
-                                <input type="text" class="chat-input" id="chat-input"
-                                    style="width:100%; box-sizing:border-box;" placeholder="Message HOPE..."
-                                    aria-label="Chat message input"
-                                    onkeypress="if(event.key==='Enter') sendChatMessage()">
-                                <div style="display:flex; gap:8px;">
-                                    <button class="chat-send-btn btn primary" id="chat-send" onclick="sendChatMessage()"
-                                        style="flex:1;">Send</button>
-                                    <button class="rail-btn" id="chat-mic" type="button"
-                                        title="Push-to-talk">🎙️</button>
-                                </div>
-                            </div>
+                        <div style="display: flex; gap: 8px;">
+                            <!-- Minimal options can go here if needed -->
                         </div>
                     </div>
-                    <div class="quick-actions">
-                        <button class="ghost" onclick="window.triggerSafetyHold()">Engage Safety Hold</button>
-                        <button class="ghost" onclick="window.resetSafetyGates()">Reset Gates</button>
-                        <button class="ghost" onclick="openSettingsModal()">Settings</button>
-                    </div>
-                </div>
 
-                <div class="panel soft owner-only">
-                    <div class="panel-header">
-                        <div>
-                            <div class="panel-eyebrow">Training & RLDS</div>
-                            <h3>Learning Controls</h3>
+                    <div class="chat-rail"
+                        style="flex: 1; display: flex; flex-direction: column; padding: 0 12px 12px 12px; overflow: hidden;">
+                        <div class="chat-messages inline" id="chat-messages"
+                            style="flex: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px; margin-bottom: 8px; background: rgba(0,0,0,0.2);">
                         </div>
-                        <div class="chip subtle">Mock-safe</div>
+                        <div class="chat-input-area inline" style="display:flex; flex-direction:column; gap:8px;">
+                            <input type="text" class="chat-input" id="chat-input"
+                                style="width:100%; box-sizing:border-box;" placeholder="Message HOPE..."
+                                aria-label="Chat message input" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                            <div style="display:flex; gap:8px;">
+                                <button class="chat-send-btn btn primary" id="chat-send" onclick="sendChatMessage()"
+                                    style="flex:1;">Send</button>
+                                <button class="rail-btn" id="chat-mic" type="button" title="Push-to-talk">🎙️</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="command-grid">
-                        <button class="command-btn primary" onclick="window.requestTraining()">🚀 Run Training</button>
-                        <button class="command-btn" onclick="window.viewTrainingLogs()">📜 View Logs</button>
-                        <button class="command-btn" onclick="window.openEpisodeImports()">📦 Import Episodes</button>
-                    </div>
-                    <div class="panel-subtitle mt-8" id="training-status">Idle</div>
                 </div>
             </section>
 
@@ -153,44 +105,44 @@
                         Reflexes run on Pi CPU (liquid/RNN) using <code>Local Sanity</code>, skill sequencing processes
                         locally, and long-horizon distillation happens in the cloud (TPU).
                     </div>
-
+                    <!-- shortened for brevity if possible, keeping original content -->
                     <h3 style="margin-top:16px; margin-bottom:8px; color:#fff;">Runbook: Pi5 to Cloud to OTA</h3>
+                    <!-- ... content ... -->
+                    <!-- Re-inserting the existing Docs content briefly for context match if I replace it, 
+                         but I should just insert the NEW panel before the existing panels for safety. -->
+
+                    <!-- ... (keeping existing docs content) ... -->
                     <div class="step-list">
+                        <!-- (abbreviated content match) -->
                         <div class="step-item">
                             <div class="step-number">1</div>
-                            <div class="step-content">
-                                <strong>Hardware & Data Capture</strong>
+                            <div class="step-content"><strong>Hardware & Data Capture</strong>
                                 <p>Validate hardware (<code>pi5_hardware_validation</code>). Capture 16+ clean episodes
                                     (RGB-D + Actions) using Manual Teleop or Companion App.</p>
                             </div>
                         </div>
                         <div class="step-item">
                             <div class="step-number">2</div>
-                            <div class="step-content">
-                                <strong>Local Sanity Training</strong>
-                                <p>Run JAX sanity check on Pi CPU to verify data shapes and finite loss.
-                                    <br /><code
+                            <div class="step-content"><strong>Local Sanity Training</strong>
+                                <p>Run JAX sanity check on Pi CPU to verify data shapes and finite loss.<br /><code
                                         style="font-size:0.85em; background:rgba(0,0,0,0.3); padding:2px;">python -m continuonbrain.jax_models.train.local_sanity_check</code>
                                 </p>
                             </div>
                         </div>
                         <div class="step-item">
                             <div class="step-number">3</div>
-                            <div class="step-content">
-                                <strong>Cloud TPU Distillation</strong>
+                            <div class="step-content"><strong>Cloud TPU Distillation</strong>
                                 <p>Upload TFRecords to GCS. Run <code>tpu_train</code> job (v5e) to distill the seed
                                     model.</p>
                             </div>
                         </div>
                         <div class="step-item">
                             <div class="step-number">4</div>
-                            <div class="step-content">
-                                <strong>OTA Deployment</strong>
+                            <div class="step-content"><strong>OTA Deployment</strong>
                                 <p>Export signed edge bundle. Deploy via OTA. Verify control loop latency &lt;100ms.</p>
                             </div>
                         </div>
                     </div>
-
                     <h3 style="margin-top:24px; margin-bottom:8px; color:#fff;">Success Criteria</h3>
                     <ul style="color:#a0aec0; padding-left:20px; line-height:1.6; margin-top:0;">
                         <li><strong>Data:</strong> Timestamp skew &le; 5ms, schema validation passes.</li>
@@ -198,6 +150,78 @@
                         <li><strong>Artifact:</strong> Bundle signed, includes safety manifest.</li>
                         <li><strong>Rollback:</strong> Fallback path preserved on-device.</li>
                     </ul>
+                </div>
+
+                <!-- SETTINGS VIEW PANEL -->
+                <div class="panel settings-view" style="display:none;">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Configuration</div>
+                            <h2>Runtime Settings</h2>
+                            <p class="panel-subtitle">Manage training context, chat persona, and safety gates.</p>
+                        </div>
+                    </div>
+
+                    <form id="settings-form-inline" style="margin-top:20px;">
+                        <div class="settings-grid" style="display:grid; grid-template-columns: 1fr; gap:20px;">
+                            <div class="settings-card">
+                                <h4 style="margin:0 0 12px 0;">Runtime Context</h4>
+                                <div class="settings-row" style="display:flex; flex-wrap:wrap; gap:24px;">
+                                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                        <input type="radio" name="runtime-context-inline" value="training">
+                                        <div>
+                                            <strong style="display:block;">Training</strong>
+                                            <span style="font-size:0.85em; color:var(--muted);">Focus on learning
+                                                loops.</span>
+                                        </div>
+                                    </label>
+                                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                        <input type="radio" name="runtime-context-inline" value="inference">
+                                        <div>
+                                            <strong style="display:block;">Inference</strong>
+                                            <span style="font-size:0.85em; color:var(--muted);">Optimize for
+                                                speed.</span>
+                                        </div>
+                                    </label>
+                                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                        <input type="radio" name="runtime-context-inline" value="hybrid" checked>
+                                        <div>
+                                            <strong style="display:block;">Hybrid</strong>
+                                            <span style="font-size:0.85em; color:var(--muted);">Balanced
+                                                (Default).</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h4 style="margin:0 0 12px 0;">Chat & Persona</h4>
+                                <div
+                                    style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+                                    <label style="display:block;">
+                                        <span
+                                            style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px;">Persona
+                                            Role</span>
+                                        <input type="text" id="chat-persona-inline" class="input-compact"
+                                            value="operator" style="width:100%;">
+                                    </label>
+                                    <label style="display:block;">
+                                        <span
+                                            style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px;">Temperature
+                                            (0.0 - 1.0)</span>
+                                        <input type="number" id="chat-temperature-inline" class="input-compact"
+                                            value="0.35" step="0.05" min="0" max="1" style="width:100%;">
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions" style="justify-content: flex-start; margin-top: 24px;">
+                            <button type="submit" class="btn primary">Save Changes</button>
+                            <span id="settings-status-inline"
+                                style="margin-left: 12px; color: var(--muted); font-size: 13px;"></span>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="panel standard-view">

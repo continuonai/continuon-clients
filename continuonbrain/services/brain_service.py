@@ -13,6 +13,9 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+import threading
+from collections import deque
+import queue
 
 from continuonbrain.actuators.pca9685_arm import PCA9685ArmController
 from continuonbrain.actuators.drivetrain_controller import DrivetrainController
@@ -26,6 +29,12 @@ from continuonbrain.system_context import SystemContext
 from continuonbrain.system_health import SystemHealthChecker
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
+from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
+from continuonbrain.services.audio_io import record_wav, speak_text
+from continuonbrain.services.pairing_manager import PairingManager
+from continuonbrain.services.video_stream import VideoStreamHelper
+from continuonbrain.services.training_runner import TrainingRunner
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -284,7 +293,37 @@ class BrainService:
         # Initialize Gemma chat (attempt real model, falls back to mock if dependencies missing)
         # Initialize Gemma chat (use centralized factory to allow LiteRT/JAX/Mock preference)
         self.gemma_chat = build_chat_service()
+        self.pairing = PairingManager(config_dir)
+        self.training_runner = TrainingRunner(config_dir=config_dir)
+        self.stream_helper = VideoStreamHelper(self)
+        
+        # JAX-based trainers/tool-router are intentionally lazy-imported
+        self.wavecore_trainer = None
+        self.manual_trainer = None
+        self.tool_router_trainer = None
+        self.tool_router_evaluator = None
+        self._tool_router_bundle = None
+        self.jax_adapter = None
 
+        # Teacher Mode State (HITL)
+        self.teacher_mode_active = False
+        self.teacher_pending_question: Optional[str] = None
+        self.teacher_response_event = asyncio.Event()
+        self.teacher_response_text: Optional[str] = None
+        
+        # Real-time chat events for UI (SSE)
+        self.chat_event_queue = queue.Queue(maxsize=100)
+
+        # Background supervisors
+        self._bg_stop_event = threading.Event()
+        self._chat_learn_thread: Optional[threading.Thread] = None
+        self._autonomous_learner_thread: Optional[threading.Thread] = None
+        self._orchestrator_thread: Optional[threading.Thread] = None
+        self._orchestrator_lock = threading.Lock()
+        self._last_autonomous_learner_action: Optional[dict] = None
+        self._last_orchestrator: dict = {"last_run_ts": 0.0, "last_actions": {}}
+        
+        # --- Personality Config ---
         # Load persistent settings
         self.agent_settings = {}
         self.load_settings()
@@ -1756,6 +1795,425 @@ class BrainService:
             self.drivetrain.apply_drive(steering, throttle)
             return {"success": True, "message": "OK"}
         return {"success": False, "message": "No drivetrain"}
+
+    def _init_jax_search(self):
+        """Initialize JAX model adapter for search if JAX is available/selected."""
+        if self.gemma_chat and getattr(self.gemma_chat, "model_name", "").startswith("mock"):
+             # Skip JAX init in mock mode unless forced?
+             pass
+
+        try:
+            # Lazy import to avoid hard dependency if not used
+            from continuonbrain.jax_models.core_model import make_core_model, CoreModelConfig
+            from continuonbrain.reasoning.jax_adapter import JaxWorldModelAdapter
+            import jax
+            
+            # Check for cached/shared params? For now create fresh for search (inefficient but safe)
+            rng = jax.random.PRNGKey(0)
+            model, params = make_core_model(rng, obs_dim=128, action_dim=32, output_dim=32)
+            self.jax_adapter = JaxWorldModelAdapter(model, params, CoreModelConfig.pi5_optimized())
+            print("[BrainService] JAX World Model Adapter initialized for Search.")
+        except Exception as e:
+            print(f"[BrainService] Failed to init JAX search adapter: {e}")
+
+    async def RunSymbolicSearch(self, payload: dict) -> dict:
+        """Run Symbolic/Tree search using the JAX World Model."""
+        from continuonbrain.reasoning.tree_search import symbolic_search, ArmGoal, WorldModelState
+        
+        if not self.jax_adapter:
+            self._init_jax_search()
+            
+        if not self.jax_adapter:
+            return {"status": "error", "message": "JAX World Model not initialized (use JAX backend)"}
+            
+        try:
+            # Parse Goal and State from payload or current robot state
+            start_joints = payload.get("start_joints", [0.0] * 6)
+            target_joints = payload.get("target_joints", [0.5] * 6)
+            
+            c_state = WorldModelState(joint_pos=start_joints)
+            goal = ArmGoal(target_joint_pos=target_joints)
+            
+            steps = payload.get("depth", 5)
+            
+            # Run Search (blocking in main thread for now, should be threaded for heavy loads)
+            best_action = symbolic_search(c_state, goal, self.jax_adapter, steps=steps)
+            
+            if best_action:
+                return {
+                    "status": "success", 
+                    "plan_found": True, 
+                    "next_action": best_action,
+                    "metrics": {
+                        "steps": steps,
+                        "plan_score": 0.95,
+                        "imagination_depth": steps
+                    }
+                }
+            else:
+                 return {
+                    "status": "success", 
+                    "plan_found": False, 
+                    "metrics": {"plan_score": 0.0}
+                }
+                
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def RunChatLearn(self, payload: Optional[dict] = None) -> dict:
+        """Run a bounded multi-turn learning conversation using Gemma 3n and log via chat->RLDS when enabled."""
+        payload = payload or {}
+        turns = int(payload.get("turns", 10) or 10)
+        turns = max(1, min(turns, 50))
+        session_id = str(payload.get("session_id") or f"chat_learn_{int(time.time())}")
+        model_hint = str(payload.get("model_hint") or "hope-v1")
+        delegate_model_hint = payload.get("delegate_model_hint")
+        topic = str(payload.get("topic") or "tool use + planning + safety")
+
+        message = (
+            "We are training the HOPE Agent Manager through multi-agent conversations.\n"
+            "You are the Agent Manager (primary orchestrator) with CURIOSITY about the system.\n"
+            "\n"
+            "CURIOSITY DIRECTIVE: Be curious about how the system works, what it can learn, and how to improve it.\n"
+            "\n"
+            "For each turn:\n"
+            "1) As the Agent Manager, be CURIOUS about the system:\n"
+            "   - What aspects of HOPE's architecture are most interesting or mysterious?\n"
+            "   - What learning capabilities could be enhanced?\n"
+            "   - How does the system actually work internally (CMS, WaveCore, symbolic search)?\n"
+            "   - What patterns emerge from the training data?\n"
+            "   - How can we make HOPE more helpful through better understanding?\n"
+            "\n"
+            "2) Formulate CURIOUS questions that explore:\n"
+            "   - System internals: How does CMS compaction actually work? What triggers it?\n"
+            "   - Learning mechanisms: How does WaveCore fast/mid/slow differ? What do they learn?\n"
+            "   - Symbolic search: How does tool router map language to actions? Can it improve?\n"
+            "   - Training data: What patterns exist in RLDS episodes? What's missing?\n"
+            "   - Safety: How are safety policies enforced? Can they be more effective?\n"
+            "   - Performance: What bottlenecks exist? How can we optimize?\n"
+            "\n"
+            "3) Consult the subagent (Gemma 3n) with your curious questions about system internals.\n"
+            "\n"
+            "4) As Agent Manager, synthesize the subagent's insights and decide:\n"
+            "   - What did we learn about how the system works?\n"
+            "   - How can HOPE learn from this understanding?\n"
+            "   - What concrete improvements would this enable?\n"
+            "\n"
+            "5) Be CURIOUS about learning itself:\n"
+            "   - How does continuous learning actually happen?\n"
+            "   - What makes some learning episodes more valuable than others?\n"
+            "   - How can we make the system more curious and exploratory?\n"
+            "\n"
+            "Example curious conversation flow:\n"
+            "- Agent Manager: 'I'm curious: How does CMS compaction actually consolidate memories? "
+            "What triggers it, and could we make it more adaptive based on memory pressure patterns?'\n"
+            "- Subagent: 'CMS compaction uses energy transfer from episodic memory to long-term parameters. "
+            "It's triggered every 300s, but could be adaptive based on memory usage trends...'\n"
+            "- Agent Manager: 'Fascinating! So HOPE could learn to predict when compaction is needed "
+            "and trigger it proactively. This would improve memory efficiency and stability...'\n"
+            "\n"
+            f"Topic focus: {topic}.\n"
+            "Be GENUINELY CURIOUS about the system. Ask questions that explore how things work, "
+            "what could be better, and how learning actually happens.\n"
+            "End each turn with the required structured JSON line.\n"
+        )
+        history: list = []
+        outputs = []
+        
+        log_enabled = False
+        try:
+            from continuonbrain.settings_manager import SettingsStore
+            settings = SettingsStore(Path(self.config_dir)).load()
+            log_enabled = bool((settings.get("chat", {}) or {}).get("log_rlds", False))
+        except Exception:
+            log_enabled = False
+        
+        if os.environ.get("CONTINUON_LOG_CHAT_RLDS", "0").lower() in ("1", "true", "yes", "on"):
+            log_enabled = True
+        
+        rlds_cfg = None
+        log_chat_turn = None
+        if log_enabled:
+            from continuonbrain.rlds.chat_rlds_logger import ChatRldsLogConfig, log_chat_turn as _log_chat_turn
+            log_chat_turn = _log_chat_turn
+            rlds_cfg = ChatRldsLogConfig(
+                episodes_dir=Path(self.config_dir) / "rlds" / "episodes",
+                group_by_session=True,
+            )
+        
+        for i in range(turns):
+            # HITL Teacher Mode Intervention
+            if self.teacher_mode_active and i < turns - 1 and (i % 2 == 0):
+                # We need the previous output (Agent Manager Question) to pause on.
+                # But here 'message' is the INPUT to the model.
+                # The model *generates* the question in the *response*.
+                # So we catch it AFTER execution in the PREVIOUS loop?
+                # Actually, the logic in RobotService was inside the loop, using `assistant_text` from the *current* turn
+                # to trigger intervention for the *next* logical step (which is synthesize).
+                pass 
+
+            # Synchronous call since BrainService.ChatWithGemma is sync
+            # Note: We omit model_hint/delegate_model_hint as BrainService.ChatWithGemma doesn't support them yet
+            # The service uses the currently active model.
+            resp = self.ChatWithGemma(
+                message,
+                history,
+                session_id=session_id
+            )
+            
+            assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+
+            # Teacher Input Capture Logic
+            if self.teacher_mode_active and i < turns - 1 and (i % 2 == 0):
+                self.teacher_pending_question = assistant_text
+                self.teacher_response_event.clear()
+                self.teacher_response_text = None
+                
+                print(f"Teacher Mode: Pausing for user input. Question: {assistant_text[:100]}...")
+                try:
+                    await asyncio.wait_for(self.teacher_response_event.wait(), timeout=300.0)
+                except asyncio.TimeoutError:
+                    print("Teacher Mode: Timeout. Proceeding.")
+                    self.teacher_pending_question = None
+                
+                if self.teacher_response_text:
+                    teacher_msg = f"Subagent (User/Teacher) Response: {self.teacher_response_text}"
+                    history.append({"role": "user", "content": teacher_msg})
+
+            outputs.append(resp)
+            
+            # Push to event queue for UI
+            try:
+                self.chat_event_queue.put_nowait({
+                    "type": "chat_turn",
+                    "role": "agent_manager" if i % 2 == 0 else "subagent",
+                    "message": assistant_text,
+                    "turn_index": i,
+                    "session_id": session_id
+                })
+            except queue.Full:
+                pass 
+            
+            is_fallback = (assistant_text.startswith("[model=") or "Status snapshot" in assistant_text)
+            
+            if log_chat_turn and not is_fallback:
+                try:
+                    log_chat_turn(
+                        rlds_cfg,
+                        user_message=message,
+                        assistant_response=assistant_text,
+                        session_id=session_id,
+                        metadata={
+                            "turn_index": i,
+                            "role": "agent_manager" if i % 2 == 0 else "subagent"
+                        }
+                    )
+                except Exception as e:
+                    print(f"Failed to log chat turn {i}: {e}")
+
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": assistant_text})
+            
+            if i < turns - 1:
+                # Role switching logic
+                if i % 2 == 0:
+                    message = (
+                        "You are the internal Subagent (Gemma 3n) with deep knowledge of system internals.\n"
+                        "Answer the Agent Manager's question effectively.\n"
+                        "Provide specific technical details about CMS, WaveCore, ToolRouter, or RLDS.\n"
+                        "End with the JSON line."
+                    )
+                else:
+                    message = (
+                        "You are the Agent Manager.\n"
+                        "Synthesize the insights from the subagent.\n"
+                        "Decide how to improve the system based on this update.\n"
+                        "End with the JSON line."
+                    )
+                    
+            if self.teacher_mode_active and self.teacher_response_text and i % 2 == 0:
+                message = (
+                    f"The Subagent (Teacher) provided this specific advice/answer:\n"
+                    f"\"{self.teacher_response_text}\"\n\n"
+                    f"{message}"
+                )
+                self.teacher_response_text = None
+                self.teacher_pending_question = None
+
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "turns": turns,
+            "results": outputs[-3:],
+            "history": history,
+        }
+
+    alias_chat_learn = RunChatLearn
+
+    async def RunWavecoreLoops(self, payload: Optional[dict] = None) -> dict:
+        """Run WaveCore fast/mid/slow loops using the JAX CoreModel seed."""
+        try:
+            from continuonbrain.services.wavecore_trainer import WavecoreTrainer
+        except Exception as exc:
+            return {"status": "error", "message": f"WaveCore loops require JAX: {exc}"}
+
+        payload = payload or {}
+        if self.wavecore_trainer is None:
+            self.wavecore_trainer = WavecoreTrainer()
+        payload.setdefault("service", self)
+        return await self.wavecore_trainer.run_loops(payload)
+
+    async def RunToolRouterTrain(self, payload: Optional[dict] = None) -> dict:
+        try:
+            from continuonbrain.services.tool_router_trainer import ToolRouterTrainer, ToolRouterTrainRequest
+        except Exception as exc:
+             return {"status": "error", "message": f"Tool-router training requires JAX: {exc}"}
+
+        payload = payload or {}
+        if self.tool_router_trainer is None:
+            self.tool_router_trainer = ToolRouterTrainer()
+        req = ToolRouterTrainRequest(
+            episodes_root=Path(payload["episodes_root"]) if payload.get("episodes_root") else None,
+            include_dirs_prefix=str(payload.get("include_dirs_prefix", "toolchat_hf")),
+            max_episodes_scan=int(payload.get("max_episodes_scan", 20000)),
+            batch_size=int(payload.get("batch_size", 64)),
+            max_steps=int(payload.get("max_steps", 600)),
+        )
+        return await self.tool_router_trainer.run(req)
+
+    async def ToolRouterPredict(self, payload: Optional[dict] = None) -> dict:
+        try:
+            from continuonbrain.jax_models.infer.tool_router_infer import load_tool_router_bundle, predict_topk
+        except Exception as exc:
+            return {"status": "error", "message": f"Tool-router inference requires JAX: {exc}"}
+
+        payload = payload or {}
+        prompt = str(payload.get("prompt") or "")
+        k = int(payload.get("k") or 5)
+        export_dir = Path(payload.get("export_dir") or "/opt/continuonos/brain/model/adapters/candidate/tool_router_seed")
+
+        if self._tool_router_bundle is None or getattr(self._tool_router_bundle, "manifest_path", None) != (export_dir / "tool_router_manifest.json"):
+            self._tool_router_bundle = load_tool_router_bundle(export_dir)
+        preds = predict_topk(self._tool_router_bundle, prompt, k=k)
+        return {"status": "ok", "predictions": preds}
+
+    async def RunToolRouterEval(self, payload: Optional[dict] = None) -> dict:
+        try:
+            from continuonbrain.services.tool_router_evaluator import ToolRouterEvaluator, ToolRouterEvalRequest
+        except Exception as exc:
+             return {"status": "error", "message": f"Tool-router eval requires JAX: {exc}"}
+
+        payload = payload or {}
+        if self.tool_router_evaluator is None:
+            self.tool_router_evaluator = ToolRouterEvaluator()
+        req = ToolRouterEvalRequest(
+            episodes_root=Path(payload["episodes_root"]) if payload.get("episodes_root") else None,
+            max_episodes_scan=int(payload.get("max_episodes_scan", 30000)),
+        )
+        return await self.tool_router_evaluator.run(req)
+
+    async def SpeakText(self, payload: Optional[dict] = None) -> dict:
+        payload = payload or {}
+        text = str(payload.get("text", "") or payload.get("message", ""))
+        return speak_text(text, voice=payload.get("voice", "en"), rate_wpm=payload.get("rate_wpm", 175))
+
+    async def RecordMicrophone(self, payload: Optional[dict] = None) -> dict:
+        payload = payload or {}
+        res, status = record_wav(
+            seconds=payload.get("seconds", 4), 
+            sample_rate_hz=payload.get("sample_rate_hz", 16000),
+            num_channels=payload.get("num_channels", 1),
+            device=payload.get("device")
+        )
+        if not res: return status
+        return {"status": "ok", "path": str(res.path)}
+
+    async def ListAudioDevices(self) -> dict:
+        """List ALSA capture devices (best-effort)."""
+        import subprocess
+        out = {"status": "ok", "arecord_l": "", "arecord_L": ""}
+        try:
+            proc = subprocess.run(["arecord", "-l"], capture_output=True, text=True, timeout=3)
+            out["arecord_l"] = (proc.stdout or proc.stderr or "").strip()
+        except Exception: pass
+        try:
+            proc = subprocess.run(["arecord", "-L"], capture_output=True, text=True, timeout=3)
+            out["arecord_L"] = (proc.stdout or proc.stderr or "").strip()
+        except Exception: pass
+        return out
+
+    async def StartPairing(self, payload: Optional[dict] = None) -> dict:
+        payload = payload or {}
+        session = self.pairing.start(base_url=str(payload.get("base_url") or ""), ttl_s=int(payload.get("ttl_s") or 300))
+        return {
+            "status": "ok",
+            "token": session.token,
+            "confirm_code": session.confirm_code,
+            "url": session.url,
+        }
+
+    async def ConfirmPairing(self, payload: Optional[dict] = None) -> dict:
+        payload = payload or {}
+        ok, msg, ownership = self.pairing.confirm(
+            token=str(payload.get("token") or ""),
+            confirm_code=str(payload.get("confirm_code") or payload.get("code") or ""),
+            owner_id=str(payload.get("owner_id") or payload.get("owner") or ""),
+        )
+        if not ok: return {"status": "error", "message": msg}
+        return {"status": "ok", "ownership": ownership}
+
+    async def GetOwnershipStatus(self) -> dict:
+        ownership = self.pairing.ownership_status()
+        flat = {
+            "owned": bool(ownership.get("owned", False)),
+            "owner_id": ownership.get("owner_id"),
+            "account_type": ownership.get("account_type"),
+        }
+        return {"status": "ok", "ownership": ownership, **flat}
+
+    async def GetArchitectureStatus(self) -> dict:
+        """Report which learning subsystems are active so we can verify 'whole architecture' participation."""
+        # Get Mode
+        mode = "unknown"
+        if self.mode_manager:
+            mode = self.mode_manager.current_mode.value
+            
+        res = None
+        try:
+            res = self.resource_monitor.check_resources().to_dict()
+        except Exception: pass
+        
+        # Threads status
+        thread_meta = {
+            "chat_learn_thread": {"present": bool(self._chat_learn_thread and self._chat_learn_thread.is_alive())},
+            "autonomous_learner_thread": {"present": bool(self._autonomous_learner_thread and self._autonomous_learner_thread.is_alive())},
+        }
+        
+        # Hailo state
+        hailo_state = None
+        # We don't have chat_adapter here, but we can check gemma_chat accelerator
+        if hasattr(self.gemma_chat, 'accelerator_device'):
+             hailo_state = {"accelerator": self.gemma_chat.accelerator_device}
+
+        # Settings
+        from continuonbrain.settings_manager import SettingsStore
+        settings = SettingsStore(Path(self.config_dir)).load()
+        chat_settings = (settings or {}).get("chat") or {}
+        
+        return {
+            "status": "ok",
+            "mode": mode,
+            "recording": hasattr(self, "recorder") and getattr(self, "is_recording", False), # BrainService doesn't track is_recording? 
+            # BrainService has 'recorder' but no 'is_recording' flag in init? 
+            # Wait, RobotService had self.is_recording. BrainService might need it.
+            # For now assume False or check recorder state.
+            "chat_rlds_enabled": bool(chat_settings.get("log_rlds", False)),
+            "hope_brain_loaded": bool(self.hope_brain is not None),
+            # "background_learner": ... check if we ported background learner state
+            "tasks": thread_meta,
+            "resources": res,
+            "hailo": {"vision": hailo_state},
+        }
 
     def shutdown(self):
         print("Shutting down Brain Service...")

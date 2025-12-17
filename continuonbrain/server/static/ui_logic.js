@@ -26,12 +26,19 @@ window.showMessage = function (message, isError) {
 
 // NEW: Action Logger
 window.logAction = function (msg) {
-    const logEl = document.getElementById('action-log-message');
-    if (logEl) {
-        logEl.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        // Highlight effect
-        logEl.parentElement.style.backgroundColor = '#161b22';
-        setTimeout(() => logEl.parentElement.style.backgroundColor = '#0d1117', 200);
+    const logContainer = document.getElementById('logger-content');
+    if (logContainer) {
+        const line = document.createElement('div');
+        line.className = 'log-line action';
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logContainer.insertBefore(line, logContainer.firstChild); // Prepend for reverse order
+        // Limit history
+        if (logContainer.children.length > 100) {
+            logContainer.removeChild(logContainer.lastChild);
+        }
+    } else {
+        // Fallback for missing container
+        console.log('[Action Log]', msg);
     }
 }
 
@@ -40,59 +47,51 @@ document.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
         const btn = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
         const label = btn.innerText || btn.title || 'Button';
+        // Avoid logging chat send/mic as generic clicks if handled elsewhere, but fine for now
         window.logAction(`Clicked: ${label}`);
     }
 });
 
-const settingsModal = document.getElementById('settings-modal');
-const settingsBackdrop = document.getElementById('settings-backdrop');
-const settingsForm = document.getElementById('settings-form');
-const settingsStatus = document.getElementById('settings-status');
+// --- Settings Inline Logic ---
+const settingsFormInline = document.getElementById('settings-form-inline');
+const settingsStatusInline = document.getElementById('settings-status-inline');
 
 function setSettingsStatus(message, isError) {
-    if (!settingsStatus) return;
-    settingsStatus.textContent = message;
-    settingsStatus.style.color = isError ? '#ff7b7b' : 'var(--muted)';
+    if (!settingsStatusInline) return;
+    settingsStatusInline.textContent = message;
+    settingsStatusInline.style.color = isError ? '#ff7b7b' : 'var(--muted)';
 }
 
 function populateSettingsForm(settings) {
     const context = settings?.context || 'hybrid';
-    const radios = document.getElementsByName('runtime-context');
+    const radios = document.getElementsByName('runtime-context-inline');
     for (const r of radios) {
         if (r.value === context) r.checked = true;
     }
 
-    // Legacy mappings (hidden but maintained)
-    document.getElementById('settings-allow-motion').checked = !!settings?.safety?.allow_motion;
-    document.getElementById('settings-record-episodes').checked = !!settings?.safety?.record_episodes;
-    document.getElementById('settings-require-supervision').checked = !!settings?.safety?.require_supervision;
-    document.getElementById('telemetry-rate').value = settings?.telemetry?.rate_hz ?? 2.0;
-    document.getElementById('chat-persona').value = settings?.chat?.persona ?? 'operator';
-    document.getElementById('chat-temperature').value = settings?.chat?.temperature ?? 0.35;
+    if (document.getElementById('chat-persona-inline'))
+        document.getElementById('chat-persona-inline').value = settings?.chat?.persona ?? 'operator';
+    if (document.getElementById('chat-temperature-inline'))
+        document.getElementById('chat-temperature-inline').value = settings?.chat?.temperature ?? 0.35;
 }
 
 async function fetchSettings() {
     const response = await fetch('/api/settings');
-    if (!response.ok) {
-        throw new Error('Server responded with ' + response.status);
-    }
+    if (!response.ok) throw new Error('Server responded with ' + response.status);
     const payload = await response.json();
-    if (!payload.success) {
-        throw new Error(payload.message || 'Unable to load settings');
-    }
+    if (!payload.success) throw new Error(payload.message || 'Unable to load settings');
     return payload.settings || {};
 }
 
+// Alias for existing calls, redirects to view mode
 window.openSettingsModal = async function () {
-    settingsModal?.classList.add('open');
-    settingsBackdrop?.classList.add('open');
-    settingsModal?.setAttribute('aria-hidden', 'false');
-    setSettingsStatus('Loading current settings...');
+    window.setViewMode('settings'); // Switch view
 
+    setSettingsStatus('Loading current settings...');
     try {
         const settings = await fetchSettings();
         populateSettingsForm(settings);
-        setSettingsStatus('Loaded from config directory.');
+        setSettingsStatus('');
     } catch (err) {
         console.error(err);
         setSettingsStatus(err.message || 'Failed to load settings', true);
@@ -100,45 +99,42 @@ window.openSettingsModal = async function () {
 };
 
 window.closeSettingsModal = function () {
-    settingsModal?.classList.remove('open');
-    settingsBackdrop?.classList.remove('open');
-    settingsModal?.setAttribute('aria-hidden', 'true');
+    // Just switch back to owner view
+    window.setViewMode('owner');
 };
 
-settingsBackdrop?.addEventListener('click', closeSettingsModal);
-
-settingsForm?.addEventListener('submit', async function (event) {
+settingsFormInline?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
     // Determine context
     let context = 'hybrid';
-    const radios = document.getElementsByName('runtime-context');
+    const radios = document.getElementsByName('runtime-context-inline');
     for (const r of radios) { if (r.checked) context = r.value; }
 
-    // Map context to detailed settings
     const isTraining = context === 'training';
     const isInference = context === 'inference';
     const isHybrid = context === 'hybrid';
 
-    // Construct payload based on context presets
+    const persona = document.getElementById('chat-persona-inline')?.value || 'operator';
+    const temp = parseFloat(document.getElementById('chat-temperature-inline')?.value || '0.35');
+
+    // Construct payload
     const payload = {
-        context: context, // Save valid top-level context
+        context: context,
         safety: {
-            // Training needs motion+recording; Inference needs motion; Hybrid balanced
             allow_motion: true,
             record_episodes: isTraining || isHybrid,
             require_supervision: isInference ? false : true,
         },
         telemetry: { rate_hz: isTraining ? 5.0 : 2.0 },
         chat: {
-            // Keep existing hidden values or defaults
-            persona: 'operator',
-            temperature: 0.35,
+            persona: persona,
+            temperature: temp,
         }
     };
 
-    setSettingsStatus('Saving context...');
-    window.logAction(`Saving context: ${context.toUpperCase()}`);
+    setSettingsStatus('Saving...');
+    window.logAction(`Saving settings: ${context.toUpperCase()}`);
 
     try {
         const response = await fetch('/api/settings', {
@@ -153,13 +149,11 @@ settingsForm?.addEventListener('submit', async function (event) {
         }
 
         populateSettingsForm(result.settings || payload);
-        setSettingsStatus('Saved.');
-        window.showMessage(`Context switched to ${context.toUpperCase()}`);
-        setTimeout(closeSettingsModal, 300);
+        setSettingsStatus('Saved successfully.');
+        window.showMessage(`Settings updated`);
     } catch (err) {
         console.error('Save failed', err);
         setSettingsStatus(err.message || 'Unable to save settings', true);
-        window.showMessage('Unable to save settings', true);
     }
 });
 
@@ -253,9 +247,7 @@ const skillDeckState = {
     skills: [],
 };
 let skillLibraryPayload = null;
-const viewState = {
-    mode: 'owner',
-};
+
 const realityProofState = { status: null, loops: null, surprises: 0 };
 
 function setProofText(id, text) {
@@ -1183,32 +1175,77 @@ window.startSymbolicSearch = async function () {
     }
 };
 
-// Tab switching logic for Manual Control
-window.switchTab = function (tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        if (btn.dataset.tab === tabName) btn.classList.add('active');
-        else btn.classList.remove('active');
-    });
-
-    // Update panels
-    document.querySelectorAll('.control-panel').forEach(panel => {
-        if (panel.id === tabName + '-panel') panel.style.display = 'block';
-        else panel.style.display = 'none';
-    });
+// Tab switching logic// --- View Mode Logic ---
+const viewState = {
+    mode: 'owner',
 };
 
+window.setViewMode = function (mode) {
+    viewState.mode = mode; // 'owner' | 'research' | 'docs' | 'settings'
+    localStorage.setItem('studio_view_mode', viewState.mode);
+
+    const ownerPanels = document.querySelectorAll('.owner-only');
+    const researchPanels = document.querySelectorAll('.research-only');
+    const standardPanels = document.querySelectorAll('.standard-view');
+    const docsPanels = document.querySelectorAll('.docs-view');
+    const settingsPanels = document.querySelectorAll('.settings-view');
+
+    // Hide all first
+    ownerPanels.forEach(p => p.style.display = 'none');
+    researchPanels.forEach(p => p.style.display = 'none');
+    standardPanels.forEach(p => p.style.display = 'none');
+    docsPanels.forEach(p => p.style.display = 'none');
+    settingsPanels.forEach(p => p.style.display = 'none');
+
+    // Show based on mode
+    if (mode === 'docs') {
+        docsPanels.forEach(p => p.style.display = 'block');
+    } else if (mode === 'settings') {
+        settingsPanels.forEach(p => p.style.display = 'block');
+    } else if (mode === 'owner') {
+        standardPanels.forEach(p => p.style.display = 'block');
+        ownerPanels.forEach(p => p.style.display = 'block');
+    } else if (mode === 'research') {
+        standardPanels.forEach(p => p.style.display = 'block');
+        researchPanels.forEach(p => p.style.display = 'block');
+    }
+
+    // Update Top Bar Button States (Assuming IDs exist, though Top Bar doesn't have explicit mode buttons for all these yet except custom ones)
+    // We can rely on visual state for now.
+
+    // Also, if 'settings' mode, perhaps we want to highlight the settings button if we had one.
+    // For now, this is sufficient.
+};
+
+(function initViewMode() {
+    const saved = localStorage.getItem('studio_view_mode');
+    if (saved) {
+        window.setViewMode(saved);
+    } else {
+        window.setViewMode(viewState.mode);
+    }
+})();
+
+// --- Status Orchestration ---
+// Calls render functions defined in other modules
 window.applyStatusPayload = function (statusPayload) {
     if (!statusPayload) return;
     var status = statusPayload.status ? statusPayload.status : statusPayload;
     var mode = status.mode || 'unknown';
     var modeText = mode.replace(/_/g, ' ').toUpperCase();
-    document.getElementById('mode').innerHTML = '<span class="badge ' + mode + '">' + modeText + '</span>';
-    document.getElementById('recording').textContent = status.is_recording ? 'Recording' : 'Idle';
+
+    const modeEl = document.getElementById('mode');
+    if (modeEl) modeEl.innerHTML = '<span class="badge ' + mode + '">' + modeText + '</span>';
+
+    const recEl = document.getElementById('recording');
+    if (recEl) recEl.textContent = status.is_recording ? 'Recording' : 'Idle';
+
     var motionAllowed = typeof status.allow_motion !== 'undefined'
         ? status.allow_motion
         : (status.gate_snapshot ? status.gate_snapshot.allow_motion : false);
-    document.getElementById('motion').textContent = motionAllowed ? 'Motion Enabled' : 'Motion Locked';
+
+    const motionEl = document.getElementById('motion');
+    if (motionEl) motionEl.textContent = motionAllowed ? 'Motion Enabled' : 'Motion Locked';
 
     var modeCard = document.getElementById('mode-card');
     if (modeCard) { modeCard.textContent = modeText; }
@@ -1217,14 +1254,17 @@ window.applyStatusPayload = function (statusPayload) {
     var motionCard = document.getElementById('motion-card');
     if (motionCard) { motionCard.textContent = motionAllowed ? 'Allowed' : 'Prevented'; }
 
-    renderLoopTelemetry(status);
-    renderGateStatus(status.gate_snapshot || status.gates);
-    renderAgentRail(status);
-    renderSelectedTask(status.current_task);
+    // Call module-specific renderers if they exist
+    if (window.renderLoopTelemetry) window.renderLoopTelemetry(status); // Research
+    if (window.renderGateStatus) window.renderGateStatus(status.gate_snapshot || status.gates); // Owner
+    if (window.renderAgentRail) window.renderAgentRail(status); // Owner
+    if (window.renderSelectedTask) window.renderSelectedTask(status.current_task); // Owner
+    if (window.renderModeList) window.renderModeList(status); // Owner
 
-    realityProofState.status = status;
-    updateRealityProof();
-
+    if (window.realityProofState) {
+        window.realityProofState.status = status;
+        if (window.updateRealityProof) window.updateRealityProof();
+    }
     var batteryCard = document.getElementById('battery-status');
     if (batteryCard) {
         var batt = status.battery;
@@ -1404,37 +1444,43 @@ window.pollLoopHealth = async function (payload) {
 };
 
 // Column resizers for full-width IDE layout
+// Column resizers for full-width IDE layout (Nav | Content | Agent)
 (function initColumnResizers() {
     const grid = document.getElementById('workspace-grid');
     if (!grid) return;
     const leftHandle = document.querySelector('[data-resize="left"]');
     const rightHandle = document.querySelector('[data-resize="right"]');
-    let leftWidth = 320;
-    let rightWidth = 360;
-    const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-    const apply = () => {
-        grid.style.gridTemplateColumns = `${leftWidth}px 10px 1fr 10px ${rightWidth}px`;
-    };
-    apply();
+    const leftCol = document.querySelector('.left-column');
+    const centerCol = document.querySelector('.center-column');
 
     function startDrag(type) {
         return function (event) {
             event.preventDefault();
             const startX = event.clientX;
-            const startLeft = leftWidth;
-            const startRight = rightWidth;
+            // Capture current widths (whether % or px) as pixels for smooth dragging
+            const startLeftW = leftCol.getBoundingClientRect().width;
+            const startCenterW = centerCol.getBoundingClientRect().width;
+
             function onMove(e) {
                 const delta = e.clientX - startX;
+                let newLeft = startLeftW;
+                let newCenter = startCenterW;
+
                 if (type === 'left') {
-                    leftWidth = clamp(startLeft + delta, 240, 520);
-                } else {
-                    rightWidth = clamp(startRight - delta, 260, 520);
+                    newLeft = Math.max(200, startLeftW + delta);
+                    // Lock Center to its current pixel width so it doesn't jump
+                    grid.style.gridTemplateColumns = `${newLeft}px 10px ${startCenterW}px 10px 1fr`;
+                } else if (type === 'right') {
+                    newCenter = Math.max(300, startCenterW + delta);
+                    // Lock Left to its current pixel width
+                    grid.style.gridTemplateColumns = `${startLeftW}px 10px ${newCenter}px 10px 1fr`;
                 }
-                apply();
             }
+
             function onUp() {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
+                // Grid remains locked in pixels after drag, which is expected behavior
             }
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onUp);

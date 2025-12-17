@@ -320,41 +320,40 @@ class StartupManager:
                 self._robot_api_log_fh = robot_log_path.open("a", buffering=1)
                 self._robot_api_log_fh.write(f"\n=== robot_api_server start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
 
-                self.robot_api_process = subprocess.Popen(
-                    ([
-                        python_exec,
-                        "-m",
-                        server_module,
-                        "--host",
-                        "0.0.0.0",
-                        "--port",
-                        str(self.service_port),
-                        "--config-dir",
-                        self.config_dir,
-                    ]
-                    + (["--skip-motion-hw"] if self._env_flag("CONTINUON_SKIP_MOTION_HW", default=False) else [])
-                    # Hardware mode policy:
-                    # - DEFAULT: Real hardware mode on boot for production alignment.
-                    # - CONTINUON_FORCE_REAL_HARDWARE defaults to True (real hardware by default).
-                    # - Only use mock hardware if CONTINUON_FORCE_MOCK_HARDWARE is explicitly set.
-                    # - This ensures production systems always start with real hardware unless explicitly overridden.
-                    + (["--mock-hardware"] if self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False) else [])
-                    + (
-                        ["--real-hardware"]
-                        if (
-                            not self._env_flag("CONTINUON_FORCE_MOCK_HARDWARE", default=False)
-                            and self._env_flag("CONTINUON_FORCE_REAL_HARDWARE", default=True)  # DEFAULT: True (real hardware)
-                        )
-                        else []
-                    )
-                    ),
-                    env=env,
-                    stdout=self._robot_api_log_fh,
-                    stderr=self._robot_api_log_fh,
-                )
-                print(f"   Robot API started (PID: {self.robot_api_process.pid})")
-                print(f"   Endpoint: http://localhost:{self.service_port}")
 
+            # Launch Unified Brain Server
+            server_module = "continuonbrain.api.server"
+            server_path = self._resolve_module_path(server_module)
+            
+            if server_path:
+                print(f"🚀 Starting Unified Brain Server ({server_module})...")
+                
+                cmd = [python_exec, "-m", server_module]
+                if self.config_dir:
+                    cmd.extend(["--config-dir", str(self.config_dir)])
+                cmd.extend(["--port", str(self.service_port)])
+                
+                # Propagate hardware preferences
+                # We don't have direct access here, but they are env vars or defaults?
+                # StartupManager init doesn't take prefer_real arg? 
+                # Yes it only takes basic args. Hardware detection happens inside the server/service.
+                # But we can pass env vars if needed.
+                
+                env = os.environ.copy()
+                env["PYTHONUNBUFFERED"] = "1"
+                
+                try:
+                    self.robot_api_process = subprocess.Popen(
+                        cmd,
+                        env=env,
+                        stdout=self._robot_api_log_fh,
+                        stderr=self._robot_api_log_fh,
+                    )
+                    print(f"   Server started with PID {self.robot_api_process.pid}")
+                except Exception as e:
+                    print(f"   Failed to start server: {e}")
+                    raise
+                
                 def _watch_child(proc: subprocess.Popen) -> None:
                     code = proc.wait()
                     try:

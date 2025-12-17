@@ -16,6 +16,7 @@ import subprocess
 import shutil
 import re
 import mimetypes
+import queue
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
@@ -526,6 +527,30 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 # Back-compat: map route now points at unified HOPE monitor UI.
                 self.wfile.write(ui_routes.get_hope_dynamics_html().encode("utf-8"))
+
+            elif self.path == "/api/chat/events":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Connection", "keep-alive")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                
+                try:
+                    while True:
+                        try:
+                            # Use timeout to allow checking connection status / keepalive
+                            event = brain_service.chat_event_queue.get(timeout=1.0)
+                            data = json.dumps(event)
+                            self.wfile.write(f"data: {data}\n\n".encode("utf-8"))
+                            self.wfile.flush()
+                        except queue.Empty:
+                            # Keep alive comment to prevent timeouts
+                            self.wfile.write(b": keepalive\n\n")
+                            self.wfile.flush()
+                except Exception:
+                    # Client disconnected or BrokenPipe
+                    pass
 
             elif self.path == "/api/training/pipeline":
                 # JSON mirror of /ui/training-plan for automation/tests
@@ -1193,6 +1218,80 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 if "password" in result:
                     result.pop("password")
                 self.send_json(result, status=status)
+
+            elif self.path == "/api/training/chat_learn":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RunChatLearn(data))
+                self.send_json(result)
+
+            elif self.path == "/api/training/teacher/mode":
+                data = json.loads(body) if body else {}
+                brain_service.teacher_mode_active = bool(data.get("active", False))
+                self.send_json({"success": True, "active": brain_service.teacher_mode_active})
+
+            elif self.path == "/api/training/teacher/answer":
+                data = json.loads(body) if body else {}
+                text = data.get("text")
+                if text:
+                    brain_service.teacher_response_text = text
+                    brain_service.teacher_response_event.set()
+                    self.send_json({"success": True})
+                else:
+                    self.send_json({"success": False, "message": "Missing text"}, status=400)
+
+            elif self.path == "/api/training/teacher/status":
+                 self.send_json({
+                     "success": True, 
+                     "active": brain_service.teacher_mode_active, 
+                     "pending_question": brain_service.teacher_pending_question
+                 })
+
+            elif self.path == "/api/manual/symbolic_search":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RunSymbolicSearch(data))
+                self.send_json(result)
+
+            elif self.path == "/api/waves/loops":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RunWavecoreLoops(data))
+                self.send_json(result)
+
+            elif self.path.startswith("/api/tools/"):
+                data = json.loads(body) if body else {}
+                if self.path == "/api/tools/train":
+                    result = asyncio.run(brain_service.RunToolRouterTrain(data))
+                elif self.path == "/api/tools/predict":
+                    result = asyncio.run(brain_service.ToolRouterPredict(data))
+                elif self.path == "/api/tools/eval":
+                    result = asyncio.run(brain_service.RunToolRouterEval(data))
+                else:
+                    result = {"error": "Unknown tool endpoint"}
+                    status = 404
+                self.send_json(result)
+
+            elif self.path == "/api/pairing/start":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.StartPairing(data))
+                self.send_json(result)
+
+            elif self.path == "/api/pairing/confirm":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.ConfirmPairing(data))
+                self.send_json(result)
+
+            elif self.path == "/api/ownership/status":
+                result = asyncio.run(brain_service.GetOwnershipStatus())
+                self.send_json(result)
+
+            elif self.path == "/api/audio/speak":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.SpeakText(data))
+                self.send_json(result)
+
+            elif self.path == "/api/audio/record":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RecordMicrophone(data))
+                self.send_json(result)
 
             elif self.path == "/api/network/bluetooth/connect":
                 data = json.loads(body) if body else {}
