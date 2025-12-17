@@ -10,7 +10,7 @@ class EpisodePackage {
 class TaskRecorder {
   TaskRecorder({required this.metadata});
 
-  final EpisodeMetadata metadata;
+  EpisodeMetadata metadata;
   final List<EpisodeStep> _steps = [];
   final List<EpisodeAsset> _assets = [];
 
@@ -27,6 +27,12 @@ class TaskRecorder {
         steps: List.of(_steps),
         assets: assetsOverride ?? List.of(_assets),
       );
+  EpisodeRecord buildRecord({EpisodeMetadata? metadataOverride}) =>
+      EpisodeRecord(metadata: metadataOverride ?? metadata, steps: List.of(_steps));
+
+  void updateMetadata(EpisodeMetadata value) {
+    metadata = value;
+  }
 
   EpisodePackage buildPackage() => EpisodePackage(
         record: buildRecord(),
