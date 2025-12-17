@@ -1,6 +1,6 @@
 {
   "identity": {
-    "creator_display_name": ""
+    "creator_display_name": "Craig Michael Merry"
   },
   "safety": {
     "allow_motion": true,
@@ -13,10 +13,10 @@
   "chat": {
     "persona": "operator",
     "temperature": 0.35,
-    "log_rlds": true
+    "log_rlds": false
   },
   "training": {
-    "enable_sidecar_trainer": true,
+    "enable_sidecar_trainer": false,
     "enable_sleep_learning": true
   },
   "agent_manager": {
@@ -24,32 +24,31 @@
     "enable_intervention_prompts": true,
     "intervention_confidence_threshold": 0.5,
     "chat_learn": {
-      "enabled": true,
-      "interval_s": 300,
-      "turns_per_cycle": 12,
-      "model_hint": "hope-v1",
-      "delegate_model_hint": "consult:TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-      "topic": "curiosity-driven HOPE v1 self-improvement: CMS, safety, planning, tool-use, and robot skills",
+      "enabled": false,
+      "interval_s": 600,
+      "turns_per_cycle": 10,
+      "model_hint": "google/gemma-3n-2b",
+      "delegate_model_hint": "",
+      "topic": "coding this repository (ContinuonXR/continuonbrain/continuonai)",
       "modes": [
-        "idle",
-        "autonomous"
+        "idle"
       ]
     },
     "autonomy_orchestrator": {
-      "enabled": true,
+      "enabled": false,
       "modes": [
         "autonomous"
       ],
       "min_interval_s": 30,
-      "cms_compact_every_s": 300,
-      "hope_eval_every_s": 1200,
-      "facts_eval_every_s": 1800,
-      "wavecore_every_s": 1200,
-      "tool_router_every_s": 1800,
-      "wavecore_steps_fast": 100,
-      "wavecore_steps_mid": 200,
-      "wavecore_steps_slow": 300,
-      "tool_router_steps": 300
+      "cms_compact_every_s": 600,
+      "hope_eval_every_s": 1800,
+      "facts_eval_every_s": 3600,
+      "wavecore_every_s": 1800,
+      "tool_router_every_s": 3600,
+      "wavecore_steps_fast": 60,
+      "wavecore_steps_mid": 120,
+      "wavecore_steps_slow": 180,
+      "tool_router_steps": 200
     },
     "enable_status_updates": true,
     "enable_autonomous_learning": true,

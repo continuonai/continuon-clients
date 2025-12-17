@@ -1513,14 +1513,8 @@ def main():
     brain_service = BrainService(
         config_dir=args.config_dir,
         prefer_real_hardware=prefer_real,
-        prefer_real_hardware=prefer_real,
         auto_detect=True
     )
-    import sys
-    try:
-        print(f"DEBUG: Loaded BrainService from: {sys.modules['continuonbrain.services.brain_service'].__file__}", flush=True)
-    except:
-        print("DEBUG: Could not determine BrainService file path", flush=True)
     
     # Store settings in brain_service for access by ChatWithGemma
     
