@@ -13,10 +13,17 @@ import 'youtube_import_screen.dart';
 import 'robot_list_screen.dart';
 import 'login_screen.dart';
 
-class MarketingHomeScreen extends StatelessWidget {
+class MarketingHomeScreen extends StatefulWidget {
   const MarketingHomeScreen({super.key});
 
   static const routeName = '/';
+
+  @override
+  State<MarketingHomeScreen> createState() => _MarketingHomeScreenState();
+}
+
+class _MarketingHomeScreenState extends State<MarketingHomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +32,7 @@ class MarketingHomeScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       endDrawer: const ContinuonDrawer(),
       body: CustomScrollView(
@@ -88,7 +96,7 @@ class MarketingHomeScreen extends StatelessWidget {
               ] else ...[
                 IconButton(
                   icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(context).openEndDrawer(),
+                  onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
                 ),
                 const SizedBox(width: 16),
               ],
