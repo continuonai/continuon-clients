@@ -23,10 +23,11 @@ This memo restates how this repo maps onto the broader Continuon architecture an
 - **Latency and drift tracking:** Carry `diagnostics` (latency, drop counts, BLE RSSI) into converted episodes so Fast/Mid loops can compensate and Slow loop training can model reliability per source.【F:docs/rlds-schema.md†L61-L74】【F:docs/hope-cms-vla.md†L70-L85】
 
 ## Next documentation steps
-- Add a deployment path doc that narrates XR → Cloud → signed edge bundle → continuonos hot-swap/rollback, with clear metadata handoffs. This closes the storytelling gap between capture and deployment.
+- Add a deployment path doc that narrates XR → Cloud → signed edge bundle → continuonos hot-swap/rollback, with clear metadata handoffs. This closes the storytelling gap between capture and deployment. ✅ Completed in [XR to ContinuonOS Deployment Path](./deployment-path.md).
 - Provide worked examples of converting YouTube clips and app-based sessions into RLDS episode folders (metadata.json + steps/*.jsonl) to standardize ingestion recipes.
 
 ## Related Documentation
 
 The storytelling gap identified in the "Gaps to close" section is now addressed by the comprehensive system architecture document:
 - **[System Architecture and Training Lifecycle](./system-architecture.md)** - Covers the complete end-to-end flow: XR capture → ContinuonAI/WorldTape portal ingestion → Vertex AI cloud training → signed edge bundle → OTA delivery → Memory Plane merge at boot
+- **[XR to ContinuonOS Deployment Path](./deployment-path.md)** - Detailed capture → curation → cloud training/export → signed bundle → OTA delivery → Memory Plane merge/rollback with provenance and safety gates.

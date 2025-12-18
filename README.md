@@ -92,6 +92,7 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 * [`docs/unified-roadmap.md`](docs/unified-roadmap.md) — phase owners/dates and MVP KPIs (source of truth)
 * [`docs/training-plan.md`](docs/training-plan.md) — Pi5 → cloud → OTA execution path
 * [`docs/seed-model-plan.md`](docs/seed-model-plan.md) — Fast/Mid/Slow seed playbook for Pi capture + GCP TPU export
+* [`docs/deployment-path.md`](docs/deployment-path.md) — XR capture → RLDS curation → cloud training/export → signed bundle → OTA → Memory Plane merge/rollback
 * Orchestrator (edge pipeline): `python -m continuonbrain.services.training_manager --episodes-dir /opt/continuonos/brain/rlds/episodes --tfrecord-dir /opt/continuonos/brain/rlds/tfrecord --convert-tfrecord --train-local --trainer-data-path /opt/continuonos/brain/rlds/tfrecord --export`
 * Product docs: `apps/continuonxr/README.md`, `continuonbrain/README.md`, `continuonai/README.md`, `continuonai/continuon-cloud/README.md`
 * Packaging: `packaging/README.md`
