@@ -38,7 +38,7 @@ This guide narrates the capture-to-deployment pathway: XR capture → RLDS curat
 2. Curation marks two missing depth segments as `valid=false` and tags `pii_cleared=true` after blur.
 3. Cloud training exports `bundle_manifest` referencing the RLDS hash and safety eval metrics.
 4. Bundle is signed and pushed OTA; device validates signature and shell capability match.
-5. Memory Plane stages the bundle, runs fast-loop watchdog, then promotes. On collision of capability mismatch, it remains staged and exposes rollback UI/API.
+5. Memory Plane stages the bundle, runs fast-loop watchdog, then promotes. In case of capability mismatch, it remains staged and exposes rollback UI/API.
 
 ## Related contracts
 - RLDS schema: [`docs/rlds-schema.md`](./rlds-schema.md)
