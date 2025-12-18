@@ -96,6 +96,137 @@ def _model_in_local_hf_cache(model_id: str) -> bool:
         return False
 
 
+class FunctionGemmaChat:
+    """
+    Lightweight client for google/functiongemma-270m-it with tool-calling support.
+
+    Uses HuggingFace Inference API when available and falls back to a local
+    transformers pipeline (offline-first) that respects the shared HF cache.
+    """
+
+    MODEL_ID = "google/functiongemma-270m-it"
+
+    def __init__(self, *, hf_token: Optional[str] = None) -> None:
+        self.hf_token = hf_token or os.environ.get("HUGGINGFACE_TOKEN")
+        self.model_id = self.MODEL_ID
+        self.client = None
+        self.pipeline = None
+        self.device = os.environ.get("FUNCTIONGEMMA_DEVICE", "auto")
+        self._init_inference_client()
+
+    def _init_inference_client(self) -> None:
+        try:
+            from huggingface_hub import InferenceClient
+
+            self.client = InferenceClient(token=self.hf_token)
+        except Exception as exc:  # noqa: BLE001
+            logger.info(f"InferenceClient unavailable, will fall back to local pipeline ({exc})")
+            self.client = None
+
+    def _ensure_pipeline(self):
+        if self.pipeline is not None:
+            return self.pipeline
+        try:
+            from transformers import pipeline
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(f"transformers required for FunctionGemma pipeline: {exc}") from exc
+
+        snapshot_path = _snapshot_download_path(self.model_id, hf_token=self.hf_token)
+        self.pipeline = pipeline(
+            "text-generation",
+            model=str(snapshot_path),
+            tokenizer=str(snapshot_path),
+            trust_remote_code=True,
+            device_map=self.device,
+        )
+        return self.pipeline
+
+    def _prepare_messages(self, message: str, system_context: Optional[str]) -> List[Dict[str, str]]:
+        messages: List[Dict[str, str]] = []
+        if system_context:
+            messages.append({"role": "system", "content": system_context})
+        messages.append({"role": "user", "content": message})
+        return messages
+
+    def _render_tool_calls(self, choice: Any) -> List[Dict[str, Any]]:
+        calls: List[Dict[str, Any]] = []
+        tool_calls = getattr(choice, "tool_calls", None)
+        if not tool_calls:
+            return calls
+        for call in tool_calls:
+            fn = getattr(call, "function", None)
+            calls.append(
+                {
+                    "id": getattr(call, "id", None),
+                    "type": getattr(call, "type", None),
+                    "name": getattr(fn, "name", None) if fn else None,
+                    "arguments": getattr(fn, "arguments", None) if fn else None,
+                }
+            )
+        return calls
+
+    def chat(
+        self,
+        message: str,
+        *,
+        system_context: Optional[str] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_results: Optional[List[Dict[str, Any]]] = None,  # noqa: ARG002 - reserved
+        **_: Any,
+    ) -> Dict[str, Any]:
+        messages = self._prepare_messages(message, system_context)
+
+        if self.client:
+            try:
+                completion = self.client.chat.completions.create(
+                    model=self.model_id,
+                    messages=messages,
+                    tools=tools or None,
+                    tool_choice="auto" if tools else None,
+                    max_tokens=512,
+                    temperature=0.2,
+                )
+                choice = completion.choices[0].message
+                return {
+                    "text": getattr(choice, "content", "") or "",
+                    "tool_calls": self._render_tool_calls(choice),
+                    "raw": completion.model_dump(exclude_none=True) if hasattr(completion, "model_dump") else None,
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"FunctionGemma inference client failed; falling back to pipeline ({exc})")
+
+        pipe = self._ensure_pipeline()
+        outputs = pipe(
+            messages=messages,
+            tools=tools,
+            max_new_tokens=512,
+            do_sample=False,
+            temperature=0.2,
+            return_full_text=False,
+        )
+
+        text: str = ""
+        tool_calls: List[Dict[str, Any]] = []
+        try:
+            if isinstance(outputs, list) and outputs:
+                generated = outputs[0].get("generated_text") if isinstance(outputs[0], dict) else outputs[0]
+                if isinstance(generated, list) and generated:
+                    # Chat template style output
+                    last = generated[-1]
+                    text = last.get("content", "") if isinstance(last, dict) else str(last)
+                    tool_calls = last.get("tool_calls", []) if isinstance(last, dict) else []
+                elif isinstance(generated, dict):
+                    text = generated.get("content", "")
+                    tool_calls = generated.get("tool_calls", []) or []
+                else:
+                    text = str(generated)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Failed to parse FunctionGemma pipeline output ({exc}); using raw text fallback")
+            text = str(outputs)
+
+        return {"text": text or "", "tool_calls": tool_calls, "raw": outputs}
+
+
 class GemmaChat:
     """
     Manages Gemma 3 Nano model inference for chat interactions.
@@ -132,6 +263,7 @@ class GemmaChat:
         self.processor = None
         self.is_vlm = False
         self.client = None
+        self._function_chat: Optional[FunctionGemmaChat] = None
         
         self.chat_history: List[Dict[str, str]] = []
         self.max_history = 10  # Keep last 10 turns
@@ -335,7 +467,16 @@ class GemmaChat:
             logger.error(f"Failed to load Gemma model: {e}")
             return False
     
-    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None, model_hint: Optional[str] = None) -> str:
+    def chat(
+        self,
+        message: str,
+        system_context: Optional[str] = None,
+        image: Any = None,
+        model_hint: Optional[str] = None,
+        *,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_results: Optional[List[Dict[str, Any]]] = None,
+    ) -> Any:
         """
         Generate chat response from Gemma model (local or remote).
         
@@ -348,6 +489,17 @@ class GemmaChat:
             Model response text
         """
         
+        # --- PATH 0: FunctionGemma backend ---
+        if model_hint == FunctionGemmaChat.MODEL_ID:
+            if self._function_chat is None:
+                self._function_chat = FunctionGemmaChat(hf_token=self.hf_token)
+            return self._function_chat.chat(
+                message=message,
+                system_context=system_context,
+                tools=tools,
+                tool_results=tool_results,
+            )
+
         # --- PATH 1: Remote API (OpenAI/vLLM) ---
         if self.client:
             # TODO: Handle image for API if supported (e.g. GPT-4o)
@@ -643,6 +795,9 @@ def create_gemma_chat(use_mock: bool = False, **kwargs) -> Any:
         GemmaChat or MockGemmaChat instance
     """
     create_gemma_chat.DEFAULT_MODEL_ID = GemmaChat.DEFAULT_MODEL_ID
+    requested_model = kwargs.get("model_name") or GemmaChat.DEFAULT_MODEL_ID
+    if requested_model == FunctionGemmaChat.MODEL_ID:
+        return FunctionGemmaChat(hf_token=os.environ.get("HUGGINGFACE_TOKEN"))
     if use_mock:
         return MockGemmaChat(**kwargs)
     
