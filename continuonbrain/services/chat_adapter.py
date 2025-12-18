@@ -3,7 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 
 STRUCTURED_PREFIX = "__CONTINUON_STRUCTURED__:"
@@ -88,6 +88,8 @@ class ChatAdapter:
         image_jpeg: Optional[bytes] = None,
         image_source: Optional[str] = None,
         vision_requested: bool = False,
+        tool_schemas: Optional[List[Dict[str, Any]]] = None,
+        tool_results: Optional[List[Dict[str, Any]]] = None,
     ) -> dict:
         print(f"[ChatAdapter] chat() called with model_hint={model_hint} delegate={delegate_model_hint}")
         # Track current session for fallback detection
@@ -285,6 +287,7 @@ class ChatAdapter:
 
             # Call model and capture raw response
             raw_response = None
+            tool_trace: Dict[str, Any] = {}
             agent_role = "agent_manager"
             effective_model_hint = model_hint
 
@@ -302,7 +305,15 @@ class ChatAdapter:
                     image=image_obj,
                 )
             else:
-                raw_response = self._call_model(message, prompt, history, model_hint=model_hint, image=image_obj)
+                raw_response = self._call_model(
+                    message,
+                    prompt,
+                    history,
+                    model_hint=model_hint,
+                    image=image_obj,
+                    tools=tool_schemas,
+                    tool_results=tool_results,
+                )
             
             # Check if we got a fallback response
             is_fallback = (
@@ -329,6 +340,14 @@ class ChatAdapter:
                     except Exception:
                         pass
             
+            if isinstance(raw_response, dict):
+                tool_trace = {
+                    "tool_calls": raw_response.get("tool_calls") or [],
+                    "tool_results": raw_response.get("tool_results") or tool_results or [],
+                    "raw": raw_response.get("raw"),
+                }
+                raw_response = str(raw_response.get("text") or raw_response.get("response") or "")
+
             response, structured = _extract_structured_block(raw_response)
             # Ensure we always have a structured payload (UI expects a stable shape).
             if not isinstance(structured, dict):
@@ -342,6 +361,13 @@ class ChatAdapter:
                 }
             if delegate_model_hint:
                 structured["subagent"] = subagent_info
+            if tool_trace and (tool_trace.get("tool_calls") or tool_trace.get("tool_results")):
+                structured["tools"] = {
+                    "calls": tool_trace.get("tool_calls", []),
+                    "results": tool_trace.get("tool_results", []),
+                }
+                if tool_trace.get("raw") is not None:
+                    structured["tools"]["raw"] = tool_trace.get("raw")
             
             # Add answer verification for HOPE responses
             verification_info = {}
@@ -657,12 +683,30 @@ class ChatAdapter:
             self._real_subagent_chat = None
             return None
 
-    def _call_model(self, message: str, prompt: str, _history: list, model_hint: Optional[str] = None, image: Any = None) -> str:
+    def _call_model(
+        self,
+        message: str,
+        prompt: str,
+        _history: list,
+        model_hint: Optional[str] = None,
+        image: Any = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_results: Optional[List[Dict[str, Any]]] = None,
+    ) -> Any:
         # Try to use actual model first
         if self.gemma_chat:
             try:
-                response = self.gemma_chat.chat(message, system_context=prompt, image=image, model_hint=model_hint)
+                response = self.gemma_chat.chat(
+                    message,
+                    system_context=prompt,
+                    image=image,
+                    model_hint=model_hint,
+                    tools=tools,
+                    tool_results=tool_results,
+                )
                 # Verify we got a real response, not an error
+                if isinstance(response, dict):
+                    return response
                 if response and "Error" not in response and "failed" not in response.lower():
                     return response
                 # If we got an error, fall through to fallback
