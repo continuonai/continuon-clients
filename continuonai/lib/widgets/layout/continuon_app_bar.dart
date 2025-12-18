@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../screens/marketing_home.dart';
 import '../../screens/research_screen.dart';
@@ -54,9 +54,9 @@ class ContinuonAppBar extends StatelessWidget implements PreferredSizeWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: SvgPicture.asset(
-                    'assets/branding/continuon_ai_logo.svg',
-                    height: 40, // Larger than 32, logic only (no text)
+                  child: Image.asset(
+                    'assets/branding/continuon_ai_logo_text_transparent.png',
+                    height: 40,
                     fit: BoxFit.contain,
                   ),
                 ),

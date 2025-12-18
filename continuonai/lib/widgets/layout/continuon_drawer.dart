@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../screens/marketing_home.dart';
 import '../../screens/research_screen.dart';
 import '../../screens/youtube_import_screen.dart';
@@ -28,8 +28,8 @@ class ContinuonDrawer extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SvgPicture.asset(
-                    'assets/branding/continuon_ai_logo.svg',
+                  Image.asset(
+                    'assets/branding/continuon_ai_logo_text_transparent.png',
                     height: 48,
                     fit: BoxFit.contain,
                   ),

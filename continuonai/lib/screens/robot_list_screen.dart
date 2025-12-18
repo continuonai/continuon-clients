@@ -181,27 +181,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
     }
 
     return ContinuonLayout(
-      appBarActions: [
-        IconButton(
-          icon: const Icon(Icons.vpn_key),
-          tooltip: 'Set auth token (Bearer) + account metadata',
-          onPressed: _showAuthTokenDialog,
-        ),
-        IconButton(
-          icon: const Icon(Icons.qr_code_scanner),
-          tooltip: 'Pair robot (QR)',
-          onPressed: _openPairing,
-        ),
-        IconButton(
-          icon: const Icon(Icons.radar),
-          tooltip: 'Scan for Robots',
-          onPressed: _scanForRobots,
-        ),
-        // Logout is now in the User Badge of ContinuonAppBar
-      ],
+      // 100% Consistent Nav: No screen-specific actions in Top Bar
       body: Column(
         children: [
           _buildStatusBanner(),
+          _buildActionRow(), // New local action bar
           _buildHelpCard(),
           Expanded(
               child: _user == null ? _buildGuestList() : _buildFirestoreList()),
@@ -300,6 +284,34 @@ class _RobotListScreenState extends State<RobotListScreen> {
               Navigator.pop(context);
             },
             child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _showAuthTokenDialog,
+            icon: const Icon(Icons.vpn_key, size: 18),
+            label: const Text('Credentials'),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: _openPairing,
+            icon: const Icon(Icons.qr_code_scanner, size: 18),
+            label: const Text('Pair'),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: _scanForRobots,
+            icon: const Icon(Icons.radar, size: 18),
+            label: const Text('Scan'),
           ),
         ],
       ),

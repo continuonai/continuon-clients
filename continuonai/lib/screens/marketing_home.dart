@@ -5,8 +5,13 @@ import '../widgets/marketing/problem_solution_section.dart';
 import '../widgets/marketing/manifesto_section.dart';
 import '../widgets/marketing/tech_stack_section.dart';
 import '../widgets/marketing/cta_section.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import '../widgets/layout/continuon_drawer.dart';
 import 'research_screen.dart';
 import 'youtube_import_screen.dart';
+import 'robot_list_screen.dart';
+import 'login_screen.dart';
 
 class MarketingHomeScreen extends StatelessWidget {
   const MarketingHomeScreen({super.key});
@@ -17,9 +22,11 @@ class MarketingHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use the custom theme extension for gradients and accents
     // final brand = Theme.of(context).extension<ContinuonBrandExtension>()!;
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      endDrawer: const ContinuonDrawer(),
       body: CustomScrollView(
         slivers: [
           // 1. Sticky Navigation
@@ -27,59 +34,64 @@ class MarketingHomeScreen extends StatelessWidget {
             pinned: true,
             floating: true,
             backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-            title: Row(
-              children: [
-                Image.asset(
+            title: InkWell(
+              onTap: () {}, // Already on home
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Image.asset(
                   'assets/branding/continuon_ai_logo_text_transparent.png',
-                  height: 32,
-                  width: 32,
+                  height: 40,
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Continuon AI',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
+              ),
             ),
             actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/login');
-                  },
-                  child: const Text('Sign up / Log in'),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, ResearchScreen.routeName);
-                  },
+              if (MediaQuery.of(context).size.width > 800) ...[
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, ResearchScreen.routeName),
+                  style: _navStyle(context),
                   child: const Text('Research'),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/episodes');
-                  },
-                  child: const Text('Public RLDS'),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, RobotListScreen.routeName),
+                  style: _navStyle(context),
+                  child: const Text('Robots'),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, YoutubeImportScreen.routeName);
-                  },
-                  child: const Text('Import YouTube'),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(
+                      context, YoutubeImportScreen.routeName),
+                  style: _navStyle(context),
+                  child: const Text('Import'),
                 ),
-              ),
+                const SizedBox(width: 16),
+                if (user == null)
+                  ElevatedButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, LoginScreen.routeName),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                    ),
+                    child: const Text('Log in'),
+                  )
+                else
+                  // Simple text for now or avatar if needed, but drawer handles profile
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, RobotListScreen.routeName),
+                    child: Text(user.displayName ?? 'My Account'),
+                  ),
+                const SizedBox(width: 24),
+              ] else ...[
+                IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openEndDrawer(),
+                ),
+                const SizedBox(width: 16),
+              ],
             ],
           ),
 
@@ -134,6 +146,15 @@ class MarketingHomeScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  ButtonStyle _navStyle(BuildContext context) {
+    return TextButton.styleFrom(
+      foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
+      textStyle: const TextStyle(
+          fontWeight: FontWeight.w600, fontSize: 18, letterSpacing: 0.5),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 }

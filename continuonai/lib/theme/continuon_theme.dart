@@ -312,6 +312,16 @@ final ThemeData continuonLightTheme = ThemeData(
       ),
     ),
   ),
+  pageTransitionsTheme: const PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: NoPageTransitionsBuilder(),
+      TargetPlatform.iOS: NoPageTransitionsBuilder(),
+      TargetPlatform.macOS: NoPageTransitionsBuilder(),
+      TargetPlatform.windows: NoPageTransitionsBuilder(),
+      TargetPlatform.linux: NoPageTransitionsBuilder(),
+      TargetPlatform.fuchsia: NoPageTransitionsBuilder(),
+    },
+  ),
   extensions: <ThemeExtension<dynamic>>[
     ContinuonBrandExtension.light,
   ],
@@ -349,6 +359,16 @@ final ThemeData continuonDarkTheme = ThemeData(
         borderRadius: BorderRadius.circular(ContinuonTokens.r8),
       ),
     ),
+  ),
+  pageTransitionsTheme: const PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: NoPageTransitionsBuilder(),
+      TargetPlatform.iOS: NoPageTransitionsBuilder(),
+      TargetPlatform.macOS: NoPageTransitionsBuilder(),
+      TargetPlatform.windows: NoPageTransitionsBuilder(),
+      TargetPlatform.linux: NoPageTransitionsBuilder(),
+      TargetPlatform.fuchsia: NoPageTransitionsBuilder(),
+    },
   ),
   extensions: <ThemeExtension<dynamic>>[
     ContinuonBrandExtension.dark,
@@ -414,3 +434,19 @@ final ColorScheme _continuonDarkScheme = ColorScheme(
   onInverseSurface: ContinuonColors.gray900,
   inversePrimary: ContinuonColors.waveBlueEnd,
 );
+
+/// Custom transition builder for "zero animation" instant navigation
+class NoPageTransitionsBuilder extends PageTransitionsBuilder {
+  const NoPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
+}
