@@ -1097,10 +1097,21 @@ class BrainService:
             
             # Clean up old model if it's not mock
             old_model_name = getattr(self.gemma_chat, 'model_name', 'unknown')
-            if hasattr(self.gemma_chat, 'model') and self.gemma_chat.model is not None:
+            # Determine if we should reuse the existing model for HOPE v1
+            reuse_for_hope = False
+            if model_id == "hope-v1" and getattr(self.gemma_chat, 'model_name', '') == create_gemma_chat.DEFAULT_MODEL_ID:
+                reuse_for_hope = True
+            
+            # Clean up previous model (unless we are reusing it)
+            if not reuse_for_hope and hasattr(self.gemma_chat, 'model') and self.gemma_chat.model is not None:
                 logger.info(f"Unloading previous model: {old_model_name}")
-                del self.gemma_chat.model
-                del self.gemma_chat.tokenizer
+                try:
+                    del self.gemma_chat.model
+                    if hasattr(self.gemma_chat, 'tokenizer'):
+                        del self.gemma_chat.tokenizer
+                except Exception as e:
+                    logger.warning(f"Error unloading model attributes: {e}")
+                
                 import gc
                 gc.collect()
                 
@@ -1667,7 +1678,7 @@ class BrainService:
                     payload = {
                         "status": {
                             "uptime_seconds": self.uptime_seconds,
-                            "device_id": self.agent_id,
+                            "device_id": getattr(self, "agent_id", "continuon-bot"),
                             "mode": mode,
                             "ok": True
                         }

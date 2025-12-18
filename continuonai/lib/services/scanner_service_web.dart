@@ -82,8 +82,38 @@ class ScannerService {
   }
 
   Future<void> _probeHost(String host) async {
+    // Try discovery endpoint first (preferred, richer metadata)
     try {
-      final statusUrl = Uri.http('$host:8080', '/status');
+      final discoveryUrl = Uri.http('$host:8080', '/api/discovery/info');
+      final discoveryResponse = await html.HttpRequest.request(
+        discoveryUrl.toString(),
+        method: 'GET',
+        requestHeaders: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 3));
+
+      if (discoveryResponse.status == 200 && discoveryResponse.responseText != null) {
+        final payload = jsonDecode(discoveryResponse.responseText!);
+        if (payload is Map<String, dynamic>) {
+          final robot = _parseRobotFromDiscovery(host, payload);
+          if (robot != null) {
+            _addRobot(robot);
+            html.window.localStorage['continuon_last_host'] = robot.host;
+            // Store robot name for .local hostname support
+            if (payload['robot_name'] != null) {
+              final robotName = payload['robot_name'].toString().toLowerCase();
+              html.window.localStorage['continuon_last_robot_name'] = robotName;
+            }
+            return; // Success with discovery endpoint
+          }
+        }
+      }
+    } catch (_) {
+      // Fall through to /status endpoint fallback
+    }
+
+    // Fallback to /status endpoint for backwards compatibility
+    try {
+      final statusUrl = Uri.http('$host:8080', '/api/status');
       final response = await html.HttpRequest.request(
         statusUrl.toString(),
         method: 'GET',
@@ -108,8 +138,53 @@ class ScannerService {
     }
   }
 
+  ScannedRobot? _parseRobotFromDiscovery(
+      String host, Map<String, dynamic> payload) {
+    // Parse discovery endpoint response format
+    if (payload['status'] != 'ok' || payload['product'] != 'continuon_brain_runtime') {
+      return null;
+    }
+
+    final name = (payload['robot_name'] ?? 'ContinuonBrain').toString();
+    
+    // Extract base_url and parse host/port from it
+    String? baseUrl = payload['base_url']?.toString();
+    String resolvedHost = host;
+    int httpPort = 8080;
+    
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      try {
+        final uri = Uri.parse(baseUrl);
+        if (uri.host.isNotEmpty) {
+          resolvedHost = uri.host;
+        }
+        if (uri.port > 0) {
+          httpPort = uri.port;
+        }
+      } catch (_) {
+        // Fall back to provided host if URL parsing fails
+      }
+    }
+
+    // Use provided host if base_url didn't yield a host
+    if (resolvedHost.isEmpty || resolvedHost == host) {
+      resolvedHost = host;
+    }
+
+    // Default GRPC port same as HTTP for now
+    final grpcPort = httpPort;
+
+    return ScannedRobot(
+      name: name,
+      host: resolvedHost,
+      port: grpcPort,
+      httpPort: httpPort,
+    );
+  }
+
   ScannedRobot? _parseRobotFromStatus(
       String host, Map<String, dynamic> payload) {
+    // Parse legacy /status endpoint response format
     final name = (payload['robot_name'] ?? payload['name'] ?? 'ContinuonBrain')
         .toString();
     final httpPort = (payload['port'] is int)
@@ -143,6 +218,18 @@ class ScannerService {
       hosts.add(storedHost);
     }
 
+    // Add .local hostname from last known robot name (from discovery response)
+    final storedRobotName = html.window.localStorage['continuon_last_robot_name'];
+    if (storedRobotName != null && storedRobotName.isNotEmpty) {
+      // Try both the stored name and common defaults
+      final cleanName = storedRobotName.replaceAll(RegExp(r'[^a-z0-9-]'), '');
+      hosts.add('$cleanName.local');
+      hosts.add('continuonbot.local');
+    } else {
+      // Common fallback for devices advertising a .local mDNS hostname.
+      hosts.add('continuonbot.local');
+    }
+
     final locationHost = html.window.location.hostname;
     if (locationHost != null &&
         locationHost.isNotEmpty &&
@@ -159,9 +246,6 @@ class ScannerService {
         }
       }
     }
-
-    // Common fallback for devices advertising a .local mDNS hostname.
-    hosts.add('continuonbot.local');
 
     return hosts;
   }

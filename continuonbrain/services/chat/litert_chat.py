@@ -29,7 +29,7 @@ class LiteRTGemmaChat:
     Gemma 3N backend using LiteRT (TensorFlow Lite) for inference.
     """
     
-    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it-litert-lm"
+    DEFAULT_MODEL_ID = "google/gemma-3-270m-it"
 
     def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", accelerator_device: Optional[str] = None):
         # Verification Mode: If GenAI unavailable, force mock mode for .litertlm support

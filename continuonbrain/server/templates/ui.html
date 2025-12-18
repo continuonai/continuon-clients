@@ -29,6 +29,8 @@
                 <button class="tool-btn" onclick="window.setViewMode('planning')">Planning</button>
                 <button class="tool-btn" onclick="window.setViewMode('docs')">Docs</button>
                 <button class="tool-btn" onclick="window.setViewMode('manual')">Controls</button>
+                <button class="tool-btn" id="research-view-btn"
+                    onclick="window.setViewMode('research')">Research</button>
                 <div class="divider"></div>
                 <button class="tool-btn" onclick="openSettingsModal()">Settings</button>
                 <button class="tool-btn ghost" onclick="window.triggerSafetyHold()">Safety Hold</button>
@@ -357,6 +359,85 @@
                         <div class="api-card">
                             <div class="api-meta">POST /api/safety/reset</div>
                             <button onclick="window.resetSafetyGates()">Trigger</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW: 4D Brain Visualization Panel -->
+                <div class="panel research-only" style="display:none;">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">4D brain visualization</div>
+                            <h2>HOPE Brain (3D + time)</h2>
+                            <p class="panel-subtitle">A “4D” view: 3D structure + a time slider that scrubs recent live
+                                metrics onto the graph.</p>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="panel-ghost">
+                            <div class="mode-pills"
+                                style="margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <div class="panel-subtitle" style="margin:0; margin-right:10px;">Layout</div>
+                                <button class="tool-btn current" id="brain-layout-graph" type="button"
+                                    style="padding:4px 10px; font-size:12px;">Graph</button>
+                                <button class="tool-btn" id="brain-layout-columnar" type="button"
+                                    style="padding:4px 10px; font-size:12px;">Columnar</button>
+                                <button class="tool-btn" id="brain-layout-hybrid" type="button"
+                                    style="padding:4px 10px; font-size:12px;">Hybrid</button>
+                                <span style="flex:1;"></span>
+                                <div class="panel-subtitle" style="margin:0; margin-right:10px;">Overlay</div>
+                                <select id="brain-overlay" class="input-compact" style="width:160px;">
+                                    <option value="all" selected>All (default)</option>
+                                    <option value="control_loop">Control loop</option>
+                                    <option value="wavecore">WaveCore loss</option>
+                                    <option value="tool_search">Tool search</option>
+                                    <option value="hope_eval">HOPE eval</option>
+                                </select>
+                                <div class="panel-subtitle" style="margin:0; margin-left:10px; margin-right:6px;">Flow
+                                </div>
+                                <button class="tool-btn current" id="brain-flow-toggle" type="button"
+                                    style="padding:4px 10px; font-size:12px;">Hide Flow</button>
+                            </div>
+                            <div class="metric-row" style="margin-bottom:10px;">
+                                <div class="metric-label"
+                                    style="font-size:12px; color:var(--muted); margin-bottom:4px;">Time Scrubbing</div>
+                                <div class="metric-value" style="display:flex; gap:10px; align-items:center;">
+                                    <input id="brain-viz-time" type="range" min="0" max="100" value="100"
+                                        style="width:100%; cursor:pointer;">
+                                    <span class="stack-meta" id="brain-viz-time-label"
+                                        style="min-width:100px; text-align:right;">latest</span>
+                                </div>
+                            </div>
+                            <div class="panel-ghost brain-strip-panel"
+                                style="margin-bottom:12px; padding:10px; background:rgba(0,0,0,0.2);">
+                                <div class="brain-strip-header"
+                                    style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <div>
+                                        <div class="panel-eyebrow">CMS cross-section</div>
+                                    </div>
+                                    <div class="brain-strip-legend"
+                                        style="display:flex; gap:8px; font-size:11px; color:var(--muted);">
+                                        <span style="color:#ff8c42;">● Fast</span>
+                                        <span style="color:#8a52ff;">● Mid</span>
+                                        <span style="color:#67d3ff;">● Slow</span>
+                                    </div>
+                                </div>
+                                <div class="brain-strip-canvas-wrap"
+                                    style="position:relative; height:160px; overflow:hidden; border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+                                    <canvas id="brain-viz-strip" class="brain-strip-canvas" height="160"
+                                        style="width:100%; height:100%;"></canvas>
+                                    <div id="brain-viz-strip-fallback" class="stack-meta brain-strip-fallback"
+                                        style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+                                        Cross-section unavailable</div>
+                                </div>
+                            </div>
+                            <div id="brain-viz-container"
+                                style="height:440px; border-radius:14px; border:1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.12); overflow:hidden; position:relative;">
+                                <div id="brain-viz-fallback" class="stack-meta"
+                                    style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:18px; text-align:center;">
+                                    Loading 3D brain…
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -711,6 +792,16 @@
     <script src="/static/ui_owner.js"></script>
     <script src="/static/ui_research.js"></script>
     <script src="/static/ui_docs.js"></script>
+    <script type="module">
+        // Load Three.js brain visualization (best-effort; falls back gracefully).
+        try {
+            await import('/static/brain-viz.js');
+        } catch (e) {
+            const el = document.getElementById('brain-viz-fallback');
+            if (el) el.textContent = '3D brain view unavailable (module load failed). Check network/CSP or use the metrics cards above.';
+            console.warn('brain-viz load failed', e);
+        }
+    </script>
 </body>
 
 </html>

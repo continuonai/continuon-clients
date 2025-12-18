@@ -725,12 +725,12 @@ window.setViewMode = function (mode) {
         researchPanels.forEach(p => p.style.display = 'block');
     }
 
-    const ownerBtn = document.getElementById('owner-view-btn');
-    const researchBtn = document.getElementById('research-view-btn');
-    const docsBtn = document.getElementById('docs-view-btn');
     if (ownerBtn) ownerBtn.classList.toggle('active', viewState.mode === 'owner');
     if (researchBtn) researchBtn.classList.toggle('active', viewState.mode === 'research');
     if (docsBtn) docsBtn.classList.toggle('active', viewState.mode === 'docs');
+
+    // Trigger resize to fix layout of charts/canvases that were hidden
+    window.dispatchEvent(new Event('resize'));
 };
 
 (function initViewMode() {

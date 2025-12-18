@@ -101,36 +101,70 @@ class LANDiscoveryService:
         """
         Start Zeroconf/mDNS service for proper LAN discovery.
         This allows iPhone apps to discover robots using Bonjour.
+        Registers both _continuon._tcp and _continuonbrain._tcp for maximum compatibility.
         """
         try:
             from zeroconf import ServiceInfo, Zeroconf
             
             info = self.get_robot_info()
+            ip_addr_bytes = socket.inet_aton(info['ip_address'])
+            hostname = socket.gethostname()
+            server_name = f"{hostname}.local."
             
-            # Create mDNS service info
-            service_info = ServiceInfo(
-                "_continuonbrain._tcp.local.",
-                f"{self.robot_name}._continuonbrain._tcp.local.",
-                addresses=[socket.inet_aton(info['ip_address'])],
-                port=self.service_port,
-                properties={
-                    'robot_name': self.robot_name,
-                    'version': info['version'],
-                    'capabilities': ','.join(info['capabilities'])
-                },
-                server=f"{socket.gethostname()}.local."
-            )
+            # Common properties for both service types
+            properties = {
+                'robot_name': self.robot_name,
+                'version': info['version'],
+                'capabilities': ','.join(info['capabilities'])
+            }
             
             self.zeroconf = Zeroconf()
-            self.zeroconf.register_service(service_info)
-            self.running = True
+            registered_count = 0
             
-            print(f"✅ Zeroconf service registered:")
-            print(f"   Name: {self.robot_name}")
-            print(f"   Type: _continuonbrain._tcp.local.")
-            print(f"   Address: {info['ip_address']}:{self.service_port}")
+            # Register _continuon._tcp (for native app compatibility)
+            try:
+                service_info_continuon = ServiceInfo(
+                    "_continuon._tcp.local.",
+                    f"{self.robot_name}._continuon._tcp.local.",
+                    addresses=[ip_addr_bytes],
+                    port=self.service_port,
+                    properties=properties,
+                    server=server_name
+                )
+                self.zeroconf.register_service(service_info_continuon)
+                registered_count += 1
+                print(f"✅ Zeroconf service registered:")
+                print(f"   Name: {self.robot_name}")
+                print(f"   Type: _continuon._tcp.local.")
+                print(f"   Address: {info['ip_address']}:{self.service_port}")
+            except Exception as e:
+                print(f"⚠️  Failed to register _continuon._tcp: {e}")
             
-            return True
+            # Register _continuonbrain._tcp (backwards compatibility)
+            try:
+                service_info_brain = ServiceInfo(
+                    "_continuonbrain._tcp.local.",
+                    f"{self.robot_name}._continuonbrain._tcp.local.",
+                    addresses=[ip_addr_bytes],
+                    port=self.service_port,
+                    properties=properties,
+                    server=server_name
+                )
+                self.zeroconf.register_service(service_info_brain)
+                registered_count += 1
+                print(f"✅ Zeroconf service registered:")
+                print(f"   Name: {self.robot_name}")
+                print(f"   Type: _continuonbrain._tcp.local.")
+                print(f"   Address: {info['ip_address']}:{self.service_port}")
+            except Exception as e:
+                print(f"⚠️  Failed to register _continuonbrain._tcp: {e}")
+            
+            if registered_count > 0:
+                self.running = True
+                return True
+            else:
+                print("⚠️  No mDNS services could be registered")
+                return False
         
         except ImportError:
             print("⚠️  Zeroconf not installed - using simple broadcast")

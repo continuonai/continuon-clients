@@ -7,6 +7,7 @@ import json
 import mimetypes
 import os
 import re
+import socket
 import shutil
 import time
 import zipfile
@@ -16,7 +17,7 @@ import subprocess
 from collections import deque
 from pathlib import Path
 from typing import Any, Dict, Optional
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import jinja2
 
@@ -73,6 +74,118 @@ class SimpleJSONServer:
             return f"<html><body><h1>Template {template_name} not found</h1></body></html>"
         except Exception as e:
             return f"<html><body><h1>Error rendering template: {e}</h1></body></html>"
+
+    def _best_lan_ip(self) -> str:
+        """
+        Best-effort LAN IP selection for "device discoverability".
+
+        Motivation: when the UI is opened *on-device* (e.g. `http://localhost:8080/ui`),
+        QR codes and deep links must advertise a reachable LAN address (e.g. `192.168.x.y`)
+        so phones / Continuon AI can connect.
+        """
+
+        # 1) Prefer the system's default route interface (no packets are sent).
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                sock.connect(("8.8.8.8", 80))
+                ip = sock.getsockname()[0]
+                if ip and not ip.startswith("127."):
+                    return ip
+            finally:
+                sock.close()
+        except Exception:
+            pass
+
+        # 2) Fallback to hostname resolution (often works on Pi LANs).
+        try:
+            _, _, ips = socket.gethostbyname_ex(socket.gethostname())
+            for ip in ips or []:
+                if ip and not ip.startswith("127."):
+                    return ip
+        except Exception:
+            pass
+
+        return "127.0.0.1"
+
+    def _infer_advertise_base_url(
+        self,
+        *,
+        requested_base_url: str = "",
+        headers: Dict[str, Any],
+        writer: Optional[asyncio.StreamWriter],
+    ) -> str:
+        """
+        Infer a base URL that other devices on the LAN can reach.
+
+        We accept a client-provided `requested_base_url`, but if it looks like localhost
+        we replace it with a best-effort LAN IP.
+        """
+
+        requested_base_url = str(requested_base_url or "").strip()
+        scheme = "http"
+        host = ""
+        port: Optional[int] = None
+
+        # Prefer explicit client-provided base_url scheme/port if present.
+        if requested_base_url:
+            try:
+                parsed = urlparse(requested_base_url)
+                if parsed.scheme:
+                    scheme = parsed.scheme
+                if parsed.hostname:
+                    host = parsed.hostname
+                if parsed.port:
+                    port = int(parsed.port)
+            except Exception:
+                pass
+
+        # Use reverse-proxy / direct host headers if they exist (and aren't localhost).
+        try:
+            hdr_host = (headers.get("x-forwarded-host") or headers.get("host") or "")
+            hdr_host = str(hdr_host).split(",", 1)[0].strip()
+            if hdr_host:
+                # If host header includes port, keep it; otherwise keep host only.
+                if ":" in hdr_host and not hdr_host.endswith("]"):
+                    host_part, port_part = hdr_host.rsplit(":", 1)
+                    if host_part:
+                        host = host_part.strip("[]")
+                    if port is None:
+                        try:
+                            port = int(port_part)
+                        except Exception:
+                            pass
+                else:
+                    host = hdr_host.strip("[]")
+        except Exception:
+            pass
+
+        # Port fallback: take the local listening port.
+        if port is None:
+            try:
+                if writer is not None:
+                    sockname = writer.get_extra_info("sockname")
+                    if isinstance(sockname, (tuple, list)) and len(sockname) >= 2:
+                        port = int(sockname[1])
+            except Exception:
+                port = None
+        if port is None:
+            port = 8080
+
+        # Scheme can be overridden by proxy headers.
+        try:
+            xf_proto = str(headers.get("x-forwarded-proto") or "").split(",", 1)[0].strip().lower()
+            if xf_proto in ("http", "https"):
+                scheme = xf_proto
+        except Exception:
+            pass
+
+        # If host is missing or localhost-ish, switch to best LAN IP.
+        host_lower = (host or "").strip().lower()
+        if host_lower in ("", "localhost", "127.0.0.1", "0.0.0.0", "::1", "::"):
+            host = self._best_lan_ip()
+
+        return f"{scheme}://{host}:{port}"
 
     async def handle_http_request(self, request_line: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle HTTP request and return HTML/JSON/SSE response."""
@@ -222,8 +335,86 @@ class SimpleJSONServer:
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path == "/api/status":
             status = await self.service.GetRobotStatus()
+            # Add discovery endpoint URL for progressive enhancement
+            if isinstance(status, dict):
+                base_url = self._infer_advertise_base_url(headers=headers, writer=writer)
+                status["discovery_url"] = f"{base_url}/api/discovery/info"
             response_body = json.dumps(status)
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path in {"/api/discovery", "/api/discovery/info"} and method == "GET":
+            base_url = self._infer_advertise_base_url(headers=headers, writer=writer)
+            session = None
+            try:
+                session = self.service.pairing.get_pending()
+            except Exception:
+                session = None
+            
+            # Load device identification
+            device_id = None
+            try:
+                device_id_path = Path(self.service.config_dir) / "device_id.json"
+                if device_id_path.exists():
+                    data = json.loads(device_id_path.read_text())
+                    device_id = data.get("device_id")
+            except Exception:
+                pass
+            
+            # Load robot name from settings
+            robot_name = "ContinuonBot"
+            try:
+                settings = SettingsStore(Path(self.service.config_dir)).load()
+                identity = settings.get("identity", {}) or {}
+                robot_name = identity.get("creator_display_name") or identity.get("robot_name") or robot_name
+            except Exception:
+                pass
+            
+            # Get pairing status with enhanced info
+            pairing_info: Dict[str, Any] = {"pending": False}
+            if session:
+                now = int(time.time())
+                expires_unix_s = getattr(session, "expires_unix_s", None) or (now + 300)
+                expires_in_seconds = max(0, expires_unix_s - now)
+                # Only expose confirm_code if session is valid and not expired
+                confirm_code = None
+                if expires_in_seconds > 0:
+                    confirm_code = getattr(session, "confirm_code", None)
+                pairing_info = {
+                    "pending": True,
+                    "expires_unix_s": expires_unix_s,
+                    "expires_in_seconds": expires_in_seconds,
+                    "url": getattr(session, "url", None),
+                    "pairing_url": getattr(session, "url", None),  # Alias for clarity
+                    "confirm_code": confirm_code,
+                }
+            
+            payload: Dict[str, Any] = {
+                "status": "ok",
+                "product": "continuon_brain_runtime",
+                "device_id": device_id,
+                "robot_name": robot_name,
+                "version": "0.1.0",
+                "capabilities": [
+                    "arm_control",
+                    "depth_vision",
+                    "training_mode",
+                    "autonomous_mode",
+                    "pairing",
+                    "discovery",
+                ],
+                "base_url": base_url,
+                "discovery": {"kind": "lan_http", "via": "continuonbrain/server/routes.py"},
+                "endpoints": {
+                    "status": f"{base_url}/api/status",
+                    "mobile_summary": f"{base_url}/api/mobile/summary",
+                    "pair_landing": f"{base_url}/pair",
+                    "pair_start": f"{base_url}/api/ownership/pair/start",
+                    "pair_confirm": f"{base_url}/api/ownership/pair/confirm",
+                    "pair_qr_png": f"{base_url}/api/ownership/pair/qr",
+                    "discovery": f"{base_url}/api/discovery/info",
+                },
+                "pairing": pairing_info,
+            }
+            return self._json_response(payload)
         elif path == "/api/mobile/summary":
             status = await self.service.GetRobotStatus()
             loops = await self.service.GetLoopHealth()
@@ -761,6 +952,15 @@ class SimpleJSONServer:
 
         elif path == "/api/ownership/pair/start" and method == "POST":
             payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                payload = {}
+            # Ensure the QR advertises a LAN-reachable base_url even when the UI is opened
+            # as `http://localhost:8080/ui` on the robot itself.
+            payload["base_url"] = self._infer_advertise_base_url(
+                requested_base_url=str(payload.get("base_url") or ""),
+                headers=headers,
+                writer=writer,
+            )
             result = await self.service.StartPairing(payload or {})
             return self._json_response(result)
 
