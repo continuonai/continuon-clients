@@ -127,6 +127,106 @@ def _build_status_payload() -> dict:
     }
 
 
+def _build_discovery_payload(handler) -> dict:
+    """Build discovery endpoint payload for LAN device discovery."""
+    import socket
+    
+    # Infer base URL from request
+    host_header = handler.headers.get("host") or handler.headers.get("x-forwarded-host") or ""
+    host = host_header.split(":")[0] if host_header else "127.0.0.1"
+    
+    # If host is localhost-ish, try to get LAN IP
+    if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1", ""):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            host = s.getsockname()[0]
+            s.close()
+        except Exception:
+            host = "127.0.0.1"
+    
+    port = 8081  # Default, could extract from host_header if needed
+    if ":" in host_header:
+        try:
+            port = int(host_header.split(":")[1])
+        except Exception:
+            pass
+    
+    base_url = f"http://{host}:{port}"
+    
+    # Load device identification
+    device_id = getattr(brain_service, "device_id", None)
+    if not device_id:
+        try:
+            device_id_path = Path(brain_service.config_dir) / "device_id.json"
+            if device_id_path.exists():
+                data = json.loads(device_id_path.read_text())
+                device_id = data.get("device_id")
+        except Exception:
+            pass
+    
+    # Load robot name from settings
+    robot_name = "ContinuonBot"
+    try:
+        settings_store = SettingsStore(Path(brain_service.config_dir))
+        settings = settings_store.load()
+        identity = settings.get("identity", {}) or {}
+        robot_name = identity.get("creator_display_name") or identity.get("robot_name") or robot_name
+    except Exception:
+        pass
+    
+    # Get pairing status
+    pairing_info = {"pending": False}
+    try:
+        session = brain_service.pairing.get_pending() if hasattr(brain_service, "pairing") else None
+        if session:
+            import time
+            now = int(time.time())
+            expires_unix_s = getattr(session, "expires_unix_s", None) or (now + 300)
+            expires_in_seconds = max(0, expires_unix_s - now)
+            confirm_code = None
+            if expires_in_seconds > 0:
+                confirm_code = getattr(session, "confirm_code", None)
+            pairing_info = {
+                "pending": True,
+                "expires_unix_s": expires_unix_s,
+                "expires_in_seconds": expires_in_seconds,
+                "url": getattr(session, "url", None),
+                "pairing_url": getattr(session, "url", None),
+                "confirm_code": confirm_code,
+            }
+    except Exception:
+        pass
+    
+    return {
+        "status": "ok",
+        "product": "continuon_brain_runtime",
+        "device_id": device_id,
+        "robot_name": robot_name,
+        "version": "0.1.0",
+        "capabilities": [
+            "arm_control",
+            "depth_vision",
+            "training_mode",
+            "autonomous_mode",
+            "pairing",
+            "discovery",
+        ],
+        "base_url": base_url,
+        "discovery": {"kind": "lan_http", "via": "continuonbrain/api/server.py"},
+        "endpoints": {
+            "status": f"{base_url}/api/status",
+            "mobile_summary": f"{base_url}/api/mobile/summary",
+            "pair_landing": f"{base_url}/pair",
+            "pair_start": f"{base_url}/api/ownership/pair/start",
+            "pair_confirm": f"{base_url}/api/ownership/pair/confirm",
+            "pair_qr_png": f"{base_url}/api/ownership/pair/qr",
+            "discovery": f"{base_url}/api/discovery/info",
+        },
+        "pairing": pairing_info,
+    }
+
+
 def _training_pipeline_overview() -> dict:
     """
     Latest training pipeline summary for UI/API consumers.
@@ -595,9 +695,33 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 data = identity_service.identity
                 self.send_json(data)
 
+            elif self.path in {"/api/discovery", "/api/discovery/info"}:
+                # Discovery endpoint for LAN device discovery
+                self.send_json(_build_discovery_payload(self))
+            
             elif self.path.startswith("/api/status"):
                 # Enriched robot status for UI
-                self.send_json(_build_status_payload())
+                status_payload = _build_status_payload()
+                # Add discovery_url for progressive enhancement
+                try:
+                    import socket
+                    host_header = self.headers.get("host") or self.headers.get("x-forwarded-host") or ""
+                    host = host_header.split(":")[0] if host_header else "127.0.0.1"
+                    if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1", ""):
+                        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        s.connect(("8.8.8.8", 80))
+                        host = s.getsockname()[0]
+                        s.close()
+                    port = 8081
+                    if ":" in host_header:
+                        try:
+                            port = int(host_header.split(":")[1])
+                        except Exception:
+                            pass
+                    status_payload["discovery_url"] = f"http://{host}:{port}/api/discovery/info"
+                except Exception:
+                    pass
+                self.send_json(status_payload)
 
             elif self.path.startswith("/api/loops"):
                 gates = brain_service.mode_manager.get_gate_snapshot() if brain_service and brain_service.mode_manager else {}

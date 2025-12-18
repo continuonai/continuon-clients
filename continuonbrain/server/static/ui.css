@@ -1327,6 +1327,74 @@ body {
     gap: 10px;
 }
 
+/* Chat message positioning: HOPE left, 3rd party center, user right */
+.chat-message {
+    display: flex;
+    padding: 10px 14px;
+    border-radius: 12px;
+    max-width: 70%;
+    word-wrap: break-word;
+    position: relative;
+}
+
+/* HOPE Agent - Always on the left */
+.chat-message.hope,
+.chat-message.hope-v1,
+.chat-message.agent_manager,
+.chat-message.agent-manager,
+.chat-message.hope_agent {
+    align-self: flex-start;
+    background: #2d4233;
+    color: #d7ffcf;
+    border-left: 3px solid #4caf50;
+    border-radius: 4px 12px 12px 4px;
+    margin-right: auto;
+    max-width: 65%;
+}
+
+/* 3rd Party Models (Gemma, Phi-2, etc.) - Always centered */
+.chat-message.subagent,
+.chat-message.assistant,
+.chat-message.gemma,
+.chat-message.phi,
+.chat-message.third_party {
+    align-self: center;
+    background: #2d3855;
+    color: #d0e1ff;
+    border-left: 3px solid #4c89af;
+    border-radius: 12px;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 60%;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.9em;
+}
+
+/* User messages - Always on the right */
+.chat-message.user {
+    align-self: flex-end;
+    background: #4a5a75;
+    color: #fff;
+    border-radius: 12px 4px 4px 12px;
+    margin-left: auto;
+    max-width: 65%;
+}
+
+/* System messages - centered, different style */
+.chat-message.system,
+.chat-message.system-alert {
+    align-self: center;
+    background: rgba(116, 42, 42, 0.6);
+    color: #fff5f5;
+    border: 1px solid rgba(255, 188, 188, 0.3);
+    border-radius: 8px;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 80%;
+    font-size: 0.85em;
+    font-style: italic;
+}
+
 .chat-input-area.inline {
     display: flex;
     gap: 10px;

@@ -30,6 +30,97 @@
 
 <div class="panel">
     <div class="panel-header">
+        <h2>Agent Chat Learning Tests</h2>
+        <div class="status-badge" id="chat-learn-status">Ready</div>
+    </div>
+    <div class="panel-content">
+        <div class="panel-subtitle">
+            Test multi-turn agentic learning conversations between Agent Manager and subagents. 
+            Generates RLDS training data when logging is enabled.
+        </div>
+        
+        <!-- Quick Tests -->
+        <div style="margin-top: 15px;">
+            <h3>Quick Tests</h3>
+            <div class="rail-actions">
+                <button class="rail-btn primary" onclick="runChatLearnTest('basic')" 
+                    title="HOPE agent manager only">🧠 Basic HOPE</button>
+                <button class="rail-btn" onclick="runChatLearnTest('hope-gemma')" 
+                    title="HOPE with Gemma subagent">🤝 HOPE + Gemma</button>
+                <button class="rail-btn" onclick="runChatLearnTest('jax')" 
+                    title="JAX integration test">⚡ JAX Test</button>
+            </div>
+        </div>
+        
+        <!-- Extended Tests -->
+        <div style="margin-top: 15px;">
+            <h3>Extended Tests</h3>
+            <div class="rail-actions">
+                <button class="rail-btn" onclick="runChatLearnTest('extended')" 
+                    title="10-turn extended conversation">📚 Extended (10 turns)</button>
+                <button class="rail-btn" onclick="runChatLearnTest('multi-topic')" 
+                    title="Multiple topics">🌐 Multi-Topic</button>
+            </div>
+        </div>
+        
+        <!-- Custom Test -->
+        <div style="margin-top: 15px;">
+            <h3>Custom Test</h3>
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px;">
+                <label class="input-group">
+                    Turns
+                    <input type="number" id="chat-learn-turns" min="1" max="50" value="5">
+                </label>
+                <label class="input-group">
+                    Model
+                    <select id="chat-learn-model">
+                        <option value="hope-v1">HOPE v1</option>
+                        <option value="google/gemma-3n-2b">Gemma 3n 2B</option>
+                        <option value="google/gemma-2-2b-it">Gemma 2 2B IT</option>
+                        <option value="google/gemma-3-270m-it">Gemma 3 270M IT</option>
+                        <option value="google/gemma-3n-E2B-it">Gemma 3n E2B IT</option>
+                        <option value="TinyLlama/TinyLlama-1.1B-Chat-v1.0">TinyLlama 1.1B Chat</option>
+                        <option value="google/gemma-370m">Gemma 370M (legacy)</option>
+                    </select>
+                </label>
+                <label class="input-group">
+                    Delegate Model
+                    <select id="chat-learn-delegate">
+                        <option value="">None</option>
+                        <option value="google/gemma-3-270m-it">Gemma 3 270M IT</option>
+                        <option value="google/gemma-2-2b-it">Gemma 2 2B IT</option>
+                        <option value="google/gemma-3n-2b">Gemma 3n 2B</option>
+                        <option value="TinyLlama/TinyLlama-1.1B-Chat-v1.0">TinyLlama 1.1B Chat</option>
+                        <option value="google/gemma-370m">Gemma 370M (legacy)</option>
+                        <option value="consult:google/gemma-3-270m-it">Consult: Gemma 3 270M</option>
+                        <option value="consult:google/gemma-2-2b-it">Consult: Gemma 2 2B</option>
+                    </select>
+                </label>
+                <label class="input-group" style="grid-column: span 2;">
+                    Topic
+                    <input type="text" id="chat-learn-topic" 
+                        placeholder="tool use + planning + safety" 
+                        value="JAX training pipeline and multi-turn learning">
+                </label>
+            </div>
+            <div class="rail-actions" style="margin-top: 10px;">
+                <button class="rail-btn primary" onclick="runChatLearnCustom()">▶ Run Custom Test</button>
+                <button class="rail-btn" onclick="checkChatLearnRLDS()">📊 Check RLDS Status</button>
+            </div>
+        </div>
+        
+        <!-- Results Display -->
+        <div style="margin-top: 15px;">
+            <h3>Test Results</h3>
+            <div id="chat-learn-results" style="background: #0a0a0a; color: #0f0; border-radius: 4px; padding: 10px; font-family: monospace; max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 12px;">
+                No tests run yet. Click a test button above to start.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
         <h2>Real-time Metrics</h2>
         <button class="rail-btn" onclick="refreshMetrics()">↻ Refresh</button>
     </div>

@@ -186,8 +186,40 @@
     const container = qs('chat-messages');
     if (!container) return;
     const div = document.createElement('div');
-    // Normalize role to safe CSS class (e.g. "Agent Manager" -> "agent_manager")
-    const safeRole = String(role || 'assistant').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    
+    // Normalize role to safe CSS class
+    let safeRole = String(role || 'assistant').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    
+    // Map roles to positioning categories
+    // HOPE agent roles (left side)
+    if (safeRole === 'hope' || safeRole === 'hope_v1' || safeRole === 'hope-v1' || 
+        safeRole === 'agent_manager' || safeRole === 'agent-manager' || 
+        safeRole === 'hope_agent' || safeRole === 'hope-agent') {
+      safeRole = 'hope';
+    }
+    // 3rd party models (center) - subagent, assistant (when not HOPE), gemma, phi, etc.
+    else if (safeRole === 'subagent' || safeRole === 'assistant' || 
+             safeRole === 'gemma' || safeRole === 'phi' || safeRole === 'third_party' ||
+             safeRole.includes('gemma') || safeRole.includes('phi') || 
+             safeRole.includes('llm') || safeRole.includes('model')) {
+      // Keep as subagent or assistant for 3rd party models
+      if (safeRole === 'assistant' && !safeRole.includes('hope')) {
+        safeRole = 'subagent'; // Default assistant to subagent (3rd party) unless explicitly HOPE
+      }
+    }
+    // User messages (right side)
+    else if (safeRole === 'user') {
+      safeRole = 'user';
+    }
+    // System messages (center)
+    else if (safeRole === 'system' || safeRole === 'system-alert') {
+      safeRole = 'system';
+    }
+    // Default unknown roles to assistant (3rd party, centered)
+    else {
+      safeRole = 'subagent';
+    }
+    
     div.className = 'chat-message ' + safeRole;
     div.textContent = text;
     container.appendChild(div);
@@ -335,7 +367,29 @@
       });
       const data = await res.json();
       const reply = data?.response || data?.message || JSON.stringify(data);
-      appendMessage(reply, 'assistant');
+      
+      // Determine role based on model_hint and response metadata
+      let responseRole = 'assistant';
+      if (model_hint === 'hope-v1' || model_hint === 'hope') {
+        // HOPE agent response - left side
+        responseRole = 'hope';
+      } else if (delegate_model_hint && delegate_model_hint.startsWith('consult:')) {
+        // 3rd party model consulted by HOPE - center
+        responseRole = 'subagent';
+      } else if (model_hint && !model_hint.includes('hope')) {
+        // Direct 3rd party model (Gemma, Phi-2, etc.) - center
+        responseRole = 'subagent';
+      } else if (data?.agent || data?.model) {
+        // Check response metadata for agent/model info
+        const agentInfo = String(data.agent || data.model || '').toLowerCase();
+        if (agentInfo.includes('hope') || agentInfo.includes('agent_manager')) {
+          responseRole = 'hope';
+        } else {
+          responseRole = 'subagent';
+        }
+      }
+      
+      appendMessage(reply, responseRole);
       renderStructured(data);
       const speakEl = qs('chat-speak-replies');
       if (speakEl && speakEl.checked) {
@@ -512,7 +566,17 @@
         if (!msg) return;
         // Ignore user messages reflected back to avoid duplicates if local echo handled it
         if (msg.role === 'user') return;
-        appendMessage(msg.content, msg.role, true);
+        
+        // Map incoming message role to our positioning system
+        let mappedRole = msg.role;
+        const roleLower = String(msg.role || '').toLowerCase();
+        if (roleLower.includes('hope') || roleLower === 'agent_manager' || roleLower === 'agent-manager') {
+          mappedRole = 'hope';
+        } else if (roleLower === 'subagent' || roleLower === 'assistant' || roleLower.includes('gemma') || roleLower.includes('phi')) {
+          mappedRole = 'subagent';
+        }
+        
+        appendMessage(msg.content, mappedRole, true);
       },
       reconnectDelayMs: 3000,
     });

@@ -501,3 +501,187 @@ async function installSeedBundle() {
         if (statusEl) statusEl.textContent = 'Install failed: ' + (err?.message || err);
     }
 }
+
+// Agent Chat Learning Test Functions
+
+const chatLearnTestConfigs = {
+    'basic': {
+        turns: 5,
+        model_hint: 'hope-v1',
+        delegate_model_hint: null,
+        topic: 'system architecture and learning mechanisms'
+    },
+    'hope-gemma': {
+        turns: 6,
+        model_hint: 'hope-v1',
+        delegate_model_hint: 'google/gemma-370m',
+        topic: 'CMS compaction and memory management'
+    },
+    'jax': {
+        turns: 4,
+        model_hint: 'hope-v1',
+        delegate_model_hint: 'consult:google/gemma-370m',
+        topic: 'JAX training pipeline and TPU deployment'
+    },
+    'extended': {
+        turns: 10,
+        model_hint: 'hope-v1',
+        delegate_model_hint: 'google/gemma-3n-2b',
+        topic: 'comprehensive system understanding and improvement'
+    },
+    'multi-topic': {
+        turns: 3,
+        model_hint: 'hope-v1',
+        delegate_model_hint: 'google/gemma-370m',
+        topic: 'safety policies and intervention'
+    }
+};
+
+function updateChatLearnStatus(message, type = 'info') {
+    const statusEl = document.getElementById('chat-learn-status');
+    if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.className = `status-badge ${type === 'error' ? 'warning' : type === 'success' ? 'active' : ''}`;
+    }
+}
+
+function appendChatLearnResult(message) {
+    const resultsEl = document.getElementById('chat-learn-results');
+    if (resultsEl) {
+        const timestamp = new Date().toLocaleTimeString();
+        resultsEl.textContent += `[${timestamp}] ${message}\n`;
+        resultsEl.scrollTop = resultsEl.scrollHeight;
+    }
+}
+
+async function runChatLearnTest(testType) {
+    const config = chatLearnTestConfigs[testType];
+    if (!config) {
+        appendChatLearnResult(`ERROR: Unknown test type: ${testType}`);
+        return;
+    }
+    
+    updateChatLearnStatus('Running...', 'info');
+    appendChatLearnResult(`Starting ${testType} test: ${config.topic}`);
+    appendChatLearnResult(`  Turns: ${config.turns}, Model: ${config.model_hint}`);
+    if (config.delegate_model_hint) {
+        appendChatLearnResult(`  Delegate: ${config.delegate_model_hint}`);
+    }
+    
+    try {
+        const t0 = Date.now();
+        const res = await fetch('/api/training/chat_learn', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                turns: config.turns,
+                model_hint: config.model_hint,
+                delegate_model_hint: config.delegate_model_hint || null,
+                topic: config.topic,
+                session_id: `test_${testType}_${Date.now()}`
+            })
+        });
+        
+        const dt = ((Date.now() - t0) / 1000).toFixed(2);
+        const data = await res.json();
+        
+        // Handle wrapped response
+        const result = data.result || data;
+        
+        if (res.ok && result.status !== 'error') {
+            const history = result.history || [];
+            const outputs = result.outputs || [];
+            
+            appendChatLearnResult(`✓ Completed in ${dt}s`);
+            appendChatLearnResult(`  History: ${history.length} turns, Outputs: ${outputs.length}`);
+            
+            // Show conversation preview
+            if (history.length > 0) {
+                appendChatLearnResult(`  Conversation preview:`);
+                history.slice(0, 3).forEach((turn, i) => {
+                    const role = turn.role || 'unknown';
+                    const content = (turn.content || '').substring(0, 100);
+                    appendChatLearnResult(`    [${i+1}] ${role}: ${content}...`);
+                });
+                if (history.length > 3) {
+                    appendChatLearnResult(`    ... (${history.length - 3} more turns)`);
+                }
+            }
+            
+            updateChatLearnStatus('Success', 'success');
+        } else {
+            const error = result.error || result.message || 'Unknown error';
+            appendChatLearnResult(`✗ Failed: ${error}`);
+            updateChatLearnStatus('Error', 'error');
+        }
+    } catch (err) {
+        appendChatLearnResult(`✗ Exception: ${err.message}`);
+        updateChatLearnStatus('Error', 'error');
+        console.error('Chat learn test failed:', err);
+    }
+}
+
+async function runChatLearnCustom() {
+    const turns = parseInt(document.getElementById('chat-learn-turns')?.value || '5');
+    const model_hint = document.getElementById('chat-learn-model')?.value || 'hope-v1';
+    const delegate = document.getElementById('chat-learn-delegate')?.value || null;
+    const topic = document.getElementById('chat-learn-topic')?.value || 'tool use + planning + safety';
+    
+    updateChatLearnStatus('Running...', 'info');
+    appendChatLearnResult(`Starting custom test`);
+    appendChatLearnResult(`  Turns: ${turns}, Model: ${model_hint}, Topic: ${topic}`);
+    if (delegate) {
+        appendChatLearnResult(`  Delegate: ${delegate}`);
+    }
+    
+    try {
+        const t0 = Date.now();
+        const res = await fetch('/api/training/chat_learn', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                turns: Math.max(1, Math.min(50, turns)),
+                model_hint: model_hint,
+                delegate_model_hint: delegate || null,
+                topic: topic,
+                session_id: `test_custom_${Date.now()}`
+            })
+        });
+        
+        const dt = ((Date.now() - t0) / 1000).toFixed(2);
+        const data = await res.json();
+        const result = data.result || data;
+        
+        if (res.ok && result.status !== 'error') {
+            const history = result.history || [];
+            appendChatLearnResult(`✓ Completed in ${dt}s (${history.length} turns)`);
+            updateChatLearnStatus('Success', 'success');
+        } else {
+            appendChatLearnResult(`✗ Failed: ${result.error || result.message || 'Unknown error'}`);
+            updateChatLearnStatus('Error', 'error');
+        }
+    } catch (err) {
+        appendChatLearnResult(`✗ Exception: ${err.message}`);
+        updateChatLearnStatus('Error', 'error');
+    }
+}
+
+async function checkChatLearnRLDS() {
+    appendChatLearnResult('Checking RLDS logging status...');
+    try {
+        // Check if RLDS logging is enabled via settings
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const chatSettings = data?.chat || {};
+        const rldsEnabled = chatSettings.log_rlds === true;
+        
+        appendChatLearnResult(`RLDS Logging: ${rldsEnabled ? 'ENABLED' : 'DISABLED'}`);
+        if (!rldsEnabled) {
+            appendChatLearnResult('  Set CONTINUON_LOG_CHAT_RLDS=1 or chat.log_rlds=true to enable');
+        } else {
+            appendChatLearnResult('  Conversations will be logged to RLDS episodes directory');
+        }
+    } catch (err) {
+        appendChatLearnResult(`✗ Error checking RLDS status: ${err.message}`);
+    }
+}

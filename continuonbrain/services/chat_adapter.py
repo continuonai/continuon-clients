@@ -342,6 +342,34 @@ class ChatAdapter:
                 }
             if delegate_model_hint:
                 structured["subagent"] = subagent_info
+            
+            # Add answer verification for HOPE responses
+            verification_info = {}
+            if agent_role == "hope_v1" and response:
+                try:
+                    from continuonbrain.services.answer_verifier import AnswerVerifier
+                    verifier = AnswerVerifier(
+                        chat_backend=self.gemma_chat,
+                        config_dir=self.config_dir,
+                    )
+                    # Use delegate model for verification if available, otherwise default
+                    verify_model = delegate_model_hint.replace("consult:", "").strip() if delegate_model_hint and "consult:" in delegate_model_hint else None
+                    verification_info = verifier.verify_answer(
+                        question=message,
+                        hope_answer=response,
+                        model_hint=verify_model,
+                        use_tools=True,
+                    )
+                    structured["verification"] = verification_info
+                    
+                    # If HOPE is incorrect and we have a correct answer, prepare it
+                    if not verification_info.get("is_correct", True) and verification_info.get("correct_answer"):
+                        # Store verification for UI display
+                        structured["verification"]["show_correction"] = True
+                except Exception as e:
+                    logger.warning(f"Answer verification failed: {e}")
+                    verification_info = {"error": str(e)}
+                    structured["verification"] = verification_info
             if image_jpeg or vision_requested:
                 structured["vision"] = {
                     "attached": bool(image_jpeg),

@@ -251,7 +251,11 @@ class GemmaChat:
                     return True
                     
                 except Exception as e:
-                    logger.warning(f"Failed to load as VLM ({e}). Falling back to CausalLM (text-only)...")
+                    # Specific check for configuration class errors (e.g. Gemma3TextConfig vs AutoModelForImageTextToText)
+                    if "Unrecognized configuration class" in str(e) and "gemma-3" in self.model_name.lower():
+                         logger.warning("Caught unrecognized config for VLM load. This is expected for Gemma 3 text models.")
+                    else:
+                         logger.warning(f"Failed to load as VLM ({e}). Falling back to CausalLM (text-only)...")
                     # Clear partial loads
                     self.model = None
                     self.processor = None
