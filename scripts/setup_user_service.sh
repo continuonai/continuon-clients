@@ -63,17 +63,19 @@ fi
 
 REPO_DIR="$(cd "${REPO_DIR}" && pwd)"
 USER="${USER:-$(whoami)}"
+# Use standard .venv (not .venv-pi) for normal procedural Python environment
 VENV="${REPO_DIR}/.venv"
 
 echo "== ContinuonBrain User Service Setup =="
 echo "Repository: ${REPO_DIR}"
 echo "User: ${USER}"
 echo "Config Dir: ${CONFIG_DIR}"
+echo "Virtual Env: ${VENV} (standard .venv for procedural Python)"
 echo ""
 
-# Check if virtual environment exists
+# Check if virtual environment exists (using standard .venv, not .venv-pi)
 if [[ ! -d "${VENV}" ]]; then
-  echo "Creating virtual environment..."
+  echo "Creating virtual environment at ${VENV}..."
   python3 -m venv "${VENV}"
 fi
 
