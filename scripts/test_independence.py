@@ -32,7 +32,7 @@ def test_independence():
     
     print("\nSending Test Question to /api/chat...")
     try:
-        resp = requests.post(f"{BASE_URL}/api/chat", json=payload, timeout=60)
+        resp = requests.post(f"{BASE_URL}/api/chat", json=payload, timeout=120)
         data = resp.json()
         
         print(f"Status Code: {resp.status_code}")

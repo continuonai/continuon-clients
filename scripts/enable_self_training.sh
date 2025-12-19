@@ -60,6 +60,7 @@ settings.setdefault("chat", {})["log_rlds"] = True
 settings.setdefault("training", {})["enable_sidecar_trainer"] = True
 
 agent_mgr = settings.setdefault("agent_manager", {})
+agent_mgr["agent_model"] = "mock"
 # Ensure autonomous/background learning remains enabled.
 agent_mgr["enable_autonomous_learning"] = bool(agent_mgr.get("enable_autonomous_learning", True))
 chat_learn = agent_mgr.setdefault("chat_learn", {})
@@ -69,7 +70,7 @@ chat_learn["modes"] = ["idle", "autonomous"]
 chat_learn["interval_s"] = 300
 chat_learn["turns_per_cycle"] = 12
 # Main agent is HOPE v1. Subagent teaching is provided via consult:<model>.
-chat_learn["model_hint"] = "hope-v1"
+chat_learn["model_hint"] = "mock"
 # Prefer a subagent model that matches the default local-cache model id (offline-first).
 # Prefer a smaller, non-gated subagent model so we avoid mock outputs.
 # If not cached, it can be downloaded when CONTINUON_ALLOW_MODEL_DOWNLOADS=1.
