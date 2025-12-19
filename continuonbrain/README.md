@@ -42,7 +42,7 @@ For training-time autonomy (when humans are away), keep the robot focused on saf
 - **RAG via Librarian:** Local wiki/episodic shards (see `docs/wiki-rag-plan.md`) are loaded by `continuonbrain.services.librarian.Librarian`. Shard manifests live under `/opt/continuonos/brain/memory/wiki/manifest.json` (default). Remote “unknown-answer” agent stays opt-in and budget-gated (`ALLOW_REMOTE_AGENT`, `MAX_API_CENTS_PER_DAY`).
 - **Config:** `continuonbrain/configs/pi5-rag.json` documents manifest paths, cache budget, domains, and remote-agent env keys.
 
-The Robot API server launched by `startup_manager.py` now uses `python -m continuonbrain.robot_api_server` and runs in **real hardware mode by default** (it fails fast if controllers are absent). This keeps the production path aligned with the previous mock features (UI/JSON bridge) while enforcing hardware readiness.
+The Robot API server launched by `startup_manager.py` now uses `python -m continuonbrain.api.server` (Unified Brain Server) and runs in **real hardware mode by default** (it fails fast if controllers are absent). This keeps the production path aligned with the previous mock features (UI/JSON bridge) while enforcing hardware readiness. Note: `robot_api_server.py` is deprecated.
 
 ## Pi5 Robot Arm Integration (Design Validation)
 

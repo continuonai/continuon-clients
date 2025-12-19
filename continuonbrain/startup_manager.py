@@ -298,39 +298,32 @@ class StartupManager:
             }
         )
         
-        # Start Robot API server (production entry point)
-        print(f"🌐 Starting Robot API server on port {self.service_port}...")
+        # Start Robot API server (Unified Brain Server)
+        print(f"🌐 Starting Unified Brain Server on port {self.service_port}...")
         try:
             repo_root = Path(__file__).parent.parent
-            # Prefer the lightweight robot API server (async, dependency-light) for boot.
-            # The Flask API server is heavier and pulls optional deps; keep boot reliable.
-            server_module = "continuonbrain.robot_api_server"
-            server_path = repo_root / "continuonbrain" / "robot_api_server.py"
             
-            if server_path.exists():
-                # Start in background
-                env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
+            # Setup environment
+            env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
+            env["PYTHONUNBUFFERED"] = "1"
 
-                instructions_path = SystemContext.get_persist_path()
-                if instructions_path:
-                    env["CONTINUON_SYSTEM_INSTRUCTIONS_PATH"] = str(instructions_path)
+            instructions_path = SystemContext.get_persist_path()
+            if instructions_path:
+                env["CONTINUON_SYSTEM_INSTRUCTIONS_PATH"] = str(instructions_path)
 
-                # Honor headless/JAX preference to skip transformers init in server
-                if self.headless:
-                    env.setdefault("CONTINUON_PREFER_JAX", "1")
+            if self.headless:
+                env.setdefault("CONTINUON_PREFER_JAX", "1")
 
-                # Force usage of venv python if available/detected relative to repo root
-                venv_python = repo_root / ".venv" / "bin" / "python3"
-                python_exec = str(venv_python) if venv_python.exists() else sys.executable
-                env["CONTINUON_PYTHON"] = python_exec
+            venv_python = repo_root / ".venv" / "bin" / "python3"
+            python_exec = str(venv_python) if venv_python.exists() else sys.executable
+            env["CONTINUON_PYTHON"] = python_exec
 
-                # Capture child process logs to a persistent file so boot failures are diagnosable.
-                log_dir = self.config_dir / "logs"
-                log_dir.mkdir(parents=True, exist_ok=True)
-                robot_log_path = log_dir / "robot_api_server.log"
-                self._robot_api_log_fh = robot_log_path.open("a", buffering=1)
-                self._robot_api_log_fh.write(f"\n=== robot_api_server start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-
+            # Capture child process logs
+            log_dir = self.config_dir / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            robot_log_path = log_dir / "robot_api_server.log"
+            self._robot_api_log_fh = robot_log_path.open("a", buffering=1)
+            self._robot_api_log_fh.write(f"\n=== robot_api_server start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
 
             # Launch Unified Brain Server
             server_module = "continuonbrain.api.server"
@@ -344,15 +337,10 @@ class StartupManager:
                     cmd.extend(["--config-dir", str(self.config_dir)])
                 cmd.extend(["--port", str(self.service_port)])
                 
-                # Propagate hardware preferences
-                # We don't have direct access here, but they are env vars or defaults?
-                # StartupManager init doesn't take prefer_real arg? 
-                # Yes it only takes basic args. Hardware detection happens inside the server/service.
-                # But we can pass env vars if needed.
-                
-                env = os.environ.copy()
-                env["PYTHONUNBUFFERED"] = "1"
-                
+                if self.headless:
+                     # Pass preferences if args allowed, or env vars are enough
+                     pass
+
                 try:
                     self.robot_api_process = subprocess.Popen(
                         cmd,

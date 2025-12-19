@@ -1441,6 +1441,199 @@ class BrainService:
         self.system_instructions = SystemInstructions.load(Path(self.config_dir))
         SystemContext.register_instructions(self.system_instructions)
 
+    def _autonomy_orchestrator_loop(self) -> None:
+        """Resource-aware orchestrator to ensure the whole architecture participates without breaking constraints."""
+        last: dict = {
+            "cms": 0.0,
+            "hope_eval": 0.0,
+            "facts_eval": 0.0,
+            "wavecore": 0.0,
+            "tool_router": 0.0,
+        }
+        while not self._bg_stop_event.is_set():
+            try:
+                from continuonbrain.settings_manager import SettingsStore
+
+                settings = SettingsStore(Path(self.config_dir)).load()
+                chat = (settings or {}).get("chat") or {}
+                agent_mgr = (settings or {}).get("agent_manager") or {}
+                orch = (agent_mgr.get("autonomy_orchestrator") or {}) if isinstance(agent_mgr, dict) else {}
+                enabled = bool(orch.get("enabled", False))
+                modes_allowed = orch.get("modes") if isinstance(orch, dict) else None
+                if not isinstance(modes_allowed, list) or not modes_allowed:
+                    modes_allowed = ["autonomous"]
+
+                # Determine current mode
+                mode = "unknown"
+                try:
+                    if self.mode_manager is not None:
+                        mode = self.mode_manager.current_mode.value
+                except Exception:
+                    mode = "unknown"
+                mode = str(mode).lower()
+                mode_ok = mode in {str(m).lower() for m in modes_allowed}
+
+                # Enforce min interval guard
+                min_interval_s = int(orch.get("min_interval_s", 30) or 30)
+                now = time.time()
+                if (now - float(self._last_orchestrator.get("last_run_ts", 0.0))) < float(min_interval_s):
+                    time.sleep(5)
+                    continue
+
+                # Only orchestrate when allowed, and never during recording.
+                # BrainService might track is_recording differently, checking recorder directly
+                is_recording = getattr(self, "is_recording", False)
+                if hasattr(self, "recorder") and self.recorder:
+                     # Check recorder status if available
+                     # For now, rely on self.is_recording flag if managed
+                     pass
+
+                if (not enabled) or (not mode_ok) or is_recording:
+                    time.sleep(5)
+                    continue
+
+                # Resource gate
+                res = self.resource_monitor.check_resources()
+                headroom_mb = int(orch.get("min_memory_headroom_mb", 512) or 512)
+                reserve_plus_headroom = self.resource_monitor.limits.system_reserve_mb + headroom_mb
+                if res.available_memory_mb < reserve_plus_headroom:
+                    if self.background_learner is not None and getattr(self.background_learner, "running", False) and not getattr(self.background_learner, "paused", False):
+                        self.background_learner.pause()
+                    self._last_orchestrator = {
+                        "last_run_ts": now,
+                        "skipped": "low_memory_headroom",
+                        "resource": res.to_dict(),
+                        "headroom_mb": headroom_mb,
+                    }
+                    time.sleep(5)
+                    continue
+                if res.level in (ResourceLevel.EMERGENCY,):
+                    self._last_orchestrator = {"last_run_ts": now, "skipped": "resource_emergency", "resource": res.to_dict()}
+                    time.sleep(10)
+                    continue
+
+                def _pause_bg():
+                    try:
+                        if self.background_learner is not None and getattr(self.background_learner, "running", False) and not getattr(self.background_learner, "paused", False):
+                            self.background_learner.pause()
+                    except Exception:
+                        pass
+
+                def _resume_bg():
+                    try:
+                        if self.background_learner is not None and getattr(self.background_learner, "running", False) and getattr(self.background_learner, "paused", False):
+                            self.background_learner.resume()
+                    except Exception:
+                        pass
+
+                with self._orchestrator_lock:
+                    actions = {}
+                    jax_tasks_ok = os.environ.get("CONTINUON_ENABLE_JAX_TASKS", "0").lower() in ("1", "true", "yes", "on")
+
+                    # 1) HOPE CMS compaction
+                    cms_every = int(orch.get("cms_compact_every_s", 600) or 600)
+                    if self.hope_brain is not None and (now - last["cms"] >= cms_every):
+                        try:
+                            _pause_bg()
+                            result = self.hope_brain.compact_memory()
+                            actions["cms_compact"] = {"ok": True, "result": result, "timestamp": now}
+                            logger.info(f"CMS compaction completed: {result}")
+                        except Exception as exc:
+                            actions["cms_compact"] = {"ok": False, "error": str(exc), "timestamp": now}
+                            logger.warning(f"CMS compaction failed: {exc}")
+                        finally:
+                            _resume_bg()
+                        last["cms"] = now
+
+                    # 2) Evals (bounded; offline-first)
+                    hope_every = int(orch.get("hope_eval_every_s", 1800) or 1800)
+                    if (now - last["hope_eval"] >= hope_every):
+                        try:
+                            _pause_bg()
+                            # Run async method in sync loop
+                            asyncio.run(self.RunHopeEval({"rlds_dir": str(Path(self.config_dir) / "rlds" / "episodes"), "use_fallback": True}))
+                            actions["hope_eval"] = {"ok": True}
+                        except Exception as exc:
+                            actions["hope_eval"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["hope_eval"] = now
+
+                    facts_every = int(orch.get("facts_eval_every_s", 3600) or 3600)
+                    if (now - last["facts_eval"] >= facts_every):
+                        try:
+                            _pause_bg()
+                            asyncio.run(self.RunFactsEval({"rlds_dir": str(Path(self.config_dir) / "rlds" / "episodes"), "use_fallback": True}))
+                            actions["facts_eval"] = {"ok": True}
+                        except Exception as exc:
+                            actions["facts_eval"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["facts_eval"] = now
+
+                    # 3) WaveCore (SSM-ish/JAX seed loops)
+                    wave_every = int(orch.get("wavecore_every_s", 1800) or 1800)
+                    if (not jax_tasks_ok) and (now - last["wavecore"] >= wave_every):
+                        actions["wavecore"] = {"ok": False, "skipped": "jax_tasks_disabled"}
+                        last["wavecore"] = now
+                    elif res.level not in (ResourceLevel.CRITICAL,) and (now - last["wavecore"] >= wave_every):
+                        try:
+                            _pause_bg()
+                            fast_steps = int(orch.get("wavecore_steps_fast", 60) or 60)
+                            mid_steps = int(orch.get("wavecore_steps_mid", 120) or 120)
+                            slow_steps = int(orch.get("wavecore_steps_slow", 180) or 180)
+                            use_synth = not bool(chat.get("log_rlds", False))
+                            asyncio.run(
+                                self.RunWavecoreLoops(
+                                    {
+                                        "fast": {"arch_preset": "pi5", "max_steps": fast_steps, "batch_size": 8, "learning_rate": 1e-3, "disable_jit": True, "use_synthetic": use_synth},
+                                        "mid": {"arch_preset": "pi5", "max_steps": mid_steps, "batch_size": 8, "learning_rate": 5e-4, "disable_jit": True, "use_synthetic": use_synth},
+                                        "slow": {"arch_preset": "pi5", "max_steps": slow_steps, "batch_size": 8, "learning_rate": 2e-4, "disable_jit": True, "use_synthetic": use_synth},
+                                        "compact_export": True,
+                                        "run_hope_eval": False,
+                                        "run_facts_eval": False,
+                                    }
+                                )
+                            )
+                            actions["wavecore"] = {"ok": True, "use_synthetic": use_synth}
+                        except Exception as exc:
+                            actions["wavecore"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["wavecore"] = now
+
+                    # 4) Tool-router refresh
+                    tool_every = int(orch.get("tool_router_every_s", 3600) or 3600)
+                    if (not jax_tasks_ok) and (now - last["tool_router"] >= tool_every):
+                        actions["tool_router"] = {"ok": False, "skipped": "jax_tasks_disabled"}
+                        last["tool_router"] = now
+                    elif res.level == ResourceLevel.NORMAL and (now - last["tool_router"] >= tool_every):
+                        try:
+                            _pause_bg()
+                            steps = int(orch.get("tool_router_steps", 200) or 200)
+                            asyncio.run(self.RunToolRouterTrain({"max_steps": steps, "batch_size": 64, "learning_rate": 3e-3, "max_episodes_scan": 20000, "top_k_tools": 128, "include_dirs_prefix": "toolchat_hf"}))
+                            asyncio.run(self.RunToolRouterEval({"eval_mod": 10, "eval_bucket": 0, "k": 5, "max_episodes_scan": 20000, "include_dirs_prefix": "toolchat_hf"}))
+                            actions["tool_router"] = {"ok": True, "steps": steps}
+                        except Exception as exc:
+                            actions["tool_router"] = {"ok": False, "error": str(exc)}
+                        finally:
+                            _resume_bg()
+                        last["tool_router"] = now
+
+                    self._last_orchestrator = {
+                        "last_run_ts": now,
+                        "mode": mode,
+                        "resource": res.to_dict(),
+                        "last_actions": actions,
+                        "last_markers": last,
+                    }
+            except Exception as exc:
+                try:
+                    self._last_orchestrator = {"last_run_ts": time.time(), "error": str(exc)}
+                except Exception:
+                    pass
+            time.sleep(5)
+
     async def initialize(self):
         """Initialize hardware components with auto-detection."""
         mode_label = "REAL HARDWARE" if self.prefer_real_hardware else "MOCK"
@@ -1653,6 +1846,16 @@ class BrainService:
         print("=" * 60)
         print(f"Brain Service Ready")
         print("=" * 60)
+        
+        # Start Autonomy Orchestrator
+        disable_orchestrator = os.environ.get("CONTINUON_DISABLE_AUTONOMY_ORCHESTRATOR", "0").lower() in ("1", "true", "yes", "on")
+        if not disable_orchestrator and (self._orchestrator_thread is None or not self._orchestrator_thread.is_alive()):
+            try:
+                self._orchestrator_thread = threading.Thread(target=self._autonomy_orchestrator_loop, daemon=True)
+                self._orchestrator_thread.start()
+                print("Autonomy orchestrator started (thread; resource-aware)")
+            except Exception as exc:
+                print(f"  Autonomy orchestrator failed to start: {exc}")
 
     def _ensure_mode_manager(self) -> RobotModeManager:
         if self.mode_manager is None:
@@ -2114,6 +2317,52 @@ class BrainService:
             "results": outputs[-3:],
             "history": history,
         }
+
+    async def RunHopeEval(self, payload: Optional[dict] = None) -> dict:
+        """Run graded HOPE Q&A, log RLDS episode, with fallback LLM ordering."""
+        payload = payload or {}
+        # Resolve REPO_ROOT relative to this file
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        
+        questions_path = Path(payload.get("questions_path") or (repo_root / "continuonbrain" / "eval" / "hope_eval_questions.json"))
+        rlds_dir = Path(payload.get("rlds_dir") or (Path(self.config_dir) / "rlds" / "episodes"))
+        use_fallback = bool(payload.get("use_fallback", True))
+        fallback_order = payload.get("fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"]
+        
+        try:
+            from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
+            return await run_hope_eval_and_log(
+                service=self,
+                questions_path=questions_path,
+                rlds_dir=rlds_dir,
+                use_fallback=use_fallback,
+                fallback_order=fallback_order,
+            )
+        except ImportError:
+            return {"status": "error", "message": "eval runner not available"}
+
+    async def RunFactsEval(self, payload: Optional[dict] = None) -> dict:
+        """Run FACTS-lite eval and log RLDS episode."""
+        payload = payload or {}
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        questions_path = Path(payload.get("questions_path") or (repo_root / "continuonbrain" / "eval" / "facts_eval_questions.json"))
+        rlds_dir = Path(payload.get("rlds_dir") or (Path(self.config_dir) / "rlds" / "episodes"))
+        use_fallback = bool(payload.get("use_fallback", True))
+        fallback_order = payload.get("fallback_order") or ["google/gemma-370m", "google/gemma-3n-2b"]
+        
+        try:
+            from continuonbrain.eval.hope_eval_runner import run_hope_eval_and_log
+            return await run_hope_eval_and_log(
+                service=self,
+                questions_path=questions_path,
+                rlds_dir=rlds_dir,
+                use_fallback=use_fallback,
+                fallback_order=fallback_order,
+                episode_prefix="facts_eval",
+                model_label="facts-lite",
+            )
+        except ImportError:
+            return {"status": "error", "message": "eval runner not available"}
 
     alias_chat_learn = RunChatLearn
 
