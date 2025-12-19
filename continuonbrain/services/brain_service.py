@@ -4,6 +4,7 @@ Manages tasks, hardware access, and robot state.
 """
 import os
 import sys
+import subprocess
 import time
 import datetime
 from pathlib import Path
@@ -2222,14 +2223,59 @@ class BrainService:
                 # to trigger intervention for the *next* logical step (which is synthesize).
                 pass 
 
-            # Synchronous call since BrainService.ChatWithGemma is sync
-            # Note: We omit model_hint/delegate_model_hint as BrainService.ChatWithGemma doesn't support them yet
-            # The service uses the currently active model.
-            resp = self.ChatWithGemma(
-                message,
-                history,
-                session_id=session_id
-            )
+            # Delegate to Gemini if requested for Subagent (odd turns)
+            is_subagent_turn = (i % 2 != 0)
+            use_gemini = is_subagent_turn and delegate_model_hint and "gemini" in delegate_model_hint.lower()
+
+            print(f"[RunChatLearn] Turn {i}: subagent={is_subagent_turn}, flag={use_gemini}")
+
+            if use_gemini:
+                # Extract the question from the Agent Manager's previous turn
+                prev_turn_text = ""
+                if outputs:
+                    prev_out = outputs[-1]
+                    prev_turn_text = prev_out.get("response", "") if isinstance(prev_out, dict) else str(prev_out)
+                
+                # If valid question found, query Gemini
+                if prev_turn_text:
+                    repo_root = Path(__file__).resolve().parent.parent.parent
+                    gemini_script = repo_root / "scripts" / "gemini"
+                    print(f"[RunChatLearn] Delegating turn {i} to Gemini CLI...")
+                    print(f"  Script: {gemini_script}")
+                    print(f"  Prompt: {prev_turn_text[:50]}...")
+                    print(f"  Env Key Present: {'GOOGLE_API_KEY' in os.environ}")
+                    
+                    try:
+                        # Call Gemini CLI synchronously (blocking but typically fast enough for this loop)
+                        proc = subprocess.run(
+                            [str(gemini_script), prev_turn_text],
+                            capture_output=True,
+                            text=True,
+                            timeout=45,
+                            env={**os.environ}
+                        )
+                        if proc.returncode == 0:
+                            gemini_response = proc.stdout.strip()
+                            print(f"  [Gemini Response]: {gemini_response[:50]}...")
+                            resp = {"response": gemini_response, "model": "gemini-cli"}
+                        else:
+                            print(f"[RunChatLearn] Gemini CLI failed return code {proc.returncode}")
+                            print(f"  Stderr: {proc.stderr}")
+                            resp = {"response": f"Error consulting Gemini: {proc.stderr}", "model": "error"}
+                    except Exception as e:
+                        print(f"[RunChatLearn] Gemini delegation error: {e}")
+                        resp = {"response": f"System Error consulting Gemini: {e}", "model": "error"}
+                else:
+                    print("  [RunChatLearn] No previous question found.")
+                    resp = {"response": "I didn't hear a question.", "model": "gemini-cli"}
+            else:
+                # Standard Local Execution
+                print(f"[RunChatLearn] Local execution for turn {i}")
+                resp = self.ChatWithGemma(
+                    message,
+                    history,
+                    session_id=session_id
+                )
             
             assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
 
