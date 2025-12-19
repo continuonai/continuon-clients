@@ -25,9 +25,3 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [ ] Track: HOPE Loop SSM & WaveCore Development (Seed Brain)
 
 *Link: [./conductor/tracks/hope_ssm_wavecore_20251219/](./conductor/tracks/hope_ssm_wavecore_20251219/)*
-
----
-
-## [~] Track: Unified Discovery & Remote Conductor Interface
-
-*Link: [./conductor/tracks/unified_discovery_remote_20251219/](./conductor/tracks/unified_discovery_remote_20251219/)*

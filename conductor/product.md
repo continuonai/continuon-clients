@@ -12,6 +12,7 @@ To build a platform that decouples general robot intelligence from hardware, ena
     - **Sequential Seed Training:** Capability to train the "seed" model directly on the Pi 5 (8GB) using a sequential component loading strategy to manage memory.
 2.  **Unified RLDS Data Pipeline:** Standardized ingestion and processing of teleoperation data (XR), on-device sensor streams, and external video datasets for robust cloud-based training.
 3.  **On-Device Symbolic Search:** Implementation of the "Searcher" module on the edge (Pi 5) to enable the robot to perform "System 2" thinking—simulating and inventing solutions locally without explicit prior training for every scenario.
+4.  **Unified Discovery & Remote Orchestration:** Seamless mDNS-based robot discovery across CLI and mobile apps, combined with an SSH-backed remote interface for code synchronization and remote command execution.
 
 ## Synchronization & Cloud Integration
 - **Operational Autonomy:** The robot operates fully autonomously on the edge.

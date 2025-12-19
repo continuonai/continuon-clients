@@ -24,6 +24,9 @@
   - **gRPC / WebRTC:** Low-latency bidirectional streaming between Brain and Shells.
   - **Protobuf:** Universal data serialization.
   - **BLE:** High-speed telemetry for the Continuon Glove.
+  - **mDNS / Avahi:** Automatic service discovery on local networks.
+  - **SSH / Fabric:** Secure remote command execution and automated key management.
+  - **rsync / Watchdog:** High-performance file synchronization with real-time file system monitoring.
 
 ## Data & Infrastructure
 - **Data Format:** RLDS (Reinforcement Learning Dataset) using JSONL/TFRecord.

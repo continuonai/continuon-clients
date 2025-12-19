@@ -1,0 +1,11 @@
+{
+  "name": "ContinuonBot._continuon._tcp.local.",
+  "address": "192.168.68.72",
+  "port": 8080,
+  "properties": {
+    "robot_name": "ContinuonBot",
+    "version": "0.1.0",
+    "capabilities": "arm_control,depth_vision,training_mode,autonomous_mode"
+  },
+  "timestamp": 1766175890.202143
+}
