@@ -1,21 +1,28 @@
-"""
-Learning API Routes
-
-Endpoints for controlling autonomous learning.
-"""
+from __future__ import annotations
 
 import json
-from typing import Dict, Any
+import logging
+import asyncio
+import time
+from typing import Optional, Dict, Any
 
 
 # Global reference to background learner (set by server)
+# Global reference to background learner (set by server)
 _background_learner = None
+_brain_service = None
 
 
 def set_background_learner(learner):
     """Set the global background learner instance."""
     global _background_learner
     _background_learner = learner
+
+
+def set_brain_service(service):
+    """Set the global BrainService instance."""
+    global _brain_service
+    _brain_service = service
 
 
 def handle_learning_request(handler):
@@ -82,9 +89,41 @@ def handle_learning_request(handler):
                 handler.send_json({"success": True, "message": "Learning reset"})
             else:
                 handler.send_json({"success": False, "error": "Learner not initialized"}, status=503)
+
+        elif path == "/api/learning/chat_learn":
+            # Trigger ad-hoc chat learning session (e.g. with Gemini)
+            with open("/tmp/debug_route_hit", "w") as f:
+                 f.write(f"Hit at {time.time()}\n")
+            
+            if not _brain_service:
+                with open("/tmp/debug_route_error", "w") as f: f.write("BrainService None\n")
+                handler.send_json({"success": False, "error": "BrainService not initialized"}, status=503)
+                return
+
+            # Parse payload
+            content_len = int(handler.headers.get('Content-Length', 0))
+            body = handler.rfile.read(content_len).decode('utf-8')
+            with open("/tmp/debug_route_payload", "w") as f: f.write(body)
+            payload = json.loads(body) if body else {}
+
+            try:
+                # Use asyncio to run the async method properly
+                import asyncio
+                # We need to run this on the event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(_brain_service.RunChatLearn(payload))
+                loop.close()
+                
+                handler.send_json({"success": True, "result": result})
+            except Exception as e:
+                handler.send_json({"success": False, "error": str(e)}, status=500)
         
         else:
             handler.send_json({"error": "Unknown endpoint"}, status=404)
             
     except Exception as e:
+        with open("/tmp/debug_route_exception", "w") as f:
+            import traceback
+            traceback.print_exc(file=f)
         handler.send_json({"error": str(e)}, status=500)

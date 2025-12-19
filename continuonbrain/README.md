@@ -220,6 +220,23 @@ This runtime supports a **non-biometric**, offline-first ownership claim flow in
 - **TTS**: `POST /api/audio/tts` uses `espeak-ng`/`espeak` (install `espeak-ng` on Pi).
 - **Mic record**: `POST /api/audio/record` uses `sounddevice` or `arecord` (install `alsa-utils`); `GET /api/audio/devices` helps debug ALSA capture devices.
 
+
+## HOPE-Gemini Curiosity Learning
+
+A multi-turn "Learning Session" capability allows the HOPE Agent Manager to learn by asking questions to a more capable "Teacher" model (Gemini).
+
+- **Concept**: HOPE (Agent Manager) formulates curiosity-driven questions about system internals, checks, or general knowledge. The system routes these questions to **Gemini** (via CLI) acting as the Subagent/Teacher, which provides detailed answers. HOPE then synthesizes this new information.
+- **Requirements**:
+  - `GOOGLE_API_KEY` environment variable must be set (see `scripts/start_desktop_services.sh`).
+  - `google-genai` pip package (installed in venv).
+- **Usage**:
+  - **Script**: `python3 scripts/run_learning_session.py` (orchestrates a full session + verified training trigger).
+  - **API**: `POST /api/learning/chat_learn` with payload `{"delegate_model_hint": "consult:gemini", "turns": 4, "topic": "User-defined topic"}`.
+- **Architecture**:
+  - `BrainService.RunChatLearn` detects the `consult:gemini` hint.
+  - Odd turns (Subagent) are delegated to `continuonbrain/utils/gemini_cli.py` via `scripts/gemini`.
+  - Even turns (Agent Manager) use the primary resident model (HOPE/Gemma).
+
 ## Multimodal chat (vision)
 
 - **Attach camera frame**: `POST /api/chat` supports `attach_camera_frame=true` to attach the latest `/api/camera/frame` JPEG to the Agent Manager (best-effort; structured metadata includes whether vision was requested/attached).

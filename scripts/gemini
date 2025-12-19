@@ -1,0 +1,25 @@
+#!/home/craigm26/Downloads/ContinuonXR/venv/bin/python3
+import os
+import sys
+import subprocess
+
+# Wrapper to call the internal continuonbrain utility using the venv python
+# This ensures we use the robust implementation in continuonbrain/utils/gemini_cli.py
+
+# Path to the internal utility
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UTILITY_SCRIPT = os.path.join(REPO_ROOT, "continuonbrain", "utils", "gemini_cli.py")
+
+if not os.path.exists(UTILITY_SCRIPT):
+    print(f"Error: Internal utility not found at {UTILITY_SCRIPT}", file=sys.stderr)
+    sys.exit(1)
+
+# Pass all arguments through to the utility
+args = [sys.executable, UTILITY_SCRIPT] + sys.argv[1:]
+
+try:
+    # Replace current process with the utility
+    os.execv(sys.executable, args)
+except OSError as e:
+    print(f"Error executing internal utility: {e}", file=sys.stderr)
+    sys.exit(1)

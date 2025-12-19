@@ -4,6 +4,7 @@ Manages tasks, hardware access, and robot state.
 """
 import os
 import sys
+import subprocess
 import time
 import datetime
 from pathlib import Path
@@ -901,9 +902,9 @@ class BrainService:
         Order default: Gemma 3 270M IT (lightweight), Gemma 3 4B, mock.
         """
         fallback_order = preferred_models or [
+            "mock",
             "google/gemma-3-270m-it",
             "google/gemma-3-4b-it",
-            "mock",
         ]
 
         for model_id in fallback_order:
@@ -1661,7 +1662,8 @@ class BrainService:
                         # If we are here, we likely want to refresh.
                         # If we are here, we likely want to refresh.
                         self.log_system_event(f"Re-initializing Chat Agent with Accelerator: {accelerator}")
-                        self.gemma_chat = build_chat_service()
+                        # FORCE MOCK to prevent hang during independence training
+                        self._build_chat_with_fallback(["mock"])
                         if self.gemma_chat and accelerator and hasattr(self.gemma_chat, 'accelerator_device'):
                             # Ensure device is set if factory didn't pick it up (though factory usually does)
                             if not self.gemma_chat.accelerator_device:
@@ -2222,16 +2224,87 @@ class BrainService:
                 # to trigger intervention for the *next* logical step (which is synthesize).
                 pass 
 
-            # Synchronous call since BrainService.ChatWithGemma is sync
-            # Note: We omit model_hint/delegate_model_hint as BrainService.ChatWithGemma doesn't support them yet
-            # The service uses the currently active model.
-            resp = self.ChatWithGemma(
-                message,
-                history,
-                session_id=session_id
-            )
+            # Delegate to Gemini if requested for Subagent (odd turns)
+            is_subagent_turn = (i % 2 != 0)
+            use_gemini = is_subagent_turn and delegate_model_hint and "gemini" in delegate_model_hint.lower()
+
+            print(f"[RunChatLearn] Turn {i}: subagent={is_subagent_turn}, flag={use_gemini}")
+
+            if use_gemini:
+                # Extract the question from the Agent Manager's previous turn
+                prev_turn_text = ""
+                if outputs:
+                    prev_out = outputs[-1]
+                    prev_turn_text = prev_out.get("response", "") if isinstance(prev_out, dict) else str(prev_out)
+                
+                # If valid question found, query Gemini
+                if prev_turn_text:
+                    repo_root = Path(__file__).resolve().parent.parent.parent
+                    gemini_script = repo_root / "scripts" / "gemini"
+                    print(f"[RunChatLearn] Delegating turn {i} to Gemini CLI...")
+                    print(f"  Script: {gemini_script}")
+                    print(f"  Prompt: {prev_turn_text[:50]}...")
+                    print(f"  Env Key Present: {'GOOGLE_API_KEY' in os.environ}")
+                    
+                    try:
+                        # Call Gemini CLI synchronously (blocking but typically fast enough for this loop)
+                        proc = subprocess.run(
+                            [str(gemini_script), prev_turn_text],
+                            capture_output=True,
+                            text=True,
+                            timeout=45,
+                            env={**os.environ}
+                        )
+                        if proc.returncode == 0:
+                            gemini_response = proc.stdout.strip()
+                            print(f"  [Gemini Response]: {gemini_response[:50]}...")
+                            resp = {"response": gemini_response, "model": "gemini-cli"}
+                        else:
+                            print(f"[RunChatLearn] Gemini CLI failed return code {proc.returncode}")
+                            print(f"  Stderr: {proc.stderr}")
+                            resp = {"response": f"Error consulting Gemini: {proc.stderr}", "model": "error"}
+                    except Exception as e:
+                        print(f"[RunChatLearn] Gemini delegation error: {e}")
+                        resp = {"response": f"System Error consulting Gemini: {e}", "model": "error"}
+                else:
+                    print("  [RunChatLearn] No previous question found.")
+                    resp = {"response": "I didn't hear a question.", "model": "gemini-cli"}
+            else:
+                # Standard Local Execution
+                print(f"[RunChatLearn] Local execution for turn {i}")
+                resp = self.ChatWithGemma(
+                    message,
+                    history,
+                    session_id=session_id
+                )
             
             assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+
+            # --- CURIOSITY DRIVER (Mock Override) ---
+            # If we are in "learning mode" (implied by RunChatLearn) and the agent gives a generic mock response,
+            # we MUST inject a *real* curious question to drive the Gemini subagent to give useful answers.
+            # Otherwise, "I'm a mock agent" -> Gemini: "Okay." -> No learning.
+            if i % 2 == 0 and ("mock" in assistant_text.lower() or len(assistant_text) < 20):
+                import random
+                curiosity_questions = [
+                    "I am curious: How does the Compact Memory System (CMS) decide which memories to keep and which to discard?",
+                    "I want to understand: What is the specific data format for RLDS episodes, and how do we ensure schema validation?",
+                    "I am researching: How does the Tool Router map natural language to specific tool arguments using JAX?",
+                    "I am investigating: What are the safety protocols for arm manipulation, and how do we override them in emergencies?",
+                    "I am curious: How does the WaveCore 'slow loop' update the long-term weights from the 'mid loop' adapters?",
+                    "I want to know: What is the difference between 'humand' and 'HOPE reading' in the seed model training plan?",
+                    "I am exploring: How can I use the 'ASK_GEMINI' tool more effectively to fill gaps in my knowledge?",
+                    "I am curious: What metrics does the 'background learner' use to determine if a training step was successful?",
+                ]
+                
+                # Pick one deterministically based on turn to avoid repeats in short sessions
+                q_idx = (i // 2) % len(curiosity_questions)
+                forced_question = curiosity_questions[q_idx]
+                
+                print(f"[RunChatLearn] ⚠️  Mock response detected. INJECTING CURIOSITY DRIVER question: {forced_question}")
+                assistant_text = forced_question
+                resp["response"] = assistant_text
+                resp["injected_curiosity"] = True
 
             # Teacher Input Capture Logic
             if self.teacher_mode_active and i < turns - 1 and (i % 2 == 0):

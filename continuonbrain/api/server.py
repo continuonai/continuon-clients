@@ -1393,6 +1393,13 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                      "pending_question": brain_service.teacher_pending_question
                  })
 
+            elif self.path.startswith("/api/learning/"):
+                try:
+                    from continuonbrain.api.routes import learning_routes
+                    learning_routes.handle_learning_request(self)
+                except ImportError:
+                    self.send_json({"error": "Learning service not available"}, status=503)
+
             elif self.path == "/api/manual/symbolic_search":
                 data = json.loads(body) if body else {}
                 result = asyncio.run(brain_service.RunSymbolicSearch(data))
@@ -1653,11 +1660,12 @@ def main():
     # Bind the autonomous learner to API routes so live training metrics
     # surface through the learning + HOPE monitoring endpoints.
     try:
+        from continuonbrain.api.routes import hope_routes, learning_routes
+        learning_routes.set_brain_service(brain_service)
+
         background_learner = getattr(brain_service, "background_learner", None)
         if background_learner:
             try:
-                from continuonbrain.api.routes import hope_routes, learning_routes
-
                 hope_routes.set_background_learner(background_learner)
                 learning_routes.set_background_learner(background_learner)
                 logger.info("Background learner wired to web routes for live metrics")
