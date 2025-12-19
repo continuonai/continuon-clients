@@ -27,6 +27,18 @@ TODO (offline Wikipedia context)
 - Once an offline `wikimedia/wikipedia` dump or JSONL corpus is available, wire `continuonbrain/eval/wiki_retriever.py` into HOPE eval flows so prompts can include retrieved snippets; keep provenance in RLDS and default to no-op when corpus is absent.
 - Prefer the opt-in “curiosity boot” path for early seed days: `continuonbrain/eval/wiki_curiosity_boot.py` runs bounded offline sessions when `CONTINUON_WIKI_JSONL` is present and `CONTINUON_ENABLE_WIKI_CURIOSITY=1`.
 
+## Curiosity-Driven Learning (Gemini)
+- **Pattern**: "Teacher Mode" / Subagent Delegation.
+- **Flow**:
+  1.  **Agent Manager (HOPE)**: Generates a question based on a "Curiosity Directive".
+  2.  **System**: INTERCEPTS the turn if `delegate_model_hint="consult:gemini"`.
+  3.  **Subagent (Gemini)**: Receives the question, generates a high-quality answer (using `google-genai` SDK).
+  4.  **Agent Manager**: Receives the answer as "User" input (simulating a subagent reply), synthesizes insights, and decides on the next question or action.
+- **Tooling**:
+  - `continuonbrain/services/brain_service.py` (`RunChatLearn`): orchestrates the loop and handles delegation.
+  - `continuonbrain/utils/gemini_cli.py`: Internal utility wrapping the Google GenAI SDK.
+  - `scripts/run_learning_session.py`: Operational script to ensure server readiness and trigger the session.
+
 ## On-device WaveCore seed + HOPE eval (JAX path)
 - WaveCore loops (fast/mid/slow) run via `POST /api/training/wavecore_loops`; defaults use JSON RLDS at `/opt/continuonos/brain/rlds/episodes`, export seed manifest/checkpoint to `/opt/continuonos/brain/model/adapters/candidate/core_model_seed`, checkpoint dir `/opt/continuonos/brain/trainer/checkpoints/core_model_seed`.
 - Model presets: `pi5` (default), `columnar_small`, `wave_only`, `hybrid`; optional `sparsity_lambda` (L1) per loop; JIT off by default.
