@@ -902,9 +902,9 @@ class BrainService:
         Order default: Gemma 3 270M IT (lightweight), Gemma 3 4B, mock.
         """
         fallback_order = preferred_models or [
+            "mock",
             "google/gemma-3-270m-it",
             "google/gemma-3-4b-it",
-            "mock",
         ]
 
         for model_id in fallback_order:

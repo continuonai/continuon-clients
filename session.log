@@ -77,3 +77,4 @@ Traceback (most recent call last):
   File "/home/craigm26/Downloads/ContinuonXR/venv/lib/python3.13/site-packages/requests/adapters.py", line 690, in send
     raise ReadTimeout(e, request=request)
 requests.exceptions.ReadTimeout: HTTPConnectionPool(host='127.0.0.1', port=8081): Read timed out. (read timeout=2)
+FORCE_STOP
