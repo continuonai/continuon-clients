@@ -1083,6 +1083,74 @@ class BrainService:
         """Clear the chat history."""
         self.gemma_chat.reset_history()
     
+    def start_sequential_training(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Start sequential training job in a background thread.
+        """
+        import threading
+        from continuonbrain.run_trainer import _run_sequential_training
+        import argparse
+        
+        # Create args object
+        args = argparse.Namespace()
+        args.output_dir = config.get("output_dir")
+        args.rlds_dir = config.get("rlds_dir")
+        args.batch_size = config.get("batch_size", 4)
+        
+        def run_job():
+            try:
+                self.log_system_event("Starting Sequential Training Job...")
+                _run_sequential_training(args)
+                self.log_system_event("Sequential Training Job Completed.")
+            except Exception as e:
+                self.log_system_event(f"Sequential Training Job Failed: {e}")
+                logger.error(f"Sequential Training Failed: {e}")
+
+        thread = threading.Thread(target=run_job, daemon=True)
+        thread.start()
+        
+        return {"success": True, "message": "Sequential training started in background"}
+
+    def hot_reload_model(self, checkpoint_path: str) -> bool:
+        """
+        Hot-reload the HOPE brain from a checkpoint.
+        """
+        logger.info(f"Hot-reloading HOPE brain from {checkpoint_path}...")
+        try:
+            from continuonbrain.hope_impl.brain import HOPEBrain
+            import torch
+            
+            # 1. Load new brain (this might spike memory, so check resources first)
+            # Actually, loading into a new object doubles memory usage temporarily.
+            # Ideally we load state_dict into existing brain if config matches.
+            
+            # Let's try to load state dict into existing brain first.
+            if self.hope_brain:
+                 checkpoint = torch.load(checkpoint_path, weights_only=False)
+                 # Check if config matches enough to just load weights
+                 # For now, simplistic approach: try load_state_dict for columns.
+                 
+                 if 'columns_state_dicts' in checkpoint:
+                     for i, col in enumerate(self.hope_brain.columns):
+                         if i < len(checkpoint['columns_state_dicts']):
+                             col.load_state_dict(checkpoint['columns_state_dicts'][i])
+                             logger.info(f"Reloaded weights for column {i}")
+                     return True
+                 
+                 elif 'model_state_dict' in checkpoint:
+                     # Old format
+                     self.hope_brain.columns[0].load_state_dict(checkpoint['model_state_dict'])
+                     return True
+            
+            # If no existing brain or incompatible, fallback to full reload (might OOM on Pi)
+            new_brain = HOPEBrain.load_checkpoint(checkpoint_path)
+            self.hope_brain = new_brain
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to hot-reload model: {e}")
+            return False
+
     def switch_model(self, model_id: str) -> Dict[str, Any]:
         """
         Switch the active chat model dynamically.

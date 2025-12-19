@@ -4,7 +4,7 @@
 - **Language:** Python 3.11+
 - **Deep Learning Frameworks:** 
   - **JAX:** Primary for high-performance training and inference loops (WaveCore).
-  - **PyTorch/Transformers:** Used for model development and certain LLM hooks.
+  - **PyTorch/Transformers:** Used for model development, certain LLM hooks, and the sequential training orchestrator.
 - **AI Models:**
   - **Mamba (SSM):** Core architecture for the "System 2" world model and symbolic search.
   - **Gemma-3n:** Base LLM for reasoning and planning (optimized for edge).

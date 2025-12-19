@@ -9,6 +9,7 @@ To build a platform that decouples general robot intelligence from hardware, ena
 
 ## Core Features & Priorities
 1.  **Multi-Scale HOPE Loops:** Functional implementation of Fast (reflex), Mid (tactical), and Cloud-based Slow (strategic) SSM loops, optimized specifically for the Raspberry Pi 5 (8GB) memory and thermal constraints.
+    - **Sequential Seed Training:** Capability to train the "seed" model directly on the Pi 5 (8GB) using a sequential component loading strategy to manage memory.
 2.  **Unified RLDS Data Pipeline:** Standardized ingestion and processing of teleoperation data (XR), on-device sensor streams, and external video datasets for robust cloud-based training.
 3.  **On-Device Symbolic Search:** Implementation of the "Searcher" module on the edge (Pi 5) to enable the robot to perform "System 2" thinking—simulating and inventing solutions locally without explicit prior training for every scenario.
 

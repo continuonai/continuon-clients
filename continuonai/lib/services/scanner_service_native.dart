@@ -143,19 +143,35 @@ class ScannerService {
 
   void _parseMdnsService(Service service) {
     // Extract IP and Port
-    // Note: nsd Service object structure depends on the platform response
     final name = service.name ?? 'Unknown Robot';
     final host = service.host ?? '';
-    final port = service.port ?? 50051;
+    final port = service.port ?? 8080;
 
     // Simple validation
     if (host.isEmpty) return;
 
+    // Extract HTTP port from TXT records if available
+    int httpPort = 8080;
+    final txt = service.txt;
+    if (txt != null) {
+      if (txt.containsKey('http_port')) {
+        final val = txt['http_port'];
+        if (val != null) {
+          httpPort = int.tryParse(String.fromCharCodes(val)) ?? 8080;
+        }
+      }
+    }
+
+    // If the main port is 8080 or 8081, it's likely the HTTP port
+    if (port == 8080 || port == 8081) {
+      httpPort = port;
+    }
+
     final robot = ScannedRobot(
       name: name,
       host: host,
-      port: port,
-      httpPort: 8080, // Default or extract from TXT record if available
+      port: port == httpPort ? 50051 : port, // Fallback to 50051 if only HTTP found
+      httpPort: httpPort,
     );
 
     _addRobot(robot);

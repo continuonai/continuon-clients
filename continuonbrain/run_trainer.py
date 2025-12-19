@@ -161,6 +161,60 @@ def _run_jax_tpu(args) -> int:
     return 0 if results["status"] == "ok" else 1
 
 
+def _run_sequential_training(args) -> int:
+    """
+    Run sequential training optimized for Pi 5 (8GB).
+    """
+    import torch
+    import torch.nn as nn
+    from continuonbrain.trainer.sequential_trainer import SequentialTrainer
+    from continuonbrain.trainer.datasets import FastWindowDataset, MidTrajectoryDataset
+
+    logger.info("Starting Sequential Training Mode (Pi 5 Optimized)")
+    
+    # Placeholder Model Factory - Replace with real HOPE components
+    def dummy_model_factory():
+        return nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32)
+        )
+
+    trainer = SequentialTrainer(
+        checkpoint_dir=str(args.output_dir or "checkpoints"),
+        data_dir=str(args.rlds_dir or "continuonbrain/rlds/episodes")
+    )
+
+    # Train Fast Loop Component
+    success_fast = trainer.train_component(
+        component_name="fast_loop",
+        model_factory=dummy_model_factory,
+        dataset_class=FastWindowDataset,
+        epochs=1,
+        batch_size=args.batch_size
+    )
+
+    if not success_fast:
+        logger.error("Fast Loop training failed.")
+        return 1
+
+    # Train Mid Loop Component
+    success_mid = trainer.train_component(
+        component_name="mid_loop",
+        model_factory=dummy_model_factory,
+        dataset_class=MidTrajectoryDataset,
+        epochs=1,
+        batch_size=args.batch_size
+    )
+    
+    if not success_mid:
+        logger.error("Mid Loop training failed.")
+        return 1
+        
+    logger.info("Sequential training completed successfully.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Unified trainer launcher")
     prefer_jax_default = os.getenv("CONTINUON_PREFER_JAX", "1").lower() in {"1", "true", "yes", "on"}
@@ -172,9 +226,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--mode",
-        choices=["local", "tpu"],
+        choices=["local", "tpu", "sequential"],
         default="local",
-        help="Training mode: local (Pi CPU) or tpu (cloud training)",
+        help="Training mode: local (Pi CPU), sequential (Pi 8GB opt), or tpu (cloud training)",
     )
     parser.add_argument("--rlds-dir", type=Path, help="Path to RLDS TFRecord directory")
     parser.add_argument("--data-path", type=Path, help="TFRecord path (for TPU mode)")
@@ -211,6 +265,9 @@ def main() -> int:
     )
 
     logger.info("Selected trainer: %s (mode=%s)", trainer, args.mode)
+
+    if args.mode == "sequential":
+        return _run_sequential_training(args)
 
     if trainer == "jax":
         if args.mode == "tpu":

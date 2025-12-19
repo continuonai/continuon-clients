@@ -1371,6 +1371,11 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 result = asyncio.run(brain_service.RunChatLearn(data))
                 self.send_json(result)
 
+            elif self.path == "/api/training/sequential":
+                data = json.loads(body) if body else {}
+                result = brain_service.start_sequential_training(data)
+                self.send_json(result)
+
             elif self.path == "/api/training/teacher/mode":
                 data = json.loads(body) if body else {}
                 brain_service.teacher_mode_active = bool(data.get("active", False))

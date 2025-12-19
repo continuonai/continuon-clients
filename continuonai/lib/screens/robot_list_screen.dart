@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:async'; // Added for Timer
 
 import '../theme/continuon_theme.dart';
 
@@ -50,6 +51,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
   bool _tokenLoaded = false;
   bool _lanLikely = true;
   bool _stateLoaded = false;
+  Timer? _pollTimer;
 
   // Local list for guest mode
   final List<Map<String, dynamic>> _guestRobots = [
@@ -60,6 +62,46 @@ class _RobotListScreenState extends State<RobotListScreen> {
       'httpPort': 8080
     },
   ];
+  
+  @override
+  void initState() {
+    super.initState();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _tokenController.dispose();
+    _accountIdController.dispose();
+    _accountTypeController.dispose();
+    _ownerIdController.dispose();
+    super.dispose();
+  }
+  
+  void _startPolling() {
+     _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+        if (!mounted) return;
+        // Refresh all known hosts
+        // Logic: Iterate visible robots and refresh status
+        // Limitation: we don't have a clean list of all robots here easily without duplicating stream logic.
+        // For now, we will just refresh if we have interacted or cached them.
+        _refreshAllCachedHosts();
+     });
+  }
+  
+  Future<void> _refreshAllCachedHosts() async {
+      // In a real app, we'd query the list from provider or firestore cache.
+      // For this MVP, we iterate the _deviceInfoByHost keys which represent known active hosts.
+      final hosts = _deviceInfoByHost.keys.toList();
+      for (final host in hosts) {
+           // Basic refresh, ignoring errors to avoid snackbar spam
+           try {
+               await _brainClient.ping(host: host, httpPort: 8080); // Quick check
+               // We could do full _refreshStatus but that might be heavy
+           } catch(_) {}
+      }
+  }
 
   // _signOut handled by ContinuonAppBar now
 
