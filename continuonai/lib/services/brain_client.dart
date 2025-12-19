@@ -185,9 +185,10 @@ class BrainClient {
 
   Future<Map<String, dynamic>> setRobotMode(String mode) async {
     if (_host == null) return {'success': false, 'message': 'Not connected'};
+    // Use the new v1 context API if possible, fallback to legacy
     final uri = Uri.http('$_host:$_httpPort', '/api/mode/$mode');
     try {
-      final response = await http.get(uri);
+      final response = await http.post(uri, headers: _headers());
       if (response.statusCode == 200) {
         return Map<String, dynamic>.from(jsonDecode(response.body));
       }
@@ -195,6 +196,76 @@ class BrainClient {
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
+  }
+
+  /// Alias for setRobotMode used by BLoC
+  Future<bool> setMode(String mode) async {
+    final res = await setRobotMode(mode);
+    return res['success'] == true;
+  }
+
+  Future<Map<String, dynamic>> listModels() async {
+    if (_host == null) return {'success': false, 'models': []};
+    final uri = Uri.http('$_host:$_httpPort', '/api/v1/models');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('List models failed: $e');
+    }
+    return {'success': false, 'models': []};
+  }
+
+  Future<Map<String, dynamic>> activateModel(String modelId) async {
+    if (_host == null) return {'success': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/v1/models/activate');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json', ..._headers()},
+        body: jsonEncode({'model_id': modelId}),
+      );
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Activate model failed: $e');
+    }
+    return {'success': false};
+  }
+
+  Future<Map<String, dynamic>> listEpisodes() async {
+    if (_host == null) return {'success': false, 'episodes': []};
+    final uri = Uri.http('$_host:$_httpPort', '/api/v1/data/episodes');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('List episodes failed: $e');
+    }
+    return {'success': false, 'episodes': []};
+  }
+
+  Future<Map<String, dynamic>> tagEpisode(String episodeId, String tag) async {
+    if (_host == null) return {'success': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/v1/data/tag');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json', ..._headers()},
+        body: jsonEncode({'episode_id': episodeId, 'tag': tag}),
+      );
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Tag episode failed: $e');
+    }
+    return {'success': false};
   }
 
   Future<Map<String, dynamic>> chatWithGemma(
@@ -535,15 +606,37 @@ class BrainClient {
     }
   }
 
-  /// Reset safety gates (requires operator intent): POST /api/safety/reset
-  Future<Map<String, dynamic>> resetSafetyGates() async {
+  Stream<Map<String, dynamic>> subscribeToEvents() async* {
+    if (_host == null) return;
+    
+    final client = http.Client();
+    final request = http.Request('GET', _httpUri('/api/events'));
+    request.headers['Accept'] = 'text/event-stream';
+    request.headers['Cache-Control'] = 'no-cache';
+    if (_authToken != null) {
+      request.headers['Authorization'] = 'Bearer $_authToken';
+    }
+
     try {
-      final uri = _httpUri('/api/safety/reset');
-      final resp = await http.post(uri, headers: _headers());
-      final decoded = jsonDecode(resp.body);
-      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+      final response = await client.send(request);
+      if (response.statusCode == 200) {
+        await for (final line in response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6);
+            try {
+              yield jsonDecode(data) as Map<String, dynamic>;
+            } catch (e) {
+              debugPrint('Error decoding SSE data: $e');
+            }
+          }
+        }
+      }
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      debugPrint('SSE connection error: $e');
+    } finally {
+      client.close();
     }
   }
 }

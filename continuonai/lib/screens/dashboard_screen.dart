@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/brain_client.dart';
 import '../theme/continuon_theme.dart';
 import 'control_screen.dart';
+import '../widgets/creator_dashboard.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.brainClient});
@@ -170,7 +171,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                const CreatorDashboard(),
+                const SizedBox(height: 12),
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
                   duration: const Duration(milliseconds: 800),

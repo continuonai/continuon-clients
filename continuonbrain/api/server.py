@@ -49,6 +49,11 @@ from continuonbrain.settings_manager import SettingsStore, SettingsValidationErr
 from continuonbrain.system_events import SystemEventLogger
 from continuonbrain.server.skills import SkillLibrary, SkillEligibility, SkillEligibilityMarker, SkillLibraryEntry, SkillSummary
 from continuonbrain.server.tasks import TaskEligibilityMarker
+from continuonbrain.api.middleware.auth import get_auth_provider
+from continuonbrain.api.controllers.admin_controller import AdminControllerMixin
+from continuonbrain.api.controllers.robot_controller import RobotControllerMixin
+from continuonbrain.api.controllers.model_controller import ModelControllerMixin
+from continuonbrain.api.controllers.data_controller import DataControllerMixin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
@@ -472,7 +477,7 @@ def bluetooth_connect(address: str):
     except subprocess.TimeoutExpired:
         return {"success": False, "message": "Bluetooth connect timed out"}
 
-class BrainRequestHandler(BaseHTTPRequestHandler):
+class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin):
     """Handles HTTP requests for the Brain API."""
 
     def do_GET(self):
@@ -801,6 +806,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     }
                 )
 
+            elif self.path == "/api/v1/models":
+                self.handle_list_models()
+
+            elif self.path == "/api/v1/data/episodes":
+                self.handle_list_episodes()
+
             elif self.path == "/api/ownership/status":
                 self.send_json(
                     {
@@ -998,104 +1009,23 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 self.send_json({"success": True})
 
             elif self.path == "/api/admin/factory_reset":
-                payload = json.loads(body) if body else {}
-                if not isinstance(payload, dict):
-                    self.send_json({"success": False, "message": "invalid payload"}, status=400)
-                    return
-
-                profile = str(payload.get("profile") or "factory").strip()
-                confirm = str(payload.get("confirm") or "").strip()
-                token = payload.get("token") or self.headers.get("x-continuon-admin-token")
-                dry_run = bool(payload.get("dry_run", False))
-
-                # Gate on mode and allow_motion (best-effort)
-                gates = brain_service.mode_manager.get_gate_snapshot() if brain_service and brain_service.mode_manager else {}
-                mode = (gates or {}).get("mode") or (brain_service.mode_manager.current_mode.value if brain_service and brain_service.mode_manager else None)
-                allow_motion = (gates or {}).get("allow_motion")
-                if mode not in ("idle", "emergency_stop") or allow_motion not in (False, None):
-                    self.send_json(
-                        {
-                            "success": False,
-                            "message": "reset blocked: requires mode=idle or emergency_stop and allow_motion=false",
-                            "mode": mode,
-                            "allow_motion": allow_motion,
-                        },
-                        status=409,
-                    )
-                    return
-
-                from continuonbrain.services.reset_manager import ResetManager, ResetProfile, ResetRequest
-
-                manager = ResetManager()
-                try:
-                    prof = ResetProfile(profile)
-                except Exception:
-                    self.send_json({"success": False, "message": f"unknown profile: {profile}"}, status=400)
-                    return
-
-                expected_confirm = manager.CONFIRM_FACTORY if prof == ResetProfile.FACTORY else manager.CONFIRM_MEMORIES
-                if confirm != expected_confirm:
-                    self.send_json({"success": False, "message": "confirmation required", "confirm_expected": expected_confirm}, status=400)
-                    return
-
-                runtime_root = Path("/opt/continuonos/brain")
-                config_dir = Path(getattr(brain_service, "config_dir", "")) if getattr(brain_service, "config_dir", None) else None
-                if not manager.authorize(provided_token=token, runtime_root=runtime_root, config_dir=config_dir):
-                    self.send_json(
-                        {
-                            "success": False,
-                            "message": "not authorized (set CONTINUON_ADMIN_TOKEN or CONTINUON_ALLOW_UNSAFE_RESET=1 for dev)",
-                        },
-                        status=403,
-                    )
-                    return
-
-                req = ResetRequest(profile=prof, dry_run=dry_run, config_dir=config_dir, runtime_root=runtime_root)
-                res = manager.run(req)
-                self.send_json({"success": res.success, "result": res.__dict__}, status=200 if res.success else 500)
+                self.handle_factory_reset(body)
                 return
 
             elif self.path == "/api/admin/promote_candidate":
-                payload = json.loads(body) if body else {}
-                if not isinstance(payload, dict):
-                    self.send_json({"success": False, "message": "invalid payload"}, status=400)
-                    return
+                self.handle_promote_candidate(body)
+                return
 
-                token = payload.get("token") or self.headers.get("x-continuon-admin-token")
-                dry_run = bool(payload.get("dry_run", False))
+            elif self.path == "/api/v1/models/activate":
+                self.handle_activate_model(body)
+                return
 
-                gates = brain_service.mode_manager.get_gate_snapshot() if brain_service and brain_service.mode_manager else {}
-                mode = (gates or {}).get("mode") or (brain_service.mode_manager.current_mode.value if brain_service and brain_service.mode_manager else None)
-                allow_motion = (gates or {}).get("allow_motion")
-                if mode not in ("idle", "emergency_stop") or allow_motion not in (False, None):
-                    self.send_json(
-                        {
-                            "success": False,
-                            "message": "promotion blocked: requires mode=idle or emergency_stop and allow_motion=false",
-                            "mode": mode,
-                            "allow_motion": allow_motion,
-                        },
-                        status=409,
-                    )
-                    return
+            elif self.path == "/api/v1/models/upload":
+                self.handle_upload_model(body)
+                return
 
-                from continuonbrain.services.promotion_manager import PromotionManager
-
-                runtime_root = Path("/opt/continuonos/brain")
-                config_dir = Path(getattr(brain_service, "config_dir", "")) if getattr(brain_service, "config_dir", None) else None
-                mgr = PromotionManager()
-                if not mgr.authorize(provided_token=token, runtime_root=runtime_root, config_dir=config_dir):
-                    self.send_json(
-                        {
-                            "success": False,
-                            "message": "not authorized (set CONTINUON_ADMIN_TOKEN or CONTINUON_ALLOW_UNSAFE_RESET=1 for dev)",
-                        },
-                        status=403,
-                    )
-                    return
-
-                res = mgr.promote(runtime_root=runtime_root, dry_run=dry_run)
-                self.send_json({"success": res.success, "result": res.__dict__}, status=200 if res.success else 500)
+            elif self.path == "/api/v1/data/tag":
+                self.handle_tag_episode(body)
                 return
 
             elif self.path.startswith("/api/mode/"):
@@ -1156,48 +1086,10 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                     self.send_json({"success": False, "message": str(e)}, status=500)
             
             elif self.path == "/api/robot/drive":
-                data = json.loads(body)
-                steering = float(data.get("steering", 0.0))
-                throttle = float(data.get("throttle", 0.0))
-                
-                if brain_service.drivetrain:
-                    brain_service.drivetrain.apply_drive(steering, throttle)
-                    self.send_json({"success": True})
-                else:
-                    self.send_json({"success": False, "message": "No drivetrain"})
+                self.handle_drive(body)
             
             elif self.path == "/api/robot/joints":
-                data = json.loads(body)
-                joint_idx = data.get("joint_index")
-                val = data.get("value")
-                
-                if brain_service.arm and joint_idx is not None:
-                    # ROUTE THROUGH SAFETY KERNEL
-                    # We send the individual joint update
-                    joint_map = {0: "base", 1: "shoulder", 2: "elbow", 3: "wrist", 4: "gripper"}
-                    joint_name = joint_map.get(joint_idx, f"joint_{joint_idx}")
-                    
-                    res = brain_service.safety_client.send_command("move_joints", {"joints": {joint_name: float(val)}})
-                    
-                    if res.get("status") != "ok":
-                         self.send_json({"success": False, "message": f"Safety Kernel Blocked: {res.get('reason')}"})
-                         return
-
-                    # Apply safe action
-                    safe_val = res.get("args", {}).get("joints", {}).get(joint_name, val)
-                    
-                    # Get current state first
-                    current = brain_service.arm.get_normalized_state()
-                    # Determine target
-                    target = list(current)
-                    if 0 <= joint_idx < 6:
-                        target[joint_idx] = float(safe_val)
-                        brain_service.arm.set_normalized_action(target)
-                        self.send_json({"success": True, "clipping": res.get("safety_level") == 1})
-                    else:
-                        self.send_json({"success": False, "message": "Invalid joint index"})
-                else:
-                    self.send_json({"success": False, "message": "No arm or invalid data"})
+                self.handle_joints(body)
             
             elif self.path == "/api/settings":
                 data = json.loads(body) if body else {}
@@ -1626,6 +1518,11 @@ def main():
 
     try:
         server, bound_port = bind_http_server(desired_port)
+        # Initializes Auth Provider
+        get_auth_provider(Path(args.config_dir))
+        # Attach BrainService for Controllers
+        # Note: brain_service is init AFTER bind_http_server in original code, so we must wait to attach
+        # See below after brain_service init
     except OSError as exc:
         print(f"❌ Failed to bind HTTP server on port {desired_port}: {exc}")
         raise
@@ -1665,6 +1562,8 @@ def main():
         prefer_real_hardware=prefer_real,
         auto_detect=True
     )
+    # Attach to server for controllers
+    server.brain_service = brain_service
     
     # Store settings in brain_service for access by ChatWithGemma
     

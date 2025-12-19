@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../blocs/auth/auth_bloc.dart';
+import '../blocs/auth/auth_event.dart';
+import '../models/user_role.dart';
 
 import '../theme/continuon_theme.dart';
 import 'robot_list_screen.dart';
@@ -60,6 +64,28 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
+  Future<void> _handleAuthSuccess(User user) async {
+    final token = await user.getIdToken();
+    final email = user.email ?? '';
+    
+    // Determine role based on email (temporary logic)
+    UserRole role = UserRole.consumer;
+    if (email == 'craigm26@gmail.com') {
+      role = UserRole.creator;
+    } else if (email.endsWith('@continuonai.com')) {
+      role = UserRole.developer;
+    }
+
+    if (mounted) {
+      context.read<AuthBloc>().add(AuthUserChanged(
+        token: token,
+        role: role,
+        email: email,
+      ));
+      Navigator.pushReplacementNamed(context, RobotListScreen.routeName);
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() {
       _isLoading = true;
@@ -67,9 +93,10 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
+      UserCredential userCredential;
       if (kIsWeb) {
         // Web uses Firebase Auth popup for Google; no client secret needed.
-        await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+        userCredential = await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
       } else {
         // Mobile/desktop via native Google Sign-In then hand off to Firebase Auth.
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -87,11 +114,11 @@ class _LoginScreenState extends State<LoginScreen>
           idToken: googleAuth.idToken,
         );
 
-        await FirebaseAuth.instance.signInWithCredential(credential);
+        userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       }
 
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, RobotListScreen.routeName);
+      if (userCredential.user != null) {
+        await _handleAuthSuccess(userCredential.user!);
       }
     } catch (e) {
       if (mounted) {
@@ -146,8 +173,8 @@ class _LoginScreenState extends State<LoginScreen>
             .signInWithEmailAndPassword(email: email, password: password);
       }
 
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, RobotListScreen.routeName);
+      if (credential.user != null) {
+        await _handleAuthSuccess(credential.user!);
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {

@@ -22,7 +22,7 @@
   - **Language:** Kotlin
   - **UI Framework:** Jetpack XR (SceneCore, Compose for XR).
 - **Companion App:** 
-  - **Framework:** Flutter (Dart) for iOS, Android, and Web support.
+  - **Framework:** Flutter (Dart) with BLoC architecture for iOS, Android, and Web support.
 - **Communication:**
   - **gRPC / WebRTC:** Low-latency bidirectional streaming between Brain and Shells.
   - **Protobuf:** Universal data serialization.

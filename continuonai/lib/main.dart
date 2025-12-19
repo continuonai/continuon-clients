@@ -9,6 +9,7 @@ import 'screens/public_episodes_screen.dart';
 import 'screens/public_episode_detail_screen.dart';
 import 'screens/manual_mode_screen.dart';
 import 'screens/record_screen.dart';
+import 'screens/model_manager_screen.dart';
 import 'screens/robot_list_screen.dart';
 import 'screens/robot_portal_screen.dart';
 import 'screens/pair_robot_screen.dart';
@@ -16,6 +17,10 @@ import 'screens/research_screen.dart';
 import 'screens/youtube_import_screen.dart';
 import 'services/brain_client.dart';
 import 'services/gemma_runtime.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'blocs/auth/auth_bloc.dart';
+import 'blocs/robot/robot_context_bloc.dart';
+import 'blocs/thought/brain_thought_bloc.dart';
 
 import 'theme/continuon_theme.dart';
 
@@ -31,11 +36,25 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+  
+  final brainClient = BrainClient();
+  await brainClient.loadAuthToken();
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => AuthBloc()),
+        BlocProvider(create: (context) => RobotContextBloc(brainClient: brainClient)),
+        BlocProvider(create: (context) => BrainThoughtBloc(brainClient: brainClient)..add(ThoughtSubscriptionRequested())),
+      ],
+      child: MyApp(brainClient: brainClient),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final BrainClient brainClient;
+  const MyApp({super.key, required this.brainClient});
 
   @override
   Widget build(BuildContext context) {
@@ -77,19 +96,12 @@ class MyApp extends StatelessWidget {
             body: Center(child: Text('Episode slug missing')),
           );
         },
-        ConnectScreen.routeName: (context) => ConnectScreen(brainClient: BrainClient()),
-        DashboardScreen.routeName: (context) {
-          return const Scaffold(body: Center(child: Text('Use navigation with arguments')));
-        },
-        ControlScreen.routeName: (context) {
-           return const Scaffold(body: Center(child: Text('Use navigation with arguments')));
-        },
-        ManualModeScreen.routeName: (context) {
-           return const Scaffold(body: Center(child: Text('Use navigation with arguments')));
-        },
-        RecordScreen.routeName: (context) {
-           return const Scaffold(body: Center(child: Text('Use navigation with arguments')));
-        },
+        ConnectScreen.routeName: (context) => ConnectScreen(brainClient: brainClient),
+        DashboardScreen.routeName: (context) => DashboardScreen(brainClient: brainClient),
+        ControlScreen.routeName: (context) => ControlScreen(brainClient: brainClient),
+        ManualModeScreen.routeName: (context) => ManualModeScreen(brainClient: brainClient),
+        RecordScreen.routeName: (context) => RecordScreen(brainClient: brainClient),
+        ModelManagerScreen.routeName: (context) => ModelManagerScreen(brainClient: brainClient),
       },
     );
   }
