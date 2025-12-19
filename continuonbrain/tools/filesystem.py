@@ -2,11 +2,11 @@
 from __future__ import annotations
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from .base import BaseBrainTool
 
 
-class FileSystemTool(BaseBrainBrainTool):
+class FileSystemTool(BaseBrainTool):
     """Read-only access to whitelisted project directories."""
 
     def __init__(self, whitelist_root: Optional[str] = None):
