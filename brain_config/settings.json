@@ -27,7 +27,7 @@
       "enabled": true,
       "interval_s": 300,
       "turns_per_cycle": 12,
-      "model_hint": "mock",
+      "model_hint": "hope-v1",
       "delegate_model_hint": "consult:google/gemma-3-270m-it",
       "topic": "curiosity-driven HOPE v1 self-improvement: CMS, safety, planning, tool-use, and robot skills",
       "modes": [
@@ -55,6 +55,6 @@
     "enable_autonomous_learning": true,
     "autonomous_learning_steps_per_cycle": 100,
     "autonomous_learning_checkpoint_interval": 1000,
-    "agent_model": "mock"
+    "agent_model": "hope-v1"
   }
 }
