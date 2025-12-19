@@ -10,6 +10,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Flutter Web Discovery & UX Polish
+
+*Link: [./conductor/tracks/flutter_web_discovery_polish_20251219/](./conductor/tracks/flutter_web_discovery_polish_20251219/)*
+
+---
+
 ## [ ] Track: Safety Kernel (Ring 0) Implementation
 
 *Link: [./conductor/tracks/safety_kernel_20251218/](./conductor/tracks/safety_kernel_20251218/)*

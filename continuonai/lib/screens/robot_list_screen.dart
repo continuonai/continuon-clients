@@ -14,6 +14,7 @@ import '../services/brain_client.dart';
 import '../services/scanner_service.dart';
 import '../widgets/layout/continuon_layout.dart';
 import '../widgets/layout/continuon_card.dart';
+import '../widgets/web_discovery_notice.dart'; // Added
 
 class RobotListScreen extends StatefulWidget {
   const RobotListScreen({super.key});
@@ -226,8 +227,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
       // 100% Consistent Nav: No screen-specific actions in Top Bar
       body: Column(
         children: [
+          const WebDiscoveryNotice(), // Added
           _buildStatusBanner(),
           _buildActionRow(), // New local action bar
+          _buildManualConnectSection(), // Added
           _buildHelpCard(),
           Expanded(
               child: _user == null ? _buildGuestList() : _buildFirestoreList()),
@@ -475,6 +478,30 @@ class _RobotListScreenState extends State<RobotListScreen> {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Text(text, style: Theme.of(context).textTheme.bodySmall),
       );
+
+  Widget _buildManualConnectSection() {
+    return ContinuonCard(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.settings_input_component, size: 20, color: Colors.grey),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Need to connect manually?',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _addRobot,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add via IP'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildEmptyState() {
     return Center(

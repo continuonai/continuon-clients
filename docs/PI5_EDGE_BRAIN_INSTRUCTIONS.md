@@ -35,6 +35,13 @@ Open the **ContinuonAI** Flutter app.
 2.  The app will automatically scan for robots advertising `_continuon._tcp`.
 3.  Tap a robot to pair or connect.
 
+### Connecting from a Web Browser
+Web browsers (Chrome, Safari, etc.) have security restrictions that prevent them from scanning your local network for mDNS services.
+1.  **Manual Entry:** On the **Discovery Screen**, use the **Add via IP** button.
+2.  **Quick Connect:** Open the sidebar menu (Drawer) and use the **Quick Connect** field at the bottom to enter your robot's IP directly.
+3.  **Local Dev:** If you are running the Brain Simulator on your laptop, connecting to `localhost` or `127.0.0.1` will work.
+4.  **CORS/Tunnels:** If the browser blocks the connection, ensure you are using `python scripts/tunnel_robot.py` to bridge the connection to `localhost`.
+
 ## 3. Remote Management (SSH)
 
 ### Setup SSH Keys
