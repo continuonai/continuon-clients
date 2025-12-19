@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../theme/continuon_theme.dart';
 import '../widgets/layout/continuon_card.dart';
 
 class WebDiscoveryNotice extends StatelessWidget {

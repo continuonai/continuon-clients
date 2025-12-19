@@ -1,0 +1,22 @@
+{
+  "shell_type": "pi5_arm",
+  "joint_limits": {
+    "base": [-170.0, 170.0],
+    "shoulder": [-85.0, 85.0],
+    "elbow": [-140.0, 140.0],
+    "wrist": [-175.0, 175.0],
+    "gripper": [0.0, 1.0]
+  },
+  "max_velocity": 0.8,
+  "max_acceleration": 1.5,
+  "min_voltage": 10.5,
+  "max_cpu_temp": 75.0,
+  "no_go_zones": [
+    {
+      "name": "base_pedestal",
+      "type": "cylinder",
+      "radius": 50,
+      "height": 100
+    }
+  ]
+}

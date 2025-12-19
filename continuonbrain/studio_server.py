@@ -90,3 +90,59 @@ class StudioSlowLoopClient:
             }
         self.last_rendered = rendered
         return rendered
+
+
+class StateAggregator:
+    """Collects and routes real-time data from the Brain runtime to Studio UI."""
+
+    def __init__(self, event_queue: Optional[Any] = None) -> None:
+        self._event_queue = event_queue
+        self._last_loop = "Fast"
+
+    def set_event_queue(self, queue: Any) -> None:
+        self._event_queue = queue
+
+    def push_thought(self, text: str, *, source: str = "reasoner") -> None:
+        """Push a new thought step to the cognitive feed."""
+        import time
+        payload = {
+            "type": "thought",
+            "text": text,
+            "source": source,
+            "timestamp": time.time()
+        }
+        self._emit(payload)
+
+    def update_loop(self, loop_name: str) -> None:
+        """Update the active HOPE loop (Fast/Mid/Slow)."""
+        if loop_name == self._last_loop:
+            return
+        self._last_loop = loop_name
+        payload = {
+            "type": "loop_change",
+            "active_loop": loop_name
+        }
+        self._emit(payload)
+
+    def push_metrics(self, metrics: Dict[str, Any]) -> None:
+        """Push system/performance metrics to the dashboard."""
+        payload = {
+            "type": "metrics",
+            "metrics": metrics
+        }
+        self._emit(payload)
+
+    def _emit(self, payload: Dict[str, Any]) -> None:
+        if self._event_queue is None:
+            return
+        
+        try:
+            # Handle both asyncio.Queue and regular queue.Queue
+            import asyncio
+            if isinstance(self._event_queue, asyncio.Queue):
+                self._event_queue.put_nowait(payload)
+            else:
+                self._event_queue.put(payload, block=False)
+        except Exception:
+            # Fail silently if queue is full or invalid
+            pass

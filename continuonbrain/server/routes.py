@@ -34,11 +34,19 @@ class SimpleJSONServer:
     # Chat configuration
     CHAT_HISTORY_LIMIT = 50  # Maximum number of chat messages to persist
 
-    def __init__(self, service, ui_provider=None, control_provider=None):
+    def __init__(self, service, ui_provider=None, control_provider=None, state_aggregator=None):
         self.service = service
         self.ui_provider = ui_provider
         self.control_provider = control_provider
         self.server = None
+        self.state_aggregator = state_aggregator
+        
+        # Real-time event queues
+        self.cognitive_event_queue = asyncio.Queue(maxsize=100)
+        
+        # Wire aggregator to queue if provided
+        if self.state_aggregator:
+            self.state_aggregator.set_event_queue(self.cognitive_event_queue)
         
         # Initialize Jinja2 environment
         template_dir = Path(__file__).parent / "templates"
@@ -669,6 +677,19 @@ class SimpleJSONServer:
             except Exception as exc:
                 response_body = json.dumps({"status": "error", "message": str(exc)})
                 return f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/curriculum/lessons" and method == "GET":
+            result = await self.service.ListLessons()
+            return self._json_response(result)
+
+        elif path == "/api/curriculum/run" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            lesson_id = payload.get("lesson_id")
+            if not lesson_id:
+                return self._json_response({"status": "error", "message": "lesson_id is required"}, status_code=400)
+            # Run in background to not block SSE
+            asyncio.create_task(self.service.RunCurriculumLesson(lesson_id))
+            return self._json_response({"status": "started", "lesson_id": lesson_id})
+
         elif path == "/api/imagination/start" and method == "POST":
             payload = await self._read_json_body(reader, headers)
             try:
@@ -1830,6 +1851,15 @@ class SimpleJSONServer:
                             else:
                                 break
                         except Exception:
+                            break
+
+                    # Check for pending cognitive events
+                    while not self.cognitive_event_queue.empty():
+                        try:
+                            cog_evt = self.cognitive_event_queue.get_nowait()
+                            writer.write(f"data: {json.dumps({'cognitive': cog_evt})}\n\n".encode("utf-8"))
+                            await writer.drain()
+                        except asyncio.QueueEmpty:
                             break
 
                     status = await self.service.GetRobotStatus()

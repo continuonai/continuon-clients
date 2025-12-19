@@ -70,6 +70,7 @@ class StartupManager:
         # Services
         self.discovery_service: Optional[LANDiscoveryService] = None
         self.mode_manager: Optional[RobotModeManager] = None
+        self.safety_kernel_process: Optional[subprocess.Popen] = None # Added
         self.robot_api_process: Optional[subprocess.Popen] = None
         self._robot_api_log_fh = None
         self.wiki_curiosity_process: Optional[subprocess.Popen] = None
@@ -264,6 +265,9 @@ class StartupManager:
         import sys
         from pathlib import Path
         
+        # 0. Start Safety Kernel (Ring 0)
+        self._start_safety_kernel()
+
         # Choose service port (fallback if 8080 is busy)
         port = self._find_available_port(preferred=self.service_port)
         if port is None:
@@ -442,7 +446,29 @@ class StartupManager:
 
         # Launch UI if configured
         self.launch_ui()
+
+    def _start_safety_kernel(self):
+        """Launch the Ring 0 Safety Kernel process."""
+        print("🛡️  Starting Safety Kernel (Ring 0)...")
+        repo_root = Path(__file__).parent.parent
+        env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
         
+        venv_python = repo_root / ".venv" / "bin" / "python3"
+        python_exec = str(venv_python) if venv_python.exists() else sys.executable
+        
+        cmd = [python_exec, "-m", "continuonbrain.kernel.safety_kernel"]
+        
+        try:
+            self.safety_kernel_process = subprocess.Popen(
+                cmd,
+                env=env,
+                stdout=subprocess.DEVNULL, # Keep kernel logs separate if needed
+                stderr=subprocess.STDOUT
+            )
+            print(f"   Safety Kernel started (PID: {self.safety_kernel_process.pid})")
+        except Exception as e:
+            print(f"   ⚠️  Failed to start Safety Kernel: {e}")
+
     def launch_ui(self):
         """Launch the web UI in the default browser if configured."""
         import webbrowser
@@ -523,6 +549,15 @@ class StartupManager:
         if self.discovery_service:
             self.discovery_service.stop()
         
+        # Stop Safety Kernel
+        if self.safety_kernel_process:
+            print("🛑 Stopping Safety Kernel...")
+            self.safety_kernel_process.terminate()
+            try:
+                self.safety_kernel_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.safety_kernel_process.kill()
+
         # Stop Robot API server
         if hasattr(self, 'robot_api_process') and self.robot_api_process:
             self.robot_api_process.terminate()

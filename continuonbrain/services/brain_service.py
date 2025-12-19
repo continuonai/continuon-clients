@@ -35,6 +35,10 @@ from continuonbrain.services.audio_io import record_wav, speak_text
 from continuonbrain.services.pairing_manager import PairingManager
 from continuonbrain.services.video_stream import VideoStreamHelper
 from continuonbrain.services.training_runner import TrainingRunner
+from continuonbrain.kernel.safety_kernel import SafetyKernelClient
+from continuonbrain.studio_server import StateAggregator
+from continuonbrain.tools import create_default_registry
+from continuonbrain.services.curriculum_manager import CurriculumManager # Added
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +318,10 @@ class BrainService:
         self.pairing = PairingManager(config_dir)
         self.training_runner = TrainingRunner(config_dir=config_dir)
         self.stream_helper = VideoStreamHelper(self)
+        self.safety_client = SafetyKernelClient()
+        self.state_aggregator = StateAggregator()
+        self.tool_registry = create_default_registry()
+        self.curriculum_manager = CurriculumManager(self, self.state_aggregator) # Added
         
         # JAX-based trainers/tool-router are intentionally lazy-imported
         self.wavecore_trainer = None
@@ -1078,6 +1086,22 @@ class BrainService:
     def get_chat_agent_info(self) -> Dict[str, Any]:
         """Get information about the active chat agent."""
         return self.gemma_chat.get_model_info()
+
+    async def CallBrainTool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a Brain Tool and log the invocation."""
+        try:
+            self.state_aggregator.push_thought(f"Invoking tool: {name}({args})", source="tool")
+            result = await self.tool_registry.call(name, **args)
+            self.state_aggregator.push_thought(f"Tool {name} result: {result}", source="tool")
+            return {"success": True, "result": result}
+        except Exception as e:
+            error_msg = f"Tool {name} failed: {str(e)}"
+            self.state_aggregator.push_thought(error_msg, source="tool")
+            return {"success": False, "message": error_msg}
+
+    async def RunCurriculumLesson(self, lesson_id: str) -> Dict[str, Any]:
+        """Run an autonomous lesson."""
+        return await self.curriculum_manager.run_lesson(lesson_id)
 
     def clear_chat_history(self) -> None:
         """Clear the chat history."""
@@ -2131,9 +2155,19 @@ class BrainService:
         if current_mode not in {RobotMode.MANUAL_CONTROL, RobotMode.MANUAL_TRAINING}:
             return {"success": False, "message": "Driving only allowed in manual modes"}
             
+        # ROUTE THROUGH SAFETY KERNEL (Ring 0)
+        res = self.safety_client.send_command("drive", {"steering": steering, "throttle": throttle})
+        if res.get("status") != "ok":
+            return {"success": False, "message": f"Safety Kernel Blocked: {res.get('reason')}"}
+        
+        # Extract potentially clipped args
+        safe_args = res.get("args", {})
+        safe_steering = safe_args.get("steering", steering)
+        safe_throttle = safe_args.get("throttle", throttle)
+
         if self.drivetrain:
-            self.drivetrain.apply_drive(steering, throttle)
-            return {"success": True, "message": "OK"}
+            self.drivetrain.apply_drive(safe_steering, safe_throttle)
+            return {"success": True, "message": "OK", "clipping": res.get("safety_level") == 1}
         return {"success": False, "message": "No drivetrain"}
 
     def _init_jax_search(self):

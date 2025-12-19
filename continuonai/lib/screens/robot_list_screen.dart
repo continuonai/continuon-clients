@@ -10,6 +10,7 @@ import '../theme/continuon_theme.dart';
 import 'dashboard_screen.dart';
 
 import 'pair_robot_screen.dart';
+import 'robot_portal_screen.dart';
 import '../services/brain_client.dart';
 import '../services/scanner_service.dart';
 import '../widgets/layout/continuon_layout.dart';
@@ -29,7 +30,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
   final User? _user = FirebaseAuth.instance.currentUser;
   final BrainClient _brainClient = BrainClient();
   // TODO: wire real LAN detection + persisted ownership/subscription/seed state
-  bool _isLocalNetwork = true;
   // Per-robot state caches
   final Map<String, bool> _ownedByHost = {};
   final Map<String, bool> _subByHost = {};
@@ -123,9 +123,16 @@ class _RobotListScreenState extends State<RobotListScreen> {
           setState(() {
             _guestRobots.add(robot);
           });
+          // Refresh status for the newly added robot
+          _refreshStatus(robot);
         },
       ),
-    );
+    ).then((result) {
+      // If a robot was added (result is Map), refresh its status
+      if (result != null && result is Map<String, dynamic>) {
+        _refreshStatus(result);
+      }
+    });
   }
 
   Future<void> _connectToRobot(Map<String, dynamic> data) async {
@@ -196,9 +203,16 @@ class _RobotListScreenState extends State<RobotListScreen> {
               setState(() {
                 _guestRobots.add(robot);
               });
+              // Refresh status for the newly added robot
+              _refreshStatus(robot);
             },
           ),
-        );
+        ).then((addedRobot) {
+          // If a robot was added (result is Map), refresh its status
+          if (addedRobot != null && addedRobot is Map<String, dynamic>) {
+            _refreshStatus(addedRobot);
+          }
+        });
       }
     });
   }
@@ -216,7 +230,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
         if (mounted) {
           setState(() {
             _lanLikely = lan;
-            _isLocalNetwork = lan;
           });
         }
       });
@@ -227,31 +240,13 @@ class _RobotListScreenState extends State<RobotListScreen> {
       // 100% Consistent Nav: No screen-specific actions in Top Bar
       body: Column(
         children: [
-          const WebDiscoveryNotice(), // Added
+          const WebDiscoveryNotice(),
           _buildStatusBanner(),
-          _buildActionRow(), // New local action bar
-          _buildManualConnectSection(), // Added
-          _buildHelpCard(),
+          _buildActionRow(),
+          _buildManualConnectSection(),
           Expanded(
               child: _user == null ? _buildGuestList() : _buildFirestoreList()),
         ],
-      ),
-      floatingActionButton: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.elasticOut,
-        builder: (context, value, child) {
-          return Transform.scale(
-            scale: value,
-            child: FloatingActionButton.extended(
-              onPressed: _addRobot,
-              backgroundColor: ContinuonColors.primaryBlue,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Robot'),
-              elevation: 4,
-            ),
-          );
-        },
       ),
     );
   }
@@ -385,7 +380,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       backgroundColor: Colors.blue.withOpacity(0.1),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: ContinuonColors.primaryBlue),
+          const Icon(Icons.info_outline, color: ContinuonColors.primaryBlue),
           const SizedBox(width: 12),
           Expanded(child: Text(messages.join(' '))),
         ],
@@ -432,71 +427,29 @@ class _RobotListScreenState extends State<RobotListScreen> {
           padding: const EdgeInsets.all(20),
           itemCount: docs.length,
           itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
-            return _buildAnimatedRobotCard(data, index);
+            final doc = docs[index];
+            final data = doc.data() as Map<String, dynamic>;
+            // Include document ID for management operations
+            final dataWithId = Map<String, dynamic>.from(data);
+            dataWithId['_documentId'] = doc.id;
+            return _buildAnimatedRobotCard(dataWithId, index);
           },
         );
       },
     );
   }
 
-  Widget _buildHelpCard() {
-    final show = !_lanLikely || !_isOwned || !_hasSeedInstalled;
-    if (!show) return const SizedBox.shrink();
-    return ContinuonCard(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.help_outline, size: 20, color: Colors.grey),
-              const SizedBox(width: 8),
-              Text(
-                'How to connect a new robot',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _helpText(
-              '1) Join the same Wi‑Fi/LAN as the robot (or the robot’s hotspot).'),
-          _helpText(
-              '2) Find the robot IP (status screen or router). Defaults: gRPC 50051, HTTP 8080.'),
-          _helpText('3) Tap "Add Robot" and enter IP/ports.'),
-          _helpText(
-              '4) When on robot LAN, tap Claim (local), then Seed install. Remote control/OTA works after that.'),
-        ],
-      ),
-    );
-  }
-
-  Widget _helpText(String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Text(text, style: Theme.of(context).textTheme.bodySmall),
-      );
 
   Widget _buildManualConnectSection() {
-    return ContinuonCard(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          const Icon(Icons.settings_input_component, size: 20, color: Colors.grey),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Need to connect manually?',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-            ),
-          ),
-          TextButton.icon(
+          OutlinedButton.icon(
             onPressed: _addRobot,
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add via IP'),
+            label: const Text('Add Robot'),
           ),
         ],
       ),
@@ -641,6 +594,82 @@ class _RobotListScreenState extends State<RobotListScreen> {
                     onPressed:
                         (isBusy || isGuest) ? null : () => _refreshStatus(data),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.open_in_browser),
+                    tooltip: 'Open robot web UI',
+                    onPressed: isBusy ? null : () => _openRobotWebUI(data),
+                    color: ContinuonColors.primaryBlue,
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    tooltip: 'Manage robot',
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'rename':
+                          _showRenameDialog(data);
+                          break;
+                        case 'delete':
+                          _showDeleteDialog(data);
+                          break;
+                        case 'transfer':
+                          _showTransferOwnershipDialog(data);
+                          break;
+                        case 'lease':
+                          _showLeasingDialog(data);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 8),
+                            Text('Rename'),
+                          ],
+                        ),
+                      ),
+                      if (isGuest) ...[
+                        const PopupMenuItem(
+                          enabled: false,
+                          child: Text('Sign in to manage robots'),
+                        ),
+                      ] else ...[
+                        const PopupMenuItem(
+                          value: 'transfer',
+                          child: Row(
+                            children: [
+                              Icon(Icons.swap_horiz, size: 20),
+                              SizedBox(width: 8),
+                              Text('Transfer Ownership'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'lease',
+                          child: Row(
+                            children: [
+                              Icon(Icons.business_center, size: 20),
+                              SizedBox(width: 8),
+                              Text('Leasing & Rental'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 20, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Delete', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   if (isBusy)
                     const SizedBox(
                       width: 20,
@@ -651,7 +680,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                   if (!_isOwned)
                     ElevatedButton.icon(
                       onPressed:
-                          (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                          (isGuest || isBusy || mismatch)
                               ? null
                               : () => _claimRobot(data),
                       icon: const Icon(Icons.how_to_reg),
@@ -661,7 +690,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                   if (_isOwned && !_hasSeedInstalled)
                     ElevatedButton.icon(
                       onPressed:
-                          (isGuest || !_isLocalNetwork || isBusy || mismatch)
+                          (isGuest || isBusy || mismatch)
                               ? null
                               : () => _installSeed(data),
                       icon: const Icon(Icons.system_update),
@@ -731,38 +760,49 @@ class _RobotListScreenState extends State<RobotListScreen> {
       _brainClient.setAuthToken(_authToken!);
     }
     setState(() => _busyHosts.add(host));
-    final status =
-        await _brainClient.fetchOwnershipStatus(host: host, httpPort: httpPort);
-    final ping = await _brainClient.ping(host: host, httpPort: httpPort);
-    if (mounted) {
-      setState(() {
-        final owned = status['owned'] == true;
-        final sub = status['subscription_active'] == true;
-        final seed = status['seed_installed'] == true;
-        _ownedByHost[host] = owned;
-        _subByHost[host] = sub;
-        _seedByHost[host] = seed;
-        if (ping.isNotEmpty) {
-          _deviceInfoByHost[host] = ping;
+    try {
+      final status =
+          await _brainClient.fetchOwnershipStatus(host: host, httpPort: httpPort);
+      final ping = await _brainClient.ping(host: host, httpPort: httpPort);
+      if (mounted) {
+        setState(() {
+          final owned = status['owned'] == true;
+          final sub = status['subscription_active'] == true;
+          final seed = status['seed_installed'] == true;
+          _ownedByHost[host] = owned;
+          _subByHost[host] = sub;
+          _seedByHost[host] = seed;
+          if (ping.isNotEmpty) {
+            _deviceInfoByHost[host] = ping;
+          }
+          _errorByHost.remove(host);
+          // Update global flags based on this robot's status
+          _isOwned = owned;
+          _hasSubscription = sub;
+          _hasSeedInstalled = seed;
+          _busyHosts.remove(host);
+        });
+        _saveCachedState();
+        if (status.isEmpty) {
+          _errorByHost[host] = 'Status fetch failed';
+          _showSnack('Status fetch failed for $host');
+        } else if (ping.isEmpty) {
+          _errorByHost[host] = 'Ping failed';
+          _showSnack('Ping failed for $host');
+        } else if (_accountId != null &&
+            status['account_id'] != null &&
+            status['account_id'] != _accountId) {
+          _errorByHost[host] = 'Account mismatch';
+          _showSnack('Account mismatch for $host');
         }
-        _errorByHost.remove(host);
-        _isOwned = owned;
-        _hasSubscription = sub;
-        _hasSeedInstalled = seed;
-        _busyHosts.remove(host);
-      });
-      _saveCachedState();
-      if (status.isEmpty) {
-        _errorByHost[host] = 'Status fetch failed';
-        _showSnack('Status fetch failed for $host');
-      } else if (ping.isEmpty) {
-        _errorByHost[host] = 'Ping failed';
-        _showSnack('Ping failed for $host');
-      } else if (_accountId != null &&
-          status['account_id'] != null &&
-          status['account_id'] != _accountId) {
-        _errorByHost[host] = 'Account mismatch';
-        _showSnack('Account mismatch for $host');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorByHost[host] = 'Connection error: ${e.toString()}';
+          _busyHosts.remove(host);
+        });
+        _showSnack('Failed to refresh status: $e');
       }
     }
   }
@@ -850,6 +890,315 @@ class _RobotListScreenState extends State<RobotListScreen> {
     }
   }
 
+  Future<void> _openRobotWebUI(Map<String, dynamic> data) async {
+    final host = data['host'] as String? ?? '';
+    final httpPort = data['httpPort'] as int? ?? 8080;
+    final robotName = data['name'] as String? ?? 'Robot';
+    
+    // Navigate to the robot portal screen within the app
+    Navigator.pushNamed(
+      context,
+      RobotPortalScreen.routeName,
+      arguments: {
+        'host': host,
+        'httpPort': httpPort,
+        'robotName': robotName,
+      },
+    );
+  }
+
+  void _showRenameDialog(Map<String, dynamic> data) {
+    final currentName = data['name'] as String? ?? 'Unnamed Robot';
+    final nameController = TextEditingController(text: currentName);
+    final documentId = data['_documentId'] as String?;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Robot'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: 'Robot Name',
+            hintText: 'Enter a new name for this robot',
+          ),
+          autofocus: true,
+          onSubmitted: (_) {
+            if (nameController.text.trim().isNotEmpty) {
+              Navigator.pop(context);
+              _renameRobot(data, nameController.text.trim(), documentId);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isNotEmpty) {
+                Navigator.pop(context);
+                _renameRobot(data, nameController.text.trim(), documentId);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameRobot(
+      Map<String, dynamic> data, String newName, String? documentId) async {
+    if (_user == null) {
+      // Guest mode: update local list
+      setState(() {
+        final index = _guestRobots.indexWhere(
+            (r) => r['host'] == data['host'] && r['port'] == data['port']);
+        if (index >= 0) {
+          _guestRobots[index]['name'] = newName;
+        }
+      });
+      _showSnack('Robot renamed to "$newName"');
+      return;
+    }
+
+    if (documentId == null) {
+      _showSnack('Cannot rename: robot not found in database');
+      return;
+    }
+
+    // _user is guaranteed to be non-null here due to early return above
+    final userId = _user.uid;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('robots')
+          .doc(documentId)
+          .update({'name': newName});
+      _showSnack('Robot renamed to "$newName"');
+    } catch (e) {
+      _showSnack('Failed to rename robot: $e');
+    }
+  }
+
+  void _showDeleteDialog(Map<String, dynamic> data) {
+    final name = data['name'] as String? ?? 'this robot';
+    final documentId = data['_documentId'] as String?;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Robot'),
+        content: Text(
+            'Are you sure you want to delete "$name"? This will remove it from your list but will not affect the robot itself.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteRobot(data, documentId);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteRobot(
+      Map<String, dynamic> data, String? documentId) async {
+    if (_user == null) {
+      // Guest mode: remove from local list
+      setState(() {
+        _guestRobots.removeWhere(
+            (r) => r['host'] == data['host'] && r['port'] == data['port']);
+      });
+      _showSnack('Robot removed from list');
+      return;
+    }
+
+    if (documentId == null) {
+      _showSnack('Cannot delete: robot not found in database');
+      return;
+    }
+
+    // _user is guaranteed to be non-null here due to early return above
+    final userId = _user.uid;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('robots')
+          .doc(documentId)
+          .delete();
+      _showSnack('Robot deleted');
+    } catch (e) {
+      _showSnack('Failed to delete robot: $e');
+    }
+  }
+
+  void _showTransferOwnershipDialog(Map<String, dynamic> data) {
+    final name = data['name'] as String? ?? 'this robot';
+    final host = data['host'] as String? ?? '';
+    final httpPort = data['httpPort'] as int? ?? 8080;
+    final emailController = TextEditingController();
+    final documentId = data['_documentId'] as String?;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Transfer Ownership'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Transfer ownership of "$name" to another user.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'New Owner Email',
+                hintText: 'user@example.com',
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Note: The new owner must accept the transfer. This action cannot be undone.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.orange.shade700,
+                  ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final email = emailController.text.trim();
+              if (email.isNotEmpty && email.contains('@')) {
+                Navigator.pop(context);
+                _transferOwnership(data, email, host, httpPort, documentId);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid email')),
+                );
+              }
+            },
+            child: const Text('Transfer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _transferOwnership(Map<String, dynamic> data, String newOwnerEmail,
+      String host, int httpPort, String? documentId) async {
+    if (_user == null) {
+      _showSnack('Sign in to transfer ownership');
+      return;
+    }
+
+    setState(() => _busyHosts.add(host));
+
+    try {
+      // First, call the robot's API to transfer ownership
+      if (_authToken != null) {
+        _brainClient.setAuthToken(_authToken!);
+      }
+
+      // Note: This would require a new API endpoint on the robot
+      // For now, we'll show a message that this feature needs robot-side support
+      _showSnack(
+          'Transfer ownership requires robot API support. Please use the robot web UI to transfer ownership.');
+
+      // TODO: Implement actual transfer via robot API when available
+      // await _brainClient.transferOwnership(
+      //   host: host,
+      //   httpPort: httpPort,
+      //   newOwnerEmail: newOwnerEmail,
+      // );
+
+      // Optionally remove from current user's list after successful transfer
+      // if (documentId != null) {
+      //   await FirebaseFirestore.instance
+      //       .collection('users')
+      //       .doc(_user!.uid)
+      //       .collection('robots')
+      //       .doc(documentId)
+      //       .delete();
+      // }
+    } catch (e) {
+      _showSnack('Failed to transfer ownership: $e');
+    } finally {
+      if (mounted) setState(() => _busyHosts.remove(host));
+    }
+  }
+
+  void _showLeasingDialog(Map<String, dynamic> data) {
+    final name = data['name'] as String? ?? 'this robot';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leasing & Rental'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Manage leasing and rental options for "$name".'),
+            const SizedBox(height: 16),
+            const Text(
+              'Available Options:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text('• Set rental rates per hour/day'),
+            const Text('• Enable/disable public job listings'),
+            const Text('• Manage active leases'),
+            const Text('• View rental history'),
+            const SizedBox(height: 16),
+            Text(
+              'This feature requires robot API support and will be available in a future update.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _openRobotWebUI(data); // Open robot web UI for now
+            },
+            child: const Text('Open Robot Web UI'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
@@ -900,12 +1249,14 @@ class _ScanRobotsDialog extends StatefulWidget {
 
 class _ScanRobotsDialogState extends State<_ScanRobotsDialog> {
   final _scanner = ScannerService();
+  final _manualIpController = TextEditingController();
   List<ScannedRobot> _robots = [];
+  bool _isScanning = false;
 
   @override
   void initState() {
     super.initState();
-    _scanner.startScan();
+    _startScan();
     _scanner.scannedRobots.listen((robots) {
       if (mounted) setState(() => _robots = robots);
     });
@@ -914,7 +1265,22 @@ class _ScanRobotsDialogState extends State<_ScanRobotsDialog> {
   @override
   void dispose() {
     _scanner.dispose();
+    _manualIpController.dispose();
     super.dispose();
+  }
+
+  Future<void> _startScan({String? manualHost}) async {
+    setState(() => _isScanning = true);
+    await _scanner.startScan(manualHost: manualHost, forceRestart: true);
+    // Give it a moment to start finding robots
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) setState(() => _isScanning = false);
+  }
+
+  Future<void> _scanManualIp() async {
+    final ip = _manualIpController.text.trim();
+    if (ip.isEmpty) return;
+    await _startScan(manualHost: ip);
   }
 
   @override
@@ -923,15 +1289,41 @@ class _ScanRobotsDialogState extends State<_ScanRobotsDialog> {
       title: const Text('Scanning for Robots...'),
       content: SizedBox(
         width: double.maxFinite,
-        height: 300,
+        height: 400,
         child: Column(
           children: [
-            const LinearProgressIndicator(),
+            // Manual IP input
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _manualIpController,
+                    decoration: const InputDecoration(
+                      labelText: 'Or enter IP manually',
+                      hintText: 'e.g., 192.168.1.100',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _scanManualIp(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isScanning ? null : _scanManualIp,
+                  child: const Text('Scan IP'),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
+            if (_isScanning) const LinearProgressIndicator(),
+            if (_isScanning) const SizedBox(height: 16),
             Expanded(
               child: _robots.isEmpty
-                  ? const Center(
-                      child: Text('Searching via WiFi (mDNS) & Bluetooth...'))
+                  ? Center(
+                      child: _isScanning
+                          ? const Text('Searching via WiFi (mDNS) & Bluetooth...')
+                          : const Text('No robots found. Try entering an IP manually above.'),
+                    )
                   : ListView.builder(
                       itemCount: _robots.length,
                       itemBuilder: (context, index) {
@@ -1029,7 +1421,7 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
       }
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context, robotData); // Return robotData so parent can refresh status
       }
     } catch (e) {
       if (mounted) {
@@ -1085,15 +1477,15 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
                 ],
               ),
               const SizedBox(height: 24),
-              ExpansionTile(
-                title: const Text('How to find connection details?',
+              const ExpansionTile(
+                title: Text('How to find connection details?',
                     style: TextStyle(fontSize: 14)),
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
                             '• Host IP: Local IP of your robot (e.g., 192.168.1.x).',
                             style: TextStyle(

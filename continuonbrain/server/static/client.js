@@ -1,5 +1,5 @@
 (function () {
-  const subscribers = { status: [], loops: [], tasks: [], skills: [] };
+  const subscribers = { status: [], loops: [], tasks: [], skills: [], cognitive: [] };
   let eventSource = null;
   let lastSseLogAt = 0;
 
@@ -56,7 +56,7 @@
     }
   }
 
-  function startEventStream({ onStatus, onLoops, onTasks, onSkills, onChat, reconnectDelayMs = 2000 }) {
+  function startEventStream({ onStatus, onLoops, onTasks, onSkills, onChat, onCognitive, reconnectDelayMs = 2000 }) {
     if (eventSource) {
       eventSource.close();
     }
@@ -74,6 +74,7 @@
           if (payload.tasks) emit("tasks", payload.tasks);
           if (payload.skills) emit("skills", payload.skills);
           if (payload.chat) emit("chat", payload.chat);
+          if (payload.cognitive) emit("cognitive", payload.cognitive);
 
           // Custom System Logs
           if (payload.type === 'log_message') {
@@ -82,8 +83,8 @@
 
           // Throttle noisy logs; still surface chat immediately.
           const now = Date.now();
-          if (payload.chat) {
-            try { window.UILogger?.log?.('info', 'SSE chat event received'); } catch (_) { }
+          if (payload.chat || payload.cognitive) {
+            try { window.UILogger?.log?.('info', `SSE ${payload.chat ? 'chat' : 'cognitive'} event received`); } catch (_) { }
           } else if (now - lastSseLogAt > 1500) {
             lastSseLogAt = now;
             const keys = Object.keys(payload || {}).filter(Boolean);
@@ -107,6 +108,7 @@
     if (onLoops) subscribers.loops.push(onLoops);
     if (onTasks) subscribers.tasks.push(onTasks);
     if (onSkills) subscribers.skills.push(onSkills);
+    if (onCognitive) subscribers.cognitive.push(onCognitive);
     if (onChat) {
       if (!subscribers.chat) subscribers.chat = [];
       subscribers.chat.push(onChat);
@@ -115,8 +117,8 @@
   }
 
   function startRealtime(options = {}) {
-    const { onStatus, onLoops, onTasks, onSkills, onChat, fallbackPollMs = 8000 } = options;
-    startEventStream({ onStatus, onLoops, onTasks, onSkills, onChat });
+    const { onStatus, onLoops, onTasks, onSkills, onChat, onCognitive, fallbackPollMs = 8000 } = options;
+    startEventStream({ onStatus, onLoops, onTasks, onSkills, onChat, onCognitive });
 
     if (fallbackPollMs && fallbackPollMs > 0) {
       setInterval(() => {
@@ -483,9 +485,50 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.initContextSwitcher === 'function') {
     window.initContextSwitcher();
   }
+
+  // Handle cognitive events
+  const onCognitive = (evt) => {
+    if (evt.type === 'thought') {
+      const container = document.getElementById('thought-stream');
+      if (container) {
+        const item = document.createElement('div');
+        item.className = 'thought-item';
+        if (evt.source === 'system') item.classList.add('system');
+        if (evt.source === 'tool') item.classList.add('tool');
+        
+        const ts = new Date(evt.timestamp * 1000).toLocaleTimeString();
+        item.textContent = `[${ts}] ${evt.text}`;
+        container.appendChild(item);
+        container.scrollTop = container.scrollHeight;
+      }
+    } else if (evt.type === 'loop_change') {
+      const badge = document.getElementById('active-loop');
+      if (badge) {
+        badge.textContent = evt.active_loop;
+        badge.className = 'loop-badge ' + 'loop-' + evt.active_loop.toLowerCase();
+      }
+    }
+  };
+
+  // Clear thoughts button
+  const clearBtn = document.getElementById('clear-thoughts');
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      const container = document.getElementById('thought-stream');
+      if (container) container.innerHTML = '';
+    };
+  }
+
   if (typeof window.updateStatus === 'function') {
     window.updateStatus();
     setInterval(() => window.updateStatus(), 12000);
+  }
+
+  if (window.StudioClient && typeof window.StudioClient.startRealtime === 'function') {
+    window.StudioClient.startRealtime({
+      onStatus: (s) => applyStatusToHomePanels(s),
+      onCognitive: onCognitive
+    });
   }
 
   // Page-specific auto-wiring
@@ -494,6 +537,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (document.getElementById('skill-list') && typeof window.fetchSkillLibrary === 'function') {
     window.fetchSkillLibrary();
+  }
+  if (document.getElementById('lesson-list') && typeof window.fetchLessons === 'function') {
+    window.fetchLessons();
   }
   if (document.getElementById('safety-gates-list') && typeof window.pollLoopHealth === 'function') {
     window.pollLoopHealth();
@@ -952,6 +998,36 @@ window.selectSkill = async function (skillId) {
 
 window.refreshSkills = function () {
   return window.fetchSkillLibrary();
+};
+
+window.fetchLessons = async function () {
+  const container = document.getElementById('lesson-list');
+  if (!container) return;
+  try {
+    const res = await fetch('/api/curriculum/lessons');
+    const data = await res.json();
+    const lessons = data.lessons || [];
+    container.innerHTML = lessons.map(l => `
+      <div class="stack-item">
+        <div>
+          <h4>${escapeHtml(l.title)}</h4>
+          <div class="stack-meta">${l.challenge_count} challenges</div>
+        </div>
+        <button class="rail-btn primary" onclick="window.startLesson('${l.id}')">Start</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = '<div class="stack-item"><span class="stack-meta">Failed to load curriculum</span></div>';
+  }
+};
+
+window.startLesson = async function (lessonId) {
+  try {
+    await postJson('/api/curriculum/run', { lesson_id: lessonId });
+    window.uiLog(`Lesson ${lessonId} requested`, 'info');
+  } catch (err) {
+    window.uiLog(`Failed to start lesson: ${err}`, 'error');
+  }
 };
 
 window.pollLoopHealth = async function () {

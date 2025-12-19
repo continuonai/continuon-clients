@@ -1,3 +1,92 @@
+/* Thought Stream Styles */
+.thought-container {
+    height: 300px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'SF Mono', 'Roboto Mono', monospace;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.thought-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--accent);
+    line-height: 1.4;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.thought-item.system {
+    border-left-color: var(--muted);
+    color: var(--muted);
+    font-style: italic;
+}
+
+.thought-item.tool {
+    border-left-color: var(--success);
+    background: rgba(56, 217, 150, 0.05);
+}
+
+.btn-clear {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.btn-clear:hover {
+    color: var(--text);
+    border-color: var(--muted);
+}
+
+/* Loop Badges */
+.loop-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.loop-fast {
+    background: rgba(255, 77, 109, 0.2);
+    color: #ff7b7b;
+    border: 1px solid rgba(255, 77, 109, 0.4);
+}
+
+.loop-mid {
+    background: rgba(79, 157, 255, 0.2);
+    color: #7ad7ff;
+    border: 1px solid rgba(79, 157, 255, 0.4);
+}
+
+.loop-slow {
+    background: rgba(137, 90, 255, 0.2);
+    color: #b08dff;
+    border: 1px solid rgba(137, 90, 255, 0.4);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.divider-h {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+    width: 100%;
+}
+
 :root {
     --bg: #0c111b;
     --panel: #0f1729;

@@ -35,4 +35,5 @@ Depends on all your plugins, and provides a function to register them.
   s.dependency 'permission_handler_apple'
   s.dependency 'shared_preferences_foundation'
   s.dependency 'url_launcher_ios'
+  s.dependency 'webview_flutter_wkwebview'
 end

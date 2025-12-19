@@ -21,12 +21,19 @@ from typing import Any, Dict, Optional
 
 from continuonbrain.server.routes import SimpleJSONServer
 from continuonbrain.services.wavecore_trainer import WavecoreTrainer
+from continuonbrain.studio_server import StateAggregator
+from continuonbrain.resource_monitor import ResourceMonitor
+from continuonbrain.tools import create_default_registry
+from continuonbrain.services.curriculum_manager import CurriculumManager
 
 
 class TrainingOnlyService:
     def __init__(self, *, config_dir: str, runtime_root: str = "/opt/continuonos/brain") -> None:
         self.config_dir = config_dir
         self.runtime_root = Path(runtime_root)
+        self.state_aggregator = StateAggregator()
+        self.tool_registry = create_default_registry()
+        self.curriculum_manager = CurriculumManager(self, self.state_aggregator)
         self.wavecore_trainer = WavecoreTrainer(
             default_rlds_dir=self.runtime_root / "rlds" / "episodes",
             log_dir=self.runtime_root / "trainer" / "logs",
@@ -59,6 +66,26 @@ class TrainingOnlyService:
             # Keep training server safe by default.
             self._mode = "idle"
         return {"success": True, "mode": self._mode}
+
+    async def CallBrainTool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a Brain Tool and log the invocation."""
+        try:
+            self.state_aggregator.push_thought(f"Invoking tool: {name}({args})", source="tool")
+            result = await self.tool_registry.call(name, **args)
+            self.state_aggregator.push_thought(f"Tool {name} result: {result}", source="tool")
+            return {"success": True, "result": result}
+        except Exception as e:
+            error_msg = f"Tool {name} failed: {str(e)}"
+            self.state_aggregator.push_thought(error_msg, source="tool")
+            return {"success": False, "message": error_msg}
+
+    async def RunCurriculumLesson(self, lesson_id: str) -> Dict[str, Any]:
+        """Run an autonomous lesson."""
+        return await self.curriculum_manager.run_lesson(lesson_id)
+
+    async def ListLessons(self) -> dict:
+        """List available curriculum lessons."""
+        return {"success": True, "lessons": self.curriculum_manager.list_curriculum()}
 
     async def ResetSafetyGates(self) -> dict:
         self._mode = "idle"
@@ -112,7 +139,22 @@ async def _amain() -> None:
     args = parser.parse_args()
 
     svc = TrainingOnlyService(config_dir=args.config_dir, runtime_root=args.runtime_root)
-    server = SimpleJSONServer(svc)
+    
+    # Background metrics loop
+    async def metrics_loop():
+        monitor = ResourceMonitor(config_dir=Path(args.config_dir))
+        while True:
+            try:
+                status = monitor.check_resources()
+                svc.state_aggregator.push_metrics(status.to_dict())
+            except Exception:
+                pass
+            await asyncio.sleep(5.0)
+
+    # Start metrics task
+    asyncio.create_task(metrics_loop())
+
+    server = SimpleJSONServer(svc, state_aggregator=svc.state_aggregator)
     await server.start(host=args.host, port=args.port)
 
 

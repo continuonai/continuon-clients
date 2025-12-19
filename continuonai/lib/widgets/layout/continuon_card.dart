@@ -8,6 +8,7 @@ class ContinuonCard extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? backgroundColor;
   final bool isInteractive;
+  final Border? border;
 
   const ContinuonCard({
     super.key,
@@ -17,6 +18,7 @@ class ContinuonCard extends StatelessWidget {
     this.onTap,
     this.backgroundColor,
     this.isInteractive = true,
+    this.border,
   });
 
   @override
@@ -37,7 +39,7 @@ class ContinuonCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: baseColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor),
+        border: border ?? Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),

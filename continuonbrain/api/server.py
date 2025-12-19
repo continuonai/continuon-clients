@@ -1172,14 +1172,28 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
                 val = data.get("value")
                 
                 if brain_service.arm and joint_idx is not None:
+                    # ROUTE THROUGH SAFETY KERNEL
+                    # We send the individual joint update
+                    joint_map = {0: "base", 1: "shoulder", 2: "elbow", 3: "wrist", 4: "gripper"}
+                    joint_name = joint_map.get(joint_idx, f"joint_{joint_idx}")
+                    
+                    res = brain_service.safety_client.send_command("move_joints", {"joints": {joint_name: float(val)}})
+                    
+                    if res.get("status") != "ok":
+                         self.send_json({"success": False, "message": f"Safety Kernel Blocked: {res.get('reason')}"})
+                         return
+
+                    # Apply safe action
+                    safe_val = res.get("args", {}).get("joints", {}).get(joint_name, val)
+                    
                     # Get current state first
                     current = brain_service.arm.get_normalized_state()
                     # Determine target
                     target = list(current)
                     if 0 <= joint_idx < 6:
-                        target[joint_idx] = float(val)
+                        target[joint_idx] = float(safe_val)
                         brain_service.arm.set_normalized_action(target)
-                        self.send_json({"success": True})
+                        self.send_json({"success": True, "clipping": res.get("safety_level") == 1})
                     else:
                         self.send_json({"success": False, "message": "Invalid joint index"})
                 else:

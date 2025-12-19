@@ -61,12 +61,13 @@ class ScannerService {
 
     await _probeHosts(candidateHosts);
     if (_foundRobots.isEmpty && manualHost != null && manualHost.isNotEmpty) {
+      // Add manual host with default ports if probe didn't find it
       _addRobot(
         ScannedRobot(
           name: 'Manual host',
           host: manualHost,
-          port: 8080,
-          httpPort: 8080,
+          port: 50051, // Default gRPC port
+          httpPort: 8080, // Default HTTP port
         ),
       );
     }

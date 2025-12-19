@@ -10,6 +10,7 @@ import 'screens/public_episode_detail_screen.dart';
 import 'screens/manual_mode_screen.dart';
 import 'screens/record_screen.dart';
 import 'screens/robot_list_screen.dart';
+import 'screens/robot_portal_screen.dart';
 import 'screens/pair_robot_screen.dart';
 import 'screens/research_screen.dart';
 import 'screens/youtube_import_screen.dart';
@@ -50,6 +51,19 @@ class MyApp extends StatelessWidget {
         ResearchScreen.routeName: (context) => const ResearchScreen(),
         LoginScreen.routeName: (context) => const LoginScreen(),
         RobotListScreen.routeName: (context) => const RobotListScreen(),
+        RobotPortalScreen.routeName: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map<String, dynamic>) {
+            return RobotPortalScreen(
+              host: args['host'] as String,
+              httpPort: args['httpPort'] as int? ?? 8080,
+              robotName: args['robotName'] as String? ?? 'Robot',
+            );
+          }
+          return const Scaffold(
+            body: Center(child: Text('Robot portal: missing arguments')),
+          );
+        },
         PairRobotScreen.routeName: (context) => const PairRobotScreen(),
         YoutubeImportScreen.routeName: (context) => const YoutubeImportScreen(),
         PublicEpisodesScreen.routeName: (context) =>
