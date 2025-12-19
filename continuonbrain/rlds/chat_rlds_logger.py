@@ -99,6 +99,20 @@ def log_chat_turn(
             "timestamp": now,
         },
     }
+    verification = None
+    if isinstance(structured, dict):
+        verification = structured.get("verification") if structured else None
+    if isinstance(verification, dict):
+        tool_calls = verification.get("tool_calls")
+        correction = verification.get("correct_answer")
+        if tool_calls:
+            step.setdefault("step_metadata", {})["verification_tool_calls"] = tool_calls
+        if correction:
+            step.setdefault("step_metadata", {})["verification_correction"] = {
+                "correct_answer": correction,
+                "is_correct": verification.get("is_correct"),
+                "confidence": verification.get("confidence"),
+            }
     # Backward-compatible metadata passthrough: callers may attach extra provenance fields.
     if isinstance(metadata, dict) and metadata:
         try:
