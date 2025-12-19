@@ -1662,7 +1662,8 @@ class BrainService:
                         # If we are here, we likely want to refresh.
                         # If we are here, we likely want to refresh.
                         self.log_system_event(f"Re-initializing Chat Agent with Accelerator: {accelerator}")
-                        self.gemma_chat = build_chat_service()
+                        # FORCE MOCK to prevent hang during independence training
+                        self._build_chat_with_fallback(["mock"])
                         if self.gemma_chat and accelerator and hasattr(self.gemma_chat, 'accelerator_device'):
                             # Ensure device is set if factory didn't pick it up (though factory usually does)
                             if not self.gemma_chat.accelerator_device:
@@ -2278,6 +2279,32 @@ class BrainService:
                 )
             
             assistant_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+
+            # --- CURIOSITY DRIVER (Mock Override) ---
+            # If we are in "learning mode" (implied by RunChatLearn) and the agent gives a generic mock response,
+            # we MUST inject a *real* curious question to drive the Gemini subagent to give useful answers.
+            # Otherwise, "I'm a mock agent" -> Gemini: "Okay." -> No learning.
+            if i % 2 == 0 and ("mock" in assistant_text.lower() or len(assistant_text) < 20):
+                import random
+                curiosity_questions = [
+                    "I am curious: How does the Compact Memory System (CMS) decide which memories to keep and which to discard?",
+                    "I want to understand: What is the specific data format for RLDS episodes, and how do we ensure schema validation?",
+                    "I am researching: How does the Tool Router map natural language to specific tool arguments using JAX?",
+                    "I am investigating: What are the safety protocols for arm manipulation, and how do we override them in emergencies?",
+                    "I am curious: How does the WaveCore 'slow loop' update the long-term weights from the 'mid loop' adapters?",
+                    "I want to know: What is the difference between 'humand' and 'HOPE reading' in the seed model training plan?",
+                    "I am exploring: How can I use the 'ASK_GEMINI' tool more effectively to fill gaps in my knowledge?",
+                    "I am curious: What metrics does the 'background learner' use to determine if a training step was successful?",
+                ]
+                
+                # Pick one deterministically based on turn to avoid repeats in short sessions
+                q_idx = (i // 2) % len(curiosity_questions)
+                forced_question = curiosity_questions[q_idx]
+                
+                print(f"[RunChatLearn] ⚠️  Mock response detected. INJECTING CURIOSITY DRIVER question: {forced_question}")
+                assistant_text = forced_question
+                resp["response"] = assistant_text
+                resp["injected_curiosity"] = True
 
             # Teacher Input Capture Logic
             if self.teacher_mode_active and i < turns - 1 and (i % 2 == 0):

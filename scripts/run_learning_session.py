@@ -15,7 +15,7 @@ def wait_for_server(timeout=60):
     start = time.time()
     while time.time() - start < timeout:
         try:
-            requests.get(f"{BASE_URL}/api/ping", timeout=2)
+            requests.get(f"{BASE_URL}/api/ping", timeout=30)
             console.print("[green]Server is up![/green]")
             return True
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.RequestException) as e:
