@@ -1,9 +1,9 @@
 # Plan: HOPE v1 Seed Model Training on Pi 5 (8GB)
 
 ## Phase 1: Alignment and Data Partitioning
-- [ ] Task: Audit RLDS schema alignment with Cloud/Flutter.
-    - [ ] Subtask: Review `docs/rlds-schema.md` and verify compatibility with `continuonai/` (Flutter) and Cloud ingestion requirements.
-    - [ ] Subtask: Update `rlds/` utilities if discrepancies are found.
+- [x] Task: Audit RLDS schema alignment with Cloud/Flutter.
+    - [x] Subtask: Review `docs/rlds-schema.md` and verify compatibility with `continuonai/` (Flutter) and Cloud ingestion requirements.
+    - [x] Subtask: Update `rlds/` utilities if discrepancies are found.
 - [ ] Task: Implement multi-scale windowing loaders.
     - [ ] Subtask: Implement `FastWindowDataset` (50-100ms) and `MidTrajectoryDataset` (1-10s).
     - [ ] Subtask: Add unit tests to verify correct slicing.
