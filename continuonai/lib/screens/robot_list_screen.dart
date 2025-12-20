@@ -15,7 +15,6 @@ import '../services/brain_client.dart';
 import '../services/scanner_service.dart';
 import '../widgets/layout/continuon_layout.dart';
 import '../widgets/layout/continuon_card.dart';
-import '../widgets/web_discovery_notice.dart'; // Added
 
 class RobotListScreen extends StatefulWidget {
   const RobotListScreen({super.key});
@@ -240,7 +239,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
       // 100% Consistent Nav: No screen-specific actions in Top Bar
       body: Column(
         children: [
-          const WebDiscoveryNotice(),
           _buildStatusBanner(),
           _buildActionRow(),
           _buildManualConnectSection(),
