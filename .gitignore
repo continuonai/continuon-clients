@@ -49,6 +49,25 @@ memories/
 # Generated protobufs
 **/build/generated/**
 
+# Root-level diagnostic outputs (keep curated samples under docs/examples)
+/Debug*.log
+/debug_*.log
+/server*.log
+/runtime_server.log
+/train_error*.log
+/vlm_error.log
+/pyhailort.log
+/hailort.log
+/start_log*.txt
+/status*.txt
+/server_log*.txt
+/output*.txt
+/install_log.txt
+/install_mp.txt
+/curl_*.txt
+/netstat_full.txt
+/test_output.txt
+
 # OS artifacts
 .DS_Store
 Thumbs.db

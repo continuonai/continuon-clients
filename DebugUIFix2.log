@@ -1,9 +1,0 @@
-Warning: adafruit-servokit not installed (mock mode)
-Warning: adafruit_servokit import failed: No module named 'lgpio'
-Traceback (most recent call last):
-  File "/home/craigm26/ContinuonXR/continuonbrain/api/server.py", line 30, in <module>
-    from continuonbrain.api.routes import ui_routes
-  File "/home/craigm26/ContinuonXR/continuonbrain/api/routes/ui_routes.py", line 275
-    const div = document.createElement('div');
-    ^^^^^^^^^
-SyntaxError: invalid syntax. Perhaps you forgot a comma?
