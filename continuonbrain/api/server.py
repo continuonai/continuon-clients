@@ -115,8 +115,15 @@ def _build_status_payload() -> dict:
         except Exception:
             learning = None
 
+    hardware_mode = "mock"
+    if brain_service and hasattr(brain_service, "hardware_mode"):
+        hardware_mode = brain_service.hardware_mode
+    elif brain_service and getattr(brain_service, "prefer_real_hardware", False):
+         hardware_mode = "real"
+
     return {
-        "status": "ok",
+        "api_state": "ok",
+        "hardware_mode": hardware_mode,
         "mode": mode_value,
         "gate_snapshot": gates,
         "allow_motion": gates.get("allow_motion"),
@@ -496,8 +503,15 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
     def _send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin")
         self.send_header("Access-Control-Allow-Private-Network", "true")
+
+    def send_error(self, code, message=None, explain=None):
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self._send_cors_headers()
+        self.end_headers()
+        self.wfile.write(json.dumps({"success": False, "error": message or "Unknown error", "code": code}).encode("utf-8"))
 
     def do_OPTIONS(self):
         """Handle preflight CORS requests."""
@@ -936,24 +950,29 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     account_id = payload.get("account_id")
                     account_type = payload.get("account_type")
                     owner_id = payload.get("owner_id")
-                except Exception:
-                    pass
-                brain_service.set_ownership(
-                    owned=True,
-                    account_id=account_id,
-                    account_type=account_type,
-                    owner_id=owner_id,
-                )
-                self.send_json(
-                    {
-                        "owned": True,
-                        "subscription_active": brain_service.subscription_active,
-                        "seed_installed": brain_service.seed_installed,
-                        "account_id": brain_service.account_id,
-                        "account_type": brain_service.account_type,
-                        "owner_id": brain_service.owner_id,
-                    }
-                )
+                except Exception as e:
+                    logger.warning(f"Claim payload parse error: {e}")
+                
+                try:
+                    brain_service.set_ownership(
+                        owned=True,
+                        account_id=account_id,
+                        account_type=account_type,
+                        owner_id=owner_id,
+                    )
+                    self.send_json(
+                        {
+                            "owned": True,
+                            "subscription_active": brain_service.subscription_active,
+                            "seed_installed": brain_service.seed_installed,
+                            "account_id": brain_service.account_id,
+                            "account_type": brain_service.account_type,
+                            "owner_id": brain_service.owner_id,
+                        }
+                    )
+                except Exception as ex:
+                    logger.error(f"Ownership claim failed: {ex}")
+                    self.send_error(500, f"Claim failed: {str(ex)}")
 
             elif self.path == "/api/camera/stream":
                 self.handle_mjpeg_stream()
