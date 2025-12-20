@@ -5,6 +5,7 @@ import '../services/brain_client.dart';
 import '../theme/continuon_theme.dart';
 import 'control_screen.dart';
 import '../widgets/creator_dashboard.dart';
+import '../widgets/chat_interaction_widget.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.brainClient});
@@ -22,6 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic> _status = {};
   bool _loading = false;
   bool _openingSettings = false;
+  bool _showControls = false;
 
   @override
   void initState() {
@@ -74,7 +76,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (res['success'] != true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load settings: ${res['message'] ?? 'unknown error'}'),
+            content: Text(
+                'Failed to load settings: ${res['message'] ?? 'unknown error'}'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -82,7 +85,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       final raw = res['settings'];
-      final settings = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+      final settings =
+          raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
 
       await showModalBottomSheet<void>(
         context: context,
@@ -112,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('CraigBot Control',
+        title: const Text('ContinuonAI Robotic Control',
             style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
@@ -138,115 +142,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
         ],
       ),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          // Health Signals Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Theme.of(context).colorScheme.surface,
+            child: Row(
               children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeOut,
-                  builder: (context, value, child) {
-                    return Opacity(
-                      opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, 20 * (1 - value)),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      const Text('🤖', style: TextStyle(fontSize: 32)),
-                      const SizedBox(width: 12),
-                      Text('ContinuonAI',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+                _buildHealthBadge(
+                  label: mode.toUpperCase(),
+                  color: _getModeColor(mode),
+                  icon: Icons.psychology,
                 ),
-                const SizedBox(height: 12),
-                const CreatorDashboard(),
-                const SizedBox(height: 12),
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 800),
-                  curve: Curves.easeOut,
-                  builder: (context, value, child) {
-                    return Opacity(
-                      opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, 30 * (1 - value)),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardTheme.color,
-                      borderRadius: BorderRadius.circular(ContinuonTokens.r16),
-                      boxShadow: ContinuonTokens.midShadow,
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        _buildStatusCard(mode, isRecording, allowMotion),
-                        const SizedBox(height: 24),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('Hardware Sensors',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildSensorsCard(hardware),
-                        const SizedBox(height: 24),
-                        _buildActionButtons(context),
-                      ],
-                    ),
+                const SizedBox(width: 8),
+                if (isRecording)
+                  _buildHealthBadge(
+                      label: 'REC',
+                      color: Colors.red,
+                      icon: Icons.fiber_manual_record),
+                const Spacer(),
+                if (allowMotion)
+                  Tooltip(
+                    message: 'Motion Allowed',
+                    child: Icon(Icons.check_circle,
+                        color: Colors.orange, size: 20),
                   ),
-                ),
-                const SizedBox(height: 24),
-                Center(
-                  child: Text(
-                    'ContinuonAI Robot Control Interface',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
               ],
             ),
           ),
-        ),
+          const Divider(height: 1),
+          // Creator Dashboard (Hidden behind expander or just removed for basic users?
+          // Requirements said "main interaction" is chat. Let's keep it clean.)
+
+          // Main Chat Area
+          Expanded(
+            child: ChatInteractionWidget(brainClient: widget.brainClient),
+          ),
+
+          // Bottom Controls Expander
+          ExpansionTile(
+            title:
+                const Text('Advanced Controls', style: TextStyle(fontSize: 14)),
+            dense: true,
+            initiallyExpanded: _showControls,
+            onExpansionChanged: (val) => setState(() => _showControls = val),
+            children: [
+              Container(
+                height: 300,
+                padding: const EdgeInsets.all(16),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const CreatorDashboard(),
+                      const SizedBox(height: 12),
+                      Text('Hardware Sensors',
+                          style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      _buildSensorsCard(hardware),
+                      const SizedBox(height: 12),
+                      _buildActionButtons(context),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildStatusCard(String mode, bool isRecording, bool allowMotion) {
+  Widget _buildHealthBadge(
+      {required String label, required Color color, required IconData icon}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(ContinuonTokens.r8),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          _buildStatusRow('Mode', mode.toUpperCase(),
-              isBadge: true, badgeColor: _getModeColor(mode)),
-          const SizedBox(height: 8),
-          _buildStatusRow('Recording', isRecording ? 'Yes' : 'No'),
-          const SizedBox(height: 8),
-          _buildStatusRow('Motion Allowed', allowMotion ? 'Yes' : 'No'),
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -270,199 +258,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSensorsCard(Map<String, dynamic> hardware) {
     if (hardware.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Theme.of(context)
-              .colorScheme
-              .surfaceContainerHighest
-              .withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(ContinuonTokens.r8),
-        ),
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+            borderRadius: BorderRadius.circular(8)),
         width: double.infinity,
-        child: Text('No hardware detected or status unavailable',
-            style: Theme.of(context).textTheme.bodyMedium),
+        child: const Text('No hardware detected',
+            style: TextStyle(fontSize: 12, color: Colors.grey)),
       );
     }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(ContinuonTokens.r8),
-      ),
-      child: Column(
-        children: [
-          if (hardware['depth_camera'] != null)
-            _buildSensorRow('📷 Depth Camera', hardware['depth_camera']),
-          if (hardware['depth_camera_driver'] != null) ...[
-            const SizedBox(height: 8),
-            _buildSensorRow('Camera Driver', hardware['depth_camera_driver']),
-          ],
-          if (hardware['servo_controller'] != null) ...[
-            const SizedBox(height: 8),
-            _buildSensorRow(
-                '🦾 Servo Controller', hardware['servo_controller']),
-          ],
-          if (hardware['servo_controller_address'] != null) ...[
-            const SizedBox(height: 8),
-            _buildSensorRow(
-                'I2C Address', hardware['servo_controller_address']),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusRow(String label, String value,
-      {bool isBadge = false, Color badgeColor = Colors.grey}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        isBadge
-            ? Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  value.replaceAll('_', ' '),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              )
-            : Text(value,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+        if (hardware['depth_camera'] != null)
+          _buildSensorRow('Depth Cam', hardware['depth_camera']),
       ],
     );
   }
 
   Widget _buildSensorRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        Text(value,
-            style: Theme.of(context)
-                .textTheme
-                .bodyLarge
-                ?.copyWith(fontWeight: FontWeight.w600)),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    return Column(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        _buildActionButton(
-          title: 'Manual control',
-          subtitle: 'Set mode to manual_control (GET /api/mode/manual_control)',
-          color: ContinuonColors.primaryBlue,
-          onPressed: () async {
-            await _setMode('manual_control');
-            if (context.mounted) {
-              Navigator.pushNamed(context, ControlScreen.routeName);
-            }
-          },
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          title: 'Manual training',
-          subtitle: 'Set mode to manual_training (GET /api/mode/manual_training)',
-          color: ContinuonColors.primaryBlue,
-          onPressed: () => _setMode('manual_training'),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          title: 'Autonomous',
-          subtitle: 'Set mode to autonomous (GET /api/mode/autonomous)',
-          color: ContinuonColors.cmsViolet,
-          onPressed: () => _setMode('autonomous'),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          title: 'Sleep learning',
-          subtitle: 'Set mode to sleep_learning (GET /api/mode/sleep_learning)',
-          color: ContinuonColors.particleOrange,
-          onPressed: () => _setMode('sleep_learning'),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          title: 'Idle',
-          subtitle: 'Set mode to idle (GET /api/mode/idle)',
-          color: ContinuonColors.gray700,
-          onPressed: () => _setMode('idle'),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          title: 'Emergency stop',
-          subtitle: 'Set mode to emergency_stop (GET /api/mode/emergency_stop)',
-          color: Theme.of(context).colorScheme.error,
-          onPressed: () => _setMode('emergency_stop'),
-        ),
+        _buildMiniActionButton('Manual', ContinuonColors.primaryBlue, () async {
+          await _setMode('manual_control');
+          if (context.mounted) {
+            Navigator.pushNamed(context, ControlScreen.routeName);
+          }
+        }),
+        _buildMiniActionButton('Train', ContinuonColors.primaryBlue,
+            () => _setMode('manual_training')),
+        _buildMiniActionButton(
+            'Auto', ContinuonColors.cmsViolet, () => _setMode('autonomous')),
+        _buildMiniActionButton(
+            'Idle', ContinuonColors.gray700, () => _setMode('idle')),
+        _buildMiniActionButton('STOP', Theme.of(context).colorScheme.error,
+            () => _setMode('emergency_stop')),
       ],
     );
   }
 
-  Widget _buildActionButton(
-      {required String title,
-      required String subtitle,
-      required Color color,
-      required VoidCallback? onPressed}) {
-    return Tooltip(
-      message: subtitle,
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            elevation: 0,
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
+  Widget _buildMiniActionButton(String label, Color color, VoidCallback onTap) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minimumSize: const Size(0, 36),
       ),
+      child: Text(label, style: const TextStyle(fontSize: 12)),
     );
   }
 }
@@ -492,7 +352,8 @@ class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
     super.initState();
     _settings = Map<String, dynamic>.from(widget.initialSettings);
     _creatorController.text =
-        ((_settings['identity'] as Map?)?['creator_display_name'] as String?) ?? '';
+        ((_settings['identity'] as Map?)?['creator_display_name'] as String?) ??
+            '';
   }
 
   @override
@@ -521,14 +382,16 @@ class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
       _error = null;
     });
     try {
-      _setSubKey('identity', 'creator_display_name', _creatorController.text.trim());
+      _setSubKey(
+          'identity', 'creator_display_name', _creatorController.text.trim());
       final res = await widget.brainClient.saveSettings(_settings);
       if (!mounted) return;
       if (res['success'] == true) {
         Navigator.pop(context);
         return;
       }
-      setState(() => _error = (res['message'] as String?) ?? 'Settings rejected by runtime');
+      setState(() => _error =
+          (res['message'] as String?) ?? 'Settings rejected by runtime');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -558,7 +421,8 @@ class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Startup & flags', style: Theme.of(context).textTheme.titleLarge),
+              Text('Startup & flags',
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(
                 'These settings persist on the runtime (GET/POST /api/settings).',
@@ -566,7 +430,9 @@ class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
               ),
               const SizedBox(height: 12),
               if (_error != null) ...[
-                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(_error!,
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error)),
                 const SizedBox(height: 8),
               ],
               TextField(
@@ -592,40 +458,49 @@ class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
               ),
               SwitchListTile(
                 title: const Text('Require supervision'),
-                subtitle: const Text('If enabled, autonomous actions should be gated'),
+                subtitle: const Text(
+                    'If enabled, autonomous actions should be gated'),
                 value: (safety['require_supervision'] as bool?) ?? false,
-                onChanged: (v) => _setSubKey('safety', 'require_supervision', v),
+                onChanged: (v) =>
+                    _setSubKey('safety', 'require_supervision', v),
               ),
               const Divider(),
               SwitchListTile(
                 title: const Text('Log chat to RLDS'),
-                subtitle: const Text('Opt-in: persist chat turns for later training/eval'),
+                subtitle: const Text(
+                    'Opt-in: persist chat turns for later training/eval'),
                 value: (chat['log_rlds'] as bool?) ?? false,
                 onChanged: (v) => _setSubKey('chat', 'log_rlds', v),
               ),
               const Divider(),
               SwitchListTile(
                 title: const Text('Enable sleep learning'),
-                subtitle: const Text('Allow background learning in sleep_learning mode'),
+                subtitle: const Text(
+                    'Allow background learning in sleep_learning mode'),
                 value: (training['enable_sleep_learning'] as bool?) ?? true,
-                onChanged: (v) => _setSubKey('training', 'enable_sleep_learning', v),
+                onChanged: (v) =>
+                    _setSubKey('training', 'enable_sleep_learning', v),
               ),
               SwitchListTile(
                 title: const Text('Enable sidecar trainer'),
                 subtitle: const Text('Start trainer sidecar (resource heavy)'),
                 value: (training['enable_sidecar_trainer'] as bool?) ?? false,
-                onChanged: (v) => _setSubKey('training', 'enable_sidecar_trainer', v),
+                onChanged: (v) =>
+                    _setSubKey('training', 'enable_sidecar_trainer', v),
               ),
               const Divider(),
               SwitchListTile(
                 title: const Text('Enable autonomous learning'),
                 subtitle: const Text('Agent manager learning loop'),
-                value: (agentMgr['enable_autonomous_learning'] as bool?) ?? true,
-                onChanged: (v) => _setSubKey('agent_manager', 'enable_autonomous_learning', v),
+                value:
+                    (agentMgr['enable_autonomous_learning'] as bool?) ?? true,
+                onChanged: (v) => _setSubKey(
+                    'agent_manager', 'enable_autonomous_learning', v),
               ),
               SwitchListTile(
                 title: const Text('Enable scheduled chat learning'),
-                subtitle: const Text('Runs periodic chat_learn turns (offline-first)'),
+                subtitle: const Text(
+                    'Runs periodic chat_learn turns (offline-first)'),
                 value: (chatLearn['enabled'] as bool?) ?? false,
                 onChanged: (v) {
                   chatLearn['enabled'] = v;
@@ -634,11 +509,13 @@ class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
               ),
               SwitchListTile(
                 title: const Text('Enable autonomy orchestrator'),
-                subtitle: const Text('Runs bounded maintenance tasks in allowed modes'),
+                subtitle: const Text(
+                    'Runs bounded maintenance tasks in allowed modes'),
                 value: (orchestrator['enabled'] as bool?) ?? false,
                 onChanged: (v) {
                   orchestrator['enabled'] = v;
-                  _setSubKey('agent_manager', 'autonomy_orchestrator', orchestrator);
+                  _setSubKey(
+                      'agent_manager', 'autonomy_orchestrator', orchestrator);
                 },
               ),
               const SizedBox(height: 12),
@@ -656,7 +533,10 @@ class _StartupFlagsSheetState extends State<_StartupFlagsSheet> {
                     child: ElevatedButton.icon(
                       onPressed: _saving ? null : _save,
                       icon: _saving
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.save),
                       label: Text(_saving ? 'Saving...' : 'Save to runtime'),
                     ),

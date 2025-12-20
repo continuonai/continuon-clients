@@ -180,7 +180,7 @@ class ScannerService {
   void _parseBleDevice(ScanResult result) {
     if (result.device.platformName.isEmpty) return;
 
-    // Filter by name prefix if needed, e.g., "Continuon" or "CraigBot"
+    // Filter by name prefix if needed, e.g., "Continuon" or "ContinuonAI"
     // For now, let's just show devices with "Robot" or "Continuon" in name
     final name = result.device.platformName;
     if (!name.toLowerCase().contains('robot') &&

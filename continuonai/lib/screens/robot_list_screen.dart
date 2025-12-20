@@ -9,11 +9,10 @@ import '../theme/continuon_theme.dart';
 
 import 'dashboard_screen.dart';
 
-import 'pair_robot_screen.dart';
 import 'robot_portal_screen.dart';
 import '../services/brain_client.dart';
-import '../services/scanner_service.dart';
 import '../widgets/layout/continuon_layout.dart';
+
 import '../widgets/layout/continuon_card.dart';
 
 class RobotListScreen extends StatefulWidget {
@@ -62,7 +61,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       'httpPort': 8080
     },
   ];
-  
+
   @override
   void initState() {
     super.initState();
@@ -78,40 +77,32 @@ class _RobotListScreenState extends State<RobotListScreen> {
     _ownerIdController.dispose();
     super.dispose();
   }
-  
+
   void _startPolling() {
-     _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-        if (!mounted) return;
-        // Refresh all known hosts
-        // Logic: Iterate visible robots and refresh status
-        // Limitation: we don't have a clean list of all robots here easily without duplicating stream logic.
-        // For now, we will just refresh if we have interacted or cached them.
-        _refreshAllCachedHosts();
-     });
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!mounted) return;
+      // Refresh all known hosts
+      // Logic: Iterate visible robots and refresh status
+      // Limitation: we don't have a clean list of all robots here easily without duplicating stream logic.
+      // For now, we will just refresh if we have interacted or cached them.
+      _refreshAllCachedHosts();
+    });
   }
-  
+
   Future<void> _refreshAllCachedHosts() async {
-      // In a real app, we'd query the list from provider or firestore cache.
-      // For this MVP, we iterate the _deviceInfoByHost keys which represent known active hosts.
-      final hosts = _deviceInfoByHost.keys.toList();
-      for (final host in hosts) {
-           // Basic refresh, ignoring errors to avoid snackbar spam
-           try {
-               await _brainClient.ping(host: host, httpPort: 8080); // Quick check
-               // We could do full _refreshStatus but that might be heavy
-           } catch(_) {}
-      }
+    // In a real app, we'd query the list from provider or firestore cache.
+    // For this MVP, we iterate the _deviceInfoByHost keys which represent known active hosts.
+    final hosts = _deviceInfoByHost.keys.toList();
+    for (final host in hosts) {
+      // Basic refresh, ignoring errors to avoid snackbar spam
+      try {
+        await _brainClient.ping(host: host, httpPort: 8080); // Quick check
+        // We could do full _refreshStatus but that might be heavy
+      } catch (_) {}
+    }
   }
 
   // _signOut handled by ContinuonAppBar now
-
-  Future<void> _openPairing() async {
-    await Navigator.pushNamed(context, PairRobotScreen.routeName);
-    if (mounted) {
-      // Best-effort refresh after pairing.
-      setState(() {});
-    }
-  }
 
   void _addRobot() {
     showDialog(
@@ -185,37 +176,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
     }
   }
 
-  void _scanForRobots() {
-    showDialog(
-      context: context,
-      builder: (context) => const _ScanRobotsDialog(),
-    ).then((result) {
-      if (!mounted) return;
-      if (result != null && result is ScannedRobot) {
-        // Pre-fill add dialog
-        showDialog(
-          context: context,
-          builder: (context) => _AddRobotDialog(
-            userId: _user?.uid,
-            initialRobot: result,
-            onGuestAdd: (robot) {
-              setState(() {
-                _guestRobots.add(robot);
-              });
-              // Refresh status for the newly added robot
-              _refreshStatus(robot);
-            },
-          ),
-        ).then((addedRobot) {
-          // If a robot was added (result is Map), refresh its status
-          if (addedRobot != null && addedRobot is Map<String, dynamic>) {
-            _refreshStatus(addedRobot);
-          }
-        });
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!_tokenLoaded) {
@@ -253,7 +213,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
     _tokenController.text = _authToken ?? '';
     _accountIdController.text = _accountId ?? '';
     _accountTypeController.text = _accountType ?? '';
-    _ownerIdController.text = _ownerId ?? '';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -287,14 +246,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Account type',
                     helperText: 'Example: personal | org (optional).',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _ownerIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Owner ID (display name)',
-                    helperText: 'Shown in pairing/claim flows (optional).',
                   ),
                 ),
               ],
@@ -338,18 +289,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
             onPressed: _showAuthTokenDialog,
             icon: const Icon(Icons.vpn_key, size: 18),
             label: const Text('Credentials'),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
-            onPressed: _openPairing,
-            icon: const Icon(Icons.qr_code_scanner, size: 18),
-            label: const Text('Pair'),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
-            onPressed: _scanForRobots,
-            icon: const Icon(Icons.radar, size: 18),
-            label: const Text('Scan'),
           ),
         ],
       ),
@@ -436,7 +375,6 @@ class _RobotListScreenState extends State<RobotListScreen> {
       },
     );
   }
-
 
   Widget _buildManualConnectSection() {
     return Padding(
@@ -661,7 +599,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
                             children: [
                               Icon(Icons.delete, size: 20, color: Colors.red),
                               SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: Colors.red)),
+                              Text('Delete',
+                                  style: TextStyle(color: Colors.red)),
                             ],
                           ),
                         ),
@@ -677,20 +616,18 @@ class _RobotListScreenState extends State<RobotListScreen> {
                   if (isBusy) const SizedBox(width: 12),
                   if (!_isOwned)
                     ElevatedButton.icon(
-                      onPressed:
-                          (isGuest || isBusy || mismatch)
-                              ? null
-                              : () => _claimRobot(data),
+                      onPressed: (isGuest || isBusy || mismatch)
+                          ? null
+                          : () => _claimRobot(data),
                       icon: const Icon(Icons.how_to_reg),
                       label: const Text('Claim (local)'),
                     ),
                   if (_isOwned && !_hasSeedInstalled) const SizedBox(width: 8),
                   if (_isOwned && !_hasSeedInstalled)
                     ElevatedButton.icon(
-                      onPressed:
-                          (isGuest || isBusy || mismatch)
-                              ? null
-                              : () => _installSeed(data),
+                      onPressed: (isGuest || isBusy || mismatch)
+                          ? null
+                          : () => _installSeed(data),
                       icon: const Icon(Icons.system_update),
                       label: const Text('Seed install'),
                     ),
@@ -759,8 +696,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
     }
     setState(() => _busyHosts.add(host));
     try {
-      final status =
-          await _brainClient.fetchOwnershipStatus(host: host, httpPort: httpPort);
+      final status = await _brainClient.fetchOwnershipStatus(
+          host: host, httpPort: httpPort);
       final ping = await _brainClient.ping(host: host, httpPort: httpPort);
       if (mounted) {
         setState(() {
@@ -888,20 +825,22 @@ class _RobotListScreenState extends State<RobotListScreen> {
     }
   }
 
-  Future<void> _openRobotWebUI(Map<String, dynamic> data) async {
-    final host = data['host'] as String? ?? '';
+  void _openRobotWebUI(Map<String, dynamic> data) {
+    final host = data['host'] as String;
     final httpPort = data['httpPort'] as int? ?? 8080;
+    final port = data['port'] as int? ?? 50051;
     final robotName = data['name'] as String? ?? 'Robot';
-    
-    // Navigate to the robot portal screen within the app
-    Navigator.pushNamed(
+
+    Navigator.push(
       context,
-      RobotPortalScreen.routeName,
-      arguments: {
-        'host': host,
-        'httpPort': httpPort,
-        'robotName': robotName,
-      },
+      MaterialPageRoute(
+        builder: (context) => RobotPortalScreen(
+          host: host,
+          httpPort: httpPort,
+          port: port,
+          robotName: robotName,
+        ),
+      ),
     );
   }
 
@@ -1105,8 +1044,12 @@ class _RobotListScreenState extends State<RobotListScreen> {
     );
   }
 
-  Future<void> _transferOwnership(Map<String, dynamic> data, String newOwnerEmail,
-      String host, int httpPort, String? documentId) async {
+  Future<void> _transferOwnership(
+      Map<String, dynamic> data,
+      String newOwnerEmail,
+      String host,
+      int httpPort,
+      String? documentId) async {
     if (_user == null) {
       _showSnack('Sign in to transfer ownership');
       return;
@@ -1238,125 +1181,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
   }
 }
 
-class _ScanRobotsDialog extends StatefulWidget {
-  const _ScanRobotsDialog();
-
-  @override
-  State<_ScanRobotsDialog> createState() => _ScanRobotsDialogState();
-}
-
-class _ScanRobotsDialogState extends State<_ScanRobotsDialog> {
-  final _scanner = ScannerService();
-  final _manualIpController = TextEditingController();
-  List<ScannedRobot> _robots = [];
-  bool _isScanning = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _startScan();
-    _scanner.scannedRobots.listen((robots) {
-      if (mounted) setState(() => _robots = robots);
-    });
-  }
-
-  @override
-  void dispose() {
-    _scanner.dispose();
-    _manualIpController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _startScan({String? manualHost}) async {
-    setState(() => _isScanning = true);
-    await _scanner.startScan(manualHost: manualHost, forceRestart: true);
-    // Give it a moment to start finding robots
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) setState(() => _isScanning = false);
-  }
-
-  Future<void> _scanManualIp() async {
-    final ip = _manualIpController.text.trim();
-    if (ip.isEmpty) return;
-    await _startScan(manualHost: ip);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Scanning for Robots...'),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 400,
-        child: Column(
-          children: [
-            // Manual IP input
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _manualIpController,
-                    decoration: const InputDecoration(
-                      labelText: 'Or enter IP manually',
-                      hintText: 'e.g., 192.168.1.100',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onSubmitted: (_) => _scanManualIp(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _isScanning ? null : _scanManualIp,
-                  child: const Text('Scan IP'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_isScanning) const LinearProgressIndicator(),
-            if (_isScanning) const SizedBox(height: 16),
-            Expanded(
-              child: _robots.isEmpty
-                  ? Center(
-                      child: _isScanning
-                          ? const Text('Searching via WiFi (mDNS) & Bluetooth...')
-                          : const Text('No robots found. Try entering an IP manually above.'),
-                    )
-                  : ListView.builder(
-                      itemCount: _robots.length,
-                      itemBuilder: (context, index) {
-                        final robot = _robots[index];
-                        return ListTile(
-                          leading:
-                              Icon(robot.isBle ? Icons.bluetooth : Icons.wifi),
-                          title: Text(robot.name),
-                          subtitle: Text(robot.isBle
-                              ? 'Bluetooth'
-                              : '${robot.host}:${robot.port}'),
-                          onTap: () => Navigator.pop(context, robot),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-      ],
-    );
-  }
-}
-
 class _AddRobotDialog extends StatefulWidget {
   final String? userId; // Nullable for Guest Mode
   final Function(Map<String, dynamic>)? onGuestAdd;
-  final ScannedRobot? initialRobot;
 
-  const _AddRobotDialog({this.userId, this.onGuestAdd, this.initialRobot});
+  const _AddRobotDialog({this.userId, this.onGuestAdd});
 
   @override
   State<_AddRobotDialog> createState() => _AddRobotDialogState();
@@ -1373,14 +1202,10 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.initialRobot?.name ?? '');
-    _hostController =
-        TextEditingController(text: widget.initialRobot?.host ?? '');
-    _portController = TextEditingController(
-        text: widget.initialRobot?.port.toString() ?? '50051');
-    _httpPortController = TextEditingController(
-        text: widget.initialRobot?.httpPort.toString() ?? '8080');
+    _nameController = TextEditingController(text: '');
+    _hostController = TextEditingController(text: '');
+    _portController = TextEditingController(text: '50051');
+    _httpPortController = TextEditingController(text: '8080');
   }
 
   @override
@@ -1419,7 +1244,8 @@ class _AddRobotDialogState extends State<_AddRobotDialog> {
       }
 
       if (mounted) {
-        Navigator.pop(context, robotData); // Return robotData so parent can refresh status
+        Navigator.pop(context,
+            robotData); // Return robotData so parent can refresh status
       }
     } catch (e) {
       if (mounted) {

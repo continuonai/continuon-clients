@@ -497,6 +497,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
 
     def do_OPTIONS(self):
         """Handle preflight CORS requests."""
