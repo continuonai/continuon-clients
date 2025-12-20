@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isCraig() {
+      return isSignedIn() && request.auth.token.email == "craigm26@gmail.com";
+    }
+    
+    // We can't easily read Firestore from Storage rules without firebase-admin or custom claims.
+    // We will rely on path-based ownership and hardcoded admins for now.
+    
+    // User Folders: /users/{userId}/**
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Robot Assets: /robots/{robotId}/**
+    // Currently, we'll allow any authenticated user to READ robot assests (e.g. models, images)
+    // But only specific people can WRITE.
+    match /robots/{robotId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isCraig(); // Restrictive for now until precise robot-ownership mapping is solid
+    }
+    
+    // Default: Deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

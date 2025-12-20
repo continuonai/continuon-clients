@@ -1,43 +1,75 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper predicates
-    function signedIn() {
+    // --- Helper Functions ---
+
+    // Check if user is signed in
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    // Craig (creator) gets universal access
+    // Check if user is the specific hardcoded creator (Bootstrap/Dev)
+    // TODO: Remove hardcoded email once role management is fully mature
+    function isCraig() {
+      return isSignedIn() && request.auth.token.email == "craigm26@gmail.com";
+    }
+
+    // Check if user has a specific role claiming to be in their user profile
+    // Note: This relies on the client-side 'role' field or a custom claim.
+    // For robust security, roles should be Custom Claims in the Auth Token.
+    // Here we check the Firestore document itself as a fallback/current implementation.
+    function hasRole(role) {
+      return isSignedIn() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role);
+    }
+
     function isCreator() {
-      return signedIn() && request.auth.token.email == "craigm26@gmail.com";
+      return isCraig() || hasRole('creator');
     }
 
-    // Owner is either the creator or the user who owns this subtree
+    // Check if the user is the owner of the resource
     function isOwner(userId) {
-      return signedIn() && (isCreator() || request.auth.uid == userId);
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Per-user data (robots stored under users/{uid}/robots)
+    // --- Collection Rules ---
+
+    // Users Collection
+    // Users can read/write their own profile.
+    // Admins/Creators can read everything (for debugging/dashboard).
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
-
-      // Robots claimed/added by the user
+      allow read: if isOwner(userId) || isCreator();
+      allow write: if isOwner(userId) || isCraig(); // Only Craig or the user themselves can edit profile
+      
+      // Robots under users (if using subcollections)
       match /robots/{robotId} {
-        allow read: if isOwner(userId);
-        allow create, update, delete: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isCreator();
       }
+    }
 
-      // Commands: allow emergency stop from any signed-in user; other commands require owner
-      match /commands/{commandId} {
-        allow create: if (signedIn() && request.resource.data.type == "EMERGENCY_STOP")
-                      || isOwner(userId);
-        allow read, update, delete: if isOwner(userId);
-      }
+    // Robots Collection (Root Level)
+    // If robots are stored at the root /robots/{robotId}
+    match /robots/{robotId} {
+      // Creators can create new robots
+      allow create: if isCreator();
+      
+      // Owners can update/delete
+      // Note: resource.data.ownerId must match request.auth.uid for update protections
+      allow update, delete: if isCreator() && (resource.data.ownerId == request.auth.uid || isCraig());
+      
+      // Read: Public if 'isPublic' is true, or if owner/creator
+      allow read: if isCreator() || resource.data.isPublic == true || resource.data.ownerId == request.auth.uid;
+    }
 
-      // Brain reset requests: owner/creator only; add a `catastrophicMode` flag to the doc
-      match /brainResets/{resetId} {
-        allow read, write: if isOwner(userId);
-      }
+    // Public Data / Discovery
+    match /discovery/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isCreator();
+    }
+    
+    // Default: Deny all others
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
-
