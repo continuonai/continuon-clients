@@ -35,13 +35,14 @@ class _RobotPortalScreenState extends State<RobotPortalScreen> {
   static int _iframeCounter = 0;
   late final String _iframeId;
   bool _isLoading = true;
+  bool _isMixedContentBlocked = false;
   dynamic _webViewController;
   late final String _url;
 
   @override
   void initState() {
     super.initState();
-    _url = 'http://${widget.host}:${widget.httpPort}/';
+    _url = _buildPortalUrl();
     if (kIsWeb) {
       _iframeId = 'robot-portal-iframe-${_iframeCounter++}';
       _registerIframe();
@@ -65,10 +66,42 @@ class _RobotPortalScreenState extends State<RobotPortalScreen> {
     }
   }
 
+  String _buildPortalUrl() {
+    final bool isSecureContext = kIsWeb && html.window.isSecureContext;
+    final String protocol =
+        kIsWeb ? html.window.location.protocol.replaceAll(':', '') : '';
+
+    final String scheme;
+    if (isSecureContext || protocol == 'https') {
+      scheme = 'https';
+    } else {
+      scheme = 'http';
+    }
+
+    return Uri(
+      scheme: scheme,
+      host: widget.host,
+      port: widget.httpPort,
+      path: '/',
+    ).toString();
+  }
+
   void _registerIframe() {
-    final url = 'http://${widget.host}:${widget.httpPort}/';
+    final bool isSecureContext = html.window.isSecureContext;
+    final bool willBeBlocked = isSecureContext && _url.startsWith('http://');
+
+    if (willBeBlocked) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isMixedContentBlocked = true;
+        });
+      }
+      return;
+    }
+
     final iframe = html.IFrameElement()
-      ..src = url
+      ..src = _url
       ..style.border = 'none'
       ..style.width = '100%'
       ..style.height = '100%'
@@ -79,10 +112,18 @@ class _RobotPortalScreenState extends State<RobotPortalScreen> {
       })
       ..onError.listen((_) {
         if (mounted) {
-          setState(() => _isLoading = false);
+          setState(() {
+            _isLoading = false;
+            _isMixedContentBlocked =
+                isSecureContext && _url.startsWith('http://');
+          });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to load robot portal. Check connection.'),
+            SnackBar(
+              content: Text(
+                _isMixedContentBlocked
+                    ? 'Portal blocked: HTTPS page cannot load insecure (HTTP) content.'
+                    : 'Failed to load robot portal. Check connection.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -109,7 +150,21 @@ class _RobotPortalScreenState extends State<RobotPortalScreen> {
           else
             webview.buildWebViewWidget(_webViewController),
           // Loading indicator
-          if (_isLoading)
+          if (_isMixedContentBlocked)
+            Container(
+              color: Colors.white,
+              child: const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    'The robot portal is blocked because this page is HTTPS but the portal is served over HTTP. '
+                    'Open the portal over HTTPS or access this page from a non-secure origin to continue.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            )
+          else if (_isLoading)
             Container(
               color: Colors.white,
               child: const Center(
