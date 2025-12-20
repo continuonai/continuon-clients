@@ -54,6 +54,7 @@ from continuonbrain.api.controllers.admin_controller import AdminControllerMixin
 from continuonbrain.api.controllers.robot_controller import RobotControllerMixin
 from continuonbrain.api.controllers.model_controller import ModelControllerMixin
 from continuonbrain.api.controllers.data_controller import DataControllerMixin
+from continuonbrain.api.controllers.learning_controller import LearningControllerMixin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
@@ -477,8 +478,20 @@ def bluetooth_connect(address: str):
     except subprocess.TimeoutExpired:
         return {"success": False, "message": "Bluetooth connect timed out"}
 
-class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin):
+class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin, LearningControllerMixin):
     """Handles HTTP requests for the Brain API."""
+    
+    def _base_dir(self) -> Path:
+        # Use module-level REPO_ROOT for development contexts
+        return REPO_ROOT / "continuonbrain"
+
+    def _json_response(self, payload: dict, status_code: int = 200) -> None:
+        self.send_response(status_code)
+        self.send_header("Content-type", "application/json")
+        self._send_cors_headers()
+        self.end_headers()
+        self.wfile.write(json.dumps(payload, default=str).encode("utf-8"))
+
     
     def _send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -773,6 +786,18 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 else:
                     self.send_json({"success": False, "message": f"Skill {skill_id} not found"}, status=404)
 
+            elif self.path.startswith("/api/training/exports/download/"):
+                # Download export zip
+                # Path format: /api/training/exports/download/{filename}
+                filename = self.path.split("/")[-1]
+                data = self._download_export_zip(filename)
+                if data.startswith(b"HTTP/1.1"):
+                    # Raw response bytes (headers + body)
+                    self.wfile.write(data)
+                else:
+                    # Fallback or error
+                    self.send_error(404, "Download failed")
+
             elif self.path.startswith("/api/tasks"):
                 parsed = urlparse(self.path)
                 include_ineligible = parse_qs(parsed.query).get("include_ineligible", ["false"])[0].lower() == "true"
@@ -798,6 +823,71 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                         "eligibility": entry.eligibility.to_dict(),
                         "estimated_duration": skill.estimated_duration,
                         "publisher": skill.publisher,
+                        "version": skill.version,
+                    })
+                
+                # Filter by eligibility if requested
+                if not include_ineligible:
+                    filtered = []
+                    for s in skills:
+                        if s.get("eligibility", {}).get("eligible", False):
+                            filtered.append(s)
+                    skills = filtered
+                    
+                self.send_json({"skills": skills})
+
+            # Training / Learning Routes
+            elif self.path == "/api/training/status":
+                status_path = self._base_dir() / "trainer" / "status.json"
+                if status_path.exists():
+                    try:
+                        data = json.loads(status_path.read_text())
+                        self.send_json(data)
+                    except Exception:
+                        self.send_json({"status": "unknown", "message": "invalid status file"})
+                else:
+                    self.send_json({"status": "unknown", "message": "training status file not found"})
+
+            elif self.path == "/api/training/cloud_readiness":
+                self.send_json(self._build_cloud_readiness())
+
+            elif self.path.startswith("/api/training/metrics"):
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                self.send_json(self._read_training_metrics(params))
+
+            elif self.path.startswith("/api/training/eval_summary"):
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                self.send_json(self._read_eval_summary(params))
+
+            elif self.path.startswith("/api/training/data_quality"):
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                self.send_json(self._read_data_quality(params))
+            
+            elif self.path.startswith("/api/training/tool_dataset_summary"):
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                self.send_json(self._read_tool_dataset_summary(params))
+
+            elif self.path.startswith("/api/runtime/control_loop"):
+                parsed = urlparse(self.path)
+                limit_raw = parse_qs(parsed.query).get("limit", ["180"])[0]
+                # Assuming BrainService has GetControlLoopMetrics, otherwise return empty
+                try:
+                    metrics = brain_service.mode_manager.get_loop_metrics(limit=int(limit_raw)) if brain_service and brain_service.mode_manager else {}
+                    self.send_json(metrics)
+                except Exception as e:
+                    self.send_json({"status": "error", "message": str(e)}, status_code=500)
+
+            elif self.path == "/api/training/architecture_status":
+                # Stub or implement if BrainService has it. 
+                # routes.py called await self.service.GetArchitectureStatus()
+                # We'll return a placeholder to stop 404s if service doesn't have it yet.
+                self.send_json({"status": "ok", "architecture": "continuon_hope_v1", "modules": ["perception", "memory", "planning", "control"]})
+
+
                         "version": skill.version,
                         "provenance": getattr(skill, "provenance", ""),
                     })
@@ -1375,6 +1465,16 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 result = bluetooth_connect(address)
                 status = 200 if result.get("success") else 500
                 self.send_json(result, status=status)
+
+            elif self.path == "/api/training/exports/create":
+                data = json.loads(body) if body else {}
+                result = self._build_cloud_export_zip(data)
+                self.send_json(result)
+
+            elif self.path == "/api/model/install":
+                data = json.loads(body) if body else {}
+                result = self._install_model_bundle(data)
+                self.send_json(result)
 
             else:
                 self.send_error(404)

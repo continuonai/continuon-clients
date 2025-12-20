@@ -307,22 +307,6 @@ class _LoginScreenState extends State<LoginScreen>
                   style: const TextStyle(color: Colors.white70),
                 ),
               ),
-              // TEST MODE ONLY: Creator Login Bypass
-              TextButton(
-                onPressed: () {
-                  context.read<AuthBloc>().add(const AuthUserChanged(
-                        token: 'test-creator-token',
-                        role: UserRole.creator,
-                        email: 'craigm26@gmail.com',
-                      ));
-                  Navigator.pushReplacementNamed(
-                      context, RobotListScreen.routeName);
-                },
-                child: const Text(
-                  '[TEST] Creator Login',
-                  style: TextStyle(color: Colors.redAccent, fontSize: 10),
-                ),
-              ),
             ],
           ),
           SizedBox(
