@@ -21,12 +21,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'blocs/auth/auth_bloc.dart';
 import 'blocs/robot/robot_context_bloc.dart';
 import 'blocs/thought/brain_thought_bloc.dart';
+import 'blocs/thought/brain_thought_event.dart';
 
 import 'theme/continuon_theme.dart';
 
 import 'screens/marketing_home.dart';
 
-final GemmaAdapterHotReloader _gemmaAdapterHotReloader = GemmaAdapterHotReloader(
+final GemmaAdapterHotReloader _gemmaAdapterHotReloader =
+    GemmaAdapterHotReloader(
   manifestPath: '/opt/continuonos/brain/model/manifest.json',
 );
 
@@ -36,7 +38,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
   final brainClient = BrainClient();
   await brainClient.loadAuthToken();
 
@@ -44,8 +46,11 @@ void main() async {
     MultiBlocProvider(
       providers: [
         BlocProvider(create: (context) => AuthBloc()),
-        BlocProvider(create: (context) => RobotContextBloc(brainClient: brainClient)),
-        BlocProvider(create: (context) => BrainThoughtBloc(brainClient: brainClient)..add(ThoughtSubscriptionRequested())),
+        BlocProvider(
+            create: (context) => RobotContextBloc(brainClient: brainClient)),
+        BlocProvider(
+            create: (context) => BrainThoughtBloc(brainClient: brainClient)
+              ..add(ThoughtSubscriptionRequested())),
       ],
       child: MyApp(brainClient: brainClient),
     ),
@@ -96,12 +101,18 @@ class MyApp extends StatelessWidget {
             body: Center(child: Text('Episode slug missing')),
           );
         },
-        ConnectScreen.routeName: (context) => ConnectScreen(brainClient: brainClient),
-        DashboardScreen.routeName: (context) => DashboardScreen(brainClient: brainClient),
-        ControlScreen.routeName: (context) => ControlScreen(brainClient: brainClient),
-        ManualModeScreen.routeName: (context) => ManualModeScreen(brainClient: brainClient),
-        RecordScreen.routeName: (context) => RecordScreen(brainClient: brainClient),
-        ModelManagerScreen.routeName: (context) => ModelManagerScreen(brainClient: brainClient),
+        ConnectScreen.routeName: (context) =>
+            ConnectScreen(brainClient: brainClient),
+        DashboardScreen.routeName: (context) =>
+            DashboardScreen(brainClient: brainClient),
+        ControlScreen.routeName: (context) =>
+            ControlScreen(brainClient: brainClient),
+        ManualModeScreen.routeName: (context) =>
+            ManualModeScreen(brainClient: brainClient),
+        RecordScreen.routeName: (context) =>
+            RecordScreen(brainClient: brainClient),
+        ModelManagerScreen.routeName: (context) =>
+            ModelManagerScreen(brainClient: brainClient),
       },
     );
   }

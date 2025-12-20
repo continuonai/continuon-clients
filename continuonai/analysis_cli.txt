@@ -1,0 +1,67 @@
+Analyzing continuonai...                                        
+
+   info - The imported package 'equatable' isn't a dependency of the importing package - lib\blocs\auth\auth_event.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:equatable/equatable.dart' - lib\blocs\auth\auth_event.dart:1:8 - uri_does_not_exist
+  error - Classes can only extend other classes - lib\blocs\auth\auth_event.dart:4:34 - extends_non_class
+warning - The getter doesn't override an inherited getter - lib\blocs\auth\auth_event.dart:8:21 - override_on_non_overriding_member
+   info - The imported package 'equatable' isn't a dependency of the importing package - lib\blocs\auth\auth_state.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:equatable/equatable.dart' - lib\blocs\auth\auth_state.dart:1:8 - uri_does_not_exist
+  error - Classes can only extend other classes - lib\blocs\auth\auth_state.dart:4:34 - extends_non_class
+warning - The getter doesn't override an inherited getter - lib\blocs\auth\auth_state.dart:8:21 - override_on_non_overriding_member
+   info - The imported package 'equatable' isn't a dependency of the importing package - lib\blocs\robot\robot_context_event.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:equatable/equatable.dart' - lib\blocs\robot\robot_context_event.dart:1:8 - uri_does_not_exist
+  error - Classes can only extend other classes - lib\blocs\robot\robot_context_event.dart:4:42 - extends_non_class
+warning - The getter doesn't override an inherited getter - lib\blocs\robot\robot_context_event.dart:8:21 - override_on_non_overriding_member
+   info - The imported package 'equatable' isn't a dependency of the importing package - lib\blocs\robot\robot_context_state.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:equatable/equatable.dart' - lib\blocs\robot\robot_context_state.dart:1:8 - uri_does_not_exist
+  error - Classes can only extend other classes - lib\blocs\robot\robot_context_state.dart:4:33 - extends_non_class
+warning - The getter doesn't override an inherited getter - lib\blocs\robot\robot_context_state.dart:28:21 - override_on_non_overriding_member
+   info - The imported package 'equatable' isn't a dependency of the importing package - lib\blocs\thought\brain_thought_event.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:equatable/equatable.dart' - lib\blocs\thought\brain_thought_event.dart:1:8 - uri_does_not_exist
+  error - Classes can only extend other classes - lib\blocs\thought\brain_thought_event.dart:3:42 - extends_non_class
+warning - The getter doesn't override an inherited getter - lib\blocs\thought\brain_thought_event.dart:6:21 - override_on_non_overriding_member
+   info - The imported package 'equatable' isn't a dependency of the importing package - lib\blocs\thought\brain_thought_state.dart:1:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:equatable/equatable.dart' - lib\blocs\thought\brain_thought_state.dart:1:8 - uri_does_not_exist
+  error - Classes can only extend other classes - lib\blocs\thought\brain_thought_state.dart:3:33 - extends_non_class
+warning - The getter doesn't override an inherited getter - lib\blocs\thought\brain_thought_state.dart:12:21 - override_on_non_overriding_member
+  error - The function 'ThoughtSubscriptionRequested' isn't defined - lib\main.dart:48:91 - undefined_function
+  error - The method 'resetSafetyGates' isn't defined for the type 'BrainClient' - lib\screens\arm_teleop_screen.dart:461:44 - undefined_method
+  error - The method 'resetSafetyGates' isn't defined for the type 'BrainClient' - lib\screens\control_screen.dart:337:62 - undefined_method
+   info - Use 'const' with the constructor to improve performance - lib\screens\login_screen.dart:343:11 - prefer_const_constructors
+warning - Unused import: 'package:flutter_bloc/flutter_bloc.dart' - lib\screens\model_manager_screen.dart:2:8 - unused_import
+  error - The named parameter 'title' isn't defined - lib\screens\model_manager_screen.dart:56:7 - undefined_named_parameter
+   info - Unnecessary braces in a string interpolation - lib\screens\public_episode_detail_screen.dart:100:74 - unnecessary_brace_in_string_interps
+   info - The 'child' argument should be last in widget constructor invocations - lib\screens\public_episodes_screen.dart:196:11 - sort_child_properties_last
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\public_episodes_screen.dart:223:12 - deprecated_member_use
+   info - Unnecessary braces in a string interpolation - lib\screens\public_episodes_screen.dart:251:60 - unnecessary_brace_in_string_interps
+   info - Statements in an if should be enclosed in a block - lib\screens\record_screen.dart:217:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\record_screen.dart:220:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\screens\record_screen.dart:272:11 - curly_braces_in_flow_control_structures
+   info - Use 'const' with the constructor to improve performance - lib\screens\research_screen.dart:74:11 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\screens\research_screen.dart:95:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\screens\research_screen.dart:99:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\screens\research_screen.dart:167:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\screens\research_screen.dart:170:14 - prefer_const_constructors
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\research_screen.dart:266:40 - deprecated_member_use
+   info - Use 'const' with the constructor to improve performance - lib\screens\research_screen.dart:812:14 - prefer_const_constructors
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\robot_list_screen.dart:380:36 - deprecated_member_use
+   info - 'dart:html' is deprecated and shouldn't be used. Use package:web and dart:js_interop instead - lib\screens\robot_portal_screen.dart:4:1 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\creator_dashboard.dart:35:73 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\creator_dashboard.dart:54:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\creator_dashboard.dart:115:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\creator_dashboard.dart:139:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_app_bar.dart:26:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_app_bar.dart:30:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_app_bar.dart:31:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_app_bar.dart:37:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_card.dart:31:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_card.dart:32:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_card.dart:35:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_card.dart:35:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_card.dart:45:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_card.dart:57:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_card.dart:58:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\layout\continuon_drawer.dart:77:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\web_discovery_notice.dart:14:37 - deprecated_member_use
+  error - The named parameter 'brainClient' is required, but there's no corresponding argument - test\widget_test.dart:16:35 - missing_required_argument
+

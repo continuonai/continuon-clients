@@ -44,7 +44,9 @@ class _ModelManagerScreenState extends State<ModelManagerScreen> {
         _fetchModels();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to activate model'), backgroundColor: Colors.red),
+          const SnackBar(
+              content: Text('Failed to activate model'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -53,7 +55,6 @@ class _ModelManagerScreenState extends State<ModelManagerScreen> {
   @override
   Widget build(BuildContext context) {
     return ContinuonLayout(
-      title: 'Model Manager',
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

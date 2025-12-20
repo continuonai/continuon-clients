@@ -25,6 +25,8 @@ dependencies:
   nsd: ^4.0.3
   flutter_blue_plus: ^2.0.2
   permission_handler: ^12.0.1
+  flutter_bloc: ^8.1.4
+  equatable: ^2.0.5
 
   flutter_svg: ^2.0.10
   url_launcher: ^6.2.5

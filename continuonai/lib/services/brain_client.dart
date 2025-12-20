@@ -59,7 +59,8 @@ class BrainClient {
 
   Future<void> setAuthToken(String token, {bool persist = false}) async {
     _authToken = token;
-    _callOptions = grpc.CallOptions(metadata: {'authorization': 'Bearer $token'});
+    _callOptions =
+        grpc.CallOptions(metadata: {'authorization': 'Bearer $token'});
     if (persist) {
       const secure = FlutterSecureStorage();
       await secure.write(key: 'auth_token', value: token);
@@ -100,12 +101,14 @@ class BrainClient {
     }
     if (token != null && token.isNotEmpty) {
       _authToken = token;
-      _callOptions = grpc.CallOptions(metadata: {'authorization': 'Bearer $token'});
+      _callOptions =
+          grpc.CallOptions(metadata: {'authorization': 'Bearer $token'});
     }
   }
 
   /// Heuristic LAN check: tries multiple common targets (mdns + gateways).
-  Future<bool> checkLocalNetwork({Duration timeout = const Duration(seconds: 1)}) async {
+  Future<bool> checkLocalNetwork(
+      {Duration timeout = const Duration(seconds: 1)}) async {
     final targets = ['router.local', '192.168.1.1', '10.0.0.1'];
     for (final t in targets) {
       try {
@@ -291,14 +294,17 @@ class BrainClient {
   }
 
   /// Handoff recorded RLDS manifest + binary assets to a managed robot over LAN.
-  Future<Map<String, String>> handoffEpisodeAssets(EpisodePackage package) async {
+  Future<Map<String, String>> handoffEpisodeAssets(
+      EpisodePackage package) async {
     if (_host == null) {
       throw StateError('BrainClient not connected');
     }
-    final request = http.MultipartRequest('POST', _httpUri('/api/training/episode_handoff'))
-      ..headers.addAll(_headers())
-      ..fields['manifest'] = jsonEncode(package.record.toJson())
-      ..fields['assets'] = jsonEncode(package.assets.map((a) => a.toJson()).toList());
+    final request =
+        http.MultipartRequest('POST', _httpUri('/api/training/episode_handoff'))
+          ..headers.addAll(_headers())
+          ..fields['manifest'] = jsonEncode(package.record.toJson())
+          ..fields['assets'] =
+              jsonEncode(package.assets.map((a) => a.toJson()).toList());
 
     for (final asset in package.assets) {
       final file = File(asset.localUri);
@@ -307,7 +313,9 @@ class BrainClient {
         await http.MultipartFile.fromPath(
           'asset',
           file.path,
-          filename: file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : 'asset',
+          filename: file.uri.pathSegments.isNotEmpty
+              ? file.uri.pathSegments.last
+              : 'asset',
         ),
       );
     }
@@ -317,7 +325,8 @@ class BrainClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        final remoteUris = (body['remote_uris'] as Map?)?.cast<String, String>();
+        final remoteUris =
+            (body['remote_uris'] as Map?)?.cast<String, String>();
         return remoteUris ?? {};
       } catch (_) {
         return {};
@@ -352,7 +361,8 @@ class BrainClient {
         isOwned = true;
         return true;
       }
-      debugPrint('Claim failed: HTTP ${response.statusCode} body=${response.body}');
+      debugPrint(
+          'Claim failed: HTTP ${response.statusCode} body=${response.body}');
       return false;
     } catch (e) {
       debugPrint('Claim failed: $e');
@@ -361,7 +371,8 @@ class BrainClient {
   }
 
   /// Placeholder for seed bundle install; replace with real API when available.
-  Future<bool> installSeedBundle({required String host, int httpPort = 8080}) async {
+  Future<bool> installSeedBundle(
+      {required String host, int httpPort = 8080}) async {
     final uri = Uri.http('$host:$httpPort', '/api/ota/install_seed');
     try {
       final response = await http.post(uri, headers: _headers());
@@ -398,7 +409,8 @@ class BrainClient {
         }
         return {};
       }
-      debugPrint('Status failed: HTTP ${response.statusCode} body=${response.body}');
+      debugPrint(
+          'Status failed: HTTP ${response.statusCode} body=${response.body}');
     } catch (e) {
       debugPrint('Status failed: $e');
     }
@@ -415,17 +427,28 @@ class BrainClient {
     final scheme = pairUrl.scheme.isNotEmpty ? pairUrl.scheme : 'http';
     final host = pairUrl.host;
     final port = pairUrl.hasPort ? pairUrl.port : 8080;
-    final uri = Uri(scheme: scheme, host: host, port: port, path: '/api/ownership/pair/confirm');
+    final uri = Uri(
+        scheme: scheme,
+        host: host,
+        port: port,
+        path: '/api/ownership/pair/confirm');
     final response = await http.post(
       uri,
       headers: {'Content-Type': 'application/json', ..._headers()},
-      body: jsonEncode({'token': token, 'confirm_code': confirmCode, 'owner_id': ownerId}),
+      body: jsonEncode(
+          {'token': token, 'confirm_code': confirmCode, 'owner_id': ownerId}),
     );
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
-      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+      return decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : {'data': decoded};
     }
-    return {'status': 'error', 'message': 'HTTP ${response.statusCode}', 'body': response.body};
+    return {
+      'status': 'error',
+      'message': 'HTTP ${response.statusCode}',
+      'body': response.body
+    };
   }
 
   /// Ping endpoint to check reachability and get device id.
@@ -439,7 +462,8 @@ class BrainClient {
       if (response.statusCode == 200) {
         return Map<String, dynamic>.from(jsonDecode(response.body));
       }
-      debugPrint('Ping failed: HTTP ${response.statusCode} body=${response.body}');
+      debugPrint(
+          'Ping failed: HTTP ${response.statusCode} body=${response.body}');
     } catch (e) {
       debugPrint('Ping failed: $e');
     }
@@ -560,14 +584,17 @@ class BrainClient {
           'body': resp.body,
         };
       }
-      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+      return decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : {'data': decoded};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }
 
   /// Save runtime settings (/api/settings POST). Payload must match the settings schema.
-  Future<Map<String, dynamic>> saveSettings(Map<String, dynamic> settings) async {
+  Future<Map<String, dynamic>> saveSettings(
+      Map<String, dynamic> settings) async {
     try {
       final uri = _httpUri('/api/settings');
       final resp = await http.post(
@@ -588,7 +615,9 @@ class BrainClient {
                 'body': resp.body,
               };
       }
-      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+      return decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : {'data': decoded};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -600,15 +629,22 @@ class BrainClient {
       final uri = _httpUri('/api/safety/hold');
       final resp = await http.post(uri, headers: _headers());
       final decoded = jsonDecode(resp.body);
-      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'data': decoded};
+      return decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : {'data': decoded};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }
 
+  Future<Map<String, dynamic>> resetSafetyGates() async {
+    // TODO: implement real reset endpoint. For now, we'll try to set mode to 'reflex' which often resets gates.
+    return setRobotMode('reflex');
+  }
+
   Stream<Map<String, dynamic>> subscribeToEvents() async* {
     if (_host == null) return;
-    
+
     final client = http.Client();
     final request = http.Request('GET', _httpUri('/api/events'));
     request.headers['Accept'] = 'text/event-stream';

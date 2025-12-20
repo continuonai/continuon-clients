@@ -24,11 +24,13 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   String? _error;
-  bool _isSignUp = false; // Default to sign-in first; offer sign-up as secondary
+  bool _isSignUp =
+      false; // Default to sign-in first; offer sign-up as secondary
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   bool _newsletterOptIn = false;
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -67,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleAuthSuccess(User user) async {
     final token = await user.getIdToken();
     final email = user.email ?? '';
-    
+
     // Determine role based on email (temporary logic)
     UserRole role = UserRole.consumer;
     if (email == 'craigm26@gmail.com') {
@@ -78,10 +80,10 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (mounted) {
       context.read<AuthBloc>().add(AuthUserChanged(
-        token: token,
-        role: role,
-        email: email,
-      ));
+            token: token,
+            role: role,
+            email: email,
+          ));
       Navigator.pushReplacementNamed(context, RobotListScreen.routeName);
     }
   }
@@ -96,7 +98,8 @@ class _LoginScreenState extends State<LoginScreen>
       UserCredential userCredential;
       if (kIsWeb) {
         // Web uses Firebase Auth popup for Google; no client secret needed.
-        userCredential = await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+        userCredential =
+            await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
       } else {
         // Mobile/desktop via native Google Sign-In then hand off to Firebase Auth.
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -114,7 +117,8 @@ class _LoginScreenState extends State<LoginScreen>
           idToken: googleAuth.idToken,
         );
 
-        userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+        userCredential =
+            await FirebaseAuth.instance.signInWithCredential(credential);
       }
 
       if (userCredential.user != null) {
@@ -157,10 +161,7 @@ class _LoginScreenState extends State<LoginScreen>
         await credential.user?.sendEmailVerification();
         final uid = credential.user?.uid;
         if (uid != null) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .set(
+          await FirebaseFirestore.instance.collection('users').doc(uid).set(
             {
               'newsletterOptIn': _newsletterOptIn,
               'createdAt': FieldValue.serverTimestamp(),
@@ -262,8 +263,8 @@ class _LoginScreenState extends State<LoginScreen>
               style: const TextStyle(color: Colors.white),
               decoration: _inputDecoration(
                 'Confirm password',
-                prefixIcon:
-                    const Icon(Icons.verified_user_outlined, color: Colors.white70),
+                prefixIcon: const Icon(Icons.verified_user_outlined,
+                    color: Colors.white70),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -304,6 +305,22 @@ class _LoginScreenState extends State<LoginScreen>
                       ? 'Already have an account? Sign in'
                       : "Don't have an account? Create one",
                   style: const TextStyle(color: Colors.white70),
+                ),
+              ),
+              // TEST MODE ONLY: Creator Login Bypass
+              TextButton(
+                onPressed: () {
+                  context.read<AuthBloc>().add(const AuthUserChanged(
+                        token: 'test-creator-token',
+                        role: UserRole.creator,
+                        email: 'craigm26@gmail.com',
+                      ));
+                  Navigator.pushReplacementNamed(
+                      context, RobotListScreen.routeName);
+                },
+                child: const Text(
+                  '[TEST] Creator Login',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 10),
                 ),
               ),
             ],
