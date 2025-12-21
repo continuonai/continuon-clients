@@ -39,6 +39,7 @@ from continuonbrain.kernel.safety_kernel import SafetyKernelClient
 from continuonbrain.studio_server import StateAggregator
 from continuonbrain.tools import create_default_registry
 from continuonbrain.services.curriculum_manager import CurriculumManager # Added
+from continuonbrain.services.cloud_relay import CloudRelay
 
 logger = logging.getLogger(__name__)
 
@@ -297,8 +298,12 @@ class BrainService:
         # Version 1.0 Identity integration
         self.personality_config = PersonalityConfig()
         self.user_context = UserContext()
+
         self.creator_display_name: str = os.environ.get("CONTINUON_CREATOR_DISPLAY_NAME", "").strip()
         logger.info(f"🤖 Personality initialized: {self.personality_config}")
+        
+        # Pairing Manager
+        self.pairing = PairingManager(config_dir)
 
         # Ownership/OTA state placeholders
         self.device_id = self._load_or_create_device_id(config_dir)
@@ -399,6 +404,11 @@ class BrainService:
         if owner_id is not None:
             self.owner_id = owner_id
         self._persist_ownership()
+        self._persist_ownership()
+
+        # Cloud Relay (Internet Access)
+        self.cloud_relay = CloudRelay(config_dir, self.device_id)
+        self.cloud_relay.start(self)
 
     def _persist_ownership(self):
         try:

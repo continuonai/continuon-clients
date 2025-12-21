@@ -33,6 +33,7 @@
                     onclick="window.setViewMode('research')">Research</button>
                 <div class="divider"></div>
                 <button class="tool-btn" onclick="openSettingsModal()">Settings</button>
+                <button class="tool-btn" onclick="window.openPairingModal()">Pair App</button>
                 <button class="tool-btn ghost" onclick="window.triggerSafetyHold()">Safety Hold</button>
                 <button class="tool-btn ghost" onclick="window.resetSafetyGates()">Reset Gates</button>
             </div>
@@ -784,6 +785,41 @@
                 </div>
                 <div class="modal-status" id="settings-status">Changes are persisted to your config directory.</div>
             </form>
+        </div>
+    </div>
+
+    <!-- PAIRING MODAL -->
+    <div class="modal-backdrop" id="pairing-backdrop"></div>
+    <div class="settings-modal" id="pairing-modal" aria-hidden="true" role="dialog">
+        <div class="modal-card" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Pair Mobile App</h3>
+                <button class="close-btn" type="button" onclick="window.closePairingModal()">✕</button>
+            </div>
+            <div style="text-align: center; padding: 20px;">
+                <div id="pairing-loading" style="color: var(--muted);">Generating session...</div>
+                <div id="pairing-content" style="display:none;">
+                    <p style="margin-bottom: 20px; color: var(--muted);">Scan with Continuon App</p>
+                    <div style="background: white; padding: 10px; display: inline-block; border-radius: 8px;">
+                        <img id="pairing-qr" src="" alt="Pairing QR" width="200" height="200" style="display: block;">
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <div
+                            style="font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;">
+                            Confirm Code</div>
+                        <div id="pairing-code"
+                            style="font-size: 32px; font-weight: bold; font-family: monospace; color: var(--accent); letter-spacing: 4px; margin-top: 5px;">
+                            --- ---</div>
+                    </div>
+                    <p
+                        style="margin-top: 20px; font-size: 12px; color: var(--muted); max-width: 300px; margin-left: auto; margin-right: auto; line-height: 1.4;">
+                        If scanning fails, ensure phone is on same Wi-Fi: <br>
+                        <span id="pairing-url-text"
+                            style="color: var(--text); user-select: all; text-decoration: underline;"></span>
+                    </p>
+                </div>
+                <div id="pairing-error" style="color: var(--danger); display: none;"></div>
+            </div>
         </div>
     </div>
 

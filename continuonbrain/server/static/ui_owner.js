@@ -864,3 +864,64 @@ window.openEpisodeImports = function () {
 window.viewTrainingLogs = function () {
     alert("Training Logs are not yet connected to list view.");
 };
+
+// --- Pairing Modal Logic ---
+
+window.openPairingModal = async function () {
+    const modal = document.getElementById('pairing-modal');
+    const backdrop = document.getElementById('pairing-backdrop');
+    if (modal) modal.style.display = 'flex';
+    if (backdrop) backdrop.classList.add('visible');
+
+    // Reset UI
+    const loading = document.getElementById('pairing-loading');
+    const content = document.getElementById('pairing-content');
+    const errEl = document.getElementById('pairing-error');
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+    if (errEl) errEl.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/ownership/pair/start', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.url && data.confirm_code) {
+            // Update UI
+            const codeEl = document.getElementById('pairing-code');
+            const qrEl = document.getElementById('pairing-qr');
+            const urlText = document.getElementById('pairing-url-text');
+
+            if (codeEl) {
+                // Format code as 123 456
+                const c = data.confirm_code;
+                codeEl.textContent = c.length == 6 ? `${c.substring(0, 3)} ${c.substring(3)}` : c;
+            }
+            if (urlText) urlText.textContent = data.url;
+
+            if (qrEl) {
+                // Use public QR API as fallback for offline (browser might have cache or internet access)
+                // If strictly offline, creating a local JS qr generator would be needed. 
+                // For now, this is best effort.
+                qrEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=10&data=${encodeURIComponent(data.url)}`;
+            }
+
+            if (loading) loading.style.display = 'none';
+            if (content) content.style.display = 'block';
+        } else {
+            throw new Error('Invalid session response');
+        }
+    } catch (e) {
+        if (loading) loading.style.display = 'none';
+        if (errEl) {
+            errEl.style.display = 'block';
+            errEl.textContent = 'Failed to start pairing: ' + e.message;
+        }
+    }
+};
+
+window.closePairingModal = function () {
+    const modal = document.getElementById('pairing-modal');
+    const backdrop = document.getElementById('pairing-backdrop');
+    if (modal) modal.style.display = 'none';
+    if (backdrop) backdrop.classList.remove('visible');
+};

@@ -902,14 +902,6 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 # We'll return a placeholder to stop 404s if service doesn't have it yet.
                 self.send_json({"status": "ok", "architecture": "continuon_hope_v1", "modules": ["perception", "memory", "planning", "control"]})
 
-
-                        "version": skill.version,
-                        "provenance": getattr(skill, "provenance", ""),
-                    })
-                if not include_ineligible:
-                    skills = [s for s in skills if s.get("eligibility", {}).get("eligible", False)]
-                self.send_json({"skills": skills})
-
             elif self.path == "/api/ping":
                 uptime = getattr(brain_service, "uptime_seconds", None)
                 device_id = getattr(brain_service, "device_id", None)
@@ -1455,15 +1447,29 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     status = 404
                 self.send_json(result)
 
-            elif self.path == "/api/pairing/start":
-                data = json.loads(body) if body else {}
-                result = asyncio.run(brain_service.StartPairing(data))
-                self.send_json(result)
+            elif self.path == "/api/ownership/pair/start":
+                # Generate pairing session
+                host = self.headers.get("host") or "127.0.0.1:8080"
+                if "://" not in host:
+                    host = f"http://{host}"
+                session = brain_service.pairing.start(base_url=host)
+                self.send_json(session.__dict__)
 
-            elif self.path == "/api/pairing/confirm":
+            elif self.path == "/api/ownership/pair/confirm":
                 data = json.loads(body) if body else {}
-                result = asyncio.run(brain_service.ConfirmPairing(data))
-                self.send_json(result)
+                token = data.get("token")
+                code = data.get("confirm_code")
+                owner_id = data.get("owner_id")
+                
+                success, msg, payload = brain_service.pairing.confirm(
+                    token=token, 
+                    confirm_code=code, 
+                    owner_id=owner_id
+                )
+                if success:
+                    self.send_json({"status": "paired", "ownership": payload})
+                else:
+                    self.send_json({"status": "error", "message": msg}, status_code=400)
 
             elif self.path == "/api/ownership/status":
                 result = asyncio.run(brain_service.GetOwnershipStatus())
