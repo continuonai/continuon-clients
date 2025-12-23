@@ -27,7 +27,6 @@ class RobotListScreen extends StatefulWidget {
 class _RobotListScreenState extends State<RobotListScreen> {
   final User? _user = FirebaseAuth.instance.currentUser;
   final BrainClient _brainClient = BrainClient();
-  // TODO: wire real LAN detection + persisted ownership/subscription/seed state
   // Per-robot state caches
   final Map<String, bool> _ownedByHost = {};
   final Map<String, bool> _subByHost = {};
@@ -186,11 +185,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
         });
       });
       _brainClient.checkLocalNetwork().then((lan) {
-        if (mounted) {
-          setState(() {
-            _lanLikely = lan;
-          });
-        }
+        if (!mounted) return;
+        setState(() {
+          _lanLikely = lan;
+        });
+        _persistLanLikely(lan);
       });
       _loadCachedState();
     }
@@ -453,6 +452,9 @@ class _RobotListScreenState extends State<RobotListScreen> {
     final host = data['host'] ?? 'unknown';
     final isBusy = _busyHosts.contains(host);
     final isGuest = _user == null;
+    final owned = _ownedByHost[host] ?? _isOwned;
+    final hasSeed = _seedByHost[host] ?? _hasSeedInstalled;
+    final hasSubscription = _subByHost[host] ?? _hasSubscription;
     final deviceInfo = _deviceInfoByHost[host] ?? {};
     final deviceId = deviceInfo['device_id'] as String? ?? '';
     final statusAccountId = _deviceInfoByHost[host]?['account_id'] as String?;
@@ -614,7 +616,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   if (isBusy) const SizedBox(width: 12),
-                  if (!_isOwned)
+                  if (!owned)
                     ElevatedButton.icon(
                       onPressed: (isGuest || isBusy || mismatch)
                           ? null
@@ -622,8 +624,8 @@ class _RobotListScreenState extends State<RobotListScreen> {
                       icon: const Icon(Icons.how_to_reg),
                       label: const Text('Claim (local)'),
                     ),
-                  if (_isOwned && !_hasSeedInstalled) const SizedBox(width: 8),
-                  if (_isOwned && !_hasSeedInstalled)
+                  if (owned && !hasSeed) const SizedBox(width: 8),
+                  if (owned && !hasSeed)
                     ElevatedButton.icon(
                       onPressed: (isGuest || isBusy || mismatch)
                           ? null
@@ -631,13 +633,15 @@ class _RobotListScreenState extends State<RobotListScreen> {
                       icon: const Icon(Icons.system_update),
                       label: const Text('Seed install'),
                     ),
-                  if (_isOwned && _hasSeedInstalled) const SizedBox(width: 8),
-                  if (_isOwned && _hasSeedInstalled)
+                  if (owned && hasSeed) const SizedBox(width: 8),
+                  if (owned && hasSeed)
                     ElevatedButton.icon(
-                      onPressed:
-                          (isGuest || !_hasSubscription || isBusy || mismatch)
-                              ? null
-                              : () => _connectOrGateRemote(data),
+                      onPressed: (isGuest ||
+                              !hasSubscription ||
+                              isBusy ||
+                              mismatch)
+                          ? null
+                          : () => _connectOrGateRemote(data),
                       icon: const Icon(Icons.power_settings_new),
                       label: const Text('Connect'),
                       style: ElevatedButton.styleFrom(
@@ -711,10 +715,10 @@ class _RobotListScreenState extends State<RobotListScreen> {
             _deviceInfoByHost[host] = ping;
           }
           _errorByHost.remove(host);
-          // Update global flags based on this robot's status
-          _isOwned = owned;
-          _hasSubscription = sub;
-          _hasSeedInstalled = seed;
+          // Update global flags based on any known robot status
+          _isOwned = _ownedByHost.values.any((v) => v);
+          _hasSubscription = _subByHost.values.any((v) => v);
+          _hasSeedInstalled = _seedByHost.values.any((v) => v);
           _busyHosts.remove(host);
         });
         _saveCachedState();
@@ -751,10 +755,14 @@ class _RobotListScreenState extends State<RobotListScreen> {
     final port = data['port'] as int? ?? 50051;
     final httpPort = data['httpPort'] as int? ?? 8080;
 
-    // Refresh status, but don't hard block on LAN—ownership + subscription + seed are required.
+    // Refresh status, but don't hard block on LAN-ownership + subscription + seed are required.
     await _refreshStatus(data);
 
-    if (_isOwned && _hasSubscription && _hasSeedInstalled) {
+    final owned = _ownedByHost[host] ?? _isOwned;
+    final hasSubscription = _subByHost[host] ?? _hasSubscription;
+    final hasSeed = _seedByHost[host] ?? _hasSeedInstalled;
+
+    if (owned && hasSubscription && hasSeed) {
       _connectToRobot({
         'name': data['name'] ?? 'Unnamed Robot',
         'host': host,
@@ -795,7 +803,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       setState(() {
         if (ok) {
           _ownedByHost[host] = true;
-          _isOwned = true;
+          _isOwned = _ownedByHost.values.any((v) => v);
           _saveCachedState();
         }
         _busyHosts.remove(host);
@@ -816,7 +824,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       setState(() {
         if (ok) {
           _seedByHost[host] = true;
-          _hasSeedInstalled = true;
+          _hasSeedInstalled = _seedByHost.values.any((v) => v);
           _saveCachedState();
         }
         _busyHosts.remove(host);
@@ -1146,12 +1154,21 @@ class _RobotListScreenState extends State<RobotListScreen> {
     );
   }
 
+  Future<void> _persistLanLikely(bool lanLikely) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('lan_likely', lanLikely);
+  }
+
   Future<void> _loadCachedState() async {
     if (_stateLoaded) return;
     final prefs = await SharedPreferences.getInstance();
     final owned = prefs.getString('robot_owned_map');
     final sub = prefs.getString('robot_sub_map');
     final seed = prefs.getString('robot_seed_map');
+    final cachedLan = prefs.getBool('lan_likely');
+    final cachedOwnedFlag = prefs.getBool('robot_any_owned');
+    final cachedSubFlag = prefs.getBool('robot_any_sub');
+    final cachedSeedFlag = prefs.getBool('robot_any_seed');
     if (owned != null) {
       _ownedByHost
         ..clear()
@@ -1170,7 +1187,28 @@ class _RobotListScreenState extends State<RobotListScreen> {
         ..addAll(Map<String, dynamic>.from(jsonDecode(seed))
             .map((k, v) => MapEntry(k, v == true)));
     }
-    setState(() => _stateLoaded = true);
+    final derivedOwned = cachedOwnedFlag ?? _ownedByHost.values.any((v) => v);
+    final derivedSub = cachedSubFlag ?? _subByHost.values.any((v) => v);
+    final derivedSeed = cachedSeedFlag ?? _seedByHost.values.any((v) => v);
+    if (!mounted) {
+      _isOwned = derivedOwned;
+      _hasSubscription = derivedSub;
+      _hasSeedInstalled = derivedSeed;
+      if (cachedLan != null) {
+        _lanLikely = cachedLan;
+      }
+      _stateLoaded = true;
+      return;
+    }
+    setState(() {
+      _isOwned = derivedOwned;
+      _hasSubscription = derivedSub;
+      _hasSeedInstalled = derivedSeed;
+      if (cachedLan != null) {
+        _lanLikely = cachedLan;
+      }
+      _stateLoaded = true;
+    });
   }
 
   Future<void> _saveCachedState() async {
@@ -1178,6 +1216,13 @@ class _RobotListScreenState extends State<RobotListScreen> {
     await prefs.setString('robot_owned_map', jsonEncode(_ownedByHost));
     await prefs.setString('robot_sub_map', jsonEncode(_subByHost));
     await prefs.setString('robot_seed_map', jsonEncode(_seedByHost));
+    await prefs.setBool(
+        'robot_any_owned', _ownedByHost.values.any((v) => v) || _isOwned);
+    await prefs.setBool('robot_any_sub',
+        _subByHost.values.any((v) => v) || _hasSubscription);
+    await prefs.setBool('robot_any_seed',
+        _seedByHost.values.any((v) => v) || _hasSeedInstalled);
+    await prefs.setBool('lan_likely', _lanLikely);
   }
 }
 
