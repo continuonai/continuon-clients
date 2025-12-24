@@ -40,6 +40,9 @@ from continuonbrain.studio_server import StateAggregator
 from continuonbrain.tools import create_default_registry
 from continuonbrain.services.curriculum_manager import CurriculumManager # Added
 from continuonbrain.services.cloud_relay import CloudRelay
+from continuonbrain.core.context_graph_store import SQLiteContextStore
+from continuonbrain.core.graph_ingestor import GraphIngestor
+from continuonbrain.core.context_retriever import ContextRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +330,12 @@ class BrainService:
         self.state_aggregator = StateAggregator()
         self.tool_registry = create_default_registry()
         self.curriculum_manager = CurriculumManager(self, self.state_aggregator) # Added
+        
+        # Context Graph
+        self.context_store = SQLiteContextStore(str(Path(config_dir) / "context_graph.db"))
+        self.context_store.initialize_db()
+        self.graph_ingestor = GraphIngestor(self.context_store, self.gemma_chat)
+        self.context_retriever = ContextRetriever(self.context_store)
         
         # JAX-based trainers/tool-router are intentionally lazy-imported
         self.wavecore_trainer = None
@@ -1371,6 +1380,11 @@ class BrainService:
             json.dump(episode_data, f, indent=2)
             
         logger.info(f"Saved RLDS episode to {filename}")
+        
+        # Ingest into Context Graph
+        if self.graph_ingestor:
+            self.graph_ingestor.ingest_episode(str(filename))
+            
         return str(filename)
     
     def _calculate_confidence(self, response: str) -> float:

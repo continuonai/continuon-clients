@@ -628,6 +628,14 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.end_headers()
                 self.wfile.write(ui_routes.get_tasks_html().encode("utf-8"))
             
+            elif self.path == "/ui/context":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                # Load from file directly or via ui_routes helper
+                with open(REPO_ROOT / "continuonbrain/server/templates/context_graph.html", "rb") as f:
+                    self.wfile.write(f.read())
+
             # HOPE Monitoring Pages
             elif self.path in ("/ui/hope", "/ui/hope/"):
                 self.send_response(200)
@@ -727,6 +735,36 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 data = brain_service.get_brain_structure()
                 self.send_json(data)
 
+            elif self.path == "/api/context/graph":
+                try:
+                    # Dump recent nodes/edges for viz
+                    # Access store directly via service
+                    store = brain_service.context_store
+                    # We need to access underlying DB for raw dump or use get_node/edge
+                    # SQLiteContextStore exposes _get_conn
+                    conn = store._get_conn()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM nodes") # Get all for now, or limit
+                    nodes = []
+                    for row in cursor.fetchall():
+                        n = dict(row)
+                        if n.get("attributes"): n["attributes"] = json.loads(n["attributes"])
+                        if n.get("belief"): n["belief"] = json.loads(n["belief"])
+                        if n.get("embedding"): n["embedding"] = "[vector]" # Hide vector
+                        nodes.append(n)
+                        
+                    cursor.execute("SELECT * FROM edges")
+                    edges = []
+                    for row in cursor.fetchall():
+                        e = dict(row)
+                        if e.get("scope"): e["scope"] = json.loads(e["scope"])
+                        if e.get("provenance"): e["provenance"] = json.loads(e["provenance"])
+                        if e.get("embedding"): e["embedding"] = "[vector]"
+                        edges.append(e)
+                        
+                    self.send_json({"nodes": nodes, "edges": edges})
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
 
             elif self.path == "/api/tasks/library":
                 # Return task library with eligibility checks
@@ -1171,6 +1209,19 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     hope_routes.handle_hope_request(self, body)
                 except ImportError:
                     self.send_json({"error": "HOPE implementation not available"}, status=503)
+
+            elif self.path == "/api/context/search":
+                try:
+                    data = json.loads(body) if body else {}
+                    query = data.get("query")
+                    if query and brain_service.gemma_chat:
+                        vec = brain_service.gemma_chat.embed(query)
+                        results = brain_service.context_store.get_nearest_nodes(vec, limit=10)
+                        self.send_json({"results": [n.__dict__ for n in results]})
+                    else:
+                        self.send_json({"results": []})
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
 
             elif self.path == "/api/memory/save":
                 if brain_service.experience_logger.save_memory():

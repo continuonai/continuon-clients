@@ -11,11 +11,15 @@
   - **WaveCore (SSM + FFT):** Modular library for high-frequency control and tactical planning loops.
   - **Hybrid Architectures:** Fused SSM and Sliding-Window Attention for efficient long-context edge reasoning.
   - **VQ-VAE:** Used for latent tokenization of visual data on accelerators.
+  - **Context Graphs:** Hybrid symbolic/dense retrieval system bridging RLDS/CMS and the HOPE planner.
 - **Edge Acceleration:**
   - **Hailo-8L / Coral Edge TPU:** Support for dedicated NPU/TPU offloading.
   - **XNNPACK:** Optimized CPU inference for ARM (Pi 5).
 - **Hardware Interaction:** CircuitPython (adafruit-servokit), smbus2, and lgpio for Raspberry Pi 5 hardware/servo control.
 - **Safety Enforcement:** Process-isolated Safety Kernel (Ring 0) using Python/Unix Sockets for deterministic command validation.
+- **Graph & Context:**
+  - **SQLite:** Persistent storage for the context graph (nodes, edges).
+  - **NetworkX:** In-memory graph traversal and analysis.
 
 ## Spatial & Mobile Interfaces (The Shells)
 - **Android XR:** 

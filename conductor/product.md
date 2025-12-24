@@ -14,7 +14,8 @@ To build a platform that decouples general robot intelligence from hardware, ena
 3.  **On-Device Symbolic Search:** Implementation of the "Searcher" module on the edge (Pi 5) to enable the robot to perform "System 2" thinking—simulating and inventing solutions locally without explicit prior training for every scenario.
 4.  **Unified Discovery & Role-Based Orchestration:** Seamless robot discovery across CLI and mobile apps with integrated Role-Based Access Control (RBAC). The Companion app automatically adapts its interface (Creator vs. Consumer) to expose training, model management, and system context tools.
 5.  **Deterministic Safety Kernel (Ring 0):** A dedicated, high-priority safety process that enforces physical laws and safety rules independently of the primary AI brain.
-6.  **Brain Studio Cognition Dashboard:** Real-time visualization of the robot's internal reasoning, HOPE loop states, and an autonomous skill-teaching curriculum.
+6.  **Context-Aware Memory (Context Graphs):** Implementation of a Wave–Particle bridge that fuses symbolic graphs (goals, tools, entities) with dense embeddings (decay-aware state), enabling the planner to retrieve situation-relevant subgraphs for decision-making.
+7.  **Brain Studio Cognition Dashboard:** Real-time visualization of the robot's internal reasoning, HOPE loop states, and an autonomous skill-teaching curriculum.
 
 ## Synchronization & Cloud Integration
 - **Operational Autonomy:** The robot operates fully autonomously on the edge.

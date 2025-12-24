@@ -28,3 +28,4 @@ wikipedia>=1.4.0
 firebase-admin>=6.5.0
 pyjwt>=2.8.0
 cryptography>=42.0.0
+networkx>=3.0

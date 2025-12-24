@@ -176,6 +176,15 @@ class LiteRTGemmaChat:
     def reset_history(self):
         self.chat_history = []
 
+    def embed(self, text: str) -> List[float]:
+        """
+        Generate embedding. 
+        Note: MediaPipe LlmInference does not support embeddings. 
+        Returns mock/zero vector or raises error.
+        """
+        # For now, return mock to avoid breaking the interface
+        return [0.0] * 256
+
     def get_model_info(self) -> Dict[str, Any]:
         return {
             "model_name": self.model_name,

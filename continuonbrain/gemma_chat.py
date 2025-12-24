@@ -467,6 +467,36 @@ class GemmaChat:
             logger.error(f"Failed to load Gemma model: {e}")
             return False
     
+    def embed(self, text: str) -> List[float]:
+        """Generate embedding vector for text."""
+        if self.client:
+             try:
+                 resp = self.client.embeddings.create(input=[text], model="text-embedding-3-small")
+                 return resp.data[0].embedding
+             except Exception:
+                 pass
+
+        if self.model is None or self.tokenizer is None:
+             return [0.0] * 256
+
+        try:
+            import torch
+            if not text:
+                return [0.0] * 256
+                
+            inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(self.device)
+            with torch.no_grad():
+                outputs = self.model(**inputs, output_hidden_states=True)
+                hidden_states = outputs.hidden_states[-1] 
+                # Mean pooling
+                embedding = hidden_states.mean(dim=1).squeeze().tolist()
+                if isinstance(embedding, float):
+                    return [embedding]
+                return embedding
+        except Exception as e:
+            logger.error(f"Embedding generation failed: {e}")
+            return [0.0] * 256
+
     def chat(
         self,
         message: str,
@@ -722,6 +752,14 @@ class MockGemmaChat:
     def load_model(self) -> bool:
         return True
     
+    def embed(self, text: str) -> List[float]:
+        """Generate mock embedding."""
+        # Deterministic mock embedding based on hash
+        import hashlib
+        h = hashlib.md5(text.encode()).digest()
+        # Create list of floats from bytes
+        return [float(b)/255.0 for b in h] * 16 # Extend to 256 dim
+
     def chat(self, message: str, system_context: Optional[str] = None, model_hint: Optional[str] = None) -> str:
         """Generate mock response."""
         self.chat_history.append({"role": "User", "content": message})
