@@ -9,6 +9,7 @@ The Continuon Brain runtime and scaffolding now live together in this monorepo. 
 - Pi 5 bring-up checklist (depth cam + PCA9685) is maintained as a short redirect in `continuonbrain/PI5_CAR_READINESS.md` to avoid duplicated commands.
 - JAX training pipeline lives under `continuonbrain/jax_models/` with a unified trainer (`run_trainer.py`) that selects JAX vs PyTorch based on hardware. Use `--config-preset` or `--config-json` to tune CoreModel settings.
 - Model selection is JAX-first (`CONTINUON_PREFER_JAX=1` by default). Transformers/Gemma remains available as fallback. Gemma 3n JAX/Flax weights in the HF cache are detected when present.
+- Context graphs: see `docs/context_graphs.md` for how HOPE/CMS memory objects flow through wave–particle context retrieval (wave prefilter → particle expansion → wave re-rank) and how ContextSession anchors active goals/tools/entities.
 
 Production runtime code belongs here; keep docs explicit about what is production-ready versus placeholder scaffolding so downstream consumers can promote features confidently.
 
