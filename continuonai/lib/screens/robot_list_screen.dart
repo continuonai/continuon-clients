@@ -3,17 +3,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'dart:async'; // Added for Timer
+import 'dart:async';
 
 import '../theme/continuon_theme.dart';
+import '../services/scanner_service_native.dart';
+import '../utils/platform_info.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard_screen.dart';
-
 import 'robot_portal_screen.dart';
 import '../services/brain_client.dart';
 import '../widgets/layout/continuon_layout.dart';
-
 import '../widgets/layout/continuon_card.dart';
+
+enum DiscoveryStatus { searching, found, error, idle }
 
 class RobotListScreen extends StatefulWidget {
   const RobotListScreen({super.key});
@@ -27,6 +30,11 @@ class RobotListScreen extends StatefulWidget {
 class _RobotListScreenState extends State<RobotListScreen> {
   final User? _user = FirebaseAuth.instance.currentUser;
   final BrainClient _brainClient = BrainClient();
+  final ScannerService _scannerService = ScannerService();
+  StreamSubscription? _scannerSubscription;
+  DiscoveryStatus _discoveryStatus = DiscoveryStatus.idle;
+  List<ScannedRobot> _scannedRobots = [];
+
   // Per-robot state caches
   final Map<String, bool> _ownedByHost = {};
   final Map<String, bool> _subByHost = {};
@@ -46,6 +54,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
   final TextEditingController _accountIdController = TextEditingController();
   final TextEditingController _accountTypeController = TextEditingController();
   final TextEditingController _ownerIdController = TextEditingController();
+  
+  // Controllers for prominent manual connect
+  final TextEditingController _hostController = TextEditingController();
+  final TextEditingController _httpPortController = TextEditingController(text: '8080');
+  
   bool _tokenLoaded = false;
   bool _lanLikely = true;
   bool _stateLoaded = false;
@@ -65,43 +78,75 @@ class _RobotListScreenState extends State<RobotListScreen> {
   void initState() {
     super.initState();
     _startPolling();
+    _startDiscovery();
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _scannerSubscription?.cancel();
+    _scannerService.dispose();
     _tokenController.dispose();
     _accountIdController.dispose();
     _accountTypeController.dispose();
     _ownerIdController.dispose();
+    _hostController.dispose();
+    _httpPortController.dispose();
     super.dispose();
+  }
+
+  void _startDiscovery() {
+    setState(() {
+      _discoveryStatus = DiscoveryStatus.searching;
+    });
+    
+    _scannerSubscription = _scannerService.scannedRobots.listen((robots) {
+      if (mounted) {
+        setState(() {
+          _scannedRobots = robots;
+          _discoveryStatus = robots.isEmpty ? DiscoveryStatus.searching : DiscoveryStatus.found;
+          
+          // Merge scanned robots into guest list if they aren't already there
+          for (final robot in robots) {
+            final exists = _guestRobots.any((r) => r['host'] == robot.host);
+            if (!exists) {
+              _guestRobots.add({
+                'name': robot.name,
+                'host': robot.host,
+                'port': robot.port,
+                'httpPort': robot.httpPort,
+                'isScanned': true,
+              });
+            }
+          }
+        });
+      }
+    }, onError: (e) {
+      if (mounted) {
+        setState(() {
+          _discoveryStatus = DiscoveryStatus.error;
+        });
+      }
+    });
+
+    _scannerService.startScan();
   }
 
   void _startPolling() {
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (!mounted) return;
-      // Refresh all known hosts
-      // Logic: Iterate visible robots and refresh status
-      // Limitation: we don't have a clean list of all robots here easily without duplicating stream logic.
-      // For now, we will just refresh if we have interacted or cached them.
       _refreshAllCachedHosts();
     });
   }
 
   Future<void> _refreshAllCachedHosts() async {
-    // In a real app, we'd query the list from provider or firestore cache.
-    // For this MVP, we iterate the _deviceInfoByHost keys which represent known active hosts.
     final hosts = _deviceInfoByHost.keys.toList();
     for (final host in hosts) {
-      // Basic refresh, ignoring errors to avoid snackbar spam
       try {
-        await _brainClient.ping(host: host, httpPort: 8080); // Quick check
-        // We could do full _refreshStatus but that might be heavy
+        await _brainClient.ping(host: host, httpPort: 8080);
       } catch (_) {}
     }
   }
-
-  // _signOut handled by ContinuonAppBar now
 
   void _addRobot() {
     showDialog(
@@ -112,16 +157,43 @@ class _RobotListScreenState extends State<RobotListScreen> {
           setState(() {
             _guestRobots.add(robot);
           });
-          // Refresh status for the newly added robot
           _refreshStatus(robot);
         },
       ),
     ).then((result) {
-      // If a robot was added (result is Map), refresh its status
       if (result != null && result is Map<String, dynamic>) {
         _refreshStatus(result);
       }
     });
+  }
+
+  Future<void> _quickConnect() async {
+    final host = _hostController.text.trim();
+    final httpPortText = _httpPortController.text.trim();
+    
+    if (host.isEmpty) {
+      _showSnack('Please enter a host IP');
+      return;
+    }
+    
+    final httpPort = int.tryParse(httpPortText) ?? 8080;
+    
+    // Add to guest list if not already there
+    final exists = _guestRobots.any((r) => r['host'] == host);
+    final robotData = {
+      'name': 'Manual Robot',
+      'host': host,
+      'port': 50051,
+      'httpPort': httpPort,
+    };
+    
+    if (!exists) {
+      setState(() {
+        _guestRobots.add(robotData);
+      });
+    }
+    
+    await _connectToRobot(robotData);
   }
 
   Future<void> _connectToRobot(Map<String, dynamic> data) async {
@@ -129,14 +201,12 @@ class _RobotListScreenState extends State<RobotListScreen> {
     final port = data['port'] as int;
     final httpPort = data['httpPort'] as int? ?? 8080;
 
-    // Propagate auth token if present
     if (_authToken != null) {
       _brainClient.setAuthToken(_authToken!);
     }
 
     setState(() => _busyHosts.add(host));
 
-    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -148,11 +218,11 @@ class _RobotListScreenState extends State<RobotListScreen> {
         host: host,
         port: port,
         httpPort: httpPort,
-        useTls: false, // Assuming local connection for now
+        useTls: false,
       );
 
       if (mounted) {
-        Navigator.pop(context); // Dismiss loading
+        Navigator.pop(context);
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -162,7 +232,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Dismiss loading
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to connect: $e'),
@@ -195,14 +265,175 @@ class _RobotListScreenState extends State<RobotListScreen> {
     }
 
     return ContinuonLayout(
-      // 100% Consistent Nav: No screen-specific actions in Top Bar
       body: Column(
         children: [
-        // _buildStatusBanner(),
-          _buildActionRow(),
-          _buildManualConnectSection(),
+          _buildDiscoveryStatusHeader(),
+          _buildWebDiscoveryNotice(),
+          _buildProminentAddRobot(),
           Expanded(
               child: _user == null ? _buildGuestList() : _buildFirestoreList()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebDiscoveryNotice() {
+    if (!PlatformInfo.isWeb) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Web Discovery Tip',
+                style: TextStyle(color: Colors.amber.shade800, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Browsers restrict automatic mDNS scanning. If your robot isn\'t found, connect via IP below. Ensure your robot has CORS enabled or use the tunnel utility.',
+            style: TextStyle(fontSize: 13),
+          ),
+          TextButton(
+            onPressed: () => _launchURL('https://github.com/continuon-ai/continuon-xr/blob/main/docs/PI5_EDGE_BRAIN_INSTRUCTIONS.md#11-unified-discovery-and-remote-conductor-cli'),
+            child: const Text('Read docs for tunnel and discovery'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchURL(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Widget _buildProminentAddRobot() {
+    return ContinuonCard(
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Quick Connect', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _hostController,
+                  decoration: const InputDecoration(
+                    labelText: 'Robot IP Address',
+                    hintText: 'e.g. 192.168.1.50',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 1,
+                child: TextField(
+                  controller: _httpPortController,
+                  decoration: const InputDecoration(
+                    labelText: 'Port',
+                    hintText: '8080',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: _quickConnect,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ContinuonColors.primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Connect'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscoveryStatusHeader() {
+    String message;
+    Color color;
+    IconData icon;
+
+    switch (_discoveryStatus) {
+      case DiscoveryStatus.searching:
+        message = 'Searching for robots on local network...';
+        color = Colors.blue;
+        icon = Icons.search;
+        break;
+      case DiscoveryStatus.found:
+        message = 'Discovery active. ${_scannedRobots.length} robot(s) found via mDNS.';
+        color = Colors.green;
+        icon = Icons.radar;
+        break;
+      case DiscoveryStatus.error:
+        message = 'Discovery error. Check your Wi-Fi connection.';
+        color = Colors.red;
+        icon = Icons.error_outline;
+        break;
+      case DiscoveryStatus.idle:
+      default:
+        message = 'Discovery idle.';
+        color = Colors.grey;
+        icon = Icons.pause_circle_outline;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      color: color.withOpacity(0.1),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
+          if (_discoveryStatus == DiscoveryStatus.searching)
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue),
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 16),
+            onPressed: () {
+              _scannerService.startScan(forceRestart: true);
+              setState(() {
+                _discoveryStatus = DiscoveryStatus.searching;
+              });
+            },
+            tooltip: 'Rescan network',
+          ),
         ],
       ),
     );

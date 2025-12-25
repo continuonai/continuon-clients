@@ -1,0 +1,15 @@
+<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">Continuon Robot (%h)</name>
+  <service>
+    <type>_continuon._tcp</type>
+    <port>8080</port>
+    <txt-record>product=continuon_brain</txt-record>
+    <txt-record>version=0.1.0</txt-record>
+  </service>
+  <service>
+    <type>_ssh._tcp</type>
+    <port>22</port>
+  </service>
+</service-group>

@@ -1,50 +1,35 @@
-"""WaveCore Configuration."""
-from dataclasses import dataclass
+from __future__ import annotations
+from dataclasses import dataclass, field
 from typing import Optional
 
 @dataclass
 class WaveCoreConfig:
-    """Hyperparameters for WaveCore models."""
+    """Hyperparameters for WaveCore spectral models."""
     vocab_size: int = 512
-    seq_len: int = 64
     d_model: int = 128
+    seq_len: int = 64
     n_layers: int = 2
     n_heads: int = 4
+    decay_init: float = 0.01
     dropout: float = 0.1
     learning_rate: float = 3e-4
+    batch_size: int = 16
+    device: str = "cpu"
     
-    # Loop specific settings (Fast, Mid, Slow)
-    loop_type: str = "mid"  # fast, mid, slow
+    # HOPE Loop variants
+    loop_type: str = "seed" # "fast", "mid", "slow", "seed"
 
-    @staticmethod
-    def fast_loop():
-        """Latency-optimized config for reflex loops (50-100ms)."""
-        return WaveCoreConfig(
-            vocab_size=256,
-            seq_len=32,
-            d_model=64,
-            n_layers=1,
-            loop_type="fast"
-        )
+    @classmethod
+    def fast_loop(cls) -> WaveCoreConfig:
+        """Latency-optimized variant."""
+        return cls(d_model=64, n_layers=1, n_heads=2, loop_type="fast")
 
-    @staticmethod
-    def mid_loop():
-        """Context-optimized config for tactical planning (1-10s)."""
-        return WaveCoreConfig(
-            vocab_size=1024,
-            seq_len=128,
-            d_model=128,
-            n_layers=4,
-            loop_type="mid"
-        )
+    @classmethod
+    def mid_loop(cls) -> WaveCoreConfig:
+        """Context-optimized variant."""
+        return cls(d_model=128, n_layers=4, n_heads=4, loop_type="mid")
 
-    @staticmethod
-    def slow_loop():
-        """Capacity-optimized config for strategic reasoning (Cloud/Offline)."""
-        return WaveCoreConfig(
-            vocab_size=4096,
-            seq_len=512,
-            d_model=256,
-            n_layers=8,
-            loop_type="slow"
-        )
+    @classmethod
+    def slow_loop(cls) -> WaveCoreConfig:
+        """Capacity-optimized variant."""
+        return cls(d_model=256, n_layers=8, n_heads=8, loop_type="slow")

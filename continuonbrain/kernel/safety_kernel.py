@@ -32,6 +32,9 @@ class SafetyKernel:
         self.running = False
         self.server_socket = None
         
+        # Black Box Logging
+        self.audit_log_path = Path("/tmp/safety_audit.jsonl")
+        
         # Use Unix Domain Socket on Linux, TCP on others (Windows)
         self.use_unix_socket = sys.platform != 'win32'
         
@@ -39,6 +42,21 @@ class SafetyKernel:
         self.constitution = Constitution(config)
         self.response_system = GraduatedResponseSystem(self)
         self.system_safe = True
+
+    def log_violation(self, level: int, command: str, args: Dict[str, Any], reason: str):
+        """Log a safety violation to the persistent black box stream."""
+        entry = {
+            "timestamp": time.time(),
+            "level": level,
+            "command": command,
+            "args": args,
+            "reason": reason
+        }
+        try:
+            with open(self.audit_log_path, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            logger.error(f"Failed to write to audit log: {e}")
 
     def start(self):
         """Start the safety kernel listener."""

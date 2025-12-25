@@ -138,3 +138,54 @@ Preferred (when running the Robot API server): trigger loops via HTTP so metrics
 Notes:
 - Outputs land under `/opt/continuonos/brain/trainer/` and `/opt/continuonos/brain/model/adapters/candidate/` by default.
 - Defaults are Pi-friendly (small step counts, `arch_preset=pi5`, `disable_jit=true` unless overridden).
+
+## 11) Unified Discovery and Remote Conductor (CLI)
+
+The robot is now mDNS-enabled and can be managed remotely from your development machine.
+
+### Automatic Discovery
+The robot advertises `_continuon._tcp` via Avahi. Find it from your dev machine:
+```bash
+python scripts/find_robot.py
+```
+This caches the robot's IP in `.robot_ip` for subsequent commands.
+
+### Remote Orchestration (cb shortcut)
+Use the `./cb` (Windows `cb.bat`) shortcut to run commands, sync code, and tail logs:
+
+- **Initial Setup (Keys):** Deploy your SSH public key for password-less access.
+  ```bash
+  ./cb --setup-keys
+  ```
+- **Sync Code:** Push your local changes to the robot.
+  ```bash
+  ./cb --sync
+  ```
+- **Run Remote Command:**
+  ```bash
+  ./cb "ls -la"
+  ```
+- **Tail Remote Logs:**
+  ```bash
+  ./cb --tail
+  ```
+- **SSH Tunnel (for Brain Studio):**
+  ```bash
+  ./cb --tunnel 8080 --local-port 8888
+  ```
+  Then open `http://localhost:8888/ui` in your local browser.
+
+## 12) Connecting from a Browser (ContinuonAI Web)
+
+Automatic mDNS discovery is restricted in web browsers due to security policies. Use these steps to connect your web companion to the robot:
+
+### Option A: Direct IP (CORS required)
+If you are on the same LAN, you can enter the robot's IP directly in the **Quick Connect** card.
+> **Note:** The robot's API server must have CORS headers enabled to allow the browser to talk to it.
+
+### Option B: Local Tunnel (Recommended for Web)
+If CORS is an issue or you are developing remotely, use the tunnel utility from your development machine:
+```bash
+./cb --tunnel 8080 --local-port 8888
+```
+Then, in the ContinuonAI Web app, connect to `http://localhost:8888`. This bypasses browser CORS restrictions by making the robot appear local to your browser.

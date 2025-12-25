@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from collections import deque
 
+from continuonbrain.core.security import UserRole
+from continuonbrain.api.middleware.auth import require_role
+
 logger = logging.getLogger(__name__)
 
 class LearningControllerMixin:
@@ -755,3 +758,34 @@ class LearningControllerMixin:
             }
 
         raise ValueError(f"Unknown install kind: {kind}")
+
+    @require_role(UserRole.DEVELOPER)
+    def handle_get_cloud_readiness(self):
+        self.send_json(self._build_cloud_readiness())
+
+    @require_role(UserRole.DEVELOPER)
+    def handle_get_training_metrics(self, params):
+        self.send_json(self._read_training_metrics(params))
+
+    @require_role(UserRole.DEVELOPER)
+    def handle_get_eval_summary(self, params):
+        self.send_json(self._read_eval_summary(params))
+
+    @require_role(UserRole.DEVELOPER)
+    def handle_get_data_quality(self, params):
+        self.send_json(self._read_data_quality(params))
+
+    @require_role(UserRole.DEVELOPER)
+    def handle_get_tool_dataset_summary(self, params):
+        self.send_json(self._read_tool_dataset_summary(params))
+
+    @require_role(UserRole.CREATOR)
+    def handle_create_cloud_export(self, body):
+        data = json.loads(body) if body else {}
+        self.send_json(self._build_cloud_export_zip(data))
+
+    @require_role(UserRole.CREATOR)
+    def handle_install_model(self, body):
+        data = json.loads(body) if body else {}
+        self.send_json(self._install_model_bundle(data))
+

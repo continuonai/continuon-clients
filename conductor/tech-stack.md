@@ -2,13 +2,14 @@
 
 ## Edge Runtime (The Brain)
 - **Language:** Python 3.11+
+- **Unified Entry Points:** `startup_manager.py` (system boot/HAL/API) and `run_trainer.py` (multi-backend training).
 - **Deep Learning Frameworks:** 
   - **JAX:** Primary for high-performance training and inference loops (WaveCore).
   - **PyTorch/Transformers:** Used for model development, certain LLM hooks, and the sequential training orchestrator.
 - **AI Models:**
   - **Mamba (SSM):** Core architecture for the "System 2" world model and symbolic search.
   - **Gemma-3n:** Base LLM for reasoning and planning (optimized for edge).
-  - **WaveCore (SSM + FFT):** Modular library for high-frequency control and tactical planning loops.
+  - **WaveCore (SSM + FFT):** Matatured modular library for high-frequency control and tactical planning loops, including a synthetic logic generator and distillation hooks.
   - **Hybrid Architectures:** Fused SSM and Sliding-Window Attention for efficient long-context edge reasoning.
   - **VQ-VAE:** Used for latent tokenization of visual data on accelerators.
   - **Context Graphs:** Hybrid symbolic/dense retrieval system bridging RLDS/CMS and the HOPE planner.
@@ -17,7 +18,10 @@
   - **Hailo-8L / Coral Edge TPU:** Support for dedicated NPU/TPU offloading.
   - **XNNPACK:** Optimized CPU inference for ARM (Pi 5).
 - **Hardware Interaction:** CircuitPython (adafruit-servokit), smbus2, and lgpio for Raspberry Pi 5 hardware/servo control.
-- **Safety Enforcement:** Process-isolated Safety Kernel (Ring 0) using Python/Unix Sockets for deterministic command validation.
+- **Safety Enforcement:** Ring 0 Safety Kernel (Python) using Unix Sockets/TCP for IPC and a "Constitution" for deterministic kinematic and health validation.
+- **Authentication & Security:**
+  - **Firebase Auth:** JWT-based identity management and token verification.
+  - **RBAC:** Role-Based Access Control (Creator, Developer, Consumer) enforced via middleware.
 - **Graph & Context:**
   - **SQLite:** Persistent storage for the context graph (nodes, edges).
   - **NetworkX:** In-memory graph traversal and analysis.
@@ -33,8 +37,8 @@
   - **gRPC / WebRTC:** Low-latency bidirectional streaming between Brain and Shells.
   - **Protobuf:** Universal data serialization.
   - **BLE:** High-speed telemetry for the Continuon Glove.
-  - **mDNS / Avahi:** Automatic service discovery on local networks.
-  - **SSH / Fabric:** Secure remote command execution and automated key management.
+  - **mDNS / Avahi:** Automatic service discovery on local networks using `zeroconf` (Python) and `nsd` (Flutter).
+  - **SSH / Fabric:** Remote Conductor interface for command orchestration and automated key management.
   - **rsync / Watchdog:** High-performance file synchronization with real-time file system monitoring.
   - **SSE (Server-Sent Events):** Real-time streaming of cognitive states and metrics to web interfaces.
 

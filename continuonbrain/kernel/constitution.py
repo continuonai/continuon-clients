@@ -51,8 +51,8 @@ class Constitution:
             for joint_name, value in joints.items():
                 if joint_name in self.joint_limits:
                     low, high = self.joint_limits[joint_name]
-                    clipped = max(low, min(high, value))
-                    if clipped != value:
+                    clipped = max(low, min(high, float(value)))
+                    if clipped != float(value):
                         clipping_occurred = True
                         logger.warning(f"Kinematic limit hit: {joint_name} ({value} -> {clipped})")
                     adjusted_joints[joint_name] = clipped
@@ -65,35 +65,57 @@ class Constitution:
 
         # 2. Check Velocity Limits
         if "velocity" in args:
-            original_v = args["velocity"]
+            original_v = float(args["velocity"])
             clipped_v = max(-self.max_velocity, min(self.max_velocity, original_v))
             if clipped_v != original_v:
                 args["velocity"] = clipped_v
                 return 1, args, "velocity_clipping"
 
-        # 3. Check Environmental Constraints (Placeholder for IK/Collision logic)
-        if "target_pose" in args:
-            # Simple bounds check for target_pose (x, y, z)
-            pose = args["target_pose"]
-            if any(coord > 1000 for coord in pose.values()): # Example limit
-                 return 0, {}, "out_of_reach"
+        # 3. Check Acceleration Limits
+        if "acceleration" in args:
+            original_a = float(args["acceleration"])
+            clipped_a = max(0, min(self.max_acceleration, original_a))
+            if clipped_a != original_a:
+                args["acceleration"] = clipped_a
+                return 1, args, "acceleration_clipping"
 
-        # 4. Power/Thermal Intercepts (Simulated here, would use real hardware sensors)
-        # If we had a shared memory state or recent sensor readings
-        
+        # 4. Check Environmental Constraints (Static Obstacles)
+        # Placeholder for real collision detection
+        if command == "move_to" and "target_pose" in args:
+            pose = args["target_pose"]
+            # Example: deny moves too low (avoid table)
+            if pose.get("z", 0) < 0:
+                return 0, {}, "collision_with_table"
+            
+            # Example: check no-go zones
+            for zone in self.no_go_zones:
+                if self._is_in_zone(pose, zone):
+                    return 0, {}, "no_go_zone_violation"
+
         return 2, args, "ok"
+
+    def _is_in_zone(self, pose: Dict[str, float], zone: Dict[str, Any]) -> bool:
+        """Helper to check if a pose is within a no-go zone."""
+        # Zone format: {"type": "box", "min": [x,y,z], "max": [x,y,z]}
+        if zone.get("type") == "box":
+            min_p = zone.get("min", [-float('inf')] * 3)
+            max_p = zone.get("max", [float('inf')] * 3)
+            return (min_p[0] <= pose.get("x", 0) <= max_p[0] and
+                    min_p[1] <= pose.get("y", 0) <= max_p[1] and
+                    min_p[2] <= pose.get("z", 0) <= max_p[2])
+        return False
 
     def check_system_health(self, metrics: Dict[str, Any]) -> bool:
         """Verify if system metrics are within safe operating range."""
-        voltage = metrics.get("voltage", 12.0)
-        temp = metrics.get("cpu_temp", 45.0)
+        voltage = float(metrics.get("voltage", 12.0))
+        temp = float(metrics.get("cpu_temp", 45.0))
         
         if voltage < self.min_voltage:
-            logger.error(f"Low voltage detected: {voltage}V")
+            logger.error(f"Low voltage detected: {voltage}V (Min: {self.min_voltage}V)")
             return False
             
         if temp > self.max_cpu_temp:
-            logger.error(f"High thermal detected: {temp}C")
+            logger.error(f"High thermal detected: {temp}C (Max: {self.max_cpu_temp}C)")
             return False
             
         return True

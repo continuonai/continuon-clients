@@ -905,37 +905,41 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_json({"status": "unknown", "message": "training status file not found"})
 
             elif self.path == "/api/training/cloud_readiness":
-                self.send_json(self._build_cloud_readiness())
+                self.handle_get_cloud_readiness()
 
             elif self.path.startswith("/api/training/metrics"):
                 parsed = urlparse(self.path)
                 params = parse_qs(parsed.query)
-                self.send_json(self._read_training_metrics(params))
+                self.handle_get_training_metrics(params)
 
             elif self.path.startswith("/api/training/eval_summary"):
                 parsed = urlparse(self.path)
                 params = parse_qs(parsed.query)
-                self.send_json(self._read_eval_summary(params))
+                self.handle_get_eval_summary(params)
 
             elif self.path.startswith("/api/training/data_quality"):
                 parsed = urlparse(self.path)
                 params = parse_qs(parsed.query)
-                self.send_json(self._read_data_quality(params))
+                self.handle_get_data_quality(params)
             
             elif self.path.startswith("/api/training/tool_dataset_summary"):
                 parsed = urlparse(self.path)
                 params = parse_qs(parsed.query)
-                self.send_json(self._read_tool_dataset_summary(params))
+                self.handle_get_tool_dataset_summary(params)
 
             elif self.path.startswith("/api/runtime/control_loop"):
                 parsed = urlparse(self.path)
-                limit_raw = parse_qs(parsed.query).get("limit", ["180"])[0]
+                limit_raw = (parse_qs(parsed.query).get("limit") or ["180"])[0]
                 # Assuming BrainService has GetControlLoopMetrics, otherwise return empty
                 try:
-                    metrics = brain_service.mode_manager.get_loop_metrics(limit=int(limit_raw)) if brain_service and brain_service.mode_manager else {}
+                    limit = int(limit_raw)
+                    if brain_service and brain_service.mode_manager:
+                        metrics = brain_service.mode_manager.get_loop_metrics(limit=limit)
+                    else:
+                        metrics = {}
                     self.send_json(metrics)
                 except Exception as e:
-                    self.send_json({"status": "error", "message": str(e)}, status_code=500)
+                    self.send_json({"status": "error", "message": str(e)}, status=500)
 
             elif self.path == "/api/training/architecture_status":
                 # Stub or implement if BrainService has it. 
@@ -1556,14 +1560,10 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_json(result, status=status)
 
             elif self.path == "/api/training/exports/create":
-                data = json.loads(body) if body else {}
-                result = self._build_cloud_export_zip(data)
-                self.send_json(result)
+                self.handle_create_cloud_export(body)
 
             elif self.path == "/api/model/install":
-                data = json.loads(body) if body else {}
-                result = self._install_model_bundle(data)
-                self.send_json(result)
+                self.handle_install_model(body)
 
             else:
                 self.send_error(404)

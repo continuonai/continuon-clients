@@ -26,14 +26,33 @@ class GraduatedResponseSystem:
     def apply_response(self, level: int, command: str, args: Dict[str, Any], reason: str) -> Dict[str, Any]:
         """Apply the appropriate response based on the safety level."""
         
-        if level == 1:
-            return self._handle_level_1(command, args, reason)
-        elif level == 2:
+        # Log all non-OK responses (level 0, 1, 3) and hard halts (level 2)
+        if level != 2: # In Constitution, 2 is OK. Wait.
+            # Safety Levels in Constitution: 0: Denied, 1: Clipped, 2: OK
+            # Safety Levels in GraduatedResponse: 1: Clipped, 2: Halt, 3: Recovery
+            # This is confusing. I should align them.
+            pass
+
+        # Aligning safety levels:
+        # 0: Denied -> Level 2 Halt
+        # 1: Clipped -> Level 1 Clipping
+        # 2: OK -> Status OK
+        
+        if level == 0: # Denied
+            self.kernel.log_violation(2, command, args, reason)
             return self._handle_level_2(command, args, reason)
-        elif level == 3:
+        elif level == 1: # Clipped
+            self.kernel.log_violation(1, command, args, reason)
+            return self._handle_level_1(command, args, reason)
+        elif level == 3: # Recovery
+            self.kernel.log_violation(3, command, args, reason)
             return self._handle_level_3(command, args, reason)
         else:
             return {"status": "ok", "safety_level": 2, "command": command, "args": args}
+
+    def _handle_level_0(self, command: str, args: Dict[str, Any], reason: str) -> Dict[str, Any]:
+        """Level 0: Denied (Legacy, now mapped to Level 2)."""
+        return self._handle_level_2(command, args, reason)
 
     def _handle_level_1(self, command: str, args: Dict[str, Any], reason: str) -> Dict[str, Any]:
         """Level 1: Corrective Clipping (Clipped in Constitution)."""

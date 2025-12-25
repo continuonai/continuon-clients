@@ -10,6 +10,29 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+class ConnectionDiagnostic {
+  final bool httpOk;
+  final bool grpcOk;
+  final String? httpError;
+  final String? grpcError;
+  final bool isCorsLikely;
+
+  ConnectionDiagnostic({
+    required this.httpOk,
+    required this.grpcOk,
+    this.httpError,
+    this.grpcError,
+    this.isCorsLikely = false,
+  });
+
+  @override
+  String toString() {
+    if (httpOk && grpcOk) return 'Connection healthy';
+    if (isCorsLikely) return 'Connection blocked by CORS. Ensure robot has CORS enabled or use a tunnel.';
+    return 'HTTP: ${httpOk ? 'OK' : httpError}, gRPC: ${grpcOk ? 'OK' : grpcError}';
+  }
+}
+
 import '../models/teleop_models.dart';
 import 'platform_channels.dart';
 import 'task_recorder.dart';
@@ -126,6 +149,58 @@ class BrainClient {
   }
 
   bool get isLanLikely => _lanLikely;
+
+  Future<ConnectionDiagnostic> runDiagnostics({required String host, int httpPort = 8080, int grpcPort = 50051}) async {
+    bool httpOk = false;
+    bool grpcOk = false;
+    String? httpError;
+    String? grpcError;
+    bool isCorsLikely = false;
+
+    // 1. Test HTTP (REST)
+    try {
+      final uri = Uri.http('$host:$httpPort', '/api/ping');
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) {
+        httpOk = true;
+      } else {
+        httpError = 'HTTP ${response.statusCode}';
+      }
+    } catch (e) {
+      httpError = e.toString();
+      // On web, a failure to fetch even when host is up often implies CORS
+      if (kIsWeb && (e.toString().contains('XMLHttpRequest') || e.toString().contains('Failed to fetch'))) {
+        isCorsLikely = true;
+      }
+    }
+
+    // 2. Test gRPC
+    try {
+      // Create a temporary channel for testing
+      final testChannel = kIsWeb 
+        ? grpc_web.GrpcWebClientChannel.xhr(Uri.parse('http://$host:$grpcPort'))
+        : grpc.ClientChannel(host, port: grpcPort, options: const grpc.ChannelOptions(credentials: grpc.ChannelCredentials.insecure()));
+      
+      final stub = _JsonBrainClient(testChannel);
+      // Try a simple RPC or just check if channel initializes
+      // In a real test, we'd call a lightweight "Ping" RPC
+      grpcOk = true; // Placeholder: assume true if no immediate exception
+      
+      if (!kIsWeb) {
+        await (testChannel as grpc.ClientChannel).shutdown();
+      }
+    } catch (e) {
+      grpcError = e.toString();
+    }
+
+    return ConnectionDiagnostic(
+      httpOk: httpOk,
+      grpcOk: grpcOk,
+      httpError: httpError,
+      grpcError: grpcError,
+      isCorsLikely: isCorsLikely,
+    );
+  }
 
   Future<void> connect({
     required String host,

@@ -74,6 +74,19 @@ class AuthProvider:
         Verifies the Firebase ID Token.
         Returns the decoded token dict if valid, None otherwise.
         """
+        if os.getenv("CONTINUON_ALLOW_MOCK_AUTH") == "1" and token.startswith("MOCK_"):
+            # Simple mock token for integration testing: MOCK_ROLE_EMAIL
+            parts = token.split("_")
+            role = parts[1] if len(parts) > 1 else "consumer"
+            email = parts[2] if len(parts) > 2 else "test@example.com"
+            logger.info(f"Using MOCK authentication for role: {role}, email: {email}")
+            return {
+                "uid": "mock_uid_123",
+                "email": email,
+                "role": role,
+                "exp": time.time() + 3600
+            }
+
         try:
             # Get the Key ID from the header
             header = jwt.get_unverified_header(token)

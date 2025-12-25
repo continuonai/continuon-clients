@@ -516,14 +516,16 @@ class RobotModeManager:
             "last_transition_timestamp": self.mode_start_time,
         }
 
-    def get_loop_metrics(self) -> Dict[str, Any]:
+    def get_loop_metrics(self, limit: int = 60) -> Dict[str, Any]:
         """Simulate HOPE/CMS loop activity for dashboards and mock mode."""
+        import random
 
         elapsed = max(0.0, time.time() - self.mode_start_time)
         # Create a stable but lively wave/particle mix without needing hardware signals.
         wave_particle_balance = 0.5 + 0.45 * math.sin(elapsed / 4.0)
 
-        fast_loop_hz = 12.0 if self.get_mode_config(self.current_mode).allow_motion else 4.0
+        is_active = self.get_mode_config(self.current_mode).allow_motion
+        fast_loop_hz = 12.0 if is_active else 4.0
         mid_loop_hz = fast_loop_hz / 2
         slow_loop_hz = max(0.5, fast_loop_hz / 6)
 
@@ -533,6 +535,15 @@ class RobotModeManager:
 
         cms_ratio = 0.55 + 0.1 * math.sin(elapsed / 9.0)
         maintenance_ratio = 1.0 - cms_ratio
+
+        # Generate simulated control loop period metrics (in ms)
+        target_ms = 1000.0 / fast_loop_hz
+        points = []
+        for i in range(limit):
+            # Simulated jitter: target +/- 5% with occasional spikes
+            jitter = random.gauss(0, target_ms * 0.02)
+            spike = target_ms * 0.5 if random.random() > 0.98 else 0
+            points.append(round(target_ms + jitter + spike, 2))
 
         return {
             "hope_loops": {
@@ -551,6 +562,9 @@ class RobotModeManager:
                 "period_seconds": heartbeat_period,
                 "ok": (time.time() - last_beat) <= (heartbeat_period * 1.5),
             },
+            "period_ms": {
+                "points": points
+            }
         }
     
     def emergency_stop(self, reason: str = "Manual trigger"):
