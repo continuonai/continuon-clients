@@ -9,7 +9,8 @@ import logging
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
+from continuonbrain.core.feedback_store import SQLiteFeedbackStore
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +45,44 @@ class ExperienceLogger:
         self.conversations_file = self.storage_dir / "learned_conversations.jsonl"
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         
+        # Initialize feedback store
+        self.feedback_store = SQLiteFeedbackStore(str(self.storage_dir / "feedback.db"))
+        self.feedback_store.initialize_db()
+        
         # Deduplication threshold (0.95 = 95% similar)
         self.dedup_threshold = 0.95
+
+        # Define category centroids for automatic tagging
+        self.category_hints = {
+            "Safety": "safety protocols, rules, emergency stop, collision, halt, protocol 66",
+            "Motion": "move, drive, joint, arm, forward, backward, steering, throttle",
+            "Vision": "camera, see, depth, image, rgb, vision, look",
+            "Identity": "who are you, name, creator, owner, system name",
+            "Knowledge": "what is, explain, facts, wikipedia, calculate"
+        }
+        self._centroids = None
+
+    def _get_centroids(self):
+        if self._centroids is None:
+            encoder = get_encoder()
+            if encoder:
+                self._centroids = {
+                    cat: encoder.encode(hint, convert_to_numpy=True)
+                    for cat, hint in self.category_hints.items()
+                }
+        return self._centroids
+
+    def _assign_topic_tags(self, embedding: np.ndarray) -> List[str]:
+        centroids = self._get_centroids()
+        if not centroids:
+            return []
+        
+        tags = []
+        for cat, centroid in centroids.items():
+            sim = self._cosine_similarity(embedding, centroid)
+            if sim > 0.4: # Topic threshold
+                tags.append(cat)
+        return tags
         
     def log_conversation(
         self, 
@@ -54,7 +91,7 @@ class ExperienceLogger:
         agent: str, 
         confidence: float,
         metadata: Optional[Dict[str, Any]] = None
-    ) -> None:
+    ) -> str:
         """
         Log a conversation exchange as a learned experience.
         
@@ -64,33 +101,93 @@ class ExperienceLogger:
             agent: Which agent provided the answer (hope_brain, llm_fallback, etc)
             confidence: Confidence score
             metadata: Optional additional metadata
+            
+        Returns:
+            conversation_id: Unique ID of the logged experience
         """
         try:
-            # Check for duplicates before storing
+            # Check for duplicates before storing (Active Gating)
             similar = self.get_similar_conversations(question, max_results=1)
             if similar and similar[0].get('relevance', 0) > self.dedup_threshold:
-                logger.info(f"Skipping duplicate conversation: '{question[:50]}...'")
-                return
+                # Update existing memory instead of creating new
+                conversation_id = similar[0].get('conversation_id', similar[0].get('timestamp'))
+                self._increment_hit_count(conversation_id)
+                logger.info(f"Incremented hit_count for existing memory: {conversation_id}")
+                return conversation_id
             
+            encoder = get_encoder()
+            embedding = None
+            tags = []
+            if encoder:
+                emb_np = encoder.encode(question, convert_to_numpy=True)
+                embedding = emb_np.tolist()
+                tags = self._assign_topic_tags(emb_np)
+
+            # Enrich metadata
+            final_metadata = metadata or {}
+            if "novelty" not in final_metadata:
+                # Infer novelty from confidence if missing
+                final_metadata["novelty"] = 1.0 - confidence
+
+            timestamp = datetime.now().isoformat()
+            conversation_id = f"conv_{int(datetime.now().timestamp())}_{np.random.randint(1000, 9999)}"
+
             experience = {
                 "type": "conversation",
+                "conversation_id": conversation_id,
                 "question": question,
                 "answer": answer,
                 "agent": agent,
                 "confidence": confidence,
-                "timestamp": datetime.now().isoformat(),
-                "validated": False,  # Can be updated via user feedback
-                "metadata": metadata or {}
+                "timestamp": timestamp,
+                "last_accessed": timestamp,
+                "hit_count": 1,
+                "validated": False,
+                "embedding": embedding,
+                "tags": tags,
+                "metadata": final_metadata
             }
             
             # Append to JSONL file
             with open(self.conversations_file, 'a') as f:
                 f.write(json.dumps(experience) + '\n')
                 
-            logger.info(f"Logged conversation: '{question[:50]}...' -> {agent}")
+            logger.info(f"Logged conversation: {conversation_id} ('{question[:50]}...') -> {agent}")
+            return conversation_id
             
         except Exception as e:
             logger.error(f"Failed to log conversation: {e}")
+            return ""
+
+    def _increment_hit_count(self, timestamp: str) -> bool:
+        """Update hit_count and last_accessed for a conversation."""
+        try:
+            if not self.conversations_file.exists():
+                return False
+            
+            temp_file = self.conversations_file.with_suffix('.tmp')
+            updated = False
+            
+            with open(self.conversations_file, 'r') as f_in, open(temp_file, 'w') as f_out:
+                for line in f_in:
+                    try:
+                        conv = json.loads(line.strip())
+                        if conv.get('timestamp') == timestamp:
+                            conv['hit_count'] = conv.get('hit_count', 1) + 1
+                            conv['last_accessed'] = datetime.now().isoformat()
+                            updated = True
+                        f_out.write(json.dumps(conv) + '\n')
+                    except json.JSONDecodeError:
+                        f_out.write(line)
+            
+            if updated:
+                temp_file.replace(self.conversations_file)
+            else:
+                temp_file.unlink()
+            return updated
+        except Exception as e:
+            logger.error(f"Failed to increment hit_count: {e}")
+            return False
     
     def get_similar_conversations(
         self, 
@@ -136,13 +233,29 @@ class ExperienceLogger:
                         
                         # Calculate relevance using embeddings or fallback to keywords
                         if encoder:
-                            question_embedding = encoder.encode(question, convert_to_numpy=True)
+                            # Use cached embedding if available
+                            if "embedding" in conv:
+                                question_embedding = np.array(conv["embedding"])
+                            else:
+                                # One-time migration: encode and store back (or just encode for now)
+                                question_embedding = encoder.encode(question, convert_to_numpy=True)
+                            
                             relevance = self._cosine_similarity(query_embedding, question_embedding)
                         else:
                             # Fallback to keyword matching
                             relevance = self._keyword_similarity(query_lower, question.lower())
                         
                         if relevance > 0:
+                            # 2.5 Priority Boosting (+0.2 for validated memories)
+                            # Check feedback store for validation status
+                            fb = self.feedback_store.get_feedback(conv.get("conversation_id", conv.get("timestamp")))
+                            is_validated = fb["is_validated"] if fb else conv.get("validated", False)
+                            
+                            conv["validated"] = is_validated
+                            if is_validated:
+                                relevance += 0.2
+                                relevance = min(1.0, relevance)
+                            
                             conv["relevance"] = float(relevance)
                             conversations.append(conv)
                             
@@ -185,15 +298,15 @@ class ExperienceLogger:
     
     def validate_conversation(
         self, 
-        timestamp: str, 
+        conversation_id: str, 
         validated: bool, 
         correction: Optional[str] = None
     ) -> bool:
         """
-        Update validation status of a conversation.
+        Update validation status of a conversation in both JSONL and feedback store.
         
         Args:
-            timestamp: ISO timestamp of the conversation to validate
+            conversation_id: Unique ID of the conversation to validate
             validated: True if correct, False if incorrect
             correction: Optional correction text if validated=False
             
@@ -201,6 +314,10 @@ class ExperienceLogger:
             True if conversation was found and updated
         """
         try:
+            # 1. Update Feedback Store (SQLite)
+            self.feedback_store.add_feedback(conversation_id, validated, correction)
+
+            # 2. Update primary JSONL log
             if not self.conversations_file.exists():
                 return False
             
@@ -212,24 +329,23 @@ class ExperienceLogger:
                     try:
                         conv = json.loads(line.strip())
                         
-                        # Update if timestamp matches
-                        if conv.get('timestamp') == timestamp:
+                        # Update if ID matches (or timestamp for back-compat)
+                        if conv.get('conversation_id') == conversation_id or conv.get('timestamp') == conversation_id:
                             conv['validated'] = validated
                             if correction:
                                 conv['correction'] = correction
                             updated = True
-                            logger.info(f"Validated conversation: {conv.get('question', '')[:50]}... -> {validated}")
+                            logger.info(f"Validated conversation in JSONL: {conversation_id} -> {validated}")
                         
                         f_out.write(json.dumps(conv) + '\n')
                         
                     except json.JSONDecodeError:
-                        f_out.write(line)  # Keep malformed lines as-is
+                        f_out.write(line)
             
-            # Replace original with updated file
             if updated:
                 temp_file.replace(self.conversations_file)
             else:
-                temp_file.unlink()  # Remove temp file if no updates
+                temp_file.unlink()
             
             return updated
             
@@ -237,99 +353,142 @@ class ExperienceLogger:
             logger.error(f"Failed to validate conversation: {e}")
             return False
     
-    def consolidate_memories(self, similarity_threshold: float = 0.90, min_confidence: float = 0.3) -> dict:
+    def consolidate_memories(self, similarity_threshold: float = 0.90, min_confidence: float = 0.3, synthesizer_cb: Optional[Callable] = None) -> dict:
         """
         Consolidate similar conversations and remove low-quality entries.
         
         Args:
             similarity_threshold: Merge conversations above this similarity
             min_confidence: Remove conversations below this confidence
+            synthesizer_cb: Callback to synthesize a single answer from a cluster
             
         Returns:
             Stats about consolidation
         """
         try:
-            conversations = self.get_similar_conversations("", max_results=1000) # Changed from get_relevant_conversations
+            clusters = self.cluster_similar_memories(threshold=similarity_threshold)
             
-            if len(conversations) < 2:
-                return {"merged": 0, "removed": 0, "total": len(conversations)}
-            
+            new_memories = []
             merged_count = 0
-            to_remove = set()
-            
-            # Find and merge similar conversations
-            for i, conv1 in enumerate(conversations):
-                if i in to_remove:
-                    continue
-                    
-                for j, conv2 in enumerate(conversations[i+1:], start=i+1):
-                    if j in to_remove:
-                        continue
-                    
-                    # Check similarity
-                    # Assuming _calculate_similarity is a helper that uses embeddings or keyword
-                    # For now, using get_similar_conversations's relevance logic
-                    # This part needs an actual _calculate_similarity or direct embedding comparison
-                    # For simplicity, let's assume we can get relevance between two questions
-                    # This would ideally involve re-encoding or having embeddings stored.
-                    # For this exercise, I'll use a placeholder or adapt existing logic.
-                    
-                    # Re-using the logic from get_similar_conversations for similarity check
-                    encoder = get_encoder()
-                    if encoder:
-                        q1_emb = encoder.encode(conv1['question'], convert_to_numpy=True)
-                        q2_emb = encoder.encode(conv2['question'], convert_to_numpy=True)
-                        sim = self._cosine_similarity(q1_emb, q2_emb)
-                    else:
-                        sim = self._keyword_similarity(conv1['question'].lower(), conv2['question'].lower())
-                    
-                    if sim >= similarity_threshold:
-                        # Merge: keep higher confidence, mark other for removal
-                        if conv1.get('confidence', 0.5) >= conv2.get('confidence', 0.5):
-                            to_remove.add(j)
-                        else:
-                            to_remove.add(i)
-                            break
-                        merged_count += 1
-            
-            # Remove low confidence and duplicates
-            filtered = []
             removed_count = 0
             
-            for i, conv in enumerate(conversations):
-                if i in to_remove:
-                    removed_count += 1
-                    continue
-                
-                # Remove low confidence entries
-                if conv.get('confidence', 0.5) < min_confidence and not conv.get('validated', False):
-                    removed_count += 1
-                    continue
-                
-                filtered.append(conv)
+            for cluster in clusters:
+                if len(cluster) > 1:
+                    # Perform synthesis if callback provided
+                    if synthesizer_cb:
+                        anchors = synthesizer_cb([cluster])
+                        if anchors:
+                            new_memories.extend(anchors)
+                            merged_count += len(cluster)
+                        else:
+                            # Fallback: keep highest confidence
+                            best = max(cluster, key=lambda x: x.get("confidence", 0.5))
+                            new_memories.append(best)
+                            merged_count += len(cluster) - 1
+                    else:
+                        # Simple merge: keep highest confidence
+                        best = max(cluster, key=lambda x: x.get("confidence", 0.5))
+                        new_memories.append(best)
+                        merged_count += len(cluster) - 1
+                else:
+                    # Single item cluster
+                    conv = cluster[0]
+                    # Filter by confidence
+                    fb = self.feedback_store.get_feedback(conv.get("conversation_id", conv.get("timestamp")))
+                    is_validated = fb["is_validated"] if fb else conv.get("validated", False)
+                    
+                    if is_validated or conv.get("confidence", 0.5) >= min_confidence:
+                        new_memories.append(conv)
+                    else:
+                        removed_count += 1
             
-            # Write back consolidated conversations
-            # Changed from self.storage_path to self.conversations_file
+            # Write back to file
             with open(self.conversations_file, 'w') as f:
-                for c in filtered:
-                    f.write(json.dumps(c) + '\n')
+                for m in new_memories:
+                    # Re-log ensuring ID and embedding exist
+                    if "conversation_id" not in m:
+                        m["conversation_id"] = f"conv_{int(datetime.now().timestamp())}_{np.random.randint(1000, 9999)}"
+                    f.write(json.dumps(m) + '\n')
             
-            logger.info(f"Consolidated memories: {merged_count} merged, {removed_count} removed, {len(filtered)} remaining")
+            logger.info(f"Consolidation complete: {merged_count} merged, {removed_count} removed, {len(new_memories)} remaining")
             
             return {
                 "merged": merged_count,
                 "removed": removed_count,
-                "total_before": len(conversations),
-                "total_after": len(filtered)
+                "total_after": len(new_memories),
+                "status": "complete"
             }
             
         except Exception as e:
             logger.error(f"Failed to consolidate memories: {e}")
             return {"error": str(e), "merged": 0, "removed": 0}
+
+    def cluster_similar_memories(self, threshold: float = 0.90) -> List[List[Dict[str, Any]]]:
+        """
+        Group memories into clusters based on semantic similarity.
+        
+        Returns:
+            List of clusters, where each cluster is a list of conversation dicts.
+        """
+        try:
+            if not self.conversations_file.exists():
+                return []
+            
+            all_convs = []
+            with open(self.conversations_file, 'r') as f:
+                for line in f:
+                    try:
+                        all_convs.append(json.loads(line.strip()))
+                    except json.JSONDecodeError:
+                        continue
+            
+            if not all_convs:
+                return []
+
+            # 1. Ensure all have embeddings
+            encoder = get_encoder()
+            for conv in all_convs:
+                if "embedding" not in conv or conv["embedding"] is None:
+                    if encoder:
+                        conv["embedding"] = encoder.encode(conv["question"], convert_to_numpy=True).tolist()
+                    else:
+                        # Fallback: cannot cluster without embeddings
+                        return [[c] for c in all_convs]
+
+            # 2. Greedy Clustering
+            clusters = []
+            assigned = set()
+
+            for i, conv1 in enumerate(all_convs):
+                if i in assigned:
+                    continue
+                
+                current_cluster = [conv1]
+                assigned.add(i)
+                vec1 = np.array(conv1["embedding"])
+
+                for j, conv2 in enumerate(all_convs[i+1:], start=i+1):
+                    if j in assigned:
+                        continue
+                    
+                    vec2 = np.array(conv2["embedding"])
+                    sim = self._cosine_similarity(vec1, vec2)
+                    
+                    if sim >= threshold:
+                        current_cluster.append(conv2)
+                        assigned.add(j)
+                
+                clusters.append(current_cluster)
+            
+            return clusters
+
+        except Exception as e:
+            logger.error(f"Failed to cluster memories: {e}")
+            return []
     
     def apply_confidence_decay(self, decay_factor: float = 0.95, max_age_days: int = 30):
         """
-        Apply time-based confidence decay to old conversations.
+        Apply time-based confidence decay to old conversations based on last_accessed.
         
         Args:
             decay_factor: Confidence multiplier per day
@@ -346,21 +505,23 @@ class ExperienceLogger:
                             continue
 
             updated_count = 0
-            
             now = datetime.now()
             
             for conv in conversations:
-                # Skip validated conversations
-                if conv.get('validated', False):
+                # 1. Status-based Immunity: Gold Data (validated) is immune
+                fb = self.feedback_store.get_feedback(conv.get("conversation_id", conv.get("timestamp")))
+                is_validated = fb["is_validated"] if fb else conv.get("validated", False)
+                if is_validated:
                     continue
                 
-                timestamp_str = conv.get('timestamp', '')
-                if not timestamp_str:
+                # 2. Use last_accessed for recency decay
+                access_str = conv.get('last_accessed', conv.get('timestamp', ''))
+                if not access_str:
                     continue
                 
                 try:
-                    timestamp = datetime.fromisoformat(timestamp_str)
-                    age_days = (now - timestamp).days
+                    last_access = datetime.fromisoformat(access_str)
+                    age_days = (now - last_access).days
                     
                     if age_days > max_age_days:
                         # Apply decay
@@ -368,11 +529,11 @@ class ExperienceLogger:
                         days_to_decay = age_days - max_age_days
                         new_confidence = original_confidence * (decay_factor ** days_to_decay)
                         
-                        conv['confidence'] = max(0.1, new_confidence)  # Floor at 0.1
+                        conv['confidence'] = max(0.1, round(new_confidence, 4))  # Floor at 0.1
                         updated_count += 1
                         
                 except Exception as e:
-                    logger.warning(f"Failed to parse timestamp: {e}")
+                    logger.warning(f"Failed to parse access timestamp: {e}")
                     continue
             
             # Write back
@@ -380,12 +541,49 @@ class ExperienceLogger:
                 with open(self.conversations_file, 'w') as f:
                     for c in conversations:
                         f.write(json.dumps(c) + '\n')
-                logger.info(f"Applied confidence decay to {updated_count} conversations")
+                logger.info(f"Applied recency decay to {updated_count} conversations")
             
             return {"updated": updated_count, "total": len(conversations)}
             
         except Exception as e:
             logger.error(f"Failed to apply confidence decay: {e}")
+            return {"error": str(e), "updated": 0}
+
+    def apply_model_evolution_penalty(self, penalty: float = 0.10):
+        """
+        Apply a one-time penalty to all unvalidated memories (e.g. after model update).
+        """
+        try:
+            conversations = []
+            if self.conversations_file.exists():
+                with open(self.conversations_file, 'r') as f:
+                    for line in f:
+                        try:
+                            conversations.append(json.loads(line.strip()))
+                        except json.JSONDecodeError:
+                            continue
+
+            updated_count = 0
+            for conv in conversations:
+                # Immunity check
+                fb = self.feedback_store.get_feedback(conv.get("conversation_id", conv.get("timestamp")))
+                is_validated = fb["is_validated"] if fb else conv.get("validated", False)
+                if is_validated:
+                    continue
+                
+                original_confidence = conv.get('confidence', 0.7)
+                conv['confidence'] = max(0.1, round(original_confidence * (1.0 - penalty), 4))
+                updated_count += 1
+            
+            if updated_count > 0:
+                with open(self.conversations_file, 'w') as f:
+                    for c in conversations:
+                        f.write(json.dumps(c) + '\n')
+                logger.info(f"Applied {penalty*100}% model evolution penalty to {updated_count} memories")
+                
+            return {"updated": updated_count, "total": len(conversations)}
+        except Exception as e:
+            logger.error(f"Failed to apply model evolution penalty: {e}")
             return {"error": str(e), "updated": 0}
 
     
@@ -432,9 +630,14 @@ class ExperienceLogger:
                     relevance = max(q_sim, a_sim)
                     
                     if relevance > 0.3:  # Minimum relevance threshold
+                        # Check validation status
+                        fb = self.feedback_store.get_feedback(conv.get("conversation_id", conv.get("timestamp")))
+                        is_validated = fb["is_validated"] if fb else conv.get("validated", False)
+                        
                         results.append({
                             **conv,
                             'relevance': float(relevance),
+                            'validated': is_validated,
                             'match_type': 'semantic'
                         })
             else:
@@ -453,9 +656,14 @@ class ExperienceLogger:
                         
                         relevance = max(q_overlap, a_overlap)
                         
+                        # Check validation status
+                        fb = self.feedback_store.get_feedback(conv.get("conversation_id", conv.get("timestamp")))
+                        is_validated = fb["is_validated"] if fb else conv.get("validated", False)
+
                         results.append({
                             **conv,
                             'relevance': float(relevance),
+                            'validated': is_validated,
                             'match_type': 'keyword'
                         })
             
@@ -469,36 +677,28 @@ class ExperienceLogger:
             return []
     
     def get_statistics(self) -> Dict[str, Any]:
-        """Get learning statistics."""
+        """Get learning statistics including user validation data."""
         try:
-            if not self.conversations_file.exists():
-                return {"total_conversations": 0}
-            
+            # 1. Base counts from JSONL
             total = 0
-            validated_count = 0
-            unvalidated_count = 0
             by_agent = {}
+            if self.conversations_file.exists():
+                with open(self.conversations_file, 'r') as f:
+                    for line in f:
+                        try:
+                            conv = json.loads(line.strip())
+                            total += 1
+                            agent = conv.get("agent", "unknown")
+                            by_agent[agent] = by_agent.get(agent, 0) + 1
+                        except json.JSONDecodeError:
+                            continue
             
-            with open(self.conversations_file, 'r') as f:
-                for line in f:
-                    try:
-                        conv = json.loads(line.strip())
-                        total += 1
-                        
-                        if conv.get('validated', False):
-                            validated_count += 1
-                        else:
-                            unvalidated_count += 1
-                            
-                        agent = conv.get("agent", "unknown")
-                        by_agent[agent] = by_agent.get(agent, 0) + 1
-                    except json.JSONDecodeError:
-                        continue
+            # 2. Validation summary from SQLite
+            fb_summary = self.feedback_store.get_summary()
             
             return {
                 "total_conversations": total,
-                "validated_conversations": validated_count,
-                "unvalidated_conversations": unvalidated_count,
+                "feedback_stats": fb_summary,
                 "by_agent": by_agent
             }
             

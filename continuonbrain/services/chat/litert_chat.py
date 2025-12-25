@@ -131,7 +131,7 @@ class LiteRTGemmaChat:
             logger.error(f"Failed to load MediaPipe GenAI model: {e}")
             return False
 
-    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None, model_hint: Optional[str] = None) -> str:
+    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None, model_hint: Optional[str] = None, history: Optional[List[Dict[str, str]]] = None) -> str:
         """
         Generate chat response using MediaPipe GenAI.
         """
@@ -143,6 +143,8 @@ class LiteRTGemmaChat:
         if self.is_mock:
             return f"[LiteRT Mock] Response to: '{message}'. System Context: {len(system_context) if system_context else 0} chars."
 
+        active_history = history if history is not None else self.chat_history
+
         # Format prompt
         # Use simpler approach for now: concatenate history
         # (MediaPipe LlmInference is usually stateless or requires session management that we haven't implemented)
@@ -151,7 +153,7 @@ class LiteRTGemmaChat:
         if system_context:
              full_prompt += f"<start_of_turn>user\n{system_context}\n"
 
-        for turn in self.chat_history[-self.max_history:]:
+        for turn in active_history[-self.max_history:]:
             role = turn.get("role", "user")
             content = turn.get("content", "")
             if role == "user":
@@ -164,9 +166,10 @@ class LiteRTGemmaChat:
         try:
             response_text = self.agent.generate_response(full_prompt)
             
-            # Update history
-            self.chat_history.append({"role": "user", "content": message})
-            self.chat_history.append({"role": "model", "content": response_text})
+            # Update history ONLY if using internal
+            if history is None:
+                self.chat_history.append({"role": "user", "content": message})
+                self.chat_history.append({"role": "model", "content": response_text})
             
             return response_text
         except Exception as e:

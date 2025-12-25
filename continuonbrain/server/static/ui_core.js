@@ -386,7 +386,46 @@ var chatHistory = [];
 var chatStoragePrefix = 'gemma_chat_' + (window.location.host || 'local');
 var chatHistoryKey = chatStoragePrefix + '_history';
 var chatMinimizedKey = chatStoragePrefix + '_minimized';
+var chatSessionKey = chatStoragePrefix + '_session_id';
 var MAX_MESSAGE_LENGTH = 10000;
+
+function getChatSessionId() {
+    let sid = localStorage.getItem(chatSessionKey);
+    if (!sid) {
+        sid = 'session_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        localStorage.setItem(chatSessionKey, sid);
+    }
+    return sid;
+}
+
+window.clearChatSession = async function() {
+    const sid = getChatSessionId();
+    if (!confirm("Are you sure you want to clear the conversation history?")) return;
+
+    try {
+        const response = await fetch('/api/chat/session/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sid })
+        });
+        const data = await response.json();
+        if (data.success) {
+            // Reset local state
+            chatHistory = [];
+            localStorage.removeItem(chatHistoryKey);
+            document.getElementById('chat-messages').innerHTML = '';
+            
+            // Generate new session ID
+            const newSid = 'session_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            localStorage.setItem(chatSessionKey, newSid);
+            
+            window.showMessage("Conversation cleared.");
+        }
+    } catch (e) {
+        console.error("Failed to clear session", e);
+        window.showMessage("Failed to clear session", true);
+    }
+};
 
 function persistChatState() {
     try {
@@ -418,7 +457,7 @@ function validateChatContent(content) {
     return content;
 }
 
-function renderChatMessage(text, role, shouldPersist) {
+function renderChatMessage(text, role, shouldPersist, conversation_id, session_id) {
     if (typeof shouldPersist === 'undefined') shouldPersist = true;
     var messagesDiv = document.getElementById('chat-messages');
     if (!messagesDiv) return;
@@ -430,15 +469,93 @@ function renderChatMessage(text, role, shouldPersist) {
 
     var messageDiv = document.createElement('div');
     messageDiv.className = 'chat-message ' + cssClass;
-    messageDiv.textContent = validatedText;
+    
+    // Add context badge if part of a session
+    const currentSid = localStorage.getItem(chatSessionKey);
+    if (session_id === currentSid && (safeRole === 'user' || safeRole === 'assistant' || safeRole === 'agent-manager')) {
+        var badge = document.createElement('span');
+        badge.className = 'context-badge';
+        badge.textContent = '🧵 In Thread';
+        badge.style.fontSize = '9px';
+        badge.style.opacity = '0.6';
+        badge.style.display = 'block';
+        badge.style.marginBottom = '2px';
+        messageDiv.appendChild(badge);
+    }
+
+    // Create text container
+    var textDiv = document.createElement('div');
+    textDiv.className = 'message-text';
+    textDiv.textContent = validatedText;
+    messageDiv.appendChild(textDiv);
+
+    // Add feedback buttons for assistant messages
+    if (safeRole === 'assistant' || safeRole === 'agent-manager') {
+        var actionsDiv = document.createElement('div');
+        actionsDiv.className = 'message-actions';
+        actionsDiv.style.display = 'flex';
+        actionsDiv.style.gap = '8px';
+        actionsDiv.style.marginTop = '4px';
+        actionsDiv.style.fontSize = '12px';
+
+        var upBtn = document.createElement('button');
+        upBtn.className = 'feedback-btn ghost tight';
+        upBtn.innerHTML = '👍';
+        upBtn.title = 'Accurate/Helpful';
+        upBtn.onclick = () => window.validateResponse(conversation_id, true, upBtn);
+
+        var downBtn = document.createElement('button');
+        downBtn.className = 'feedback-btn ghost tight';
+        downBtn.innerHTML = '👎';
+        downBtn.title = 'Inaccurate/Unhelpful';
+        downBtn.onclick = () => window.validateResponse(conversation_id, false, downBtn);
+
+        actionsDiv.appendChild(upBtn);
+        actionsDiv.appendChild(downBtn);
+        messageDiv.appendChild(actionsDiv);
+    }
+
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
     if (shouldPersist) {
-        chatHistory.push({ role: cssClass, content: validatedText });
+        chatHistory.push({ role: cssClass, content: validatedText, conversation_id: conversation_id, session_id: session_id });
         persistChatState();
     }
 }
+
+window.validateResponse = async function(conversation_id, isValid, btnEl) {
+    if (!conversation_id) {
+        console.warn("No conversation_id for validation");
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/agent/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                conversation_id: conversation_id,
+                validated: isValid
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            // Visual feedback
+            if (btnEl) {
+                const parent = btnEl.parentElement;
+                parent.querySelectorAll('.feedback-btn').forEach(b => b.classList.add('disabled'));
+                btnEl.classList.remove('disabled');
+                btnEl.classList.add('active');
+                btnEl.style.background = isValid ? 'rgba(52, 199, 89, 0.2)' : 'rgba(255, 59, 48, 0.2)';
+            }
+            window.showMessage(isValid ? 'Feedback recorded! Memory promoted.' : 'Feedback recorded. Memory flagged.');
+        }
+    } catch (e) {
+        console.error("Validation failed", e);
+        window.showMessage("Failed to send feedback", true);
+    }
+};
 
 window.renderIncomingChatMessage = function (evt) {
     console.log("[StudioClient] Received chat event:", evt);
@@ -452,7 +569,7 @@ window.renderIncomingChatMessage = function (evt) {
     if (evt.name && (cssRole === 'subagent' || cssRole === 'agent_manager')) {
         displayText = '[' + evt.name + '] ' + displayText;
     }
-    renderChatMessage(displayText, cssRole, true);
+    renderChatMessage(displayText, cssRole, true, evt.conversation_id, evt.session_id);
 };
 
 function hydrateChatOverlay() {
@@ -466,7 +583,7 @@ function hydrateChatOverlay() {
                 chatHistory = [];
             }
             chatHistory.forEach(function (msg) {
-                renderChatMessage(msg.content, msg.role, false);
+                renderChatMessage(msg.content, msg.role, false, msg.conversation_id, msg.session_id);
             });
         }
         var storedMinimized = localStorage.getItem(chatMinimizedKey);
@@ -485,7 +602,7 @@ window.toggleChat = function () {
 };
 
 window.addChatMessage = function (text, role) {
-    renderChatMessage(text, role, true);
+    renderChatMessage(text, role, true, null, getChatSessionId());
 };
 
 window.sendChatMessage = async function () {
@@ -501,7 +618,8 @@ window.sendChatMessage = async function () {
 
     if (!message) return;
 
-    addChatMessage(message, 'user');
+    const sid = getChatSessionId();
+    renderChatMessage(message, 'user', true, null, sid);
     if (input) input.value = '';
     if (input) input.disabled = true;
     if (sendBtn) sendBtn.disabled = true;
@@ -512,12 +630,13 @@ window.sendChatMessage = async function () {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: message,
+                session_id: sid,
                 history: chatHistory.slice(-10)
             })
         });
         const data = await response.json();
         if (data.response) {
-            addChatMessage(data.response, 'assistant');
+            renderChatMessage(data.response, 'assistant', true, data.conversation_id, sid);
         } else if (data.error) {
             addChatMessage('Error: ' + data.error, 'system');
         }

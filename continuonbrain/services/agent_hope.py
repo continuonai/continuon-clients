@@ -30,7 +30,7 @@ class HOPEAgent:
         """
         Determine if HOPE can confidently answer a query.
         
-        Uses HOPE's stability metrics and training state to estimate confidence.
+        Uses prediction error (novelty) from the HOPE brain to determine confidence.
         
         Args:
             message: User's question/message
@@ -43,7 +43,9 @@ class HOPEAgent:
             if not self.brain or not hasattr(self.brain, 'columns'):
                 return (False, 0.0)
             
-            # Get active column's stability metrics
+            # Use current novelty/confidence if available from last step
+            # Note: For a query, we should ideally run a "mental simulation" (forward pass)
+            # but for now we look at the last observed confidence of the column.
             try:
                 col = self.brain.columns[self.brain.active_column_idx]
                 
@@ -51,36 +53,22 @@ class HOPEAgent:
                 if col._state is None:
                     return (False, 0.1)
                 
-                # Use stability metrics as confidence proxy
-                # Lower Lyapunov energy = higher confidence (better prediction match)
+                # Retrieve last confidence from stability monitor or step info
+                # Assuming BrainService or Column tracks this.
+                # In this track, we ensure HOPEBrain info contains 'confidence'
+                
+                # Heuristic: if we don't have a fresh step yet, use 0.5
+                confidence = getattr(col, 'last_confidence', 0.5)
+                
+                # Check for stability - unstable brain = lower confidence
                 metrics = col.stability_monitor.get_metrics()
-                lyapunov = metrics.get('lyapunov', float('inf'))
-                
-                # Normalize Lyapunov to 0-1 confidence score
-                # Lower is better, so invert: confidence = 1 / (1 + lyapunov)
-                # Cap at reasonable values
-                if lyapunov == float('inf') or lyapunov > 100:
-                    confidence = 0.1
-                else:
-                    confidence = 1.0 / (1.0 + lyapunov)
-                
-                # Boost confidence for capability queries (HOPE knows itself)
-                capability_keywords = ['see', 'camera', 'move', 'arm', 'sensor', 'can you', 'what do you']
-                if any(kw in message.lower() for kw in capability_keywords):
-                    confidence = min(0.9, confidence + 0.3)  # Boost but cap at 0.9
-                
-                # Check stability - unstable brain = lower confidence
                 if metrics.get('is_stable', True) == False:
-                    confidence *= 0.5  # Halve confidence if unstable
+                    confidence *= 0.5
                 
                 return (confidence >= self.confidence_threshold, confidence)
                 
             except Exception as e:
-                logger.warning(f"Failed to get HOPE metrics, using fallback: {e}")
-                # Fallback to simple heuristic
-                capability_keywords = ['see', 'camera', 'move', 'arm', 'sensor', 'can you', 'what do you']
-                if any(kw in message.lower() for kw in capability_keywords):
-                    return (True, 0.7)
+                logger.warning(f"Failed to get dynamic confidence, using fallback: {e}")
                 return (False, 0.3)
             
         except Exception as e:

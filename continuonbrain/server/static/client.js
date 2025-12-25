@@ -496,6 +496,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (evt.source === 'system') item.classList.add('system');
         if (evt.source === 'tool') item.classList.add('tool');
         
+        // Visual grouping by session
+        if (evt.session_id) {
+          const currentSid = localStorage.getItem('gemma_chat_' + (window.location.host || 'local') + '_session_id');
+          if (evt.session_id === currentSid) {
+            item.classList.add('in-thread');
+            item.style.borderLeft = '2px solid var(--accent)';
+            item.style.paddingLeft = '8px';
+          }
+        }
+
         const ts = new Date(evt.timestamp * 1000).toLocaleTimeString();
         item.textContent = `[${ts}] ${evt.text}`;
         container.appendChild(item);

@@ -70,7 +70,7 @@ class PairingManager:
         except Exception:
             return None
 
-    def confirm(self, *, token: str, confirm_code: str, owner_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    def confirm(self, *, token: str, confirm_code: str, owner_id: str, account_id: Optional[str] = None, account_type: Optional[str] = "local_pairing") -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         session = self.get_pending()
         if not session:
             return False, "No pending pairing session", None
@@ -90,8 +90,8 @@ class PairingManager:
             "owned": True,
             "subscription_active": False,
             "seed_installed": False,
-            "account_id": None,
-            "account_type": "local_pairing",
+            "account_id": account_id,
+            "account_type": account_type or "local_pairing",
             "owner_id": owner_id,
             "paired_unix_s": now,
         }

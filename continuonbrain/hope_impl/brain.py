@@ -127,9 +127,19 @@ class HOPEColumn(nn.Module):
         q_t, c_t, attn = self.cms_read(state_prev.cms, s_vals, e_t)
         
         # 3. Core Dynamics
-        s_next_vals, w_next_vals, p_next_vals = self.hope_core(s_vals, w_vals, p_vals, e_t, c_t)
+        s_next_vals, w_next_vals, p_next_vals, core_info = self.hope_core(s_vals, w_vals, p_vals, e_t, c_t, return_info=True)
         fast_next = FastState(s_next_vals, w_next_vals, p_next_vals)
         
+        # 3.5 Calculate Novelty (Surprise)
+        # Novelty is the MSE between predicted s_next and actual s_next
+        s_expected = core_info["s_expected"]
+        novelty = torch.mean((s_expected - s_next_vals)**2).item()
+        
+        # Normalization (Exponential Decay)
+        # confidence = exp(-k * novelty)
+        k = getattr(self.config, "novelty_sensitivity_k", 1.0)
+        confidence = math.exp(-k * novelty)
+
         # 4. Decode
         y_t = self.output_decoder(s_next_vals, c_t)
         
@@ -157,9 +167,14 @@ class HOPEColumn(nn.Module):
         metrics = self.stability_monitor.get_metrics()
         lyapunov = lyapunov_total(state_next).item()
         
+        # Persist for Agent access
+        self.last_novelty = novelty
+        self.last_confidence = confidence
+
         info = {
             'query': q_t, 'context': c_t, 'attention_weights': attn,
-            'stability_metrics': metrics, 'lyapunov': lyapunov
+            'stability_metrics': metrics, 'lyapunov': lyapunov,
+            'novelty': novelty, 'confidence': confidence
         }
         return state_next, y_t, info
         return state_next, y_t, info

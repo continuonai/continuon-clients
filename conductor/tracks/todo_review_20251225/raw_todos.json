@@ -1,0 +1,149 @@
+[
+  {
+    "file": "continuonbrain/trainer/CLOUD_EXPORT.md",
+    "line": 42,
+    "text": "TODO: replace with your real model, tokenizer, and LoRA config",
+    "module": "continuonbrain",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonbrain/trainer/examples/pi5_integration.py",
+    "line": 187,
+    "text": "TODO: wire to continuonos runtime",
+    "module": "continuonbrain",
+    "priority": "High"
+  },
+  {
+    "file": "continuonbrain/trainer/examples/pi5_integration.py",
+    "line": 188,
+    "text": "TODO: wire to teleop activity flag",
+    "module": "continuonbrain",
+    "priority": "High"
+  },
+  {
+    "file": "continuonbrain/trainer/examples/pi5_integration.py",
+    "line": 189,
+    "text": "TODO: wire to device battery sensor",
+    "module": "continuonbrain",
+    "priority": "High"
+  },
+  {
+    "file": "continuonbrain/trainer/examples/pi5_integration.py",
+    "line": 190,
+    "text": "TODO: wire to device thermal sensor",
+    "module": "continuonbrain",
+    "priority": "High"
+  },
+  {
+    "file": "continuonbrain/services/brain_service.py",
+    "line": 1451,
+    "text": "TODO: Add image if multimodal",
+    "module": "continuonbrain",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonbrain/reasoning/jax_adapter.py",
+    "line": 23,
+    "text": "TODO: support stateful rollout",
+    "module": "continuonbrain",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonbrain/gemma_chat.py",
+    "line": 538,
+    "text": "TODO: Handle image for API if supported (e.g. GPT-4o)",
+    "module": "continuonbrain",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonbrain/gemma_chat.py",
+    "line": 629,
+    "text": "TODO: Use apply_chat_template if supported by processor",
+    "module": "continuonbrain",
+    "priority": "Low"
+  },
+  {
+    "file": "continuonbrain/behaviors/auto_charge.py",
+    "line": 204,
+    "text": "TODO: Implement waypoint navigation",
+    "module": "continuonbrain",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonbrain/behaviors/auto_charge.py",
+    "line": 258,
+    "text": "TODO: Get from vision system",
+    "module": "continuonbrain",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonbrain/api/server.py",
+    "line": 1450,
+    "text": "TODO: Implement actual task execution",
+    "module": "continuonbrain",
+    "priority": "High"
+  },
+  {
+    "file": "continuonai/lib/services/brain_client.dart",
+    "line": 72,
+    "text": "TODO: wire to persistent auth/subscription/ownership tokens when backend is ready.",
+    "module": "continuonai",
+    "priority": "High"
+  },
+  {
+    "file": "continuonai/lib/services/brain_client.dart",
+    "line": 716,
+    "text": "TODO: implement real reset endpoint. For now, we'll try to set mode to 'reflex' which often resets gates.",
+    "module": "continuonai",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonai/lib/screens/robot_list_screen.dart",
+    "line": 1310,
+    "text": "TODO: Implement actual transfer via robot API when available",
+    "module": "continuonai",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonai/ios/Runner/Info.plist",
+    "line": 68,
+    "text": "TODO: Replace this value with the REVERSED_CLIENT_ID from GoogleService-Info.plist",
+    "module": "continuonai",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonai/firestore.rules",
+    "line": 12,
+    "text": "TODO: Remove hardcoded email once role management is fully mature",
+    "module": "continuonai",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonai/android/app/build.gradle.kts",
+    "line": 26,
+    "text": "TODO: Specify your own unique Application ID",
+    "module": "continuonai",
+    "priority": "Medium"
+  },
+  {
+    "file": "continuonai/android/app/build.gradle.kts",
+    "line": 38,
+    "text": "TODO: Add your own signing config for the release build.",
+    "module": "continuonai",
+    "priority": "Medium"
+  },
+  {
+    "file": "apps/continuonxr/src/main/java/com/continuonxr/app/config/AppConfig.kt",
+    "line": 57,
+    "text": "TODO: Load from disk/flags; using safe defaults for now.",
+    "module": "apps/continuonxr",
+    "priority": "Medium"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 26,
+    "text": "TODO (offline Wikipedia context)",
+    "module": "docs",
+    "priority": "Low"
+  }
+]

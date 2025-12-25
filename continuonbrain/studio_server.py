@@ -102,7 +102,7 @@ class StateAggregator:
     def set_event_queue(self, queue: Any) -> None:
         self._event_queue = queue
 
-    def push_thought(self, text: str, *, source: str = "reasoner") -> None:
+    def push_thought(self, text: str, *, source: str = "reasoner", session_id: Optional[str] = None) -> None:
         """Push a new thought step to the cognitive feed."""
         import time
         payload = {
@@ -111,6 +111,8 @@ class StateAggregator:
             "source": source,
             "timestamp": time.time()
         }
+        if session_id:
+            payload["session_id"] = session_id
         self._emit(payload)
 
     def update_loop(self, loop_name: str) -> None:
@@ -129,6 +131,16 @@ class StateAggregator:
         payload = {
             "type": "metrics",
             "metrics": metrics
+        }
+        self._emit(payload)
+
+    def push_surprise(self, novelty: float, confidence: float) -> None:
+        """Push novelty/surprise event to the dashboard."""
+        payload = {
+            "type": "surprise",
+            "novelty": float(novelty),
+            "confidence": float(confidence),
+            "timestamp": __import__("time").time()
         }
         self._emit(payload)
 

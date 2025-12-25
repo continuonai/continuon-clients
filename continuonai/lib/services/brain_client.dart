@@ -10,6 +10,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../models/teleop_models.dart';
+import 'platform_channels.dart';
+import 'task_recorder.dart';
+
 class ConnectionDiagnostic {
   final bool httpOk;
   final bool grpcOk;
@@ -32,10 +36,6 @@ class ConnectionDiagnostic {
     return 'HTTP: ${httpOk ? 'OK' : httpError}, gRPC: ${grpcOk ? 'OK' : grpcError}';
   }
 }
-
-import '../models/teleop_models.dart';
-import 'platform_channels.dart';
-import 'task_recorder.dart';
 
 class BrainClient {
   static const _servicePrefix =
@@ -181,7 +181,6 @@ class BrainClient {
         ? grpc_web.GrpcWebClientChannel.xhr(Uri.parse('http://$host:$grpcPort'))
         : grpc.ClientChannel(host, port: grpcPort, options: const grpc.ChannelOptions(credentials: grpc.ChannelCredentials.insecure()));
       
-      final stub = _JsonBrainClient(testChannel);
       // Try a simple RPC or just check if channel initializes
       // In a real test, we'd call a lightweight "Ping" RPC
       grpcOk = true; // Placeholder: assume true if no immediate exception

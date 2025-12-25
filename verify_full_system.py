@@ -1,132 +1,170 @@
-
-import unittest
-import sys
 import os
-import asyncio
+import sys
+import time
+import json
+import subprocess
+import requests
+import shutil
+import signal
 from pathlib import Path
-import logging
-import torch
+from typing import Dict, Any, Optional
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("SystemCheck")
-
-# Add repo root to path
-REPO_ROOT = Path("/home/craigm26/ContinuonXR")
+# Ensure repo root on path
+REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# Setup environment for testing
-os.environ["HUGGINGFACE_TOKEN"] = "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"
-
-# Import services
-from continuonbrain.services.brain_service import BrainService
-from continuonbrain.resource_monitor import ResourceMonitor, ResourceLevel
-from continuonbrain.gemma_chat import GemmaChat
-
-class TestSystemCapabilities(unittest.IsolatedAsyncioTestCase):
+class SystemHarness:
+    """Manages the lifecycle of the Brain Server and Safety Kernel for verification."""
     
-    async def asyncSetUp(self):
-        print("\n" + "="*50)
-        print(f"Starting Test: {self._testMethodName}")
-        print("="*50)
+    def __init__(self, test_dir: Path):
+        self.test_dir = test_dir
+        self.config_dir = test_dir / "config"
+        self.log_dir = test_dir / "logs"
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
         
-    async def test_01_resource_monitor(self):
-        """Verify Resource Monitor gives valid readings."""
-        print("🔍 Checking Resource Monitor...")
-        monitor = ResourceMonitor(config_dir=Path("/tmp/continuon_test"))
-        status = monitor.check_resources()
+        self.server_port = 8085
+        self.kernel_port = 5006
+        self.socket_path = str(self.config_dir / "safety.sock")
         
-        print(f"  Memory Available: {status.available_memory_mb} MB")
-        # CPU usage is not currently tracked in ResourceStatus
-        # print(f"  CPU Usage: {status.cpu_percent}%") 
-        print(f"  Status Level: {status.level.name}")
+        self.server_proc: Optional[subprocess.Popen] = None
+        self.kernel_proc: Optional[subprocess.Popen] = None
         
-        self.assertIsNotNone(status.available_memory_mb)
-        # self.assertTrue(status.available_memory_mb > 0) # Might be 0 in mock or error
-        self.assertIsNotNone(status.level)
-        print("✅ Resource Monitor OK")
-
-    async def test_02_gemma_chat(self):
-        """Verify Gemma LLM capability."""
-        print("🔍 Checking Gemma Chat...")
-        # Note: We rely on the mock or real model depending on what's available/configured.
-        # This test ensures the INTERFACE works.
+        # Paths
+        self.python_exec = sys.executable
         
-        chat = GemmaChat()
-        print(f"  Model Name: {chat.model_name}")
+    def start(self):
+        print(f"--- Starting System Harness in {self.test_dir} ---")
         
-        # Determine if we should really query (might be slow) or just check initialization
-        # For full proof, we do a simple query
-        try:
-            response = chat.chat("Hello, are you operational?")
-            print(f"  Response: {response}")
-            self.assertTrue(len(response) > 0)
-            print("✅ Gemma Chat OK")
-        except Exception as e:
-            self.fail(f"Gemma Chat failed: {e}")
-
-    async def test_03_brain_initialization(self):
-        """Verify BrainService initializes with HOPE brain."""
-        print("🔍 Checking Brain Service & HOPE Initialization...")
-        
-        service = BrainService(
-            config_dir="/tmp/continuon_test", 
-            prefer_real_hardware=False, # Force mock to focus on software logic
-            auto_detect=False 
+        # 1. Start Safety Kernel
+        print(f"Starting Safety Kernel on port {self.kernel_port}...")
+        kernel_env = {{**os.environ, "PYTHONPATH": str(REPO_ROOT)}}
+        self.kernel_proc = subprocess.Popen(
+            [self.python_exec, "-m", "continuonbrain.kernel.safety_kernel", 
+             "--port", str(self.kernel_port), 
+             "--socket", self.socket_path],
+            env=kernel_env,
+            stdout=(self.log_dir / "kernel.log").open("w"),
+            stderr=subprocess.STDOUT
         )
         
-        # Initialize
-        await service.initialize()
+        # 2. Start Brain Server
+        print(f"Starting Brain Server on port {self.server_port}...")
+        server_env = {
+            **os.environ, 
+            "PYTHONPATH": str(REPO_ROOT),
+            "CONTINUON_ALLOW_MOCK_AUTH": "1",
+            "CONTINUON_NO_UI_LAUNCH": "1"
+        }
+        self.server_proc = subprocess.Popen(
+            [self.python_exec, "-m", "continuonbrain.api.server", 
+             "--port", str(self.server_port), 
+             "--config-dir", str(self.config_dir),
+             "--mock-hardware"],
+            env=server_env,
+            stdout=(self.log_dir / "server.log").open("w"),
+            stderr=subprocess.STDOUT
+        )
         
-        # Check HOPE Brain
-        self.assertIsNotNone(service.hope_brain, "HOPE Brain should be initialized")
-        print("  HOPE Brain: Initialized")
-        
-        # Explicitly reset to initialize state (HOPEBrain allows lazy init, but we want to verify state)
-        service.hope_brain.reset()
-        
-        # Check dimensions
-        obs_dim = service.hope_brain.obs_dim
-        action_dim = service.hope_brain.action_dim
-        print(f"  Dimensions: Obs={obs_dim}, Action={action_dim}")
-        
-        # Simple forward pass check
-        x = torch.zeros(1, obs_dim)
-        try:
-            # We just want to see if .forward() or similar works without crashing
-            # HOPEBrain doesn't have a direct 'forward', it has 'step' or 'process'
-            # Let's test the 'get_state' to ensure internals are built
-            state = service.hope_brain.get_state()
-            self.assertIsNotNone(state)
-            print("  HOPE State: Accessible")
-            print("✅ HOPE Brain Service OK")
-        except Exception as e:
-            self.fail(f"HOPE Brain check failed: {e}")
+        # Wait for startup
+        print("Waiting for services to initialize...")
+        time.sleep(5)
+        print("--- Systems Ready ---")
 
+    def stop(self):
+        print("--- Stopping System Harness ---")
+        if self.server_proc:
+            self.server_proc.terminate()
+            self.server_proc.wait()
+        if self.kernel_proc:
+            self.kernel_proc.terminate()
+            self.kernel_proc.wait()
+        print("--- Systems Offline ---")
+
+    def get_api_url(self, path: str) -> str:
+        return f"http://localhost:{self.server_port}{path}"
+
+def run_tests(harness: SystemHarness) -> Dict[str, Any]:
+    results = {"subsystems": {}, "overall_pass": True}
+    
+    def log_result(name: str, passed: bool, details: str):
+        print(f"[{'PASS' if passed else 'FAIL'}] {name}: {details}")
+        results["subsystems"][name] = {"passed": passed, "details": details}
+        if not passed:
+            results["overall_pass"] = False
+
+    # --- 1. RBAC & AUTH ---
+    print("\nVerifying RBAC...")
+    try:
+        # Unauthorized (No header)
+        resp = requests.post(harness.get_api_url("/api/mode/autonomous"))
+        log_result("RBAC_Unauthorized", resp.status_code == 401, "No header check")
+        
+        # Forbidden (Consumer trying Admin)
+        headers = {"Authorization": "Bearer MOCK_consumer_test@user.com"}
+        resp = requests.post(harness.get_api_url("/api/admin/promote_candidate"), headers=headers, json={{}})
+        log_result("RBAC_Forbidden", resp.status_code == 403, "Consumer accessing admin")
+        
+        # Authorized (Creator)
+        headers = {"Authorization": "Bearer MOCK_creator_admin@continuon.ai"}
+        resp = requests.get(harness.get_api_url("/api/ping"), headers=headers)
+        log_result("RBAC_Authorized", resp.status_code == 200, "Creator ping")
+    except Exception as e:
+        log_result("RBAC_Exception", False, str(e))
+
+    # --- 2. SAFETY KERNEL ---
+    print("\nVerifying Safety Kernel...")
+    try:
+        headers = {"Authorization": "Bearer MOCK_creator_admin@continuon.ai"}
+        # Valid command
+        resp = requests.post(harness.get_api_url("/api/robot/joints"), headers=headers, json={"joint_index": 0, "value": 0.5})
+        log_result("Safety_Valid", resp.status_code == 200 and resp.json().get("success"), "Normal joint move")
+        
+        # Out of bounds command
+        resp = requests.post(harness.get_api_url("/api/robot/joints"), headers=headers, json={"joint_index": 0, "value": 5.0})
+        # Check if it was clipped (success=True but value adjusted)
+        data = resp.json()
+        log_result("Safety_Clipping", data.get("success") and data.get("clipping"), "OOB value clipped")
+    except Exception as e:
+        log_result("Safety_Exception", False, str(e))
+
+    # --- 3. CONTEXT GRAPHS ---
+    print("\nVerifying Context Graphs...")
+    try:
+        # Trigger an ingestion (ping introspection often does this or we can trigger it)
+        resp = requests.get(harness.get_api_url("/api/status/introspection"))
+        time.sleep(1)
+        # Check graph
+        resp = requests.get(harness.get_api_url("/api/context/graph"))
+        data = resp.json()
+        log_result("Graph_Query", "nodes" in data and len(data["nodes"]) > 0, f"Found {len(data.get('nodes', []))} nodes")
+    except Exception as e:
+        log_result("Graph_Exception", False, str(e))
+
+    return results
+
+if __name__ == "__main__":
+    test_root = REPO_ROOT / "tmp" / "system_verify"
+    if test_root.exists():
+        shutil.rmtree(test_root)
+    test_root.mkdir(parents=True)
+    
+    harness = SystemHarness(test_root)
+    try:
+        harness.start()
+        report = run_tests(harness)
+        
+        # Save Report
+        with open(test_root / "system_audit_report.json", "w") as f:
+            json.dump(report, f, indent=2)
+        
+        print("\n" + "="*40)
+        print(f"VERIFICATION {'SUCCESS' if report['overall_pass'] else 'FAILED'}")
+        print("="*40)
+        
+        if not report["overall_pass"]:
+            sys.exit(1)
             
-    async def test_04_learning_service(self):
-        """Verify Background Learner can be instantiated."""
-        print("🔍 Checking Background Learner...")
-        
-        service = BrainService(
-            config_dir="/tmp/continuon_test", 
-            prefer_real_hardware=False, 
-            auto_detect=False 
-        )
-        await service.initialize()
-        
-        # Manually verify background learner startup logic
-        # In BrainService.initialize() it might optionally start it depending on config
-        # We will create one manually if it's not there to verify the CLASS works
-        
-        from continuonbrain.services.background_learner import BackgroundLearner
-        learner = BackgroundLearner(service.hope_brain, resource_monitor=service.resource_monitor)
-        
-        # Don't start the thread, just check config
-        print(f"  Config: {learner.config}")
-        self.assertIsNotNone(learner.env)
-        print("✅ Background Learner Logic OK")
-
-if __name__ == '__main__':
-    unittest.main()
+    finally:
+        harness.stop()

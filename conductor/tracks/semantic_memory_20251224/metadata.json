@@ -1,0 +1,8 @@
+{
+  "track_id": "semantic_memory_20251224",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2025-12-24T14:30:00Z",
+  "updated_at": "2025-12-24T14:30:00Z",
+  "description": "Upgrade ExperienceLogger to use semantic transformers for retrieval and active deduplication."
+}

@@ -12,18 +12,22 @@
   - **WaveCore (SSM + FFT):** Matatured modular library for high-frequency control and tactical planning loops, including a synthetic logic generator and distillation hooks.
   - **Hybrid Architectures:** Fused SSM and Sliding-Window Attention for efficient long-context edge reasoning.
   - **VQ-VAE:** Used for latent tokenization of visual data on accelerators.
-  - **Context Graphs:** Hybrid symbolic/dense retrieval system bridging RLDS/CMS and the HOPE planner.
+  - **Context Graphs:** Hybrid symbolic/dense retrieval system using `sentence-transformers` (`all-MiniLM-L6-v2`) bridging RLDS/CMS and the HOPE planner.
+  - **Memory Synthesizer:** LLM-driven process for merging redundant conversation clusters into high-fidelity semantic anchors with dynamic confidence decay.
   - **Brain Tools:** Pluggable capability modules (Calculator, Wikipedia, FileSystem) with standardized interfaces.
 - **Edge Acceleration:**
   - **Hailo-8L / Coral Edge TPU:** Support for dedicated NPU/TPU offloading.
   - **XNNPACK:** Optimized CPU inference for ARM (Pi 5).
 - **Hardware Interaction:** CircuitPython (adafruit-servokit), smbus2, and lgpio for Raspberry Pi 5 hardware/servo control.
-- **Safety Enforcement:** Ring 0 Safety Kernel (Python) using Unix Sockets/TCP for IPC and a "Constitution" for deterministic kinematic and health validation.
+- **Safety Enforcement:** Ring 0 Safety Kernel (Python) using Unix Sockets (Linux) or TCP (Windows) for IPC and a "Constitution" for deterministic kinematic and health validation.
+- **Process & Lifecycle:** `psutil` for instance locking and platform-agnostic process monitoring.
 - **Authentication & Security:**
   - **Firebase Auth:** JWT-based identity management and token verification.
   - **RBAC:** Role-Based Access Control (Creator, Developer, Consumer) enforced via middleware.
 - **Graph & Context:**
   - **SQLite:** Persistent storage for the context graph (nodes, edges).
+  - **Feedback Store:** Dedicated SQLite persistence for user validation and "Gold Data" prioritization, featuring automated threshold-based consolidation and synthesis hooks.
+  - **Session Store:** Persistent SQLite storage for multi-turn conversation context.
   - **NetworkX:** In-memory graph traversal and analysis.
   - **Visualization:** D3.js for graph rendering, Server-Sent Events (SSE) for real-time cognitive streams.
 

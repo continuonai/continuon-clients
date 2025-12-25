@@ -503,6 +503,7 @@ class GemmaChat:
         system_context: Optional[str] = None,
         image: Any = None,
         model_hint: Optional[str] = None,
+        history: Optional[List[Dict[str, str]]] = None,
         *,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_results: Optional[List[Dict[str, Any]]] = None,
@@ -514,11 +515,13 @@ class GemmaChat:
             message: User message text
             system_context: Optional system context (robot status, hardware info, etc.)
             image: Optional image input (PIL Image or numpy array) for VLM
+            history: Optional conversation history to use instead of self.chat_history
         
         Returns:
             Model response text
         """
-        
+        active_history = history if history is not None else self.chat_history
+
         # --- PATH 0: FunctionGemma backend ---
         if model_hint == FunctionGemmaChat.MODEL_ID:
             if self._function_chat is None:
@@ -541,7 +544,7 @@ class GemmaChat:
                 
                 # Add history
                 # Ensure history format matches OpenAI (role/content)
-                for msg in self.chat_history[-6:]:
+                for msg in active_history[-10:]:
                     role = "user" if msg["role"].lower() in ["user"] else "assistant"
                     messages.append({"role": role, "content": msg["content"]})
                     
@@ -557,11 +560,12 @@ class GemmaChat:
                 
                 response = completion.choices[0].message.content
                 
-                # Update history
-                self.chat_history.append({"role": "User", "content": message})
-                self.chat_history.append({"role": "Assistant", "content": response})
-                if len(self.chat_history) > self.max_history * 2:
-                    self.chat_history = self.chat_history[-self.max_history * 2:]
+                # Update internal history ONLY if using it
+                if history is None:
+                    self.chat_history.append({"role": "User", "content": message})
+                    self.chat_history.append({"role": "Assistant", "content": response})
+                    if len(self.chat_history) > self.max_history * 2:
+                        self.chat_history = self.chat_history[-self.max_history * 2:]
                     
                 return response
 
@@ -656,9 +660,10 @@ class GemmaChat:
                 elif "model" in response.lower() and ":" in response: # e.g. "model: answer"
                      pass
                 
-                # Update history
-                self.chat_history.append({"role": "User", "content": message})
-                self.chat_history.append({"role": "Assistant", "content": response})
+                # Update internal history ONLY if using it
+                if history is None:
+                    self.chat_history.append({"role": "User", "content": message})
+                    self.chat_history.append({"role": "Assistant", "content": response})
                 return response
 
             # --- CausalLM Generation (Legacy) ---
@@ -670,10 +675,10 @@ class GemmaChat:
                 prompt = f"User: {message}\n\nAssistant:"
             
             # Add chat history context
-            if self.chat_history:
+            if active_history:
                 history_text = "\n".join([
                     f"{msg['role']}: {msg['content']}" 
-                    for msg in self.chat_history[-6:]  # Last 3 turns
+                    for msg in active_history[-10:]
                 ])
                 prompt = f"{history_text}\n{prompt}"
             
@@ -699,12 +704,13 @@ class GemmaChat:
                 response = response.split("Assistant:")[-1].strip()
             
             # Update chat history
-            self.chat_history.append({"role": "User", "content": message})
-            self.chat_history.append({"role": "Assistant", "content": response})
-            
-            # Trim history
-            if len(self.chat_history) > self.max_history * 2:
-                self.chat_history = self.chat_history[-self.max_history * 2:]
+            if history is None:
+                self.chat_history.append({"role": "User", "content": message})
+                self.chat_history.append({"role": "Assistant", "content": response})
+                
+                # Trim history
+                if len(self.chat_history) > self.max_history * 2:
+                    self.chat_history = self.chat_history[-self.max_history * 2:]
             
             return response
             
@@ -760,9 +766,10 @@ class MockGemmaChat:
         # Create list of floats from bytes
         return [float(b)/255.0 for b in h] * 16 # Extend to 256 dim
 
-    def chat(self, message: str, system_context: Optional[str] = None, model_hint: Optional[str] = None) -> str:
+    def chat(self, message: str, system_context: Optional[str] = None, model_hint: Optional[str] = None, history: Optional[List[Dict[str, str]]] = None) -> str:
         """Generate mock response."""
-        self.chat_history.append({"role": "User", "content": message})
+        if history is None:
+            self.chat_history.append({"role": "User", "content": message})
         
         # Simple pattern matching for mock responses
         msg_lower = message.lower()
@@ -779,7 +786,8 @@ class MockGemmaChat:
             reason = f" Missing dependency: {self.error_msg}" if self.error_msg else " Install transformers for real Gemma inference."
             response = f"[Mock] You said: '{message}'.{reason}"
         
-        self.chat_history.append({"role": "Assistant", "content": response})
+        if history is None:
+            self.chat_history.append({"role": "Assistant", "content": response})
         return response
     
     def reset_history(self):

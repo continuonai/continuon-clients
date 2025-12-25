@@ -774,6 +774,13 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/curriculum/lessons":
                 self.send_json({"lessons": brain_service.curriculum_manager.list_curriculum()})
 
+            elif self.path == "/api/system/audit":
+                audit_path = Path(brain_service.config_dir) / "system_audit_report.json"
+                if audit_path.exists():
+                    self.send_json(json.loads(audit_path.read_text()))
+                else:
+                    self.send_json({"error": "No audit report found"}, status=404)
+
             elif self.path == "/api/status/introspection":
                 # Introspection endpoint for Brain Status page
                 # identity_service.self_report() # Removed to prevent log spam/heavy IO on polling
@@ -1092,6 +1099,24 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 except Exception as e:
                     logger.error(f"Model detection failed: {e}")
                     self.send_json({"success": False, "error": str(e)}, status=500)
+
+            elif self.path == "/api/agent/validation_summary":
+                try:
+                    summary = brain_service.experience_logger.feedback_store.get_summary()
+                    self.send_json({"success": True, "summary": summary})
+                except Exception as e:
+                    logger.error(f"Failed to get validation summary: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+            
+            elif self.path == "/api/agent/knowledge_map":
+                # Return semantic clusters for visualization
+                try:
+                    # For now, return recent conversations with embeddings (redacted)
+                    results = brain_service.experience_logger.search_conversations("", max_results=100)
+                    self.send_json({"success": True, "memories": results})
+                except Exception as e:
+                    logger.error(f"Knowledge map failed: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
             
             elif self.path == "/api/agent/learning_stats":
                 # Get learning and agent performance statistics
@@ -1165,6 +1190,15 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/chat/history/clear":
                 brain_service.clear_chat_history()
                 self.send_json({"success": True})
+
+            elif self.path == "/api/chat/session/clear":
+                data = json.loads(body) if body else {}
+                session_id = data.get("session_id")
+                if session_id:
+                    brain_service.clear_session(session_id)
+                    self.send_json({"success": True, "message": f"Session {session_id} cleared"})
+                else:
+                    self.send_json({"success": False, "message": "session_id required"}, status=400)
 
             elif self.path == "/api/admin/factory_reset":
                 self.handle_factory_reset(body)
@@ -1342,15 +1376,16 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/agent/validate":
                 data = json.loads(body) if body else {}
                 timestamp = data.get('timestamp')
+                conversation_id = data.get('conversation_id') or timestamp
                 validated = data.get('validated', True)
                 correction = data.get('correction')
                 
-                if not timestamp:
-                    self.send_json({"success": False, "error": "timestamp required"}, status=400)
+                if not conversation_id:
+                    self.send_json({"success": False, "error": "conversation_id or timestamp required"}, status=400)
                 else:
                     try:
                         updated = brain_service.experience_logger.validate_conversation(
-                            timestamp=timestamp,
+                            conversation_id=conversation_id,
                             validated=validated,
                             correction=correction
                         )
@@ -1527,16 +1562,27 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 token = data.get("token")
                 code = data.get("confirm_code")
                 owner_id = data.get("owner_id")
+                account_id = data.get("account_id")
+                account_type = data.get("account_type")
                 
                 success, msg, payload = brain_service.pairing.confirm(
                     token=token, 
                     confirm_code=code, 
-                    owner_id=owner_id
+                    owner_id=owner_id,
+                    account_id=account_id,
+                    account_type=account_type
                 )
                 if success:
+                    # Update brain_service state
+                    brain_service.set_ownership(
+                        owned=True,
+                        owner_id=owner_id,
+                        account_id=account_id,
+                        account_type=account_type
+                    )
                     self.send_json({"status": "paired", "ownership": payload})
                 else:
-                    self.send_json({"status": "error", "message": msg}, status_code=400)
+                    self.send_json({"status": "error", "message": msg}, status=400)
 
             elif self.path == "/api/ownership/status":
                 result = asyncio.run(brain_service.GetOwnershipStatus())

@@ -132,6 +132,19 @@ class AuthProvider:
         """
         Determines UserRole from decoded token claims.
         """
+        uid = decoded_token.get("uid")
+        email = decoded_token.get("email")
+
+        # 0. Check local ownership record (Smooth flow: first paired user is Creator)
+        try:
+            ownership_path = self.config_dir / "ownership.json"
+            if ownership_path.exists():
+                data = json.loads(ownership_path.read_text())
+                if data.get("owned") and data.get("owner_id") == uid:
+                    return UserRole.CREATOR
+        except Exception as e:
+            logger.warning(f"Failed to check ownership.json for role: {e}")
+
         # 1. Check custom claims
         if "role" in decoded_token:
             try:
@@ -144,10 +157,8 @@ class AuthProvider:
             except Exception:
                 pass
         
-        # 2. Check whitelist (if we implemented one)
-        email = decoded_token.get("email")
-        # TODO: Implement whitelist check if needed
-        if email == "craigm26@gmail.com": # Hardcoded seed creator for now as per prompt context hint?
+        # 2. Check whitelist
+        if email == "craigm26@gmail.com":
             return UserRole.CREATOR
 
         # Default authenticated user is CONSUMER

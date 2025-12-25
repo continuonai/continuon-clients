@@ -43,6 +43,7 @@ from continuonbrain.services.cloud_relay import CloudRelay
 from continuonbrain.core.context_graph_store import SQLiteContextStore
 from continuonbrain.core.graph_ingestor import GraphIngestor
 from continuonbrain.core.context_retriever import ContextRetriever
+from continuonbrain.core.session_store import SQLiteSessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -294,9 +295,10 @@ class BrainService:
         self.experience_logger = ExperienceLogger(Path(config_dir) / "experiences")
         logger.info("📚 Experience logger initialized for active learning")
         
-        # Conversation session management for multi-turn context
-        self.conversation_sessions = {}  # session_id -> list of messages
-        logger.info("💬 Conversation session management initialized")
+        # Conversation session management for multi-turn context (Persistent)
+        self.session_store = SQLiteSessionStore(str(Path(config_dir) / "sessions.db"))
+        self.session_store.initialize_db()
+        logger.info("💬 Persistent conversation session management initialized")
         
         # Version 1.0 Identity integration
         self.personality_config = PersonalityConfig()
@@ -492,23 +494,13 @@ class BrainService:
             Response dictionary with agent info and confidence scores
         """
         
-        # Session management for multi-turn context
+        # Session management for multi-turn context (Persistent)
         if session_id:
-            if session_id not in self.conversation_sessions:
-                self.conversation_sessions[session_id] = []
+            # 1. Add user message to persistent store
+            self.session_store.add_message(session_id, "user", message)
             
-            # Append user message to session
-            self.conversation_sessions[session_id].append({
-                "role": "user",
-                "content": message,
-                "timestamp": datetime.datetime.now().isoformat()
-            })
-            
-            # Use session history instead of provided history
-            history = [
-                {"role": msg["role"], "content": msg["content"]} 
-                for msg in self.conversation_sessions[session_id]
-            ]
+            # 2. Retrieve recent history (last 10 turns)
+            history = self.session_store.get_history(session_id)
         
         # Build System Context
         status_lines = []
@@ -630,11 +622,14 @@ class BrainService:
         status_updates = []
         
         # ==== HIERARCHICAL AGENT RESPONSE ====
-        # Try HOPE brain first, fallback to LLM with HOPE's memories as context
+        # 1. HOPE brain (Fast Loop)
+        # 2. Semantic Memory Recall (Mid Loop - cached knowledge)
+        # 3. LLM fallback (Slow Loop - reasoning)
         
         response_agent = "llm_fallback"  # Track which agent responded
         response = None
         hope_confidence = 0.0
+        semantic_confidence = 0.0
         
         # Phase 1: Try HOPE brain if available
         if self.hope_brain:
@@ -655,8 +650,26 @@ class BrainService:
                         
             except Exception as e:
                 logger.warning(f"HOPE agent failed: {e}")
+
+        # Phase 2: Try Semantic Memory Recall (if HOPE couldn't answer)
+        if response is None:
+            try:
+                similar = self.experience_logger.get_similar_conversations(message, max_results=1)
+                if similar and similar[0].get('relevance', 0) > 0.9:
+                    # GATED RECALL: Only use direct recall if validated
+                    if similar[0].get("validated", False):
+                        response = similar[0].get('answer')
+                        response_agent = "semantic_memory"
+                        semantic_confidence = similar[0].get('relevance', 0)
+                        status_updates.append(f"Recalled from validated memory (relevance: {semantic_confidence:.0%})")
+                        logger.info(f"Semantic memory matched with {semantic_confidence:.2f} relevance")
+                    else:
+                        logger.info(f"Semantic match found (relevance: {similar[0].get('relevance'):.2f}) but NOT validated. Falling back to LLM.")
+                        status_updates.append(f"Potential memory match (not validated)")
+            except Exception as e:
+                logger.warning(f"Semantic recall failed: {e}")
         
-        # Phase 2: Fallback to LLM (with HOPE memories if available)
+        # Phase 3: Fallback to LLM (with HOPE memories if available)
         if response is None:
             # Add HOPE memories as context if brain is available
             hope_context = ""
@@ -683,7 +696,14 @@ class BrainService:
                 self._build_chat_with_fallback()
                 chat_backend = self.gemma_chat
 
-            response = chat_backend.chat(message, system_context=full_context)
+            response = chat_backend.chat(message, system_context=full_context, history=history)
+
+            # --- TRANSPARENCY: Prefix with surprise if triggered by novelty ---
+            # If hope_confidence was low (and not just untrained/idle)
+            if hope_confidence > 0.1 and hope_confidence < 0.6:
+                surprise = 1.0 - hope_confidence
+                response = f"[Surprise: {surprise:.2f}] I'm encountering a novel situation; here is my reasoning: {response}"
+                status_updates.append(f"Novelty-triggered fallback (surprise: {surprise:.2f})")
 
             if not response or "Gemma model failed to load" in str(response):
                 # Try a fallback backend ladder once before giving up to HOPE/mock text response
@@ -708,9 +728,10 @@ class BrainService:
         confidence = self._calculate_confidence(response)
         
         # Log LLM responses for active learning (after confidence is calculated)
+        conversation_id = None
         if response_agent in ["llm_with_hope_context", "llm_only"]:
             try:
-                self.experience_logger.log_conversation(
+                conversation_id = self.experience_logger.log_conversation(
                     question=message,
                     answer=response,
                     agent=response_agent,
@@ -901,15 +922,9 @@ class BrainService:
         except Exception:
             pass
         
-        # Store assistant response in session for multi-turn context
-        if session_id and session_id in self.conversation_sessions:
-            self.conversation_sessions[session_id].append({
-                "role": "assistant",
-                "content": response,
-                "timestamp": datetime.datetime.now().isoformat(),
-                "agent": response_agent,
-                "confidence": confidence
-            })
+        # Store assistant response in session for multi-turn context (Persistent)
+        if session_id:
+            self.session_store.add_message(session_id, "assistant", response)
             
         return {
             "response": response,
@@ -919,7 +934,9 @@ class BrainService:
             "intervention_options": intervention_options,
             "status_updates": status_updates,
             "agent": response_agent,  # Track which agent provided response
-            "hope_confidence": hope_confidence  # Track HOPE's confidence score
+            "hope_confidence": hope_confidence,  # Track HOPE's confidence score
+            "semantic_confidence": semantic_confidence,
+            "conversation_id": conversation_id
         }
 
     # ---- Chat backend fallbacks ----
@@ -1127,6 +1144,12 @@ class BrainService:
     def clear_chat_history(self) -> None:
         """Clear the chat history."""
         self.gemma_chat.reset_history()
+
+    def clear_session(self, session_id: str) -> None:
+        """Clear the persistent session history."""
+        self.session_store.clear_session(session_id)
+        # Also clear in-memory if needed
+        self.gemma_chat.reset_history()
     
     def start_sequential_training(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -1170,6 +1193,7 @@ class BrainService:
             # Ideally we load state_dict into existing brain if config matches.
             
             # Let's try to load state dict into existing brain first.
+            success = False
             if self.hope_brain:
                  checkpoint = torch.load(checkpoint_path, weights_only=False)
                  # Check if config matches enough to just load weights
@@ -1180,17 +1204,27 @@ class BrainService:
                          if i < len(checkpoint['columns_state_dicts']):
                              col.load_state_dict(checkpoint['columns_state_dicts'][i])
                              logger.info(f"Reloaded weights for column {i}")
-                     return True
+                     success = True
                  
                  elif 'model_state_dict' in checkpoint:
                      # Old format
                      self.hope_brain.columns[0].load_state_dict(checkpoint['model_state_dict'])
-                     return True
+                     success = True
             
-            # If no existing brain or incompatible, fallback to full reload (might OOM on Pi)
-            new_brain = HOPEBrain.load_checkpoint(checkpoint_path)
-            self.hope_brain = new_brain
-            return True
+            if not success:
+                # If no existing brain or incompatible, fallback to full reload (might OOM on Pi)
+                new_brain = HOPEBrain.load_checkpoint(checkpoint_path)
+                self.hope_brain = new_brain
+                success = True
+            
+            if success:
+                # Apply model evolution penalty to unvalidated memories
+                if self.experience_logger:
+                    logger.info("Promoting new model: Applying evolution penalty to unvalidated memories.")
+                    self.experience_logger.apply_model_evolution_penalty(penalty=0.10)
+                return True
+            
+            return False
             
         except Exception as e:
             logger.error(f"Failed to hot-reload model: {e}")
@@ -1295,6 +1329,56 @@ class BrainService:
                 "error": str(e),
                 "fallback": "mock"
             }
+
+    def synthesize_memory_anchor(self, clusters: List[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        """
+        Use the LLM to synthesize a single high-quality answer for each cluster of similar memories.
+        """
+        if not self.gemma_chat:
+            logger.warning("Synthesis skipped: Gemma chat not available")
+            return []
+
+        anchors = []
+        for cluster in clusters:
+            if len(cluster) < 2:
+                continue
+            
+            # Prepare synthesis prompt
+            questions = [c["question"] for c in cluster]
+            answers = [c["answer"] for c in cluster]
+            
+            prompt = (
+                "You are a Memory Synthesizer for a robot brain. "
+                "I will provide a set of similar questions and answers learned by the robot. "
+                "Your task is to synthesize them into a single, high-quality canonical 'Semantic Anchor'.\n\n"
+                "QUESTIONS:\n" + "\n".join(f"- {q}" for q in set(questions)) + "\n\n"
+                "ANSWERS:\n" + "\n".join(f"- {a}" for q in answers) + "\n\n"
+                "INSTRUCTIONS:\n"
+                "1. Choose the most representative question.\n"
+                "2. Combine the answers into a single, accurate, and concise response.\n"
+                "3. Output format: JSON { \"question\": \"...\", \"answer\": \"...\" }\n"
+            )
+            
+            try:
+                response = self.gemma_chat.chat(prompt, system_context="You are a precise data synthesizer.")
+                # Extract JSON from response
+                import re
+                match = re.search(r'\{.*\}', response, re.DOTALL)
+                if match:
+                    anchor_data = json.loads(match.group())
+                    # Inherit best metadata
+                    best_conf = max(c.get("confidence", 0.5) for c in cluster)
+                    anchors.append({
+                        "question": anchor_data["question"],
+                        "answer": anchor_data["answer"],
+                        "agent": "synthesizer",
+                        "confidence": min(1.0, best_conf + 0.1), # Bonus for consolidation
+                        "metadata": {"source": "consolidated_anchor", "cluster_size": len(cluster)}
+                    })
+            except Exception as e:
+                logger.error(f"Synthesis failed for cluster: {e}")
+                
+        return anchors
 
     def update_personality_config(self, humor: float = None, sarcasm: float = None, empathy: float = None, verbosity: float = None, system_name: str = None, identity_mode: str = None) -> Dict[str, Any]:
         """Update personality settings dynamically."""
@@ -1568,6 +1652,8 @@ class BrainService:
             "facts_eval": 0.0,
             "wavecore": 0.0,
             "tool_router": 0.0,
+            "memory_consolidation": 0.0,
+            "memory_decay": 0.0,
         }
         while not self._bg_stop_event.is_set():
             try:
@@ -1578,7 +1664,7 @@ class BrainService:
                 agent_mgr = (settings or {}).get("agent_manager") or {}
                 orch = (agent_mgr.get("autonomy_orchestrator") or {}) if isinstance(agent_mgr, dict) else {}
                 enabled = bool(orch.get("enabled", False))
-                modes_allowed = orch.get("modes") if isinstance(orch, dict) else None
+                modes_allowed = orch.get("modes") if isinstance(orch, list) else ["autonomous"]
                 if not isinstance(modes_allowed, list) or not modes_allowed:
                     modes_allowed = ["autonomous"]
 
@@ -1599,15 +1685,7 @@ class BrainService:
                     time.sleep(5)
                     continue
 
-                # Only orchestrate when allowed, and never during recording.
-                # BrainService might track is_recording differently, checking recorder directly
-                is_recording = getattr(self, "is_recording", False)
-                if hasattr(self, "recorder") and self.recorder:
-                     # Check recorder status if available
-                     # For now, rely on self.is_recording flag if managed
-                     pass
-
-                if (not enabled) or (not mode_ok) or is_recording:
+                if (not enabled) or (not mode_ok) or getattr(self, "is_recording", False):
                     time.sleep(5)
                     continue
 
@@ -1615,6 +1693,7 @@ class BrainService:
                 res = self.resource_monitor.check_resources()
                 headroom_mb = int(orch.get("min_memory_headroom_mb", 512) or 512)
                 reserve_plus_headroom = self.resource_monitor.limits.system_reserve_mb + headroom_mb
+                
                 if res.available_memory_mb < reserve_plus_headroom:
                     if self.background_learner is not None and getattr(self.background_learner, "running", False) and not getattr(self.background_learner, "paused", False):
                         self.background_learner.pause()
@@ -1649,7 +1728,7 @@ class BrainService:
                     actions = {}
                     jax_tasks_ok = os.environ.get("CONTINUON_ENABLE_JAX_TASKS", "0").lower() in ("1", "true", "yes", "on")
 
-                    # 1) HOPE CMS compaction
+                    # 1) HOPE CMS compaction (Internal weights)
                     cms_every = int(orch.get("cms_compact_every_s", 600) or 600)
                     if self.hope_brain is not None and (now - last["cms"] >= cms_every):
                         try:
@@ -1668,7 +1747,40 @@ class BrainService:
                                 self.state_aggregator.update_loop("Fast")
                         last["cms"] = now
 
-                    # 2) Evals (bounded; offline-first)
+                    # 2) Memory Consolidation (External experience grouping)
+                    # Threshold-based: Trigger when unvalidated memories > 500
+                    try:
+                        stats = self.experience_logger.get_statistics()
+                        total_convs = stats.get("total_conversations", 0)
+                        validated_count = stats.get("feedback_stats", {}).get("validated_count", 0)
+                        unvalidated_count = total_convs - validated_count
+                        
+                        consolidation_threshold = int(orch.get("memory_consolidation_threshold", 500) or 500)
+                        
+                        if unvalidated_count > consolidation_threshold:
+                            logger.info(f"Memory Consolidation Triggered: {unvalidated_count} unvalidated memories > {consolidation_threshold}")
+                            _pause_bg()
+                            res = self.experience_logger.consolidate_memories(
+                                similarity_threshold=0.90,
+                                synthesizer_cb=self.synthesize_memory_anchor
+                            )
+                            actions["memory_consolidation"] = {"ok": True, "result": res}
+                            last["memory_consolidation"] = now
+                            _resume_bg()
+                    except Exception as exc:
+                        logger.warning(f"Memory consolidation failed: {exc}")
+
+                    # 3) Confidence Decay (Daily)
+                    decay_every = int(orch.get("memory_decay_every_s", 86400) or 86400) # Default 24h
+                    if (now - last["memory_decay"] >= decay_every):
+                        try:
+                            res = self.experience_logger.apply_confidence_decay(decay_factor=0.95, max_age_days=30)
+                            actions["memory_decay"] = {"ok": True, "result": res}
+                        except Exception as exc:
+                            logger.warning(f"Memory decay failed: {exc}")
+                        last["memory_decay"] = now
+
+                    # 4) Evals (bounded; offline-first)
                     hope_every = int(orch.get("hope_eval_every_s", 1800) or 1800)
                     if (now - last["hope_eval"] >= hope_every):
                         try:
@@ -2028,6 +2140,20 @@ class BrainService:
                         payload["status"]["resources"] = res.to_dict()
                         if self.state_aggregator:
                             self.state_aggregator.push_metrics(res.to_dict())
+                    
+                    # Add Surprise metrics from HOPE
+                    if self.hope_brain and self.state_aggregator:
+                        try:
+                            col = self.hope_brain.columns[self.hope_brain.active_column_idx]
+                            novelty = getattr(col, 'last_novelty', 0.0)
+                            confidence = getattr(col, 'last_confidence', 1.0)
+                            payload["status"]["surprise"] = {
+                                "novelty": novelty,
+                                "confidence": confidence
+                            }
+                            self.state_aggregator.push_surprise(novelty, confidence)
+                        except Exception:
+                            pass
                             
                     self.chat_event_queue.put(payload)
                 except Exception as e:

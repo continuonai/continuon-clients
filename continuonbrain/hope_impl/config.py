@@ -84,6 +84,9 @@ class HOPEConfig:
     compaction_learning_rate: float = 0.1  # Aggressive learning during sleep
     compaction_decay: float = 0.5        # Aggressive forgetting during sleep
     
+    # Novelty (Surprise) Detection
+    novelty_sensitivity_k: float = 1.0  # Sensitivity factor for exponential confidence scaling
+    
     # Autonomous Learning
     enable_autonomous_learning: bool = False  # Disabled by default to free RAM for Gemma
     learning_update_interval: int = 10  # Steps between parameter updates

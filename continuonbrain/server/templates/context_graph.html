@@ -1,86 +1,183 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Context Graph</title>
+    <title>Continuon Context & Knowledge Map</title>
     <style>
-        body { margin: 0; font-family: sans-serif; background: #111; color: #eee; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0c111b; color: #eee; overflow: hidden; }
+        #controls { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; border: 1px solid #333; }
         #graph { width: 100vw; height: 100vh; }
+        .node-label { font-size: 10px; fill: #aaa; pointer-events: none; }
+        .legend { margin-top: 10px; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        button { background: #4f9dff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #3a80d6; }
+        .gold-star { fill: #ffd700; stroke: #fff; stroke-width: 1px; }
     </style>
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
+    <div id="controls">
+        <h3>Map View</h3>
+        <div style="display:flex; gap:10px;">
+            <button onclick="loadGraph('context')">Context Graph</button>
+            <button onclick="loadGraph('knowledge')">Knowledge Map</button>
+        </div>
+        <div class="legend" id="legend">
+            <!-- Dynamic Legend -->
+        </div>
+    </div>
     <div id="graph"></div>
     <script>
-        fetch('/api/context/graph')
-            .then(r => r.json())
-            .then(data => {
-                const width = window.innerWidth;
-                const height = window.innerHeight;
-                
-                const nodes = data.nodes.map(n => ({id: n.id, group: n.type, ...n}));
-                const links = data.edges.map(e => ({source: e.source, target: e.target, ...e}));
-                
-                const simulation = d3.forceSimulation(nodes)
-                    .force("link", d3.forceLink(links).id(d => d.id))
-                    .force("charge", d3.forceManyBody().strength(-300))
-                    .force("center", d3.forceCenter(width / 2, height / 2));
-                
-                const svg = d3.select("#graph").append("svg")
-                    .attr("width", width)
-                    .attr("height", height);
-                
-                const link = svg.append("g")
-                    .attr("stroke", "#999")
-                    .attr("stroke-opacity", 0.6)
-                    .selectAll("line")
-                    .data(links)
-                    .join("line");
-                
-                const node = svg.append("g")
-                    .attr("stroke", "#fff")
-                    .attr("stroke-width", 1.5)
-                    .selectAll("circle")
-                    .data(nodes)
-                    .join("circle")
-                    .attr("r", 5)
-                    .attr("fill", d => d.group === 'episode' ? '#ff0000' : '#0000ff')
-                    .call(drag(simulation));
-                
-                node.append("title")
-                    .text(d => d.id + "\n" + d.name);
-                
-                simulation.on("tick", () => {
-                    link
-                        .attr("x1", d => d.source.x)
-                        .attr("y1", d => d.source.y)
-                        .attr("x2", d => d.target.x)
-                        .attr("y2", d => d.target.y);
-                    node
-                        .attr("cx", d => d.x)
-                        .attr("cy", d => d.y);
-                });
-                
-                function drag(simulation) {
-                    function dragstarted(event) {
-                        if (!event.active) simulation.alphaTarget(0.3).restart();
-                        event.subject.fx = event.subject.x;
-                        event.subject.fy = event.subject.y;
-                    }
-                    function dragged(event) {
-                        event.subject.fx = event.x;
-                        event.subject.fy = event.y;
-                    }
-                    function dragended(event) {
-                        if (!event.active) simulation.alphaTarget(0);
-                        event.subject.fx = null;
-                        event.subject.fy = null;
-                    }
-                    return d3.drag()
-                        .on("start", dragstarted)
-                        .on("drag", dragged)
-                        .on("end", dragended);
-                }
+        let simulation, svg, g;
+        
+        function init() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            svg = d3.select("#graph").append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .call(d3.zoom().on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                }));
+            
+            g = svg.append("g");
+        }
+
+        async function loadGraph(mode) {
+            g.selectAll("*").remove();
+            if (simulation) simulation.stop();
+            
+            const legend = document.getElementById('legend');
+            legend.innerHTML = '';
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            if (mode === 'context') {
+                const data = await fetch('/api/context/graph').then(r => r.json());
+                renderContextGraph(data);
+                legend.innerHTML = `
+                    <div class="legend-item"><div class="dot" style="background:#ff4d6d"></div> Episode</div>
+                    <div class="legend-item"><div class="dot" style="background:#4f9dff"></div> Goal/Intent</div>
+                    <div class="legend-item"><div class="dot" style="background:#8df5c7"></div> Tool</div>
+                `;
+            } else {
+                const data = await fetch('/api/agent/knowledge_map').then(r => r.json());
+                renderKnowledgeMap(data);
+                legend.innerHTML = `
+                    <div class="legend-item"><div class="dot" style="background:#ffd700; border:1px solid #fff"></div> Validated (Gold)</div>
+                    <div class="legend-item"><div class="dot" style="background:#7ad7ff"></div> Unvalidated</div>
+                    <div class="legend-item"><div class="dot" style="background:#ff8c42"></div> Cluster</div>
+                `;
+            }
+        }
+
+        function renderContextGraph(data) {
+            const nodes = data.nodes.map(n => ({id: n.id, group: n.type, name: n.name}));
+            const links = data.edges.map(e => ({source: e.source, target: e.target, type: e.type}));
+            
+            simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-200))
+                .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+
+            const link = g.append("g")
+                .attr("stroke", "#444")
+                .attr("stroke-opacity", 0.6)
+                .selectAll("line")
+                .data(links)
+                .join("line");
+
+            const node = g.append("g")
+                .selectAll("circle")
+                .data(nodes)
+                .join("circle")
+                .attr("r", 6)
+                .attr("fill", d => d.group === 'episode' ? '#ff4d6d' : d.group === 'tool' ? '#8df5c7' : '#4f9dff')
+                .call(drag(simulation));
+
+            node.append("title").text(d => d.name || d.id);
+            
+            simulation.on("tick", () => {
+                link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                node.attr("cx", d => d.x).attr("cy", d => d.y);
             });
+        }
+
+        function renderKnowledgeMap(data) {
+            // Memories as nodes, clusters based on tags
+            const memories = data.memories || [];
+            const nodes = memories.map(m => ({
+                id: m.conversation_id || m.timestamp,
+                name: m.question,
+                validated: m.validated,
+                tags: m.tags || []
+            }));
+            
+            // Create virtual links between nodes sharing same tags
+            const links = [];
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const commonTags = nodes[i].tags.filter(t => nodes[j].tags.includes(t));
+                    if (commonTags.length > 0) {
+                        links.push({source: nodes[i].id, target: nodes[j].id, weight: commonTags.length});
+                    }
+                }
+            }
+
+            simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).strength(d => d.weight * 0.1))
+                .force("charge", d3.forceManyBody().strength(-150))
+                .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+
+            const link = g.append("g")
+                .attr("stroke", "#222")
+                .selectAll("line")
+                .data(links)
+                .join("line");
+
+            const node = g.append("g")
+                .selectAll("circle")
+                .data(nodes)
+                .join("circle")
+                .attr("r", d => d.validated ? 8 : 5)
+                .attr("fill", d => d.validated ? '#ffd700' : '#7ad7ff')
+                .attr("stroke", d => d.validated ? '#fff' : 'none')
+                .attr("stroke-width", d => d.validated ? 2 : 0)
+                .call(drag(simulation));
+
+            node.append("title").text(d => `Q: ${d.name}\nTags: ${d.tags.join(', ')}\nGold: ${d.validated}`);
+            
+            simulation.on("tick", () => {
+                link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                node.attr("cx", d => d.x).attr("cy", d => d.y);
+            });
+        }
+
+        function drag(simulation) {
+            return d3.drag()
+                .on("start", (event) => {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    event.subject.fx = event.subject.x;
+                    event.subject.fy = event.subject.y;
+                })
+                .on("drag", (event) => {
+                    event.subject.fx = event.x;
+                    event.subject.fy = event.y;
+                })
+                .on("end", (event) => {
+                    if (!event.active) simulation.alphaTarget(0);
+                    event.subject.fx = null;
+                    event.subject.fy = null;
+                });
+        }
+
+        init();
+        loadGraph('knowledge');
     </script>
 </body>
 </html>

@@ -10,6 +10,7 @@ import subprocess
 import socket
 import platform
 import threading
+import psutil
 from pathlib import Path
 from typing import Optional
 from enum import Enum
@@ -46,6 +47,7 @@ class StartupManager:
     ):
         self.config_dir = Path(config_dir or os.environ.get("CONTINUON_CONFIG_DIR", "/opt/continuonos/brain"))
         self.state_file = self.config_dir / ".startup_state"
+        self.lock_file = self.config_dir / ".startup_lock"
         self.last_wake_time: Optional[int] = None
         self.start_services = start_services
         self.robot_name = robot_name
@@ -144,6 +146,20 @@ class StartupManager:
         Returns:
             True if startup succeeded, False if critical issues
         """
+        # Check for lock file
+        if self.lock_file.exists():
+            try:
+                pid = int(self.lock_file.read_text().strip())
+                if psutil.pid_exists(pid):
+                    print(f"❌ StartupManager is already running (PID: {pid})")
+                    return False
+            except Exception:
+                pass
+        
+        # Acquire lock
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+        self.lock_file.write_text(str(os.getpid()))
+
         startup_mode = self.detect_startup_mode()
         overall_status = HealthStatus.UNKNOWN
         
@@ -318,7 +334,7 @@ class StartupManager:
             if self.headless:
                 env.setdefault("CONTINUON_PREFER_JAX", "1")
 
-            venv_python = repo_root / ".venv" / "bin" / "python3"
+            venv_python = repo_root / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python3")
             python_exec = str(venv_python) if venv_python.exists() else sys.executable
             env["CONTINUON_PYTHON"] = python_exec
 
@@ -453,7 +469,7 @@ class StartupManager:
         repo_root = Path(__file__).parent.parent
         env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
         
-        venv_python = repo_root / ".venv" / "bin" / "python3"
+        venv_python = repo_root / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python3")
         python_exec = str(venv_python) if venv_python.exists() else sys.executable
         
         cmd = [python_exec, "-m", "continuonbrain.kernel.safety_kernel"]
@@ -545,6 +561,13 @@ class StartupManager:
         """Shutdown all robot services."""
         print("🛑 Shutting down services...")
         
+        # Remove lock file
+        if self.lock_file.exists():
+            try:
+                self.lock_file.unlink()
+            except Exception:
+                pass
+
         # Stop discovery
         if self.discovery_service:
             self.discovery_service.stop()

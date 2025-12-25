@@ -193,6 +193,26 @@ class ParticleSubsystem(nn.Module):
         return p_t
 
 
+class Predictor(nn.Module):
+    """
+    Predictor: Generates expected fast state for novelty (surprise) detection.
+    
+    Math:
+        s*_t = f_Θ(s_{t-1}, e_t, c_t)
+    """
+    def __init__(self, d_s: int, d_e: int, d_c: int):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_s + d_e + d_c, d_s * 2),
+            nn.ReLU(),
+            nn.Linear(d_s * 2, d_s),
+            nn.Tanh()
+        )
+    
+    def forward(self, s_prev: torch.Tensor, e_t: torch.Tensor, c_t: torch.Tensor) -> torch.Tensor:
+        return self.net(torch.cat([s_prev, e_t, c_t], dim=-1))
+
+
 class HOPECore(nn.Module):
     """
     HOPE Core: Wave-particle hybrid recurrence.
@@ -203,6 +223,7 @@ class HOPECore(nn.Module):
         3. Particle subsystem: p_t = p_{t-1} + φ_Θ(p_{t-1}, z_t, c_t)
         4. Gating: g_t = σ(W_g [s_{t-1} || e_t || c_t])
         5. Mixed state: s_t = s_{t-1} + g_t ⊙ U_p p_t + (1-g_t) ⊙ U_w w_t
+        6. Prediction: s*_t = Predictor([s_{t-1} || e_t || c_t])
     
     Returns:
         Updated fast state (s_t, w_t, p_t)
@@ -264,6 +285,9 @@ class HOPECore(nn.Module):
         # 5. Projection matrices: U_w, U_p
         self.U_w = nn.Linear(d_w, d_s, bias=False)
         self.U_p = nn.Linear(d_p, d_s, bias=False)
+
+        # 6. Predictor
+        self.predictor = Predictor(d_s, d_e, d_c)
         
         # Optional layer norm for output
         self.output_norm = nn.LayerNorm(d_s) if use_layer_norm else nn.Identity()
@@ -304,7 +328,6 @@ class HOPECore(nn.Module):
         # 3. Particle update: p_t = p_{t-1} + φ_Θ(p_{t-1}, z_t, c_t)
         p_t = self.particle(p_prev, z_t, c_t)
         
-        
         # 4. Gating: g_t = σ(W_g [s_{t-1} || e_t || c_t])
         gate_input = torch.cat([s_prev, e_t, c_t], dim=-1)
         g_t = self.gate_net(gate_input)  # [d_s]
@@ -312,6 +335,9 @@ class HOPECore(nn.Module):
         # 5. Fast state update: s_t = s_{t-1} + g_t ⊙ U_p p_t + (1-g_t) ⊙ U_w w_t
         delta_p = self.U_p(p_t)  # [d_s]
         delta_w = self.U_w(w_t)  # [d_s]
+        
+        # 6. State Prediction (Surprise path)
+        s_expected = self.predictor(s_prev, e_t, c_t)
         
         # Stability Fix: 
         # 1. Use residual connection but saturate the delta
@@ -332,6 +358,7 @@ class HOPECore(nn.Module):
                 "gate": g_t.detach(),
                 "delta_p": delta_p.detach(),
                 "delta_w": delta_w.detach(),
+                "s_expected": s_expected.detach(),
             }
             return s_t, w_t, p_t, info
 
