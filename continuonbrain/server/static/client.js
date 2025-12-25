@@ -501,6 +501,15 @@ document.addEventListener('DOMContentLoaded', () => {
         container.appendChild(item);
         container.scrollTop = container.scrollHeight;
       }
+    } else if (evt.type === 'tool_use') {
+      const list = document.getElementById('tool-audit-list');
+      if (list) {
+        const div = document.createElement('div');
+        div.className = 'stack-item';
+        const ts = new Date(evt.timestamp * 1000).toLocaleTimeString();
+        div.innerHTML = `<div><div class="stack-title">${evt.name}</div><div class="stack-meta">${ts}</div></div>`;
+        list.prepend(div);
+      }
     } else if (evt.type === 'loop_change') {
       const badge = document.getElementById('active-loop');
       if (badge) {
@@ -563,6 +572,7 @@ function applyStatusToHomePanels(status) {
   const modeBadge = document.getElementById('robot-mode-badge');
   const hwEl = document.getElementById('hardware-mode');
   const battEl = document.getElementById('battery-status');
+  const cpuMemEl = document.getElementById('cpu-mem-status');
   const uptimeEl = document.getElementById('uptime');
   const healthEl = document.getElementById('health-metrics');
 
@@ -578,6 +588,10 @@ function applyStatusToHomePanels(status) {
   if (modeBadge) modeBadge.textContent = String(mode);
   if (hwEl) hwEl.textContent = String(hw);
   if (battEl) battEl.textContent = String(battLabel);
+  if (cpuMemEl && status.resources) {
+      const res = status.resources;
+      cpuMemEl.textContent = `${res.cpu_percent}% / ${res.memory_percent}%`;
+  }
   if (uptimeEl) uptimeEl.textContent = String(uptimeLabel);
 
   if (healthEl) {

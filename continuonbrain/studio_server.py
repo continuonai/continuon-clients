@@ -132,6 +132,17 @@ class StateAggregator:
         }
         self._emit(payload)
 
+    def push_tool_use(self, name: str, args: Dict[str, Any], result: Any) -> None:
+        """Push tool usage event."""
+        inner = {
+            "type": "tool_use",
+            "name": name,
+            "args": args,
+            "result": str(result),
+            "timestamp": __import__("time").time()
+        }
+        self._emit({"cognitive": inner})
+
     def _emit(self, payload: Dict[str, Any]) -> None:
         if self._event_queue is None:
             return

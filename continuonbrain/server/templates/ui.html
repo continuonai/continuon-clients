@@ -258,6 +258,10 @@
                             <div class="status-label">Battery / Power</div>
                             <div class="status-value" id="battery-status">--</div>
                         </div>
+                        <div class="status-card">
+                            <div class="status-label">CPU / Memory</div>
+                            <div class="status-value" id="cpu-mem-status">--</div>
+                        </div>
                     </div>
                     <div class="status-deck">
                         <div class="status-card">
@@ -325,6 +329,19 @@
                         <div class="status-item">
                             <span class="status-label">Loading skills...</span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <div class="panel-eyebrow">Skill Curriculum</div>
+                            <h2>Autonomous Lessons</h2>
+                            <p class="panel-subtitle">Verify skill acquisition.</p>
+                        </div>
+                    </div>
+                    <div id="lesson-list" class="stack-list">
+                        <div class="stack-item"><span class="stack-meta">Loading curriculum...</span></div>
                     </div>
                 </div>
 
@@ -625,6 +642,20 @@
                     <div class="panel-ghost">
                         <div class="panel-eyebrow">Active Agents</div>
                         <div class="agent-thread-list" id="agent-thread-list"></div>
+                    </div>
+
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Cognitive Feed</div>
+                        <div class="thought-stream" id="thought-stream" style="font-family:monospace; font-size:11px; max-height:150px; overflow-y:auto; color:var(--text);">
+                            <div class="thought-item" style="color:var(--muted); font-style:italic;">Waiting for thoughts...</div>
+                        </div>
+                    </div>
+
+                    <div class="panel-ghost">
+                        <div class="panel-eyebrow">Tool Audit</div>
+                        <div class="tool-audit-list" id="tool-audit-list" style="font-family:monospace; font-size:11px; max-height:150px; overflow-y:auto; color:var(--text);">
+                            <div class="stack-item"><span class="stack-meta">No tools used yet</span></div>
+                        </div>
                     </div>
 
                     <div class="panel-ghost">

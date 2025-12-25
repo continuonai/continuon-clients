@@ -771,6 +771,9 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 tasks = brain_service.get_task_library()
                 self.send_json({"tasks": tasks})
 
+            elif self.path == "/api/curriculum/lessons":
+                self.send_json({"lessons": brain_service.curriculum_manager.list_curriculum()})
+
             elif self.path == "/api/status/introspection":
                 # Introspection endpoint for Brain Status page
                 # identity_service.self_report() # Removed to prevent log spam/heavy IO on polling
@@ -1201,6 +1204,15 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_json({"success": True, "selected_task": task_id})
                 else:
                     self.send_json({"success": False, "message": "task_id required"}, status=400)
+
+            elif self.path == "/api/curriculum/run":
+                data = json.loads(body) if body else {}
+                lesson_id = data.get("lesson_id")
+                if lesson_id:
+                    result = asyncio.run(brain_service.RunCurriculumLesson(lesson_id))
+                    self.send_json(result)
+                else:
+                    self.send_json({"success": False, "message": "lesson_id required"}, status=400)
 
             # HOPE API POST Endpoints
             elif self.path.startswith("/api/hope/"):

@@ -12,6 +12,7 @@
   - **Hybrid Architectures:** Fused SSM and Sliding-Window Attention for efficient long-context edge reasoning.
   - **VQ-VAE:** Used for latent tokenization of visual data on accelerators.
   - **Context Graphs:** Hybrid symbolic/dense retrieval system bridging RLDS/CMS and the HOPE planner.
+  - **Brain Tools:** Pluggable capability modules (Calculator, Wikipedia, FileSystem) with standardized interfaces.
 - **Edge Acceleration:**
   - **Hailo-8L / Coral Edge TPU:** Support for dedicated NPU/TPU offloading.
   - **XNNPACK:** Optimized CPU inference for ARM (Pi 5).
@@ -20,6 +21,7 @@
 - **Graph & Context:**
   - **SQLite:** Persistent storage for the context graph (nodes, edges).
   - **NetworkX:** In-memory graph traversal and analysis.
+  - **Visualization:** D3.js for graph rendering, Server-Sent Events (SSE) for real-time cognitive streams.
 
 ## Spatial & Mobile Interfaces (The Shells)
 - **Android XR:** 

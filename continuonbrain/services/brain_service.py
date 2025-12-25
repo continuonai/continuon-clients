@@ -328,6 +328,7 @@ class BrainService:
         self.stream_helper = VideoStreamHelper(self)
         self.safety_client = SafetyKernelClient()
         self.state_aggregator = StateAggregator()
+        self.state_aggregator.set_event_queue(self.chat_event_queue)
         self.tool_registry = create_default_registry()
         self.curriculum_manager = CurriculumManager(self, self.state_aggregator) # Added
         
@@ -1109,8 +1110,9 @@ class BrainService:
     async def CallBrainTool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a Brain Tool and log the invocation."""
         try:
-            self.state_aggregator.push_thought(f"Invoking tool: {name}({args})", source="tool")
+            # self.state_aggregator.push_thought(f"Invoking tool: {name}({args})", source="tool")
             result = await self.tool_registry.call(name, **args)
+            self.state_aggregator.push_tool_use(name, args, result)
             self.state_aggregator.push_thought(f"Tool {name} result: {result}", source="tool")
             return {"success": True, "result": result}
         except Exception as e:
@@ -1652,6 +1654,8 @@ class BrainService:
                     if self.hope_brain is not None and (now - last["cms"] >= cms_every):
                         try:
                             _pause_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Slow")
                             result = self.hope_brain.compact_memory()
                             actions["cms_compact"] = {"ok": True, "result": result, "timestamp": now}
                             logger.info(f"CMS compaction completed: {result}")
@@ -1660,6 +1664,8 @@ class BrainService:
                             logger.warning(f"CMS compaction failed: {exc}")
                         finally:
                             _resume_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Fast")
                         last["cms"] = now
 
                     # 2) Evals (bounded; offline-first)
@@ -1667,6 +1673,8 @@ class BrainService:
                     if (now - last["hope_eval"] >= hope_every):
                         try:
                             _pause_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Mid")
                             # Run async method in sync loop
                             asyncio.run(self.RunHopeEval({"rlds_dir": str(Path(self.config_dir) / "rlds" / "episodes"), "use_fallback": True}))
                             actions["hope_eval"] = {"ok": True}
@@ -1674,18 +1682,24 @@ class BrainService:
                             actions["hope_eval"] = {"ok": False, "error": str(exc)}
                         finally:
                             _resume_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Fast")
                         last["hope_eval"] = now
 
                     facts_every = int(orch.get("facts_eval_every_s", 3600) or 3600)
                     if (now - last["facts_eval"] >= facts_every):
                         try:
                             _pause_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Mid")
                             asyncio.run(self.RunFactsEval({"rlds_dir": str(Path(self.config_dir) / "rlds" / "episodes"), "use_fallback": True}))
                             actions["facts_eval"] = {"ok": True}
                         except Exception as exc:
                             actions["facts_eval"] = {"ok": False, "error": str(exc)}
                         finally:
                             _resume_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Fast")
                         last["facts_eval"] = now
 
                     # 3) WaveCore (SSM-ish/JAX seed loops)
@@ -1696,6 +1710,8 @@ class BrainService:
                     elif res.level not in (ResourceLevel.CRITICAL,) and (now - last["wavecore"] >= wave_every):
                         try:
                             _pause_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Slow")
                             fast_steps = int(orch.get("wavecore_steps_fast", 60) or 60)
                             mid_steps = int(orch.get("wavecore_steps_mid", 120) or 120)
                             slow_steps = int(orch.get("wavecore_steps_slow", 180) or 180)
@@ -1717,6 +1733,8 @@ class BrainService:
                             actions["wavecore"] = {"ok": False, "error": str(exc)}
                         finally:
                             _resume_bg()
+                            if self.state_aggregator:
+                                self.state_aggregator.update_loop("Fast")
                         last["wavecore"] = now
 
                     # 4) Tool-router refresh
@@ -2004,6 +2022,13 @@ class BrainService:
                             "ok": True
                         }
                     }
+                    
+                    if self.resource_monitor:
+                        res = self.resource_monitor.check_resources()
+                        payload["status"]["resources"] = res.to_dict()
+                        if self.state_aggregator:
+                            self.state_aggregator.push_metrics(res.to_dict())
+                            
                     self.chat_event_queue.put(payload)
                 except Exception as e:
                     logger.error(f"Status pulse error: {e}")

@@ -15,7 +15,8 @@ To build a platform that decouples general robot intelligence from hardware, ena
 4.  **Unified Discovery & Role-Based Orchestration:** Seamless robot discovery across CLI and mobile apps with integrated Role-Based Access Control (RBAC). The Companion app automatically adapts its interface (Creator vs. Consumer) to expose training, model management, and system context tools.
 5.  **Deterministic Safety Kernel (Ring 0):** A dedicated, high-priority safety process that enforces physical laws and safety rules independently of the primary AI brain.
 6.  **Context-Aware Memory (Context Graphs):** Implementation of a Wave–Particle bridge that fuses symbolic graphs (goals, tools, entities) with dense embeddings (decay-aware state), enabling the planner to retrieve situation-relevant subgraphs for decision-making.
-7.  **Brain Studio Cognition Dashboard:** Real-time visualization of the robot's internal reasoning, HOPE loop states, and an autonomous skill-teaching curriculum.
+7.  **Brain Studio Cognition Dashboard:** Real-time visualization of the robot's internal reasoning ("Thought Stream"), HOPE loop states, and tool usage logs.
+8.  **Autonomous Skill Acquisition:** A modular "Brain Tool" framework (Calculator, Wikipedia, FileSystem) combined with an autonomous curriculum manager that validates capability acquisition through self-administered lessons.
 
 ## Synchronization & Cloud Integration
 - **Operational Autonomy:** The robot operates fully autonomously on the edge.

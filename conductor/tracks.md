@@ -4,7 +4,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Brain Visualization Dashboard & Skill-Teaching Roadmap
+## [x] Track: Brain Visualization Dashboard & Skill-Teaching Roadmap
 
 *Link: [./conductor/tracks/brain_viz_skills_20251219/](./conductor/tracks/brain_viz_skills_20251219/)*
 

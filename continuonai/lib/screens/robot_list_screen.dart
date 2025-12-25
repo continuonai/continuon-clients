@@ -198,7 +198,7 @@ class _RobotListScreenState extends State<RobotListScreen> {
       // 100% Consistent Nav: No screen-specific actions in Top Bar
       body: Column(
         children: [
-          _buildStatusBanner(),
+        // _buildStatusBanner(),
           _buildActionRow(),
           _buildManualConnectSection(),
           Expanded(
