@@ -344,8 +344,8 @@ body {
 
 .column {
     min-height: 100%;
-    overflow: hidden;
-    /* Prevent spillover */
+    overflow-y: auto;
+    /* Allow scrolling */
 }
 
 /* Column mapping to Grid Areas */
