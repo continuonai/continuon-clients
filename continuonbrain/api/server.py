@@ -1555,7 +1555,9 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 if "://" not in host:
                     host = f"http://{host}"
                 session = brain_service.pairing.start(base_url=host)
-                self.send_json(session.__dict__)
+                payload = session.__dict__.copy()
+                payload["url"] = session.url  # Include computed property
+                self.send_json(payload)
 
             elif self.path == "/api/ownership/pair/confirm":
                 data = json.loads(body) if body else {}
