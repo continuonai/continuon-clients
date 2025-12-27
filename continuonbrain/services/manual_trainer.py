@@ -75,10 +75,23 @@ class ManualTrainer:
                 metrics_path=metrics_path,
             )
 
+            # Sanitize result for JSON serialization (convert non-serializable objects)
+            def _sanitize(obj):
+                if hasattr(obj, '__dataclass_fields__'):
+                    return {k: _sanitize(v) for k, v in asdict(obj).items()}
+                elif isinstance(obj, dict):
+                    return {k: _sanitize(v) for k, v in obj.items()}
+                elif isinstance(obj, (list, tuple)):
+                    return [_sanitize(v) for v in obj]
+                elif isinstance(obj, Path):
+                    return str(obj)
+                return obj
+            
+            sanitized_result = _sanitize(result)
             payload = {
                 "status": "ok",
                 "request": asdict(request),
-                "result": result,
+                "result": sanitized_result,
                 "metrics_path": str(metrics_path),
                 "rlds_dir": str(rlds_dir),
             }

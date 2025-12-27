@@ -1531,7 +1531,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 result = asyncio.run(brain_service.RunSymbolicSearch(data))
                 self.send_json(result)
 
-            elif self.path == "/api/waves/loops":
+            elif self.path == "/api/waves/loops" or self.path == "/api/training/wavecore_loops":
                 data = json.loads(body) if body else {}
                 result = asyncio.run(brain_service.RunWavecoreLoops(data))
                 self.send_json(result)
@@ -1652,7 +1652,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
         self.send_header("Content-type", "application/json")
         self._send_cors_headers()
         self.end_headers()
-        self.wfile.write(json.dumps(data).encode("utf-8"))
+        self.wfile.write(json.dumps(data, default=str).encode("utf-8"))
 
     def handle_single_frame(self):
         if not brain_service.camera:

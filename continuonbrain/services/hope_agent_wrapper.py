@@ -15,7 +15,16 @@ class HOPEAgentWrapper:
         self.model_name = "hope-v1"
         self.device = getattr(llm_chat, "device", "cpu")
         
-    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None) -> str:
+    def chat(self, message: str, system_context: Optional[str] = None, image: Any = None, history: list = None) -> str:
+        """
+        Chat with HOPE agent, with optional history for multi-turn conversations.
+        
+        Args:
+            message: User's message
+            system_context: Optional system context
+            image: Optional image for vision processing
+            history: Optional conversation history (list of dicts with 'role' and 'content')
+        """
         # Check if HOPE should answer
         can_answer, confidence = self.hope.can_answer(message)
         

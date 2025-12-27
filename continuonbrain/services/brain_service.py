@@ -1920,11 +1920,16 @@ class BrainService:
         # Load Gemma Model
         print("Loading Gemma Chat Model...")
         self.log_system_event("Loading Gemma Chat Model weights (this may take a few seconds)...")
-        loaded = self.gemma_chat.load_model()
-        if not loaded:
-            self.log_system_event("❌ Gemma load failed. Starting fallback ladder.")
-            logger.warning("Gemma load failed; trying fallback ladder (4B -> 270M -> mock).")
+        if self.gemma_chat is None:
+            self.log_system_event("⚠️ No chat backend available. Using fallback ladder.")
+            logger.warning("No chat backend available; trying fallback ladder (4B -> 270M -> mock).")
             self._build_chat_with_fallback()
+        else:
+            loaded = self.gemma_chat.load_model()
+            if not loaded:
+                self.log_system_event("❌ Gemma load failed. Starting fallback ladder.")
+                logger.warning("Gemma load failed; trying fallback ladder (4B -> 270M -> mock).")
+                self._build_chat_with_fallback()
 
 
         # Initialize recorder and hardware

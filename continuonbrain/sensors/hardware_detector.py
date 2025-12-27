@@ -58,8 +58,7 @@ class HardwareDetector:
         self._detect_environment()
         
         system = self.platform_info["os"]
-        print(f"Scanning for hardware devices on {system} ({self.platform_info.get('distro', 'Generic')})...
-")
+        print(f"Scanning for hardware devices on {system} ({self.platform_info.get('distro', 'Generic')})...")
         
         # Cross-platform USB detection
         self.detect_usb_devices()
@@ -380,6 +379,17 @@ class HardwareDetector:
             json.dump(config, f, indent=2)
         print(f"💾 Configuration saved to: {out}")
         return out
+
+    def print_summary(self):
+        """Print a human-readable summary of detected hardware."""
+        print("\n📋 Hardware Detection Summary:")
+        print("-" * 40)
+        for device in self.detected_devices:
+            status = "✅" if not device.is_mock else "🔧 (mock)"
+            print(f"  {status} {device.name} ({device.device_type})")
+        if not self.detected_devices:
+            print("  No devices detected")
+        print("-" * 40)
 
 
 def main():
