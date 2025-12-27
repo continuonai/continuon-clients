@@ -12,8 +12,9 @@ import platform
 import threading
 import psutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any, Callable
 from enum import Enum
+from dataclasses import dataclass, field
 
 from continuonbrain.system_health import SystemHealthChecker, HealthStatus
 from continuonbrain.robot_modes import RobotModeManager, RobotMode
@@ -22,6 +23,172 @@ from continuonbrain.system_context import SystemContext
 from continuonbrain.system_instructions import SystemInstructions
 from continuonbrain.agent_identity import AgentIdentity
 from continuonbrain.system_events import SystemEventLogger
+
+
+@dataclass
+class ServiceDefinition:
+    """
+    Declarative definition of a service to be launched at startup.
+    
+    Attributes:
+        name: Human-readable service name
+        module: Python module path (e.g., "continuonbrain.api.server")
+        enabled: Whether this service should be started
+        priority: Startup order (lower = earlier)
+        log_file: Optional log file path (relative to config_dir/logs)
+        log_mode: "text" or "binary" for log file handling
+        args: Additional command-line arguments
+        env_vars: Additional environment variables
+        stdout: Where to redirect stdout (file handle, DEVNULL, or None)
+        stderr: Where to redirect stderr (file handle, DEVNULL, or None)
+        watch_exit: If True, monitor process exit and trigger system restart
+        condition: Optional callable that returns True if service should start
+    """
+    name: str
+    module: str
+    enabled: bool = True
+    priority: int = 100
+    log_file: Optional[str] = None
+    log_mode: str = "text"  # "text" or "binary"
+    args: List[str] = field(default_factory=list)
+    env_vars: Dict[str, str] = field(default_factory=dict)
+    stdout: Any = None  # file handle, subprocess.DEVNULL, or None
+    stderr: Any = None  # file handle, subprocess.DEVNULL, or None
+    watch_exit: bool = False
+    condition: Optional[Callable[[], bool]] = None
+
+
+class ServiceRegistry:
+    """
+    Registry for managing service definitions and their lifecycle.
+    Provides a declarative way to define and launch brain modules at boot.
+    """
+    
+    def __init__(self, config_dir: Path, repo_root: Path, python_exec: str, base_env: Dict[str, str]):
+        self.config_dir = config_dir
+        self.repo_root = repo_root
+        self.python_exec = python_exec
+        self.base_env = base_env
+        self.services: List[ServiceDefinition] = []
+        self.processes: Dict[str, subprocess.Popen] = {}
+        self.log_handles: Dict[str, Any] = {}
+    
+    def register(self, service: ServiceDefinition):
+        """Register a service definition."""
+        self.services.append(service)
+    
+    def get_enabled_services(self) -> List[ServiceDefinition]:
+        """Get all enabled services, sorted by priority."""
+        enabled = [s for s in self.services if s.enabled]
+        # Apply conditions
+        enabled = [s for s in enabled if s.condition is None or s.condition()]
+        return sorted(enabled, key=lambda s: s.priority)
+    
+    def start_service(self, service: ServiceDefinition) -> Optional[subprocess.Popen]:
+        """
+        Start a single service based on its definition.
+        
+        Returns:
+            subprocess.Popen if started successfully, None otherwise
+        """
+        print(f"🚀 Starting {service.name}...")
+        
+        # Prepare command
+        cmd = [self.python_exec, "-m", service.module] + service.args
+        
+        # Prepare environment
+        env = {**self.base_env, **service.env_vars}
+        
+        # Prepare log file if specified
+        stdout_handle = service.stdout
+        stderr_handle = service.stderr
+        
+        if service.log_file:
+            log_dir = self.config_dir / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            log_path = log_dir / service.log_file
+            
+            if service.log_mode == "binary":
+                log_fh = log_path.open("ab")
+                # Write header
+                try:
+                    header = f"\n=== {service.name} start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                    log_fh.write(header.encode("utf-8", errors="replace"))
+                except Exception:
+                    pass
+            else:
+                log_fh = log_path.open("a", buffering=1)
+                log_fh.write(f"\n=== {service.name} start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+            
+            self.log_handles[service.name] = log_fh
+            stdout_handle = log_fh
+            stderr_handle = log_fh
+        
+        # Default to DEVNULL if not specified
+        if stdout_handle is None:
+            stdout_handle = subprocess.DEVNULL
+        if stderr_handle is None:
+            stderr_handle = subprocess.DEVNULL
+        
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                env=env,
+                stdout=stdout_handle,
+                stderr=stderr_handle,
+            )
+            print(f"   {service.name} started with PID {proc.pid}")
+            self.processes[service.name] = proc
+            
+            # Setup exit watcher if requested
+            if service.watch_exit:
+                def _watch_child(proc: subprocess.Popen, name: str) -> None:
+                    code = proc.wait()
+                    try:
+                        if name in self.log_handles:
+                            log_fh = self.log_handles[name]
+                            if service.log_mode == "binary":
+                                msg = f"\n=== {name} exited code={{code}} at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+                                log_fh.write(msg.encode("utf-8", errors="replace"))
+                            else:
+                                log_fh.write(f"\n=== {name} exited code={{code}} at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                            log_fh.flush()
+                    except Exception:
+                        pass
+                    # If a watched service dies, force a non-zero exit so systemd restarts the whole startup sequence.
+                    os._exit(1)  # noqa: WPS437
+                
+                threading.Thread(target=_watch_child, args=(proc, service.name), daemon=True).start()
+            
+            return proc
+        except Exception as e:
+            print(f"   ⚠️  Failed to start {service.name}: {{e}}")
+            if service.name in self.log_handles:
+                try:
+                    self.log_handles[service.name].close()
+                except Exception:
+                    pass
+                del self.log_handles[service.name]
+            return None
+    
+    def start_all(self):
+        """Start all enabled services in priority order."""
+        services = self.get_enabled_services()
+        for service in services:
+            self.start_service(service)
+    
+    def get_process(self, name: str) -> Optional[subprocess.Popen]:
+        """Get a process by service name."""
+        return self.processes.get(name)
+    
+    def close_log_handles(self):
+        """Close all log file handles."""
+        for name, handle in self.log_handles.items():
+            try:
+                handle.close()
+            except Exception:
+                pass
+        self.log_handles.clear()
 
 
 class StartupMode(Enum):
@@ -72,13 +239,14 @@ class StartupManager:
         # Services
         self.discovery_service: Optional[LANDiscoveryService] = None
         self.mode_manager: Optional[RobotModeManager] = None
-        self.safety_kernel_process: Optional[subprocess.Popen] = None # Added
+        self.safety_kernel_process: Optional[subprocess.Popen] = None
         self.robot_api_process: Optional[subprocess.Popen] = None
         self._robot_api_log_fh = None
         self.wiki_curiosity_process: Optional[subprocess.Popen] = None
         self._wiki_curiosity_log_fh = None
         self.system_instructions: Optional[SystemInstructions] = None
         self.event_logger = SystemEventLogger(config_dir=str(self.config_dir))
+        self._service_registry: Optional[ServiceRegistry] = None
     
     @staticmethod
     def _env_flag(name: str, default: bool = False) -> bool:
@@ -151,7 +319,7 @@ class StartupManager:
             try:
                 pid = int(self.lock_file.read_text().strip())
                 if psutil.pid_exists(pid):
-                    print(f"❌ StartupManager is already running (PID: {pid})")
+                    print(f"❌ StartupManager is already running (PID: {{pid}})")
                     return False
             except Exception:
                 pass
@@ -198,7 +366,7 @@ class StartupManager:
             overall_status, results = checker.run_all_checks(quick_mode=quick_mode)
             
             # Save health report
-            report_path = self.config_dir / "logs" / f"health_{int(time.time())}.json"
+            report_path = self.config_dir / "logs" / f"health_{{int(time.time())}}.json"
             report_path.parent.mkdir(parents=True, exist_ok=True)
             checker.save_report(str(report_path))
             
@@ -235,7 +403,7 @@ class StartupManager:
         
         if resource_status.level.value in ['critical', 'emergency']:
             print("⚠️  WARNING: Low memory detected")
-            print(f"  {resource_status.message}")
+            print(f"  {{resource_status.message}}")
             print("  Services will run in resource-constrained mode")
         print()
         
@@ -277,13 +445,10 @@ class StartupManager:
         return True
     
     def _start_services(self):
-        """Start robot services (discovery, API server, mode manager)."""
+        """Start robot services using ServiceRegistry pattern."""
         import sys
         from pathlib import Path
         
-        # 0. Start Safety Kernel (Ring 0)
-        self._start_safety_kernel()
-
         # Choose service port (fallback if 8080 is busy)
         port = self._find_available_port(preferred=self.service_port)
         if port is None:
@@ -292,7 +457,95 @@ class StartupManager:
             return
         self.service_port = port
 
-        # Start LAN discovery for iPhone/web browser
+        # Setup base environment
+        repo_root = Path(__file__).parent.parent
+        env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
+        env["PYTHONUNBUFFERED"] = "1"
+
+        instructions_path = SystemContext.get_persist_path()
+        if instructions_path:
+            env["CONTINUON_SYSTEM_INSTRUCTIONS_PATH"] = str(instructions_path)
+
+        if self.headless:
+            env.setdefault("CONTINUON_PREFER_JAX", "1")
+
+        venv_python = repo_root / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python3")
+        python_exec = str(venv_python) if venv_python.exists() else sys.executable
+        env["CONTINUON_PYTHON"] = python_exec
+
+        # Initialize ServiceRegistry
+        registry = ServiceRegistry(
+            config_dir=self.config_dir,
+            repo_root=repo_root,
+            python_exec=python_exec,
+            base_env=env
+        )
+
+        # Register services in priority order
+        # Priority 0: Safety Kernel (Ring 0)
+        registry.register(ServiceDefinition(
+            name="Safety Kernel",
+            module="continuonbrain.kernel.safety_kernel",
+            priority=0,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+        ))
+
+        # Priority 10: Robot API Server (Unified Brain Server)
+        robot_api_args = ["--config-dir", str(self.config_dir), "--port", str(self.service_port)]
+        registry.register(ServiceDefinition(
+            name="Unified Brain Server",
+            module="continuonbrain.api.server",
+            priority=10,
+            log_file="robot_api_server.log",
+            log_mode="text",
+            args=robot_api_args,
+            watch_exit=True,  # Critical service - restart on exit
+        ))
+
+        # Priority 20: Background Trainer (optional)
+        registry.register(ServiceDefinition(
+            name="Nested Learning Sidecar",
+            module="continuonbrain.run_trainer",
+            enabled=self.enable_background_trainer,
+            priority=20,
+            args=["--trainer", "auto", "--mode", "local"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            condition=lambda: (repo_root / "continuonbrain" / "run_trainer.py").exists(),
+        ))
+
+        # Priority 30: Wiki Curiosity (optional)
+        registry.register(ServiceDefinition(
+            name="Wiki Curiosity",
+            module="continuonbrain.eval.wiki_curiosity_boot",
+            enabled=self.enable_wiki_curiosity and bool(self.wiki_jsonl),
+            priority=30,
+            log_file="wiki_curiosity.log",
+            log_mode="binary",
+            args=["--config-dir", str(self.config_dir)],
+            condition=lambda: bool(self.wiki_jsonl),
+        ))
+
+        # Start all registered services
+        registry.start_all()
+
+        # Store process references for shutdown and status
+        self.safety_kernel_process = registry.get_process("Safety Kernel")
+        self.robot_api_process = registry.get_process("Unified Brain Server")
+        self.trainer_process = registry.get_process("Nested Learning Sidecar")
+        self.wiki_curiosity_process = registry.get_process("Wiki Curiosity")
+        
+        # Store log handles for status reporting
+        if "Unified Brain Server" in registry.log_handles:
+            self._robot_api_log_fh = registry.log_handles["Unified Brain Server"]
+        if "Wiki Curiosity" in registry.log_handles:
+            self._wiki_curiosity_log_fh = registry.log_handles["Wiki Curiosity"]
+        
+        # Store registry for shutdown
+        self._service_registry = registry
+
+        # Start LAN discovery for iPhone/web browser (not a subprocess service)
         print(f"📡 Starting LAN discovery on port {self.service_port}...")
         self.discovery_service = LANDiscoveryService(
             robot_name=self.robot_name,
@@ -300,7 +553,7 @@ class StartupManager:
         )
         self.discovery_service.start()
         
-        # Initialize mode manager
+        # Initialize mode manager (not a subprocess service)
         print("🎮 Initializing mode manager...")
         self.mode_manager = RobotModeManager(
             config_dir=str(self.config_dir),
@@ -318,133 +571,11 @@ class StartupManager:
             }
         )
         
-        # Start Robot API server (Unified Brain Server)
-        print(f"🌐 Starting Unified Brain Server on port {self.service_port}...")
-        try:
-            repo_root = Path(__file__).parent.parent
-            
-            # Setup environment
-            env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
-            env["PYTHONUNBUFFERED"] = "1"
-
-            instructions_path = SystemContext.get_persist_path()
-            if instructions_path:
-                env["CONTINUON_SYSTEM_INSTRUCTIONS_PATH"] = str(instructions_path)
-
-            if self.headless:
-                env.setdefault("CONTINUON_PREFER_JAX", "1")
-
-            venv_python = repo_root / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python3")
-            python_exec = str(venv_python) if venv_python.exists() else sys.executable
-            env["CONTINUON_PYTHON"] = python_exec
-
-            # Capture child process logs
-            log_dir = self.config_dir / "logs"
-            log_dir.mkdir(parents=True, exist_ok=True)
-            robot_log_path = log_dir / "robot_api_server.log"
-            self._robot_api_log_fh = robot_log_path.open("a", buffering=1)
-            self._robot_api_log_fh.write(f"\n=== robot_api_server start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-
-            # Launch Unified Brain Server
-            server_module = "continuonbrain.api.server"
-            server_path = self._resolve_module_path(server_module)
-            
-            if server_path:
-                print(f"🚀 Starting Unified Brain Server ({server_module})...")
-                
-                cmd = [python_exec, "-m", server_module]
-                if self.config_dir:
-                    cmd.extend(["--config-dir", str(self.config_dir)])
-                cmd.extend(["--port", str(self.service_port)])
-                
-                if self.headless:
-                     # Pass preferences if args allowed, or env vars are enough
-                     pass
-
-                try:
-                    self.robot_api_process = subprocess.Popen(
-                        cmd,
-                        env=env,
-                        stdout=self._robot_api_log_fh,
-                        stderr=self._robot_api_log_fh,
-                    )
-                    print(f"   Server started with PID {self.robot_api_process.pid}")
-                except Exception as e:
-                    print(f"   Failed to start server: {e}")
-                    raise
-                
-                def _watch_child(proc: subprocess.Popen) -> None:
-                    code = proc.wait()
-                    try:
-                        if self._robot_api_log_fh:
-                            self._robot_api_log_fh.write(f"\n=== robot_api_server exited code={code} at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-                            self._robot_api_log_fh.flush()
-                    except Exception:
-                        pass
-                    # If the API server dies, force a non-zero exit so systemd restarts the whole startup sequence.
-                    os._exit(1)  # noqa: WPS437
-
-                threading.Thread(target=_watch_child, args=(self.robot_api_process,), daemon=True).start()
-                
-                # Start Nested Learning Sidecar (optional for Pi5; disabled via env)
-                if self.enable_background_trainer:
-                    print("🧠 Starting Nested Learning Sidecar...")
-                    trainer_path = repo_root / "continuonbrain" / "run_trainer.py"
-                    if trainer_path.exists():
-                        self.trainer_process = subprocess.Popen(
-                            [python_exec, "-m", "continuonbrain.run_trainer", "--trainer", "auto", "--mode", "local"],
-                            env=env,
-                            stdout=subprocess.DEVNULL,  # Keep console clean
-                            stderr=subprocess.DEVNULL
-                        )
-                        print(f"   Sidecar Trainer started (PID: {self.trainer_process.pid})")
-                    else:
-                        print(f"   ⚠️ Trainer script not found: {trainer_path}")
-                else:
-                    print("🧠 Background trainer disabled (CONTINUON_ENABLE_BACKGROUND_TRAINER=0)")
-
-                # Optional wiki curiosity sidecar (offline-first; bounded; non-fatal)
-                if self.enable_wiki_curiosity and self.wiki_jsonl:
-                    try:
-                        logs_dir = self.config_dir / "logs"
-                        logs_dir.mkdir(parents=True, exist_ok=True)
-                        wiki_log_path = logs_dir / "wiki_curiosity.log"
-                        # Subprocess stdout/stderr writes bytes to file descriptors; use binary mode.
-                        self._wiki_curiosity_log_fh = wiki_log_path.open("ab")
-                        try:
-                            header = f"\n=== wiki_curiosity start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
-                            self._wiki_curiosity_log_fh.write(header.encode("utf-8", errors="replace"))
-                        except Exception:
-                            pass
-                        print("📚 Starting Wiki Curiosity (offline) sidecar...")
-                        self.wiki_curiosity_process = subprocess.Popen(
-                            [python_exec, "-m", "continuonbrain.eval.wiki_curiosity_boot", "--config-dir", str(self.config_dir)],
-                            env=env,
-                            stdout=self._wiki_curiosity_log_fh,
-                            stderr=self._wiki_curiosity_log_fh,
-                        )
-                        print(f"   Wiki curiosity started (PID: {self.wiki_curiosity_process.pid})")
-                    except Exception as exc:  # noqa: BLE001
-                        print(f"   ⚠️ Wiki curiosity sidecar failed to start: {exc}")
-                        try:
-                            if self._wiki_curiosity_log_fh:
-                                self._wiki_curiosity_log_fh.close()
-                        except Exception:
-                            pass
-                        self._wiki_curiosity_log_fh = None
-                else:
-                    print("📚 Wiki curiosity disabled (set CONTINUON_WIKI_JSONL and CONTINUON_ENABLE_WIKI_CURIOSITY=1 to enable)")
-
-            else:
-                print(f"   ⚠️  Robot API module not found: {server_path}")
-        except Exception as e:
-            print(f"   ⚠️  Could not start Robot API: {e}")
-        
         print()
         print("=" * 60)
         print("📱 Robot Ready for Control")
         print("=" * 60)
-        print(f"🌐 Open in browser: http://{self.discovery_service.get_robot_info()['ip_address']}:{self.service_port}/ui")
+        print(f"🌐 Open in browser: http://{{self.discovery_service.get_robot_info()['ip_address']}}:{self.service_port}/ui")
         print("📱 Or find '{0}' on iPhone app".format(self.robot_name))
         print()
         print("Available modes:")
@@ -463,28 +594,6 @@ class StartupManager:
         # Launch UI if configured
         self.launch_ui()
 
-    def _start_safety_kernel(self):
-        """Launch the Ring 0 Safety Kernel process."""
-        print("🛡️  Starting Safety Kernel (Ring 0)...")
-        repo_root = Path(__file__).parent.parent
-        env = {**subprocess.os.environ, "PYTHONPATH": str(repo_root)}
-        
-        venv_python = repo_root / ".venv" / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python3")
-        python_exec = str(venv_python) if venv_python.exists() else sys.executable
-        
-        cmd = [python_exec, "-m", "continuonbrain.kernel.safety_kernel"]
-        
-        try:
-            self.safety_kernel_process = subprocess.Popen(
-                cmd,
-                env=env,
-                stdout=subprocess.DEVNULL, # Keep kernel logs separate if needed
-                stderr=subprocess.STDOUT
-            )
-            print(f"   Safety Kernel started (PID: {self.safety_kernel_process.pid})")
-        except Exception as e:
-            print(f"   ⚠️  Failed to start Safety Kernel: {e}")
-
     def launch_ui(self):
         """Launch the web UI in the default browser if configured."""
         import webbrowser
@@ -500,11 +609,11 @@ class StartupManager:
                     config = json.load(f)
                     auto_launch = config.get("auto_launch", True)
             except Exception as e:
-                print(f"⚠️  Could not read UI config: {e}")
+                print(f"⚠️  Could not read UI config: {{e}}")
         
         if auto_launch:
-            url = f"http://{self.discovery_service.get_robot_info()['ip_address']}:{self.service_port}/ui"
-            print(f"🌐 Launching UI: {url}")
+            url = f"http://{{self.discovery_service.get_robot_info()['ip_address']}}:{self.service_port}/ui"
+            print(f"🌐 Launching UI: {{url}}")
             
             # Try to launch known browsers with flags to avoid keyring prompts
             browser_cmd = None
@@ -514,12 +623,8 @@ class StartupManager:
                     break
             
             if browser_cmd:
-                print(f"   Using browser: {browser_cmd} (with --password-store=basic)")
+                print(f"   Using browser: {{browser_cmd}} (with --password-store=basic)")
                 try:
-                    # Use a temp user data dir to avoid locking main profile and further suppress prompts
-                    # user_data_dir = f"/tmp/continuon_browser_{int(time.time())}"
-                    # os.makedirs(user_data_dir, exist_ok=True)
-                    
                     cmd = [
                         browser_cmd, 
                         "--kiosk",
@@ -530,7 +635,6 @@ class StartupManager:
                         "--disable-infobars",
                         "--check-for-update-interval=31536000",
                         "--simulated-keyring",
-                        # "--user-data-dir=" + user_data_dir, # Optional: isolate session
                         url
                     ]
                     
@@ -546,14 +650,14 @@ class StartupManager:
                     )
                     return
                 except Exception as e:
-                    print(f"   ⚠️  Failed to launch {browser_cmd}: {e}")
+                    print(f"   ⚠️  Failed to launch {{browser_cmd}}: {{e}}")
             
             # Fallback to standard webbrowser module
             print("   Using default system browser...")
             try:
                 webbrowser.open(url)
             except Exception as e:
-                print(f"⚠️  Could not launch browser: {e}")
+                print(f"⚠️  Could not launch browser: {{e}}")
         else:
             print("ℹ️  UI auto-launch disabled in config")
     
@@ -572,53 +676,46 @@ class StartupManager:
         if self.discovery_service:
             self.discovery_service.stop()
         
-        # Stop Safety Kernel
-        if self.safety_kernel_process:
-            print("🛑 Stopping Safety Kernel...")
-            self.safety_kernel_process.terminate()
-            try:
-                self.safety_kernel_process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                self.safety_kernel_process.kill()
-
-        # Stop Robot API server
-        if hasattr(self, 'robot_api_process') and self.robot_api_process:
-            self.robot_api_process.terminate()
-            try:
-                self.robot_api_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.robot_api_process.kill()
-        try:
-            if self._robot_api_log_fh:
-                self._robot_api_log_fh.close()
-        except Exception:
-            pass
-        
-        if hasattr(self, 'trainer_process') and self.trainer_process:
-            self.trainer_process.terminate()
-            try:
-                self.trainer_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.trainer_process.kill()
-
-        # Stop Wiki curiosity sidecar (if started)
-        if getattr(self, "wiki_curiosity_process", None):
-            try:
-                self.wiki_curiosity_process.terminate()
-                self.wiki_curiosity_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                try:
-                    self.wiki_curiosity_process.kill()
-                except Exception:
-                    pass
-            except Exception:
-                pass
-        try:
-            if getattr(self, "_wiki_curiosity_log_fh", None):
-                self._wiki_curiosity_log_fh.close()
-        except Exception:
-            pass
-        self._wiki_curiosity_log_fh = None
+        # Stop all services via registry if available
+        if self._service_registry:
+            registry = self._service_registry
+            
+            # Stop processes in reverse priority order
+            services = sorted(registry.services, key=lambda s: s.priority, reverse=True)
+            for service in services:
+                proc = registry.get_process(service.name)
+                if proc:
+                    print(f"🛑 Stopping {service.name}...")
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                    except Exception:
+                        pass
+            
+            # Close all log handles
+            registry.close_log_handles()
+        else:
+            # Fallback: stop known processes directly if registry not available
+            for proc_attr in ['safety_kernel_process', 'robot_api_process', 'trainer_process', 'wiki_curiosity_process']:
+                proc = getattr(self, proc_attr, None)
+                if proc:
+                    print(f"🛑 Stopping {proc_attr}...")
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+            
+            # Close log handles manually
+            for log_attr in ['_robot_api_log_fh', '_wiki_curiosity_log_fh']:
+                log_fh = getattr(self, log_attr, None)
+                if log_fh:
+                    try:
+                        log_fh.close()
+                    except Exception:
+                        pass
         
         print("✅ Services stopped.")
     
@@ -632,11 +729,6 @@ class StartupManager:
         """
         Prepare system for sleep mode.
         Optionally starts self-training on saved memories.
-
-        Args:
-            enable_learning: If True, robot will self-train during sleep
-            max_sleep_training_hours: Wall-clock ceiling for sleep training.
-            max_download_bytes: Download budget for model/assets during training.
         """
         print("💤 Preparing for sleep...")
         
@@ -699,13 +791,13 @@ class StartupManager:
 
             print("🛡️  Safety protocol loaded (base rules cannot be overridden):")
             for rule in self.system_instructions.safety_protocol.rules:
-                print(f"  - {rule}")
+                print(f"  - {{rule}}")
 
             print("📜 System instructions:")
             for instruction in self.system_instructions.instructions:
-                print(f"  - {instruction}")
+                print(f"  - {{instruction}}")
         except Exception as exc:
-            raise RuntimeError(f"Failed to load system instructions: {exc}") from exc
+            raise RuntimeError(f"Failed to load system instructions: {{exc}}") from exc
     
     def record_crash(self, error: str):
         """
@@ -727,7 +819,7 @@ class StartupManager:
         try:
             self.event_logger.log(event_type, message, data or {})
         except Exception as exc:  # Best-effort; never block startup
-            print(f"⚠️  Could not log event '{event_type}': {exc}")
+            print(f"⚠️  Could not log event '{{event_type}}': {{exc}}")
 
     def _find_available_port(self, preferred: int = 8080, max_tries: int = 6) -> Optional[int]:
         """Pick the first open TCP port starting at preferred."""
@@ -743,9 +835,6 @@ class StartupManager:
     def _check_battery_lvc(self) -> bool:
         """
         Check battery voltage for Low Voltage Cutoff (LVC).
-        
-        Returns:
-            True if battery voltage is safe (> 9.9V), False if emergency shutdown needed
         """
         try:
             from continuonbrain.sensors.battery_monitor import BatteryMonitor
@@ -762,25 +851,25 @@ class StartupManager:
             
             # Emergency shutdown threshold: < 9.9V (3.3V/cell)
             if voltage_v < 9.9:
-                print(f"❌ CRITICAL: Battery voltage {voltage_v:.2f}V < 9.9V (3.3V/cell)")
+                print(f"❌ CRITICAL: Battery voltage {{voltage_v:.2f}}V < 9.9V (3.3V/cell)")
                 print("   Emergency shutdown required to protect battery")
                 self._log_event(
                     "battery_lvc_shutdown",
-                    f"Emergency shutdown due to low voltage: {voltage_v:.2f}V",
+                    f"Emergency shutdown due to low voltage: {{voltage_v:.2f}}V",
                     {"voltage_v": voltage_v, "threshold_v": 9.9}
                 )
                 return False
             
             # Warning threshold: < 10.5V (3.5V/cell)
             if voltage_v < 10.5:
-                print(f"⚠️  WARNING: Battery voltage {voltage_v:.2f}V < 10.5V (3.5V/cell)")
+                print(f"⚠️  WARNING: Battery voltage {{voltage_v:.2f}}V < 10.5V (3.5V/cell)")
                 print("   Battery is low but safe to continue")
             
             return True
             
         except Exception as e:
             # If battery check fails, allow startup (fail-safe)
-            print(f"⚠️  Battery LVC check failed: {e}")
+            print(f"⚠️  Battery LVC check failed: {{e}}")
             print("   Allowing startup (may be tethered power)")
             return True
     

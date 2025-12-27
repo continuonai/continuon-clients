@@ -65,4 +65,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [x] Track: Repository-Wide TODO Review
 *Link: [./conductor/tracks/todo_review_20251225/](./conductor/tracks/todo_review_20251225/)*
 
+---
+
+## [x] Track: End-to-End Test & Entry Point Optimization
+*Link: [./conductor/tracks/e2e_test_optimization_20251226/](./conductor/tracks/e2e_test_optimization_20251226/)*
+
 

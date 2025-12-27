@@ -3,6 +3,7 @@
 ## Edge Runtime (The Brain)
 - **Language:** Python 3.11+
 - **Unified Entry Points:** `startup_manager.py` (system boot/HAL/API) and `run_trainer.py` (multi-backend training).
+- **Process Management:** Declarative `ServiceRegistry` for orchestrating background services (API, Safety Kernel, Trainer) with prioritized startup and robust teardown.
 - **Deep Learning Frameworks:** 
   - **JAX:** Primary for high-performance training and inference loops (WaveCore).
   - **PyTorch/Transformers:** Used for model development, certain LLM hooks, and the sequential training orchestrator.
@@ -21,6 +22,7 @@
 - **Hardware Interaction:** CircuitPython (adafruit-servokit), smbus2, and lgpio for Raspberry Pi 5 hardware/servo control.
 - **Safety Enforcement:** Ring 0 Safety Kernel (Python) using Unix Sockets (Linux) or TCP (Windows) for IPC and a "Constitution" for deterministic kinematic and health validation.
 - **Process & Lifecycle:** `psutil` for instance locking and platform-agnostic process monitoring.
+- **Testing:** `pytest` (Unit/Integration) and `playwright` (End-to-End Browser Automation) for full-stack verification.
 - **Authentication & Security:**
   - **Firebase Auth:** JWT-based identity management and token verification.
   - **RBAC:** Role-Based Access Control (Creator, Developer, Consumer) enforced via middleware.

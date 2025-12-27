@@ -79,6 +79,25 @@ This video from François Chollet explains exactly why "scaling" (more data) won
 
 ## Build & CI Status
 
+## Testing
+
+ContinuonXR uses a multi-layered testing strategy to ensure reliability across the stack.
+
+### Unit & Integration Tests
+* **Brain Runtime**: `pytest continuonbrain/tests`
+* **XR App**: `./gradlew :apps:continuonxr:testDebugUnitTest`
+* **Companion App**: `flutter test`
+
+### End-to-End (E2E) Smoke Tests
+The E2E suite verifies the full integration of the Brain Runtime, API Server, and Web UI. It is designed to run on development machines using Mock Hardware.
+
+See [TESTING_E2E.md](TESTING_E2E.md) for detailed instructions on setting up and running the E2E tests.
+
+```bash
+# Quick run (requires playwright and requests)
+pytest tests/e2e/test_full_stack_smoke.py -s
+```
+
 ---
 
 ## Scoped Contributor Guidance

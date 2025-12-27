@@ -21,6 +21,7 @@ To build a platform that decouples general robot intelligence from hardware, ena
 ## Synchronization & Cloud Integration
 - **Operational Autonomy:** The robot operates fully autonomously on the edge.
 - **Data Ingestion:** Users maintain control by manually triggering the upload of RLDS episodes to the cloud.
+- **Full-Stack Verification:** Comprehensive end-to-end testing of the Brain runtime, API, and Web UI ensuring system-wide stability before deployment.
 - **Lifecycle Management:** Model updates and system improvements are automatically pulled and installed when the device is docked or charging.
 
 ## Hardware Support (Shells)

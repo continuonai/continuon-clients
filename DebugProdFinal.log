@@ -1,8 +1,0 @@
-[2025-12-05 14:00:10.058] [depthai] [warning] skipping X_LINK_BOOTED device having name "2.1"
-[2025-12-05 14:00:10.058] [depthai] [warning] skipping X_LINK_BOOTED device having name "2.1"
-WARNING:continuonbrain.gemma_chat:HUGGINGFACE_TOKEN not set - gated models will not be accessible
-Traceback (most recent call last):
-  File "/home/craigm26/ContinuonXR/continuonbrain/sensors/oak_depth.py", line 156, in start
-    self.pipeline.start()
-    ~~~~~~~~~~~~~~~~~~~^^
-RuntimeError: Node with id 5 is already running. Cannot start it again. Node name: XLinkInHost
