@@ -1,0 +1,196 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  🧠 CONTINUONBRAIN 4-HOUR AUTONOMOUS TRAINING SESSION                    ║
+║  Training + CMS Compaction + Chat Validation                             ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║  • WaveCore loops every 10 minutes                                       ║
+║  • CMS compaction after each training cycle                              ║
+║  • JAX training between WaveCore runs                                    ║
+║  • Chat validation every 30 minutes                                      ║
+║  • Total duration: 4 hours                                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+✅ Server connected
+
+[09:05:30] session_start: {"start": "2025-12-27T09:05:30.758520", "end": "2025-12-27T13:05:30.758520"}...
+
+======================================================================
+  CYCLE 1 | Elapsed: 0.00h | Remaining: 4.00h
+======================================================================
+
+  📊 Memory: 0.0% used
+
+  🌊 WaveCore Training...
+     FAST: 12 steps, loss=0.0130
+     MID: 24 steps, loss=0.0057
+     SLOW: 32 steps, loss=0.0098
+[09:06:46] wavecore: {"fast": {"loop": "fast", "request": {"name": "fast", "rlds_dir": null, "use_synthetic": false, "max...
+
+  📦 CMS Compaction...
+     ✅ Compacted: ['Col0:compacted']
+[09:06:46] cms_compact: {"success": true, "result": ["Col0:compacted"]}...
+
+  🧠 Memory Consolidation...
+     ✅ Merged: 0, Total: 0
+[09:06:46] consolidation: {"success": true, "stats": {"merged": 0, "removed": 0, "total_after": 0, "status": "complete"}}...
+
+  🌟 HOPE Energy: 0.0000
+[09:06:46] hope_state: {"topology": {"type": "HOPE_CORTEX", "columns": [{"id": "col_0", "levels": 1, "input_dim": 10, "late...
+
+  📈 Cycle Summary:
+     Total steps this session: 68
+     Recent avg loss: 0.0095
+     Validations completed: 0
+
+  💤 Waiting 524s until next cycle...
+
+======================================================================
+  CYCLE 2 | Elapsed: 0.17h | Remaining: 3.83h
+======================================================================
+
+  📊 Memory: 0.0% used
+
+  🌊 WaveCore Training...
+     FAST: 12 steps, loss=0.0130
+     MID: 24 steps, loss=0.0057
+     SLOW: 32 steps, loss=0.0098
+[09:16:18] wavecore: {"fast": {"loop": "fast", "request": {"name": "fast", "rlds_dir": null, "use_synthetic": false, "max...
+
+  📦 CMS Compaction...
+     ✅ Compacted: ['Col0:compacted']
+[09:16:18] cms_compact: {"success": true, "result": ["Col0:compacted"]}...
+
+  🧠 Memory Consolidation...
+     ✅ Merged: 0, Total: 0
+[09:16:18] consolidation: {"success": true, "stats": {"merged": 0, "removed": 0, "total_after": 0, "status": "complete"}}...
+
+  ⚡ JAX Training...
+     ✅ 35 steps, loss=1.4823
+[09:16:31] jax_training: {"status": "ok", "request": {"rlds_dir": null, "use_synthetic": true, "max_steps": 35, "batch_size":...
+
+  🌟 HOPE Energy: 0.0000
+[09:16:31] hope_state: {"topology": {"type": "HOPE_CORTEX", "columns": [{"id": "col_0", "levels": 1, "input_dim": 10, "late...
+
+  📈 Cycle Summary:
+     Total steps this session: 171
+     Recent avg loss: 0.2199
+     Validations completed: 0
+
+  💤 Waiting 539s until next cycle...
+
+======================================================================
+  CYCLE 3 | Elapsed: 0.33h | Remaining: 3.67h
+======================================================================
+
+  📊 Memory: 0.0% used
+
+  🌊 WaveCore Training...
+     FAST: 12 steps, loss=0.0130
+     MID: 24 steps, loss=0.0057
+     SLOW: 32 steps, loss=0.0098
+[09:26:17] wavecore: {"fast": {"loop": "fast", "request": {"name": "fast", "rlds_dir": null, "use_synthetic": false, "max...
+
+  📦 CMS Compaction...
+     ✅ Compacted: ['Col0:compacted']
+[09:26:17] cms_compact: {"success": true, "result": ["Col0:compacted"]}...
+
+  🧠 Memory Consolidation...
+     ✅ Merged: 0, Total: 0
+[09:26:17] consolidation: {"success": true, "stats": {"merged": 0, "removed": 0, "total_after": 0, "status": "complete"}}...
+
+  💬 Chat Validation: Describe how you perceive and categorize objects i...
+     ⚠️  Chat: timeout
+[09:33:11] chat_error: {"status": "ok", "session_id": "validation_1766856377", "turns": 2, "results": [{"response": "[Surpr...
+
+  🌟 HOPE Energy: 0.0000
+[09:33:11] hope_state: {"topology": {"type": "HOPE_CORTEX", "columns": [{"id": "col_0", "levels": 1, "input_dim": 10, "late...
+
+  📈 Cycle Summary:
+     Total steps this session: 239
+     Recent avg loss: 0.1568
+     Validations completed: 1
+
+  💤 Waiting 139s until next cycle...
+
+======================================================================
+  CYCLE 4 | Elapsed: 0.50h | Remaining: 3.50h
+======================================================================
+
+  📊 Memory: 0.0% used
+
+  🌊 WaveCore Training...
+     FAST: 12 steps, loss=0.0130
+     MID: 24 steps, loss=0.0057
+     SLOW: 32 steps, loss=0.0098
+[09:36:19] wavecore: {"fast": {"loop": "fast", "request": {"name": "fast", "rlds_dir": null, "use_synthetic": false, "max...
+
+  📦 CMS Compaction...
+     ✅ Compacted: ['Col0:compacted']
+[09:36:19] cms_compact: {"success": true, "result": ["Col0:compacted"]}...
+
+  🧠 Memory Consolidation...
+     ✅ Merged: 0, Total: 2
+[09:36:19] consolidation: {"success": true, "stats": {"merged": 0, "removed": 0, "total_after": 2, "status": "complete"}}...
+
+  ⚡ JAX Training...
+     ✅ 25 steps, loss=0.8328
+[09:36:32] jax_training: {"status": "ok", "request": {"rlds_dir": null, "use_synthetic": true, "max_steps": 25, "batch_size":...
+
+  🌟 HOPE Energy: 0.0000
+[09:36:32] hope_state: {"topology": {"type": "HOPE_CORTEX", "columns": [{"id": "col_0", "levels": 1, "input_dim": 10, "late...
+
+  📈 Cycle Summary:
+     Total steps this session: 332
+     Recent avg loss: 0.2388
+     Validations completed: 1
+
+  💤 Waiting 539s until next cycle...
+
+======================================================================
+  CYCLE 5 | Elapsed: 0.67h | Remaining: 3.33h
+======================================================================
+
+  📊 Memory: 0.0% used
+
+  🌊 WaveCore Training...
+     FAST: 12 steps, loss=0.0130
+     MID: 24 steps, loss=0.0057
+     SLOW: 32 steps, loss=0.0098
+[09:46:20] wavecore: {"fast": {"loop": "fast", "request": {"name": "fast", "rlds_dir": null, "use_synthetic": false, "max...
+
+  📦 CMS Compaction...
+     ✅ Compacted: ['Col0:compacted']
+[09:46:20] cms_compact: {"success": true, "result": ["Col0:compacted"]}...
+
+  🧠 Memory Consolidation...
+     ✅ Merged: 0, Total: 2
+[09:46:20] consolidation: {"success": true, "stats": {"merged": 0, "removed": 0, "total_after": 2, "status": "complete"}}...
+
+  🌟 HOPE Energy: 0.0000
+[09:46:20] hope_state: {"topology": {"type": "HOPE_CORTEX", "columns": [{"id": "col_0", "levels": 1, "input_dim": 10, "late...
+
+  📈 Cycle Summary:
+     Total steps this session: 400
+     Recent avg loss: 0.0918
+     Validations completed: 1
+
+  💤 Waiting 551s until next cycle...
+
+======================================================================
+  CYCLE 6 | Elapsed: 0.83h | Remaining: 3.17h
+======================================================================
+
+  📊 Memory: 0.0% used
+
+  🌊 WaveCore Training...
+     FAST: 12 steps, loss=0.0130
+     MID: 24 steps, loss=0.0057
+     SLOW: 32 steps, loss=0.0098
+[09:56:33] wavecore: {"fast": {"loop": "fast", "request": {"name": "fast", "rlds_dir": null, "use_synthetic": false, "max...
+
+  📦 CMS Compaction...
+     ✅ Compacted: ['Col0:compacted']
+[09:56:34] cms_compact: {"success": true, "result": ["Col0:compacted"]}...
+
+  🧠 Memory Consolidation...
+     ✅ Merged: 0, Total: 2
