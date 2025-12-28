@@ -193,24 +193,130 @@ class HardwareDetector:
             pass
 
     def _parse_usb_device(self, vid: str, pid: str, name: str, address: str):
-        # OAK cameras (Luxonis)
+        """Parse USB device and identify known inference-capable hardware."""
+        
+        # OAK cameras (Luxonis) - VID 03e7 is Movidius/Intel Myriad
         if vid == '03e7':
-            device_name = "OAK-D Lite" if "MyriadX" in name else "OAK Camera"
+            # Identify specific OAK model by PID
+            oak_models = {
+                '2485': ('OAK-D', ['rgb', 'depth', 'stereo', 'ai', 'spatial_ai']),
+                'f63b': ('OAK-D Lite', ['rgb', 'depth', 'stereo', 'ai']),
+                'f63c': ('OAK-D Pro', ['rgb', 'depth', 'stereo', 'ai', 'ir_flood', 'ir_dot']),
+                'f63d': ('OAK-D S2', ['rgb', 'depth', 'stereo', 'ai', 'poe']),
+                'f63e': ('OAK-D Pro W', ['rgb', 'depth', 'stereo', 'ai', 'wide_fov', 'ir_flood']),
+                'f63f': ('OAK-D LR', ['rgb', 'depth', 'stereo', 'ai', 'long_range']),
+                '2150': ('OAK-1', ['rgb', 'ai']),
+                'f64a': ('OAK-1 Lite', ['rgb', 'ai']),
+            }
+            model_info = oak_models.get(pid, ('OAK Camera', ['rgb', 'depth', 'ai']))
+            device_name, capabilities = model_info
+            
             self.detected_devices.append(HardwareDevice(
                 device_type="depth_camera", name=device_name, vendor="Luxonis",
-                interface="usb3", address=address, capabilities=["rgb", "depth", "stereo", "ai"],
-                config={"vendor_id": vid, "product_id": pid, "driver": "depthai", "hailo_offload": self.hailo_offload_enabled}
+                interface="usb3", address=address, capabilities=capabilities,
+                config={
+                    "vendor_id": vid, "product_id": pid, "driver": "depthai", 
+                    "hailo_offload": self.hailo_offload_enabled,
+                    "inference_capable": True,
+                    "onboard_vpu": "Myriad X",
+                    "recommended_tasks": ["object_detection", "depth_estimation", "pose_estimation", "segmentation"]
+                }
+            ))
+            print(f"✅ Found: {device_name} (USB) - Onboard VPU: Myriad X")
+        
+        # Intel RealSense cameras
+        elif vid == '8086':
+            realsense_models = {
+                '0b07': ('RealSense D435', ['rgb', 'depth', 'stereo']),
+                '0b5c': ('RealSense D435i', ['rgb', 'depth', 'stereo', 'imu']),
+                '0b3a': ('RealSense D415', ['rgb', 'depth', 'stereo']),
+                '0af6': ('RealSense D435', ['rgb', 'depth', 'stereo']),
+                '0b64': ('RealSense D455', ['rgb', 'depth', 'stereo', 'imu', 'wide_baseline']),
+                '0ade': ('RealSense D405', ['rgb', 'depth', 'stereo', 'close_range']),
+                '0aba': ('RealSense L515', ['rgb', 'depth', 'lidar', 'imu']),
+                '0b55': ('RealSense T265', ['stereo', 'imu', 'slam', 'tracking']),
+            }
+            if 'RealSense' in name or pid in realsense_models:
+                model_info = realsense_models.get(pid, ('RealSense', ['rgb', 'depth']))
+                device_name, capabilities = model_info
+                self.detected_devices.append(HardwareDevice(
+                    device_type="depth_camera", name=device_name, vendor="Intel",
+                    interface="usb3", address=address, capabilities=capabilities,
+                    config={
+                        "vendor_id": vid, "product_id": pid, "driver": "librealsense2",
+                        "inference_capable": False,
+                        "recommended_tasks": ["depth_estimation", "slam", "3d_reconstruction"]
+                    }
+                ))
+                print(f"✅ Found: {device_name} (USB)")
+        
+        # Google Coral USB Accelerator (VID 1a6e or 18d1)
+        elif vid in ('1a6e', '18d1') and ('Coral' in name or 'Edge TPU' in name or pid in ('089a', '9302')):
+            self.detected_devices.append(HardwareDevice(
+                device_type="ai_accelerator", name="Google Coral USB", vendor="Google",
+                interface="usb3", address=address, capabilities=["ai", "inference", "tpu", "edge_tpu"],
+                config={
+                    "vendor_id": vid, "product_id": pid, "driver": "pycoral",
+                    "inference_capable": True,
+                    "accelerator_type": "Edge TPU",
+                    "tops": 4.0,  # 4 TOPS
+                    "recommended_tasks": ["object_detection", "classification", "pose_estimation"]
+                }
+            ))
+            print(f"✅ Found: Google Coral USB Accelerator (4 TOPS)")
+        
+        # Intel Neural Compute Stick 2 (NCS2) - VID 03e7 with specific PIDs
+        elif vid == '03e7' and pid in ('2485', '2150'):
+            # Already handled by OAK detection above, but standalone NCS2 check
+            pass
+        
+        # Intel Movidius Neural Compute Stick (original)
+        elif vid == '03e7' and pid == '2150':
+            self.detected_devices.append(HardwareDevice(
+                device_type="ai_accelerator", name="Intel NCS2", vendor="Intel",
+                interface="usb3", address=address, capabilities=["ai", "inference", "vpu"],
+                config={
+                    "vendor_id": vid, "product_id": pid, "driver": "openvino",
+                    "inference_capable": True,
+                    "accelerator_type": "Myriad X VPU",
+                    "recommended_tasks": ["object_detection", "classification"]
+                }
+            ))
+            print(f"✅ Found: Intel Neural Compute Stick 2")
+        
+        # Stereolabs ZED cameras
+        elif vid == '2b03':
+            zed_models = {
+                'f580': ('ZED', ['rgb', 'depth', 'stereo']),
+                'f582': ('ZED 2', ['rgb', 'depth', 'stereo', 'imu', 'barometer']),
+                'f583': ('ZED Mini', ['rgb', 'depth', 'stereo', 'imu']),
+                'f681': ('ZED 2i', ['rgb', 'depth', 'stereo', 'imu', 'ip65']),
+                'f780': ('ZED X', ['rgb', 'depth', 'stereo', 'imu', 'gmsl2']),
+            }
+            model_info = zed_models.get(pid, ('ZED Camera', ['rgb', 'depth', 'stereo']))
+            device_name, capabilities = model_info
+            self.detected_devices.append(HardwareDevice(
+                device_type="depth_camera", name=device_name, vendor="Stereolabs",
+                interface="usb3", address=address, capabilities=capabilities,
+                config={
+                    "vendor_id": vid, "product_id": pid, "driver": "pyzed",
+                    "inference_capable": False,
+                    "recommended_tasks": ["depth_estimation", "slam", "3d_reconstruction", "positional_tracking"]
+                }
             ))
             print(f"✅ Found: {device_name} (USB)")
         
-        # Intel RealSense
-        elif vid == '8086' and 'RealSense' in name:
+        # Orbbec depth cameras
+        elif vid == '2bc5':
             self.detected_devices.append(HardwareDevice(
-                device_type="depth_camera", name="RealSense", vendor="Intel",
-                interface="usb3", address=address, capabilities=["rgb", "depth", "imu"],
-                config={"vendor_id": vid, "product_id": pid, "driver": "librealsense2"}
+                device_type="depth_camera", name="Orbbec Camera", vendor="Orbbec",
+                interface="usb3", address=address, capabilities=["rgb", "depth", "stereo"],
+                config={
+                    "vendor_id": vid, "product_id": pid, "driver": "pyorbbecsdk",
+                    "recommended_tasks": ["depth_estimation", "3d_scanning"]
+                }
             ))
-            print(f"✅ Found: Intel RealSense (USB)")
+            print(f"✅ Found: Orbbec Depth Camera (USB)")
 
     def detect_i2c_devices(self):
         """Linux-only I2C scan."""
@@ -290,15 +396,160 @@ class HardwareDetector:
         except Exception: pass
 
     def detect_accelerators_linux(self):
+        """Detect PCIe/M.2 AI accelerators on Linux."""
+        self._detect_hailo_accelerator()
+        self._detect_coral_pcie()
+        self._detect_nvidia_gpu()
+    
+    def _detect_hailo_accelerator(self):
+        """Detect Hailo-8/8L PCIe accelerator with detailed info."""
+        hailo_found = False
+        hailo_info = {"driver": "hailo_platform"}
+        
+        # Check via lspci
         try:
-            res = subprocess.run(['lspci'], capture_output=True, text=True)
-            if res.returncode == 0 and 'hailo' in res.stdout.lower():
-                self.detected_devices.append(HardwareDevice(
-                    device_type="ai_accelerator", name="Hailo-8", vendor="Hailo",
-                    interface="pcie", capabilities=["ai", "inference"], config={"driver": "hailo_platform"}
-                ))
-                print("✅ Found: Hailo-8 AI Accelerator")
-        except Exception: pass
+            import shutil
+            if shutil.which('lspci'):
+                res = subprocess.run(['lspci', '-nn'], capture_output=True, text=True)
+                if res.returncode == 0:
+                    for line in res.stdout.lower().split('\n'):
+                        if 'hailo' in line:
+                            hailo_found = True
+                            # Extract device info
+                            if 'hailo-8l' in line or '1e60:2864' in line:
+                                hailo_info["model"] = "Hailo-8L"
+                                hailo_info["tops"] = 13.0
+                            else:
+                                hailo_info["model"] = "Hailo-8"
+                                hailo_info["tops"] = 26.0
+                            # Extract PCI address
+                            pci_addr = line.split()[0] if line else None
+                            hailo_info["pci_address"] = pci_addr
+                            break
+        except Exception:
+            pass
+        
+        # Check via /dev/hailo*
+        if not hailo_found:
+            try:
+                hailo_devs = list(Path("/dev").glob("hailo*"))
+                if hailo_devs:
+                    hailo_found = True
+                    hailo_info["device_path"] = str(hailo_devs[0])
+            except Exception:
+                pass
+        
+        # Check Hailo Runtime status via hailortcli
+        if hailo_found:
+            try:
+                import shutil
+                if shutil.which('hailortcli'):
+                    res = subprocess.run(['hailortcli', 'fw-control', 'identify'], 
+                                        capture_output=True, text=True, timeout=5)
+                    if res.returncode == 0:
+                        hailo_info["runtime_status"] = "active"
+                        # Parse firmware version if available
+                        for line in res.stdout.split('\n'):
+                            if 'firmware' in line.lower():
+                                hailo_info["firmware_version"] = line.split(':')[-1].strip()
+                            if 'device' in line.lower() and 'architecture' in line.lower():
+                                if '8l' in line.lower():
+                                    hailo_info["model"] = "Hailo-8L"
+                                    hailo_info["tops"] = 13.0
+            except Exception:
+                hailo_info["runtime_status"] = "driver_loaded"
+        
+        if hailo_found:
+            model_name = hailo_info.get("model", "Hailo-8")
+            tops = hailo_info.get("tops", 26.0)
+            
+            self.detected_devices.append(HardwareDevice(
+                device_type="ai_accelerator", name=model_name, vendor="Hailo",
+                interface="pcie", address=hailo_info.get("pci_address"),
+                capabilities=["ai", "inference", "npu", "object_detection", "segmentation", "pose"],
+                config={
+                    **hailo_info,
+                    "inference_capable": True,
+                    "accelerator_type": "NPU",
+                    "hef_support": True,
+                    "recommended_tasks": [
+                        "object_detection", "pose_estimation", "semantic_segmentation",
+                        "instance_segmentation", "face_detection", "license_plate_recognition"
+                    ]
+                }
+            ))
+            print(f"✅ Found: {model_name} AI Accelerator ({tops} TOPS) - PCIe")
+    
+    def _detect_coral_pcie(self):
+        """Detect Google Coral PCIe/M.2 accelerator."""
+        try:
+            import shutil
+            if not shutil.which('lspci'):
+                return
+            
+            res = subprocess.run(['lspci', '-nn'], capture_output=True, text=True)
+            if res.returncode == 0:
+                for line in res.stdout.lower().split('\n'):
+                    # Coral PCIe uses Global Unichip Corp vendor ID
+                    if '1ac1:089a' in line or 'coral' in line or 'edge tpu' in line:
+                        pci_addr = line.split()[0] if line else None
+                        self.detected_devices.append(HardwareDevice(
+                            device_type="ai_accelerator", name="Google Coral PCIe/M.2", vendor="Google",
+                            interface="pcie", address=pci_addr,
+                            capabilities=["ai", "inference", "tpu", "edge_tpu"],
+                            config={
+                                "driver": "gasket",
+                                "inference_capable": True,
+                                "accelerator_type": "Edge TPU",
+                                "tops": 4.0,
+                                "recommended_tasks": ["object_detection", "classification", "pose_estimation"]
+                            }
+                        ))
+                        print("✅ Found: Google Coral PCIe/M.2 Accelerator (4 TOPS)")
+                        break
+        except Exception:
+            pass
+    
+    def _detect_nvidia_gpu(self):
+        """Detect NVIDIA GPUs for CUDA inference."""
+        try:
+            import shutil
+            if not shutil.which('nvidia-smi'):
+                return
+            
+            res = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,driver_version', 
+                                 '--format=csv,noheader,nounits'], 
+                                capture_output=True, text=True, timeout=10)
+            if res.returncode == 0:
+                for line in res.stdout.strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    parts = [p.strip() for p in line.split(',')]
+                    if len(parts) >= 3:
+                        gpu_name, vram_mb, driver_ver = parts[0], parts[1], parts[2]
+                        try:
+                            vram_gb = float(vram_mb) / 1024
+                        except ValueError:
+                            vram_gb = 0
+                        
+                        self.detected_devices.append(HardwareDevice(
+                            device_type="gpu", name=gpu_name, vendor="NVIDIA",
+                            interface="pcie", capabilities=["cuda", "ai", "inference", "training"],
+                            config={
+                                "driver_version": driver_ver,
+                                "vram_gb": round(vram_gb, 1),
+                                "inference_capable": True,
+                                "training_capable": True,
+                                "accelerator_type": "CUDA GPU",
+                                "recommended_tasks": [
+                                    "object_detection", "llm_inference", "image_generation",
+                                    "training", "fine_tuning", "video_processing"
+                                ]
+                            }
+                        ))
+                        print(f"✅ Found: {gpu_name} ({vram_gb:.1f}GB VRAM) - CUDA GPU")
+        except Exception:
+            pass
 
     def detect_hats(self):
         try:
@@ -382,21 +633,181 @@ class HardwareDetector:
 
     def print_summary(self):
         """Print a human-readable summary of detected hardware."""
-        print("\n📋 Hardware Detection Summary:")
-        print("-" * 40)
+        print("\n" + "=" * 60)
+        print("📋 Hardware Detection Summary")
+        print("=" * 60)
+        
+        # Group by device type
+        by_type = {}
         for device in self.detected_devices:
-            status = "✅" if not device.is_mock else "🔧 (mock)"
-            print(f"  {status} {device.name} ({device.device_type})")
+            dtype = device.device_type
+            if dtype not in by_type:
+                by_type[dtype] = []
+            by_type[dtype].append(device)
+        
+        # Display order
+        type_order = ["gpu", "ai_accelerator", "depth_camera", "camera", "servo_controller", "imu", "hat", "human_interface"]
+        type_labels = {
+            "gpu": "🎮 GPUs",
+            "ai_accelerator": "🧠 AI Accelerators",
+            "depth_camera": "📷 Depth Cameras",
+            "camera": "📹 Cameras",
+            "servo_controller": "🦾 Servo Controllers",
+            "imu": "🧭 IMU Sensors",
+            "hat": "🎩 HATs/Add-ons",
+            "human_interface": "⌨️ Input Devices"
+        }
+        
+        for dtype in type_order:
+            if dtype in by_type:
+                print(f"\n{type_labels.get(dtype, dtype)}:")
+                for device in by_type[dtype]:
+                    status = "✅" if not device.is_mock else "🔧 MOCK"
+                    caps = ", ".join(device.capabilities[:4]) if device.capabilities else ""
+                    tops = device.config.get("tops", "")
+                    tops_str = f" [{tops} TOPS]" if tops else ""
+                    vram = device.config.get("vram_gb", "")
+                    vram_str = f" [{vram}GB VRAM]" if vram else ""
+                    print(f"  {status} {device.name} ({device.vendor}){tops_str}{vram_str}")
+                    if caps:
+                        print(f"      Capabilities: {caps}")
+        
+        # Show devices not in order
+        for dtype, devices in by_type.items():
+            if dtype not in type_order:
+                print(f"\n{dtype}:")
+                for device in devices:
+                    print(f"  ✅ {device.name}")
+        
         if not self.detected_devices:
-            print("  No devices detected")
-        print("-" * 40)
+            print("  ⚠️ No devices detected")
+        
+        print("\n" + "=" * 60)
+    
+    def get_inference_recommendations(self) -> Dict[str, Any]:
+        """Analyze detected hardware and recommend optimal inference configuration."""
+        recommendations = {
+            "primary_accelerator": None,
+            "depth_camera": None,
+            "inference_capable": False,
+            "recommended_backend": "cpu",
+            "supported_tasks": [],
+            "configuration": {}
+        }
+        
+        # Find best AI accelerator
+        accelerators = [d for d in self.detected_devices if d.device_type in ("ai_accelerator", "gpu")]
+        depth_cameras = [d for d in self.detected_devices if d.device_type == "depth_camera"]
+        
+        # Priority: NVIDIA GPU > Hailo-8 > Hailo-8L > Coral > OAK VPU
+        for acc in accelerators:
+            if acc.vendor == "NVIDIA":
+                recommendations["primary_accelerator"] = acc.name
+                recommendations["recommended_backend"] = "cuda"
+                recommendations["inference_capable"] = True
+                recommendations["configuration"]["cuda_device"] = 0
+                recommendations["supported_tasks"] = acc.config.get("recommended_tasks", [])
+                break
+            elif acc.name in ("Hailo-8", "Hailo-8L"):
+                recommendations["primary_accelerator"] = acc.name
+                recommendations["recommended_backend"] = "hailo"
+                recommendations["inference_capable"] = True
+                recommendations["configuration"]["hailo_device"] = acc.config.get("device_path", "/dev/hailo0")
+                recommendations["configuration"]["hef_path"] = "/opt/continuonos/brain/models/hailo"
+                recommendations["supported_tasks"] = acc.config.get("recommended_tasks", [])
+                break
+            elif "Coral" in acc.name:
+                recommendations["primary_accelerator"] = acc.name
+                recommendations["recommended_backend"] = "edgetpu"
+                recommendations["inference_capable"] = True
+                recommendations["supported_tasks"] = acc.config.get("recommended_tasks", [])
+                break
+        
+        # If no dedicated accelerator, check for OAK camera with onboard VPU
+        if not recommendations["primary_accelerator"]:
+            for cam in depth_cameras:
+                if cam.vendor == "Luxonis" and cam.config.get("onboard_vpu"):
+                    recommendations["primary_accelerator"] = f"{cam.name} (onboard VPU)"
+                    recommendations["recommended_backend"] = "depthai"
+                    recommendations["inference_capable"] = True
+                    recommendations["supported_tasks"] = cam.config.get("recommended_tasks", [])
+                    break
+        
+        # Set depth camera
+        if depth_cameras:
+            real_cams = [c for c in depth_cameras if not c.is_mock]
+            if real_cams:
+                recommendations["depth_camera"] = real_cams[0].name
+                recommendations["configuration"]["depth_driver"] = real_cams[0].config.get("driver")
+        
+        # Fallback to CPU
+        if not recommendations["inference_capable"]:
+            recommendations["recommended_backend"] = "cpu"
+            recommendations["supported_tasks"] = ["object_detection", "classification"]
+            recommendations["configuration"]["warning"] = "No AI accelerator detected - using CPU inference (slower)"
+        
+        return recommendations
+    
+    def print_inference_recommendations(self):
+        """Print inference configuration recommendations."""
+        recs = self.get_inference_recommendations()
+        
+        print("\n" + "=" * 60)
+        print("🎯 Inference Configuration Recommendations")
+        print("=" * 60)
+        
+        if recs["inference_capable"]:
+            print(f"  ✅ Hardware acceleration available!")
+            print(f"  Primary Accelerator: {recs['primary_accelerator']}")
+            print(f"  Recommended Backend: {recs['recommended_backend'].upper()}")
+        else:
+            print("  ⚠️ No AI accelerator detected")
+            print("  Fallback: CPU inference (will be slower)")
+        
+        if recs["depth_camera"]:
+            print(f"  Depth Camera: {recs['depth_camera']}")
+        
+        if recs["supported_tasks"]:
+            print(f"\n  Supported Tasks:")
+            for task in recs["supported_tasks"][:6]:
+                print(f"    • {task.replace('_', ' ').title()}")
+        
+        if recs["configuration"]:
+            print(f"\n  Configuration:")
+            for key, val in recs["configuration"].items():
+                if key != "warning":
+                    print(f"    {key}: {val}")
+            if "warning" in recs["configuration"]:
+                print(f"\n  ⚠️ {recs['configuration']['warning']}")
+        
+        print("=" * 60)
 
 
 def main():
+    """Run hardware detection and print comprehensive report."""
+    print("\n🔍 ContinuonBrain Hardware Auto-Detection")
+    print("Scanning for inference-capable accessories...\n")
+    
     detector = HardwareDetector()
-    detector.detect_all()
+    detector.detect_all(auto_install=False)
+    
+    # Print summaries
+    detector.print_summary()
+    detector.print_inference_recommendations()
+    
+    # Save config
     config = detector.generate_config()
-    print(json.dumps(config, indent=2))
+    config["inference"] = detector.get_inference_recommendations()
+    
+    output_path = "/tmp/hardware_config.json"
+    detector.save_config(output_path)
+    
+    # Also print JSON if verbose
+    if os.environ.get("VERBOSE", "0") == "1":
+        print("\n📄 Full Configuration (JSON):")
+        print(json.dumps(config, indent=2))
+    
+    return detector
 
 
 if __name__ == "__main__":

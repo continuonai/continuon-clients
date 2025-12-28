@@ -844,3 +844,9 @@
 [2025-12-27 00:10:34.788] [77295] [HailoRT] [info] [queue_elements.cpp:46] [~BaseQueueElement] Queue element PushQEl3yolov8s/input_layer1 has 0 frames in his Queue on destruction
 [2025-12-27 00:10:34.788] [77295] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.492682 ms
 [2025-12-27 00:10:34.788] [77295] [HailoRT] [info] [core_op.cpp:186] [deactivate] Deactivating took 0.510125 ms
+[2025-12-28 08:03:35.043] [143065] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-28 08:03:35.048] [143065] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-28 08:03:35.048] [143065] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-28 08:13:20.688] [143873] [HailoRT] [info] [device.cpp:51] [Device] OS Version: Linux 6.12.47+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+[2025-12-28 08:13:20.688] [143873] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
+[2025-12-28 08:13:20.688] [143873] [HailoRT] [info] [control.cpp:113] [control__parse_identify_results] firmware_version is: 4.23.0
