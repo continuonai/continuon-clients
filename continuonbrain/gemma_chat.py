@@ -888,15 +888,50 @@ def build_chat_service() -> Optional[Any]:
       from continuonbrain.gemma_chat import build_chat_service
 
     Policy:
+    - MEMORY-AWARE: Automatically selects appropriate model size based on system RAM.
     - Prefer JAX/Flax Gemma when CONTINUON_PREFER_JAX=1 and the backend is available.
     - Otherwise fall back to transformers-based Gemma (local-cache first).
     - On headless targets, transformers fallback is disabled by default to keep boot light.
       Override with CONTINUON_ALLOW_TRANSFORMERS_CHAT=1.
+    
+    Memory Tiers:
+    - <4GB:  Mock or JAX CoreModel only
+    - 4-8GB: JAX CoreModel, LiteRT 270M
+    - 8-16GB: Gemma 2B models
+    - 16GB+: Full Gemma 3n 2B/4B models
     """
+    # Memory-aware model selection
+    try:
+        from continuonbrain.services.memory_aware_model_selector import (
+            get_system_memory_mb,
+            get_memory_tier,
+            select_model_for_memory,
+        )
+        total_memory_mb = get_system_memory_mb()
+        memory_tier = get_memory_tier()
+        recommended = select_model_for_memory(total_memory_mb)
+        logger.info(f"Memory-aware selection: {total_memory_mb}MB RAM ({memory_tier}) -> {recommended.name}")
+    except Exception as e:
+        logger.warning(f"Memory detection failed ({e}), using defaults")
+        total_memory_mb = 8192  # Assume 8GB
+        memory_tier = "medium"
+        recommended = None
+    
     prefer_jax = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes", "on")
     headless = os.environ.get("CONTINUON_HEADLESS", "0").lower() in ("1", "true", "yes", "on")
     allow_transformers = os.environ.get("CONTINUON_ALLOW_TRANSFORMERS_CHAT", "0").lower() in ("1", "true", "yes", "on")
     use_litert = os.environ.get("CONTINUON_USE_LITERT", "1").lower() in ("1", "true", "yes", "on") # Default enabled if avail
+
+    # Memory-based restrictions: On low-memory systems, disable heavy models
+    if memory_tier in ("tiny", "small"):
+        # < 4GB: Disable transformers, prefer JAX CoreModel or mock
+        allow_transformers = False
+        logger.info(f"Low memory ({memory_tier}): Disabling transformers models")
+    elif memory_tier == "medium":
+        # 4-8GB: Allow LiteRT/JAX but not full transformers by default
+        if not os.environ.get("CONTINUON_ALLOW_TRANSFORMERS_CHAT"):
+            allow_transformers = False
+            logger.info(f"Medium memory ({total_memory_mb}MB): Preferring lightweight models")
 
     # Best-effort accelerator detection (non-fatal).
     accelerator_device = None

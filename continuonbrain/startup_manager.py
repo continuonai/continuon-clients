@@ -335,6 +335,15 @@ class StartupManager:
         print("🚀 ContinuonBrain Startup")
         print("=" * 60)
         print(f"Startup Mode: {startup_mode.value}")
+        
+        # Memory-aware model selection info
+        try:
+            from continuonbrain.services.memory_aware_model_selector import get_memory_status
+            mem_status = get_memory_status()
+            print(f"System RAM: {mem_status['total_mb']:,}MB ({mem_status['tier'].upper()})")
+            print(f"Recommended Model: {mem_status['recommended_model']}")
+        except Exception:
+            pass  # Non-fatal if memory detection fails
         print(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         print()
 
