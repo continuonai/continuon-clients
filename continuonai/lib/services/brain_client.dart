@@ -544,6 +544,40 @@ class BrainClient {
     return {};
   }
 
+  /// Transfer ownership to another user.
+  Future<Map<String, dynamic>> transferOwnership({
+    required String host,
+    int httpPort = 8080,
+    required String newOwnerId,
+    String? newAccountId,
+    String? newAccountType,
+  }) async {
+    final uri = Uri.http('$host:$httpPort', '/api/ownership/transfer');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {
+          ..._headers(),
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'new_owner_id': newOwnerId,
+          if (newAccountId != null) 'new_account_id': newAccountId,
+          if (newAccountType != null) 'new_account_type': newAccountType,
+        }),
+      );
+      if (response.statusCode == 200) {
+        isOwned = false; // Reset local ownership state
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      debugPrint('Transfer failed: HTTP ${response.statusCode} body=${response.body}');
+      return {'success': false, 'message': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('Transfer failed: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   Future<void> sendCommand(ControlCommand command) async {
     final payload = jsonEncode(command.toJson());
     try {

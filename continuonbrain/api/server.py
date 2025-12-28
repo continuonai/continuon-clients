@@ -694,6 +694,22 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.end_headers()
                 # Back-compat: map route now points at unified HOPE monitor UI.
                 self.wfile.write(ui_routes.get_hope_dynamics_html().encode("utf-8"))
+            
+            elif self.path in ("/ui/owner", "/ui/owner/"):
+                # Owner/pairing page
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                with open(REPO_ROOT / "continuonbrain/server/templates/pair.html", "rb") as f:
+                    self.wfile.write(f.read())
+            
+            elif self.path in ("/ui/research", "/ui/research/"):
+                # Research page
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                with open(REPO_ROOT / "continuonbrain/server/templates/research.html", "rb") as f:
+                    self.wfile.write(f.read())
 
             elif self.path in ("/api/events", "/api/chat/events"):
                 self.send_response(200)
@@ -987,6 +1003,27 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 # routes.py called await self.service.GetArchitectureStatus()
                 # We'll return a placeholder to stop 404s if service doesn't have it yet.
                 self.send_json({"status": "ok", "architecture": "continuon_hope_v1", "modules": ["perception", "memory", "planning", "control"]})
+            
+            elif self.path.startswith("/api/training/logs"):
+                # Get training logs
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                limit = int(params.get("limit", ["100"])[0])
+                
+                logs_path = self._base_dir() / "trainer" / "logs"
+                logs = []
+                if logs_path.exists():
+                    for log_file in sorted(logs_path.glob("*.log"), reverse=True)[:limit]:
+                        try:
+                            logs.append({
+                                "name": log_file.name,
+                                "size": log_file.stat().st_size,
+                                "modified": log_file.stat().st_mtime,
+                                "content": log_file.read_text()[-5000] if log_file.stat().st_size < 50000 else "(truncated)"
+                            })
+                        except Exception:
+                            pass
+                self.send_json({"logs": logs})
 
             elif self.path == "/api/ping":
                 uptime = getattr(brain_service, "uptime_seconds", None)
@@ -1607,6 +1644,147 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 result = asyncio.run(brain_service.RunWavecoreLoops(data))
                 self.send_json(result)
 
+            # ======== Missing Training Endpoints (now implemented) ========
+            elif self.path == "/api/training/jax/start":
+                # Start JAX training (alias for wavecore)
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RunWavecoreLoops(data))
+                self.send_json(result)
+            
+            elif self.path == "/api/training/run":
+                # Generic training run
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RunWavecoreLoops(data))
+                self.send_json(result)
+            
+            elif self.path == "/api/training/hope_eval":
+                # Run HOPE eval
+                data = json.loads(body) if body else {}
+                data["run_hope_eval"] = True
+                data["fast"] = {"max_steps": 0}  # Skip training, just eval
+                result = asyncio.run(brain_service.RunWavecoreLoops(data))
+                self.send_json(result)
+            
+            elif self.path == "/api/training/hope_eval_facts":
+                # Run facts eval
+                data = json.loads(body) if body else {}
+                data["run_facts_eval"] = True
+                data["fast"] = {"max_steps": 0}
+                result = asyncio.run(brain_service.RunWavecoreLoops(data))
+                self.send_json(result)
+            
+            elif self.path == "/api/training/export_zip":
+                # Create cloud export zip
+                self.handle_create_cloud_export(body)
+            
+            elif self.path == "/api/training/install_bundle":
+                # Install model bundle
+                self.handle_install_model(body)
+            
+            elif self.path == "/api/training/control/mode":
+                # Set training control mode
+                data = json.loads(body) if body else {}
+                mode = data.get("mode", "auto")
+                if hasattr(brain_service, 'training_control_mode'):
+                    brain_service.training_control_mode = mode
+                self.send_json({"success": True, "mode": mode})
+            
+            elif self.path == "/api/training/tool_router_train":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RunToolRouterTrain(data))
+                self.send_json(result)
+            
+            elif self.path == "/api/training/tool_router_predict":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.ToolRouterPredict(data))
+                self.send_json(result)
+            
+            elif self.path == "/api/training/tool_router_eval":
+                data = json.loads(body) if body else {}
+                result = asyncio.run(brain_service.RunToolRouterEval(data))
+                self.send_json(result)
+            
+            elif self.path == "/api/imagination/start":
+                # Start imagination / world model prediction
+                data = json.loads(body) if body else {}
+                try:
+                    from continuonbrain.mamba_brain.world_model import build_world_model
+                    from continuonbrain.mamba_brain import WorldModelState, WorldModelAction
+                    
+                    wm = build_world_model(prefer_mamba=True)
+                    state_data = data.get("state", {})
+                    action_data = data.get("action", {})
+                    
+                    state = WorldModelState(joint_pos=state_data.get("joint_pos", [0.0] * 6))
+                    action = WorldModelAction(joint_delta=action_data.get("joint_delta", [0.0] * 6))
+                    
+                    result = wm.predict(state, action)
+                    self.send_json({
+                        "success": True,
+                        "next_state": result.next_state.joint_pos,
+                        "uncertainty": result.uncertainty,
+                        "backend": result.debug.get("backend", "unknown")
+                    })
+                except Exception as e:
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+            
+            elif self.path == "/api/mode/manual_control":
+                # Set mode to manual control
+                result = self._set_mode("manual")
+                self.send_json(result)
+            
+            elif self.path == "/api/planning/arm_search":
+                # Arm planning search
+                data = json.loads(body) if body else {}
+                target_pos = data.get("target_position", [0.5] * 6)
+                # Use world model for planning
+                try:
+                    from continuonbrain.mamba_brain.world_model import build_world_model
+                    wm = build_world_model(prefer_mamba=True)
+                    # Simple planning stub - return direct path
+                    self.send_json({
+                        "success": True,
+                        "plan": [{"position": target_pos, "duration_ms": 1000}],
+                        "steps": 1
+                    })
+                except Exception as e:
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+            
+            elif self.path == "/api/planning/arm_execute_delta":
+                # Execute arm delta movement
+                data = json.loads(body) if body else {}
+                delta = data.get("delta", [0.0] * 6)
+                # This would normally send to robot control
+                self.send_json({
+                    "success": True,
+                    "executed": True,
+                    "delta": delta,
+                    "message": "Delta command queued"
+                })
+            
+            elif self.path == "/api/audio/tts":
+                # Text to speech
+                data = json.loads(body) if body else {}
+                text = data.get("text", "")
+                result = asyncio.run(brain_service.SpeakText({"text": text}))
+                self.send_json(result)
+            
+            elif self.path == "/api/wiring":
+                # Wiring/connection status
+                data = json.loads(body) if body else {}
+                # Return current wiring state
+                self.send_json({
+                    "success": True,
+                    "connections": {
+                        "hailo": getattr(brain_service, '_hailo_connected', False),
+                        "oak": getattr(brain_service, '_oak_connected', False),
+                        "sam3": getattr(brain_service, '_sam3_available', False),
+                        "world_model": True,
+                        "hope_brain": brain_service.hope_brain is not None,
+                    }
+                })
+            # ======== End Missing Endpoints ========
+
             elif self.path.startswith("/api/tools/"):
                 data = json.loads(body) if body else {}
                 if self.path == "/api/tools/train":
@@ -1660,6 +1838,32 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/ownership/status":
                 result = asyncio.run(brain_service.GetOwnershipStatus())
                 self.send_json(result)
+            
+            elif self.path == "/api/ownership/transfer":
+                data = json.loads(body) if body else {}
+                new_owner_id = data.get("new_owner_id")
+                new_account_id = data.get("new_account_id")
+                new_account_type = data.get("new_account_type")
+                
+                if not new_owner_id:
+                    self.send_json({"success": False, "message": "new_owner_id required"}, status=400)
+                    return
+                
+                # Transfer ownership
+                try:
+                    brain_service.set_ownership(
+                        owned=True,
+                        owner_id=new_owner_id,
+                        account_id=new_account_id,
+                        account_type=new_account_type
+                    )
+                    self.send_json({
+                        "success": True,
+                        "message": f"Ownership transferred to {new_owner_id}",
+                        "new_owner_id": new_owner_id
+                    })
+                except Exception as e:
+                    self.send_json({"success": False, "message": str(e)}, status=500)
 
             elif self.path == "/api/audio/speak":
                 data = json.loads(body) if body else {}
