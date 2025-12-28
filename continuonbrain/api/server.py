@@ -121,6 +121,15 @@ def _build_status_payload() -> dict:
     elif brain_service and getattr(brain_service, "prefer_real_hardware", False):
          hardware_mode = "real"
 
+    # Get runtime context for inference/training status
+    runtime_ctx = None
+    try:
+        from continuonbrain.services.runtime_context import get_runtime_context_manager
+        mgr = get_runtime_context_manager()
+        runtime_ctx = mgr.get_context().to_dict()
+    except Exception:
+        pass
+
     return {
         "api_state": "ok",
         "hardware_mode": hardware_mode,
@@ -137,6 +146,7 @@ def _build_status_payload() -> dict:
         "current_task": {"id": selected_task_id} if selected_task_id else None,
         "current_skill": {"id": selected_skill_id} if selected_skill_id else None,
         "learning": learning,
+        "runtime_context": runtime_ctx,
     }
 
 
@@ -220,10 +230,15 @@ def _build_discovery_payload(handler) -> dict:
         "capabilities": [
             "arm_control",
             "depth_vision",
+            "inference_mode",
             "training_mode",
+            "manual_mode",
             "autonomous_mode",
+            "hybrid_mode",
             "pairing",
             "discovery",
+            "hailo_accelerator",
+            "sam_segmentation",
         ],
         "base_url": base_url,
         "discovery": {"kind": "lan_http", "via": "continuonbrain/api/server.py"},
@@ -787,6 +802,25 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 data = identity_service.identity
                 self.send_json(data)
 
+            elif self.path == "/api/runtime/context":
+                # Runtime context: inference/training modes and hardware capabilities
+                try:
+                    from continuonbrain.services.runtime_context import get_runtime_context_manager
+                    mgr = get_runtime_context_manager(brain_service.config_dir if brain_service else "/tmp/continuonbrain")
+                    self.send_json(mgr.get_status())
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
+
+            elif self.path == "/api/runtime/hardware":
+                # Quick hardware capabilities check
+                try:
+                    from continuonbrain.services.runtime_context import get_runtime_context_manager
+                    mgr = get_runtime_context_manager(brain_service.config_dir if brain_service else "/tmp/continuonbrain")
+                    caps = mgr.detect_hardware()
+                    self.send_json(caps.to_dict())
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
+
             elif self.path in {"/api/discovery", "/api/discovery/info"}:
                 # Discovery endpoint for LAN device discovery
                 self.send_json(_build_discovery_payload(self))
@@ -1232,6 +1266,43 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/safety/reset":
                 result = self._set_mode("idle")
                 self.send_json(result, status=200 if result.get("success") else 400)
+
+            elif self.path == "/api/runtime/mode":
+                # Set runtime mode (inference/training, manual/autonomous)
+                try:
+                    from continuonbrain.services.runtime_context import (
+                        get_runtime_context_manager,
+                        PrimaryMode,
+                        SubMode,
+                    )
+                    data = json.loads(body) if body else {}
+                    mgr = get_runtime_context_manager(brain_service.config_dir if brain_service else "/tmp/continuonbrain")
+                    
+                    primary = None
+                    sub = None
+                    
+                    if "primary" in data:
+                        primary_str = data["primary"].lower()
+                        primary = {
+                            "inference": PrimaryMode.INFERENCE,
+                            "training": PrimaryMode.TRAINING,
+                            "hybrid": PrimaryMode.HYBRID,
+                        }.get(primary_str)
+                    
+                    if "sub" in data:
+                        sub_str = data["sub"].lower()
+                        sub = {
+                            "manual": SubMode.MANUAL,
+                            "autonomous": SubMode.AUTONOMOUS,
+                        }.get(sub_str)
+                    
+                    mgr.set_mode(primary=primary, sub=sub)
+                    self.send_json({
+                        "success": True,
+                        "context": mgr.get_status(),
+                    })
+                except Exception as e:
+                    self.send_json({"success": False, "error": str(e)}, status=500)
 
             elif self.path == "/api/tasks/select":
                 data = json.loads(body) if body else {}

@@ -416,6 +416,31 @@ class StartupManager:
             print("  Services will run in resource-constrained mode")
         print()
         
+        # Initialize runtime context and detect inference hardware
+        print("🔍 Detecting inference hardware...")
+        try:
+            from continuonbrain.services.runtime_context import (
+                get_runtime_context_manager,
+                PrimaryMode,
+                SubMode,
+            )
+            runtime_mgr = get_runtime_context_manager(str(self.config_dir))
+            runtime_mgr.detect_hardware()
+            
+            # Set default mode: HYBRID + AUTONOMOUS for production
+            runtime_mgr.set_mode(
+                primary=PrimaryMode.HYBRID,
+                sub=SubMode.AUTONOMOUS,
+            )
+            
+            # Print summary
+            runtime_mgr.print_summary()
+            
+            self.runtime_context = runtime_mgr.get_context()
+        except Exception as e:
+            print(f"  ⚠️ Runtime context detection failed: {e}")
+            self.runtime_context = None
+        
         # Record successful startup
         self._record_startup(startup_mode)
 
