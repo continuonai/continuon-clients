@@ -631,11 +631,19 @@ class BrainService:
         hope_confidence = 0.0
         semantic_confidence = 0.0
         
-        # Phase 1: Try HOPE brain if available
+        # Phase 1: Try HOPE brain if available (with integrated world model + semantic search)
         if self.hope_brain:
             try:
                 from continuonbrain.services.agent_hope import HOPEAgent
-                hope_agent = HOPEAgent(self.hope_brain, confidence_threshold=0.6)
+                
+                # Build integrated HOPE agent with world model and semantic search
+                hope_agent = HOPEAgent(
+                    self.hope_brain, 
+                    confidence_threshold=0.6,
+                    world_model=getattr(self, 'jax_adapter', None),  # World model for physics
+                    semantic_search=self.experience_logger,  # Semantic memory
+                    vision_service=getattr(self, 'vision_service', None),  # Vision
+                )
                 
                 can_answer, hope_confidence = hope_agent.can_answer(message)
                 logger.info(f"HOPE confidence for '{message[:50]}...': {hope_confidence:.2f}")
@@ -676,7 +684,11 @@ class BrainService:
             if self.hope_brain:
                 try:
                     from continuonbrain.services.agent_hope import HOPEAgent
-                    hope_agent = HOPEAgent(self.hope_brain)
+                    hope_agent = HOPEAgent(
+                        self.hope_brain,
+                        world_model=getattr(self, 'jax_adapter', None),
+                        semantic_search=self.experience_logger,
+                    )
                     memories = hope_agent.get_relevant_memories(message, max_memories=3, experience_logger=self.experience_logger)
                     
                     if memories:

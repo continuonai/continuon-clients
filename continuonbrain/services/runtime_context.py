@@ -84,6 +84,32 @@ class WorldModelCapabilities:
 
 
 @dataclass
+class HOPEAgentCapabilities:
+    """HOPE Agent Manager integration status."""
+    hope_brain_available: bool = False
+    integrated_world_model: bool = False
+    integrated_semantic_search: bool = False
+    integrated_vision: bool = False
+    confidence_threshold: float = 0.6
+    active_columns: int = 0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hope_brain_available": self.hope_brain_available,
+            "integrated_world_model": self.integrated_world_model,
+            "integrated_semantic_search": self.integrated_semantic_search,
+            "integrated_vision": self.integrated_vision,
+            "confidence_threshold": self.confidence_threshold,
+            "active_columns": self.active_columns,
+            "fully_integrated": (
+                self.hope_brain_available and 
+                self.integrated_world_model and 
+                self.integrated_semantic_search
+            ),
+        }
+
+
+@dataclass
 class HardwareCapabilities:
     """Detected hardware capabilities for inference."""
     hailo_available: bool = False
@@ -106,6 +132,11 @@ class HardwareCapabilities:
     cpu_cores: int = 0
     ram_total_gb: float = 0.0
     ram_available_gb: float = 0.0
+    
+    # Cognitive capabilities
+    semantic_search: SemanticSearchCapabilities = field(default_factory=SemanticSearchCapabilities)
+    world_model: WorldModelCapabilities = field(default_factory=WorldModelCapabilities)
+    hope_agent: HOPEAgentCapabilities = field(default_factory=HOPEAgentCapabilities)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -135,6 +166,9 @@ class HardwareCapabilities:
                 "ram_total_gb": self.ram_total_gb,
                 "ram_available_gb": self.ram_available_gb,
             },
+            "semantic_search": self.semantic_search.to_dict(),
+            "world_model": self.world_model.to_dict(),
+            "hope_agent": self.hope_agent.to_dict(),
         }
 
 
@@ -255,6 +289,15 @@ class RuntimeContextManager:
         except Exception:
             pass
         
+        # Semantic Search detection
+        caps.semantic_search = self._detect_semantic_search()
+        
+        # World Model detection
+        caps.world_model = self._detect_world_model()
+        
+        # HOPE Agent integration detection
+        caps.hope_agent = self._detect_hope_agent(caps)
+        
         self.context.hardware = caps
         self._detected = True
         
@@ -267,6 +310,145 @@ class RuntimeContextManager:
             self.context.inference_backend = InferenceBackend.OAK_VPU
         else:
             self.context.inference_backend = InferenceBackend.CPU
+        
+        return caps
+    
+    def _detect_semantic_search(self) -> SemanticSearchCapabilities:
+        """Detect semantic search / memory retrieval capabilities."""
+        caps = SemanticSearchCapabilities()
+        
+        # Check for sentence-transformers encoder
+        try:
+            from sentence_transformers import SentenceTransformer
+            caps.encoder_available = True
+            caps.encoder_model = "all-MiniLM-L6-v2"  # Default model
+            logger.info("✅ Semantic search encoder available (sentence-transformers)")
+        except ImportError:
+            logger.info("⚠️ Semantic search encoder not available (sentence-transformers not installed)")
+        
+        # Check for existing memories
+        try:
+            experiences_dir = self.config_dir / "experiences"
+            conversations_file = experiences_dir / "learned_conversations.jsonl"
+            if conversations_file.exists():
+                with open(conversations_file, 'r') as f:
+                    caps.memories_count = sum(1 for _ in f)
+            
+            # Check feedback database for validated count
+            feedback_db = experiences_dir / "feedback.db"
+            if feedback_db.exists():
+                import sqlite3
+                conn = sqlite3.connect(str(feedback_db))
+                try:
+                    cursor = conn.execute(
+                        "SELECT COUNT(*) FROM feedback WHERE validated = 1"
+                    )
+                    caps.validated_count = cursor.fetchone()[0]
+                except Exception:
+                    pass
+                finally:
+                    conn.close()
+        except Exception as e:
+            logger.debug(f"Memory count check failed: {e}")
+        
+        # Category hints for topic classification
+        caps.category_hints = ["Safety", "Motion", "Vision", "Identity", "Knowledge"]
+        
+        return caps
+    
+    def _detect_world_model(self) -> WorldModelCapabilities:
+        """Detect world model / physics simulation capabilities."""
+        caps = WorldModelCapabilities()
+        
+        # Check JAX availability
+        try:
+            import jax
+            caps.jax_available = True
+            logger.info("✅ JAX available for world model")
+        except ImportError:
+            logger.info("⚠️ JAX not available for world model")
+        
+        # Check Mamba availability
+        try:
+            # Import mamba_brain (aliased from 03_mamba_brain)
+            from continuonbrain.mamba_brain import world_model as mamba_wm
+            # Try to build a world model and check if mamba is available
+            wm = mamba_wm.build_world_model(prefer_mamba=True)
+            # Check if it's using real Mamba or stub
+            from continuonbrain.mamba_brain.world_model import MambaWorldModel
+            if isinstance(wm, MambaWorldModel) and wm._stub is None:
+                caps.mamba_available = True
+                logger.info("✅ Mamba SSM available for world model")
+        except Exception:
+            pass
+        
+        # Determine world model type
+        if caps.jax_available:
+            caps.world_model_type = "jax_core"
+            caps.can_predict = True
+            caps.can_plan = True
+        elif caps.mamba_available:
+            caps.world_model_type = "mamba"
+            caps.can_predict = True
+            caps.can_plan = True
+        else:
+            caps.world_model_type = "stub"
+            caps.can_predict = True  # Stub still works, just not learned
+            caps.can_plan = False
+        
+        # Check for trained checkpoint
+        checkpoint_paths = [
+            self.config_dir / "model" / "adapters" / "current" / "world_model.pt",
+            self.config_dir / "model" / "base_model" / "world_model.pt",
+            Path("/opt/continuonos/brain/model/world_model.pt"),
+        ]
+        for cp in checkpoint_paths:
+            if cp.exists():
+                caps.checkpoint_path = str(cp)
+                break
+        
+        return caps
+    
+    def _detect_hope_agent(self, hardware_caps: HardwareCapabilities) -> HOPEAgentCapabilities:
+        """Detect HOPE Agent Manager integration status."""
+        caps = HOPEAgentCapabilities()
+        
+        # Check if HOPE brain is available
+        try:
+            from continuonbrain.hope_impl.config import HOPEConfig
+            from continuonbrain.hope_impl.brain import HOPEBrain
+            caps.hope_brain_available = True
+            logger.info("✅ HOPE brain available")
+            
+            # Try to get column count
+            try:
+                config = HOPEConfig()
+                brain = HOPEBrain(config)
+                caps.active_columns = len(brain.columns) if hasattr(brain, 'columns') else 0
+            except Exception:
+                pass
+        except ImportError as e:
+            logger.info(f"⚠️ HOPE brain not available: {e}")
+        
+        # Check integration with other systems
+        caps.integrated_world_model = hardware_caps.world_model.can_predict
+        caps.integrated_semantic_search = hardware_caps.semantic_search.encoder_available
+        caps.integrated_vision = hardware_caps.sam3_available or hardware_caps.hailo_available
+        
+        # Log integration status
+        if caps.hope_brain_available:
+            integrations = []
+            if caps.integrated_world_model:
+                integrations.append("world_model")
+            if caps.integrated_semantic_search:
+                integrations.append("semantic_search")
+            if caps.integrated_vision:
+                integrations.append("vision")
+            
+            if integrations:
+                logger.info(f"✅ HOPE Agent integrated with: {', '.join(integrations)}")
+            else:
+                logger.info("⚠️ HOPE Agent has no cognitive integrations")
         
         return caps
     
@@ -346,6 +528,24 @@ class RuntimeContextManager:
         if self.context.sub_mode == SubMode.AUTONOMOUS and not hw.hailo_available:
             recs.append("Autonomous mode without hardware acceleration may be slow.")
         
+        # Semantic search recommendations
+        ss = hw.semantic_search
+        if not ss.encoder_available:
+            recs.append("Semantic memory unavailable. Install: pip install sentence-transformers")
+        elif ss.memories_count == 0:
+            recs.append("No learned memories yet. Chat with the robot to build its memory.")
+        elif ss.validated_count == 0 and ss.memories_count > 10:
+            recs.append(f"Have {ss.memories_count} memories but none validated. Use feedback to confirm correct responses.")
+        
+        # World model recommendations
+        wm = hw.world_model
+        if not wm.jax_available and not wm.mamba_available:
+            recs.append("World model limited to stub. Install JAX for physics prediction: pip install jax jaxlib")
+        elif not wm.checkpoint_path:
+            recs.append("World model untrained. Run training to learn physics from experience.")
+        elif not wm.can_plan:
+            recs.append("Planning unavailable. Enable JAX or Mamba for motion planning.")
+        
         return recs
     
     def print_summary(self):
@@ -382,6 +582,45 @@ class RuntimeContextManager:
             print(f"   ✅ CUDA: {hw.cuda_device} ({hw.cuda_vram_gb}GB)")
         
         print(f"\n💾 System: {hw.cpu_cores} cores, {hw.ram_available_gb}/{hw.ram_total_gb} GB RAM")
+        
+        # Cognitive capabilities
+        print("\n🧠 Cognitive Capabilities:")
+        
+        # Semantic search
+        ss = hw.semantic_search
+        if ss.encoder_available:
+            mem_info = f"{ss.memories_count} memories" if ss.memories_count > 0 else "no memories yet"
+            validated = f", {ss.validated_count} validated" if ss.validated_count > 0 else ""
+            print(f"   ✅ Semantic Search ({ss.encoder_model}) - {mem_info}{validated}")
+        else:
+            print("   ❌ Semantic Search unavailable (install sentence-transformers)")
+        
+        # World model
+        wm = hw.world_model
+        if wm.can_predict:
+            checkpoint = " + checkpoint" if wm.checkpoint_path else " (untrained)"
+            planning = " + planning" if wm.can_plan else ""
+            print(f"   ✅ World Model ({wm.world_model_type}){checkpoint}{planning}")
+        else:
+            print("   ❌ World Model unavailable")
+        
+        # HOPE Agent integration
+        ha = hw.hope_agent
+        if ha.hope_brain_available:
+            integrations = []
+            if ha.integrated_world_model:
+                integrations.append("physics")
+            if ha.integrated_semantic_search:
+                integrations.append("memory")
+            if ha.integrated_vision:
+                integrations.append("vision")
+            
+            if integrations:
+                print(f"   ✅ HOPE Agent Manager (integrated: {', '.join(integrations)})")
+            else:
+                print(f"   ⚠️ HOPE Agent Manager (no integrations)")
+        else:
+            print("   ❌ HOPE Agent Manager unavailable")
         
         recs = self._get_recommendations()
         if recs:
