@@ -320,9 +320,9 @@ class ModelDetector:
         """
         vision_models = self.get_vision_models()
         
-        # Priority order for each task
+        # Priority order for each task (SAM3 preferred for segmentation)
         priorities = {
-            "segmentation": ["facebook/sam3", "facebook/sam2"],
+            "segmentation": ["facebook/sam3", "facebook/sam2", "hailo/"],
             "detection": ["hailo/", "IDEA-Research/grounding-dino", "yolo/"],
             "pose_estimation": ["hailo/"],
         }

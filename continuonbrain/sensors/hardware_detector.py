@@ -412,19 +412,23 @@ class HardwareDetector:
             if shutil.which('lspci'):
                 res = subprocess.run(['lspci', '-nn'], capture_output=True, text=True)
                 if res.returncode == 0:
-                    for line in res.stdout.lower().split('\n'):
-                        if 'hailo' in line:
+                    for line in res.stdout.split('\n'):
+                        line_lower = line.lower()
+                        if 'hailo' in line_lower:
                             hailo_found = True
-                            # Extract device info
-                            if 'hailo-8l' in line or '1e60:2864' in line:
+                            # Extract PCI address first
+                            pci_addr = line.split()[0] if line else None
+                            hailo_info["pci_address"] = pci_addr
+                            
+                            # Identify model - Hailo-8L is explicitly labeled, otherwise it's Hailo-8
+                            # Device IDs: Hailo-8 = 1e60:2864, Hailo-8L = 1e60:2862
+                            if 'hailo-8l' in line_lower or '1e60:2862' in line_lower:
                                 hailo_info["model"] = "Hailo-8L"
                                 hailo_info["tops"] = 13.0
                             else:
+                                # Hailo-8 (full version) - 26 TOPS
                                 hailo_info["model"] = "Hailo-8"
                                 hailo_info["tops"] = 26.0
-                            # Extract PCI address
-                            pci_addr = line.split()[0] if line else None
-                            hailo_info["pci_address"] = pci_addr
                             break
         except Exception:
             pass

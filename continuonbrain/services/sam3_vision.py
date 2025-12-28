@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SAMConfig:
     """Configuration for SAM Vision Service."""
-    model_id: str = "facebook/sam2-hiera-large"  # Default to SAM2
-    model_type: str = "auto"  # auto, sam2, sam, sam3
+    model_id: str = "facebook/sam3"  # Default to SAM3 (Segment Anything 3)
+    model_type: str = "auto"  # auto, sam3, sam2, sam, sam_hq
     device: str = "auto"  # auto, cuda, cpu
     threshold: float = 0.5
     mask_threshold: float = 0.5
@@ -209,8 +209,8 @@ class SAMVisionService:
             elif self.config.model_type != "auto":
                 selected_type = self.config.model_type
             else:
-                # Auto-select: prefer sam2 > sam > sam_hq > sam3
-                priority = ["sam2", "sam", "sam_hq", "sam3"]
+                # Auto-select: prefer sam3 > sam2 > sam_hq > sam (best to older)
+                priority = ["sam3", "sam2", "sam_hq", "sam"]
                 selected_type = None
                 for mt in priority:
                     if mt in self._available_models:
@@ -285,6 +285,96 @@ class SAMVisionService:
         else:
             raise ValueError(f"Unsupported image type: {type(image)}")
     
+    def segment_text(
+        self,
+        image: Union[str, Path, "PIL.Image.Image", "np.ndarray"],
+        prompt: str,
+        threshold: float = 0.5,
+    ) -> Optional[SegmentationResult]:
+        """
+        Segment objects using text prompt (SAM3 feature).
+        
+        Args:
+            image: Path to image, PIL Image, or numpy array (RGB)
+            prompt: Text description like "cup", "hand", "robot gripper"
+            threshold: Detection threshold
+            
+        Returns:
+            SegmentationResult with masks for matching objects
+        """
+        if not self._initialized:
+            if not self.initialize():
+                return None
+        
+        # SAM3 supports text prompts
+        if self.model_type != "sam3":
+            logger.warning(f"Text prompts only supported with SAM3, current model: {self.model_type}")
+            # Fall back to center point for non-SAM3
+            pil_image = self._load_image(image)
+            w, h = pil_image.size
+            return self.segment_points(image, [[w//2, h//2]], [1])
+        
+        try:
+            import torch
+            import numpy as np
+            
+            start = time.time()
+            pil_image = self._load_image(image)
+            
+            # SAM3 text prompt API
+            inputs = self.processor(
+                images=pil_image,
+                text=prompt,
+                return_tensors="pt"
+            ).to(self.device)
+            
+            # Inference
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+            
+            # Post-process for SAM3
+            results = self.processor.post_process_instance_segmentation(
+                outputs,
+                threshold=threshold,
+                mask_threshold=self.config.mask_threshold,
+                target_sizes=inputs.get("original_sizes").tolist(),
+            )[0]
+            
+            masks = results.get("masks")
+            boxes = results.get("boxes")
+            scores = results.get("scores")
+            
+            masks_list = []
+            boxes_list = []
+            scores_list = []
+            
+            if masks is not None and len(masks) > 0:
+                num_masks = min(masks.shape[0], self.config.max_instances)
+                for i in range(num_masks):
+                    masks_list.append(masks[i].cpu().numpy())
+                    if boxes is not None and i < len(boxes):
+                        boxes_list.append(boxes[i].cpu().tolist())
+                    if scores is not None and i < len(scores):
+                        scores_list.append(float(scores[i].cpu()))
+            
+            inference_time = (time.time() - start) * 1000
+            
+            return SegmentationResult(
+                prompt=prompt,
+                num_instances=len(masks_list),
+                masks=masks_list,
+                boxes_xyxy=boxes_list,
+                scores=scores_list,
+                inference_time_ms=inference_time,
+                device_used=str(self.device),
+            )
+            
+        except Exception as e:
+            logger.error(f"SAM3 text segmentation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
     def segment_points(
         self,
         image: Union[str, Path, "PIL.Image.Image", "np.ndarray"],
@@ -306,6 +396,11 @@ class SAMVisionService:
             if not self.initialize():
                 return None
         
+        # SAM3 uses text prompts, not points - use text fallback
+        if self.model_type == "sam3":
+            logger.info("SAM3 uses text prompts. Using 'object' as default.")
+            return self.segment_text(image, "object")
+        
         if labels is None:
             labels = [1] * len(points)
         
@@ -316,22 +411,13 @@ class SAMVisionService:
             start = time.time()
             pil_image = self._load_image(image)
             
-            # Prepare inputs based on model type
-            if self.model_type == "sam2":
-                inputs = self.processor(
-                    images=pil_image,
-                    input_points=[points],
-                    input_labels=[labels],
-                    return_tensors="pt"
-                ).to(self.device)
-            else:
-                # Original SAM format
-                inputs = self.processor(
-                    pil_image,
-                    input_points=[points],
-                    input_labels=[labels],
-                    return_tensors="pt"
-                ).to(self.device)
+            # SAM2/SAM format with points
+            inputs = self.processor(
+                images=pil_image,
+                input_points=[points],
+                input_labels=[labels],
+                return_tensors="pt"
+            ).to(self.device)
             
             # Inference
             with torch.no_grad():
@@ -681,7 +767,7 @@ SAM3VisionService = SAMVisionService
 
 def create_sam_service(
     device: str = "auto",
-    model_id: str = "facebook/sam2-hiera-large",
+    model_id: str = "facebook/sam3",
     model_type: str = "auto",
     auto_init: bool = False,
 ) -> SAMVisionService:
