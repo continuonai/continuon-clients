@@ -1,0 +1,1908 @@
+============================================================
+  16-HOUR EXTENDED TRAINING SESSION
+  Start: 2025-12-27 17:49:14
+  End:   2025-12-28 09:49:14
+============================================================
+[2025-12-27T17:49:14] session_start
+
+==================================================
+  CYCLE 1 | 16.0 hours remaining
+  Success: 0 | Failed: 0
+==================================================
+[2025-12-27T17:49:14] memory_check
+  Memory: 67.7% | Available: 2603MB
+  🌊 Running WaveCore...
+  ✅ WaveCore: Fast=0.0130 Mid=0.0057 Slow=0.0098
+[2025-12-27T17:51:15] wavecore
+  📦 Running CMS compaction...
+[2025-12-27T17:51:15] cms_compact
+
+  ⏳ Next cycle in 15 minutes...
+
+==================================================
+  CYCLE 2 | 15.7 hours remaining
+  Success: 1 | Failed: 0
+==================================================
+[2025-12-27T18:06:15] memory_check
+  Memory: 69.9% | Available: 2424MB
+  🌊 Running WaveCore...
+  ✅ WaveCore: Fast=0.0130 Mid=0.0057 Slow=0.0098
+[2025-12-27T18:07:19] wavecore
+  📦 Running CMS compaction...
+[2025-12-27T18:07:19] cms_compact
+
+  ⏳ Next cycle in 15 minutes...
+
+==================================================
+  CYCLE 3 | 15.4 hours remaining
+  Success: 2 | Failed: 0
+==================================================
+[2025-12-27T18:22:19] memory_check
+  Memory: 73.0% | Available: 2175MB
+  🌊 Running WaveCore...
+  ✅ WaveCore: Fast=0.0130 Mid=0.0057 Slow=0.0098
+[2025-12-27T18:23:25] wavecore
+  📦 Running CMS compaction...
+[2025-12-27T18:23:25] cms_compact
+
+  ⏳ Next cycle in 15 minutes...
+
+==================================================
+  CYCLE 4 | 15.2 hours remaining
+  Success: 3 | Failed: 0
+==================================================
+[2025-12-27T18:38:25] memory_check
+  Memory: 79.8% | Available: 1626MB
+  🌊 Running WaveCore...
+  ✅ WaveCore: Fast=0.0130 Mid=0.0057 Slow=0.0098
+[2025-12-27T18:39:29] wavecore
+  📦 Running CMS compaction...
+[2025-12-27T18:39:29] cms_compact
+
+  ⏳ Next cycle in 15 minutes...
+
+==================================================
+  CYCLE 5 | 14.9 hours remaining
+  Success: 4 | Failed: 0
+==================================================
+[2025-12-27T18:54:29] memory_check
+  Memory: 82.9% | Available: 1376MB
+  🌊 Running WaveCore...
+  ✅ WaveCore: Fast=0.0130 Mid=0.0057 Slow=0.0098
+[2025-12-27T18:55:38] wavecore
+  📦 Running CMS compaction...
+[2025-12-27T18:55:38] cms_compact
+
+  ⏳ Next cycle in 15 minutes...
+
+==================================================
+  CYCLE 6 | 14.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:10:38] memory_check
+  Memory: 87.2% | Available: 1035MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 7 | 14.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:11:38] memory_check
+  Memory: 87.2% | Available: 1035MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 8 | 14.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:12:38] memory_check
+  Memory: 87.1% | Available: 1039MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 9 | 14.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:13:38] memory_check
+  Memory: 86.9% | Available: 1053MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 10 | 14.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:14:38] memory_check
+  Memory: 87.1% | Available: 1037MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 11 | 14.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:15:38] memory_check
+  Memory: 86.9% | Available: 1054MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 12 | 14.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:16:38] memory_check
+  Memory: 87.0% | Available: 1048MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 13 | 14.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:17:38] memory_check
+  Memory: 87.0% | Available: 1044MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 14 | 14.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:18:38] memory_check
+  Memory: 86.9% | Available: 1052MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 15 | 14.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:19:38] memory_check
+  Memory: 87.0% | Available: 1052MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 16 | 14.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:20:38] memory_check
+  Memory: 86.8% | Available: 1062MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 17 | 14.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:21:38] memory_check
+  Memory: 86.9% | Available: 1058MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 18 | 14.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:22:38] memory_check
+  Memory: 87.0% | Available: 1050MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 19 | 14.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:23:38] memory_check
+  Memory: 87.0% | Available: 1052MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 20 | 14.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:24:38] memory_check
+  Memory: 87.0% | Available: 1047MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 21 | 14.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:25:38] memory_check
+  Memory: 87.0% | Available: 1044MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 22 | 14.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:26:38] memory_check
+  Memory: 87.1% | Available: 1040MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 23 | 14.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:27:38] memory_check
+  Memory: 86.3% | Available: 1103MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 24 | 14.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:28:38] memory_check
+  Memory: 86.9% | Available: 1055MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 25 | 14.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:29:38] memory_check
+  Memory: 86.7% | Available: 1076MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 26 | 14.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:30:38] memory_check
+  Memory: 86.7% | Available: 1070MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 27 | 14.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:31:38] memory_check
+  Memory: 86.6% | Available: 1077MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 28 | 14.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:32:38] memory_check
+  Memory: 86.8% | Available: 1063MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 29 | 14.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:33:38] memory_check
+  Memory: 86.8% | Available: 1067MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 30 | 14.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:34:38] memory_check
+  Memory: 86.7% | Available: 1068MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 31 | 14.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:35:38] memory_check
+  Memory: 86.8% | Available: 1066MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 32 | 14.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:36:38] memory_check
+  Memory: 86.9% | Available: 1056MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 33 | 14.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:37:38] memory_check
+  Memory: 86.8% | Available: 1065MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 34 | 14.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:38:38] memory_check
+  Memory: 87.0% | Available: 1050MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 35 | 14.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:39:38] memory_check
+  Memory: 86.8% | Available: 1060MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 36 | 14.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:40:38] memory_check
+  Memory: 87.0% | Available: 1051MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 37 | 14.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:41:38] memory_check
+  Memory: 86.9% | Available: 1057MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 38 | 14.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:42:38] memory_check
+  Memory: 87.0% | Available: 1049MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 39 | 14.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:43:38] memory_check
+  Memory: 86.9% | Available: 1060MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 40 | 14.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:44:38] memory_check
+  Memory: 87.0% | Available: 1044MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 41 | 14.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:45:38] memory_check
+  Memory: 86.9% | Available: 1053MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 42 | 14.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:46:38] memory_check
+  Memory: 86.9% | Available: 1053MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 43 | 14.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:47:38] memory_check
+  Memory: 86.9% | Available: 1055MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 44 | 14.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:48:39] memory_check
+  Memory: 87.2% | Available: 1035MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 45 | 14.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:49:39] memory_check
+  Memory: 87.2% | Available: 1032MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 46 | 14.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:50:39] memory_check
+  Memory: 86.6% | Available: 1077MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 47 | 14.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:51:39] memory_check
+  Memory: 86.7% | Available: 1072MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 48 | 13.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:52:39] memory_check
+  Memory: 86.8% | Available: 1065MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 49 | 13.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:53:39] memory_check
+  Memory: 86.7% | Available: 1073MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 50 | 13.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:54:39] memory_check
+  Memory: 86.6% | Available: 1082MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 51 | 13.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:55:39] memory_check
+  Memory: 86.6% | Available: 1080MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 52 | 13.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:56:39] memory_check
+  Memory: 86.7% | Available: 1072MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 53 | 13.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:57:39] memory_check
+  Memory: 86.7% | Available: 1075MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 54 | 13.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:58:39] memory_check
+  Memory: 87.4% | Available: 1018MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 55 | 13.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T19:59:39] memory_check
+  Memory: 86.9% | Available: 1058MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 56 | 13.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:00:39] memory_check
+  Memory: 87.0% | Available: 1048MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 57 | 13.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:01:39] memory_check
+  Memory: 87.0% | Available: 1048MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 58 | 13.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:02:39] memory_check
+  Memory: 87.2% | Available: 1029MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 59 | 13.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:03:39] memory_check
+  Memory: 87.3% | Available: 1025MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 60 | 13.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:04:39] memory_check
+  Memory: 87.2% | Available: 1035MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 61 | 13.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:05:39] memory_check
+  Memory: 87.1% | Available: 1038MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 62 | 13.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:06:39] memory_check
+  Memory: 87.1% | Available: 1041MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 63 | 13.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:07:39] memory_check
+  Memory: 87.4% | Available: 1016MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 64 | 13.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:08:39] memory_check
+  Memory: 87.7% | Available: 992MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 65 | 13.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:09:39] memory_check
+  Memory: 87.4% | Available: 1019MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 66 | 13.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:10:39] memory_check
+  Memory: 87.3% | Available: 1024MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 67 | 13.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:11:39] memory_check
+  Memory: 87.3% | Available: 1020MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 68 | 13.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:12:39] memory_check
+  Memory: 87.3% | Available: 1022MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 69 | 13.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:13:39] memory_check
+  Memory: 87.6% | Available: 1002MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 70 | 13.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:14:39] memory_check
+  Memory: 87.5% | Available: 1010MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 71 | 13.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:15:39] memory_check
+  Memory: 87.4% | Available: 1014MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 72 | 13.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:16:39] memory_check
+  Memory: 87.3% | Available: 1023MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 73 | 13.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:17:39] memory_check
+  Memory: 87.4% | Available: 1013MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 74 | 13.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:18:39] memory_check
+  Memory: 87.3% | Available: 1021MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 75 | 13.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:19:39] memory_check
+  Memory: 87.3% | Available: 1020MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 76 | 13.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:20:39] memory_check
+  Memory: 87.4% | Available: 1013MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 77 | 13.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:21:39] memory_check
+  Memory: 87.3% | Available: 1020MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 78 | 13.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:22:39] memory_check
+  Memory: 87.4% | Available: 1013MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 79 | 13.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:23:39] memory_check
+  Memory: 87.5% | Available: 1009MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 80 | 13.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:24:39] memory_check
+  Memory: 87.4% | Available: 1013MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 81 | 13.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:25:39] memory_check
+  Memory: 87.5% | Available: 1011MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 82 | 13.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:26:39] memory_check
+  Memory: 87.5% | Available: 1009MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 83 | 13.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:27:39] memory_check
+  Memory: 87.4% | Available: 1014MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 84 | 13.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:28:39] memory_check
+  Memory: 87.5% | Available: 1006MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 85 | 13.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:29:39] memory_check
+  Memory: 87.5% | Available: 1009MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 86 | 13.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:30:39] memory_check
+  Memory: 87.4% | Available: 1019MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 87 | 13.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:31:39] memory_check
+  Memory: 87.6% | Available: 996MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 88 | 13.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:32:39] memory_check
+  Memory: 87.5% | Available: 1008MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 89 | 13.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:33:39] memory_check
+  Memory: 87.7% | Available: 991MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 90 | 13.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:34:39] memory_check
+  Memory: 87.5% | Available: 1011MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 91 | 13.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:35:39] memory_check
+  Memory: 87.4% | Available: 1012MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 92 | 13.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:36:39] memory_check
+  Memory: 87.4% | Available: 1016MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 93 | 13.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:37:39] memory_check
+  Memory: 87.6% | Available: 997MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 94 | 13.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:38:39] memory_check
+  Memory: 87.7% | Available: 995MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 95 | 13.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:39:40] memory_check
+  Memory: 87.4% | Available: 1016MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 96 | 13.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:40:40] memory_check
+  Memory: 87.4% | Available: 1015MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 97 | 13.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:41:40] memory_check
+  Memory: 87.4% | Available: 1014MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 98 | 13.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:42:40] memory_check
+  Memory: 87.5% | Available: 1011MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 99 | 13.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:43:40] memory_check
+  Memory: 87.6% | Available: 998MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 100 | 13.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:44:40] memory_check
+  Memory: 87.5% | Available: 1010MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 101 | 13.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:45:40] memory_check
+  Memory: 87.5% | Available: 1009MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 102 | 13.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:46:40] memory_check
+  Memory: 87.4% | Available: 1014MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 103 | 13.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:47:40] memory_check
+  Memory: 87.6% | Available: 1000MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 104 | 13.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:48:40] memory_check
+  Memory: 87.6% | Available: 1000MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 105 | 13.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:49:40] memory_check
+  Memory: 87.4% | Available: 1016MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 106 | 13.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:50:40] memory_check
+  Memory: 87.5% | Available: 1011MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 107 | 13.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:51:40] memory_check
+  Memory: 87.4% | Available: 1014MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 108 | 12.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:52:40] memory_check
+  Memory: 87.4% | Available: 1014MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 109 | 12.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:53:40] memory_check
+  Memory: 87.7% | Available: 991MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 110 | 12.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:54:40] memory_check
+  Memory: 87.5% | Available: 1006MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 111 | 12.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:55:40] memory_check
+  Memory: 87.6% | Available: 1000MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 112 | 12.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:56:40] memory_check
+  Memory: 87.7% | Available: 989MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 113 | 12.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:57:40] memory_check
+  Memory: 87.7% | Available: 992MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 114 | 12.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:58:40] memory_check
+  Memory: 87.7% | Available: 992MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 115 | 12.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T20:59:40] memory_check
+  Memory: 87.5% | Available: 1010MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 116 | 12.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:00:40] memory_check
+  Memory: 87.6% | Available: 1001MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 117 | 12.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:01:40] memory_check
+  Memory: 87.7% | Available: 992MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 118 | 12.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:02:40] memory_check
+  Memory: 87.5% | Available: 1006MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 119 | 12.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:03:40] memory_check
+  Memory: 87.5% | Available: 1008MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 120 | 12.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:04:40] memory_check
+  Memory: 87.6% | Available: 999MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 121 | 12.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:05:40] memory_check
+  Memory: 87.3% | Available: 1022MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 122 | 12.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:06:40] memory_check
+  Memory: 87.4% | Available: 1015MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 123 | 12.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:07:40] memory_check
+  Memory: 87.6% | Available: 996MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 124 | 12.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:08:40] memory_check
+  Memory: 87.9% | Available: 977MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 125 | 12.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:09:40] memory_check
+  Memory: 87.8% | Available: 986MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 126 | 12.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:10:40] memory_check
+  Memory: 87.5% | Available: 1005MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 127 | 12.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:11:40] memory_check
+  Memory: 87.5% | Available: 1008MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 128 | 12.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:12:40] memory_check
+  Memory: 87.5% | Available: 1009MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 129 | 12.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:13:40] memory_check
+  Memory: 87.5% | Available: 1004MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 130 | 12.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:14:40] memory_check
+  Memory: 87.6% | Available: 996MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 131 | 12.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:15:40] memory_check
+  Memory: 87.6% | Available: 997MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 132 | 12.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:16:40] memory_check
+  Memory: 87.6% | Available: 997MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 133 | 12.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:17:40] memory_check
+  Memory: 87.7% | Available: 994MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 134 | 12.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:18:40] memory_check
+  Memory: 87.6% | Available: 1000MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 135 | 12.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:19:40] memory_check
+  Memory: 87.5% | Available: 1008MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 136 | 12.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:20:40] memory_check
+  Memory: 87.6% | Available: 1000MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 137 | 12.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:21:40] memory_check
+  Memory: 87.6% | Available: 1003MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 138 | 12.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:22:40] memory_check
+  Memory: 87.5% | Available: 1010MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 139 | 12.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:23:40] memory_check
+  Memory: 87.5% | Available: 1008MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 140 | 12.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:24:40] memory_check
+  Memory: 87.7% | Available: 995MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 141 | 12.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:25:40] memory_check
+  Memory: 87.5% | Available: 1009MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 142 | 12.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:26:40] memory_check
+  Memory: 87.6% | Available: 999MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 143 | 12.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:27:40] memory_check
+  Memory: 87.7% | Available: 990MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 144 | 12.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:28:40] memory_check
+  Memory: 87.8% | Available: 982MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 145 | 12.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:29:40] memory_check
+  Memory: 87.5% | Available: 1009MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 146 | 12.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:30:41] memory_check
+  Memory: 87.6% | Available: 998MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 147 | 12.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:31:41] memory_check
+  Memory: 87.7% | Available: 992MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 148 | 12.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:32:41] memory_check
+  Memory: 87.6% | Available: 1001MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 149 | 12.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:33:41] memory_check
+  Memory: 87.7% | Available: 989MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 150 | 12.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:34:41] memory_check
+  Memory: 87.8% | Available: 987MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 151 | 12.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:35:41] memory_check
+  Memory: 87.7% | Available: 993MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 152 | 12.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:36:41] memory_check
+  Memory: 87.6% | Available: 998MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 153 | 12.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:37:41] memory_check
+  Memory: 87.8% | Available: 986MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 154 | 12.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:38:41] memory_check
+  Memory: 87.6% | Available: 1000MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 155 | 12.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:39:41] memory_check
+  Memory: 87.3% | Available: 1027MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 156 | 12.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:40:41] memory_check
+  Memory: 87.4% | Available: 1013MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 157 | 12.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:41:41] memory_check
+  Memory: 87.4% | Available: 1016MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 158 | 12.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:42:41] memory_check
+  Memory: 87.5% | Available: 1007MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 159 | 12.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:43:41] memory_check
+  Memory: 87.5% | Available: 1006MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 160 | 12.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:44:41] memory_check
+  Memory: 87.6% | Available: 1002MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 161 | 12.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:45:41] memory_check
+  Memory: 87.5% | Available: 1007MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 162 | 12.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:46:41] memory_check
+  Memory: 87.6% | Available: 995MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 163 | 12.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:47:41] memory_check
+  Memory: 87.9% | Available: 972MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 164 | 12.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:48:41] memory_check
+  Memory: 88.0% | Available: 963MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 165 | 12.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:49:41] memory_check
+  Memory: 87.9% | Available: 976MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 166 | 12.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:50:41] memory_check
+  Memory: 87.9% | Available: 978MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 167 | 12.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:51:41] memory_check
+  Memory: 88.0% | Available: 971MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 168 | 11.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:52:41] memory_check
+  Memory: 87.9% | Available: 976MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 169 | 11.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:53:41] memory_check
+  Memory: 87.8% | Available: 979MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 170 | 11.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:54:41] memory_check
+  Memory: 87.9% | Available: 978MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 171 | 11.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:55:41] memory_check
+  Memory: 88.0% | Available: 965MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 172 | 11.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:56:41] memory_check
+  Memory: 88.0% | Available: 970MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 173 | 11.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:57:41] memory_check
+  Memory: 87.9% | Available: 973MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 174 | 11.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:58:41] memory_check
+  Memory: 88.1% | Available: 963MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 175 | 11.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T21:59:41] memory_check
+  Memory: 87.8% | Available: 983MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 176 | 11.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:00:41] memory_check
+  Memory: 87.9% | Available: 975MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 177 | 11.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:01:41] memory_check
+  Memory: 88.0% | Available: 971MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 178 | 11.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:02:41] memory_check
+  Memory: 87.9% | Available: 972MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 179 | 11.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:03:41] memory_check
+  Memory: 87.9% | Available: 971MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 180 | 11.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:04:41] memory_check
+  Memory: 88.1% | Available: 962MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 181 | 11.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:05:41] memory_check
+  Memory: 87.8% | Available: 984MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 182 | 11.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:06:41] memory_check
+  Memory: 87.9% | Available: 974MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 183 | 11.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:07:41] memory_check
+  Memory: 88.0% | Available: 967MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 184 | 11.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:08:41] memory_check
+  Memory: 88.3% | Available: 941MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 185 | 11.7 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:09:41] memory_check
+  Memory: 88.0% | Available: 963MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 186 | 11.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:10:41] memory_check
+  Memory: 88.2% | Available: 948MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 187 | 11.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:11:41] memory_check
+  Memory: 88.1% | Available: 955MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 188 | 11.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:12:41] memory_check
+  Memory: 88.3% | Available: 945MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 189 | 11.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:13:41] memory_check
+  Memory: 88.2% | Available: 948MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 190 | 11.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:14:41] memory_check
+  Memory: 88.7% | Available: 914MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 191 | 11.6 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:15:41] memory_check
+  Memory: 88.6% | Available: 921MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 192 | 11.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:16:41] memory_check
+  Memory: 89.4% | Available: 850MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 193 | 11.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:17:41] memory_check
+  Memory: 90.2% | Available: 789MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 194 | 11.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:18:42] memory_check
+  Memory: 92.7% | Available: 586MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 195 | 11.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:19:42] memory_check
+  Memory: 88.0% | Available: 970MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 196 | 11.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:20:42] memory_check
+  Memory: 88.2% | Available: 947MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 197 | 11.5 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:21:42] memory_check
+  Memory: 87.7% | Available: 994MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 198 | 11.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:22:42] memory_check
+  Memory: 87.7% | Available: 993MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 199 | 11.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:23:42] memory_check
+  Memory: 87.6% | Available: 1003MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 200 | 11.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:24:42] memory_check
+  Memory: 87.7% | Available: 994MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 201 | 11.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:25:42] memory_check
+  Memory: 87.9% | Available: 976MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 202 | 11.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:26:42] memory_check
+  Memory: 87.7% | Available: 991MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 203 | 11.4 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:27:42] memory_check
+  Memory: 87.9% | Available: 973MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 204 | 11.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:28:42] memory_check
+  Memory: 88.6% | Available: 922MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 205 | 11.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:29:42] memory_check
+  Memory: 88.3% | Available: 945MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 206 | 11.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:30:42] memory_check
+  Memory: 88.1% | Available: 958MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 207 | 11.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:31:42] memory_check
+  Memory: 88.3% | Available: 940MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 208 | 11.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:32:42] memory_check
+  Memory: 88.3% | Available: 943MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 209 | 11.3 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:33:42] memory_check
+  Memory: 88.4% | Available: 936MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 210 | 11.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:34:42] memory_check
+  Memory: 88.4% | Available: 932MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 211 | 11.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:35:42] memory_check
+  Memory: 88.7% | Available: 913MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 212 | 11.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:36:42] memory_check
+  Memory: 88.6% | Available: 922MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 213 | 11.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:37:42] memory_check
+  Memory: 88.4% | Available: 933MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 214 | 11.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:38:42] memory_check
+  Memory: 88.8% | Available: 903MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 215 | 11.2 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:39:42] memory_check
+  Memory: 88.4% | Available: 937MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 216 | 11.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:40:42] memory_check
+  Memory: 88.4% | Available: 935MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 217 | 11.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:41:42] memory_check
+  Memory: 88.3% | Available: 943MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 218 | 11.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:42:42] memory_check
+  Memory: 88.5% | Available: 927MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 219 | 11.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:43:42] memory_check
+  Memory: 88.6% | Available: 919MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 220 | 11.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:44:42] memory_check
+  Memory: 88.4% | Available: 939MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 221 | 11.1 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:45:42] memory_check
+  Memory: 88.5% | Available: 924MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 222 | 11.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:46:42] memory_check
+  Memory: 88.5% | Available: 928MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 223 | 11.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:47:42] memory_check
+  Memory: 88.5% | Available: 925MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 224 | 11.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:48:42] memory_check
+  Memory: 88.4% | Available: 931MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 225 | 11.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:49:42] memory_check
+  Memory: 88.4% | Available: 932MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 226 | 11.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:50:42] memory_check
+  Memory: 88.5% | Available: 928MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 227 | 11.0 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:51:42] memory_check
+  Memory: 88.5% | Available: 924MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 228 | 10.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:52:42] memory_check
+  Memory: 88.4% | Available: 933MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 229 | 10.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:53:42] memory_check
+  Memory: 88.5% | Available: 926MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 230 | 10.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:54:42] memory_check
+  Memory: 88.5% | Available: 923MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 231 | 10.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:55:42] memory_check
+  Memory: 88.5% | Available: 923MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 232 | 10.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:56:42] memory_check
+  Memory: 88.7% | Available: 911MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 233 | 10.9 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:57:42] memory_check
+  Memory: 88.7% | Available: 911MB
+  ⚠️  Memory pressure - waiting 60s...
+
+==================================================
+  CYCLE 234 | 10.8 hours remaining
+  Success: 5 | Failed: 0
+==================================================
+[2025-12-27T22:58:42] memory_check
+  Memory: 88.7% | Available: 911MB
+  ⚠️  Memory pressure - waiting 60s...
