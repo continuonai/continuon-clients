@@ -89,3 +89,60 @@ ContextSession:             # anchors the active workspace for planning
 - CMS atoms/spans/episodes map to node attributes (`cms_span_ids`) and provenance on edges; decays mirror CMS decay parameters.
 - HOPE wave–particle paths stay synchronized: the context state vector follows the wave path, while symbolic edges feed the particle path. See [wave_particle_rollout.md](./wave_particle_rollout.md) for rollout dynamics.
 - CMS memory objects (atoms → spans → episodes → semantic concepts) populate nodes/episodes; the graph provides the bridge from raw CMS writes to planner-ready context.
+
+## Decision Receipts at Commit Surfaces
+
+Decision receipts capture **write-time provenance** whenever a stateful change is proposed or committed (e.g., code merge, dataset promotion, policy toggle, config rollout). Each receipt records:
+
+- Referenced inputs (episodes, CMS spans, metrics, design docs), linked by stable IDs.
+- Policies/constraints evaluated, including allow/deny rules, safety/PII gates, budget caps, and owner/audience scopes.
+- Exception paths invoked (temporary waivers, degraded-mode approvals) and the justification for using them.
+- Approvals and actors (requester, reviewer, automated checker signatures).
+- Action taken (apply/rollback/defer) and the observed outcome (success/failure, residual risk, follow-up tasks).
+
+Receipts are treated as **particle-side provenance** that is immediately dual-written into the wave layer:
+
+- Particle: `DecisionReceipt` nodes with typed edges to referenced evidence (episodes, spans, policies, config versions), actors, approvals, actions, and outcomes. Policy edges carry the evaluated scope and the result (allow/deny).
+- Wave: embeddings over the whole receipt (and per-edge when available), confidence sourced from check outcomes, salience + decay tuned to the task window (e.g., promotion freezes decay slower than experimental toggles). Receipts contribute to wave prefilters as provenance anchors for later queries.
+
+### Bottom-Up Ontology Stance
+
+- **Bottom-up (preferred):** start from captured traces/receipts, then infer minimal entities/relations that repeatedly appear in similar trajectories (e.g., “pi5_hailo_promotion” receipts repeatedly connect `policy:pii_cleared` → `action:promote` → `outcome:success`). Keep the schema thin and let recurrence drive new node/edge types.
+- **Top-down (contrast):** fixed, prescriptive taxonomy (Palantir-style) that predefines entities/relations before observing traces. This is avoided for Continuon Brain runtime scaffolding to prevent premature lock-in; only promote new types after receipts show recurring structure.
+
+### Receipt Schema and Graph Ingestion (lightweight)
+
+```yaml
+DecisionReceipt:
+  id: "receipt/<uuid>"
+  task: "deploy_pi5_wavecore_loop"
+  actor: "user/ops1"
+  approvals: ["user/reviewer_a", "check/ci_suite@v2"]
+  referenced_inputs:
+    episodes: ["rlds/episode/abc"]
+    cms_spans: ["cms/span/123"]
+    configs: ["config/wavecore/v1.2"]
+  policies_checked: [{id: "policy/pii_cleared", result: "allow"}, {id: "policy/budget", result: "allow"}]
+  exceptions: [{id: "waiver/temp_net_degradation", justification: "lab wifi outage"}]
+  action: "promote_candidate"
+  outcome: {status: "success", notes: "latency stable", follow_ups: ["validate on-device drift"]}
+  timestamps: {requested: "2025-01-05T12:00:00Z", committed: "2025-01-05T12:07:00Z"}
+```
+
+Ingestion into the dual-layer graph:
+
+- Create a `DecisionReceipt` node with an embedding over the concatenated fields; attach salience/decay based on scope (`task`, `audience`, and time window).
+- Add edges to evidence (`ref_input` → episode/span/config), actors/approvers, applicable policies (typed `policy_result` edges), actions, and outcomes. Each edge carries provenance to the receipt ID and the original source (e.g., CI log URL, CMS span ID).
+- When the receipt references CMS spans or RLDS episodes, reuse their embeddings for the wave layer and add a composed embedding for the receipt to improve prefilter recall.
+
+### Retrieval Hooks
+
+- Query receipts by task/user/time/permission (e.g., `task=deploy_pi5_wavecore_loop AND audience~role:operator AND committed_within=7d`) to assemble a policy-aware history.
+- Use the wave prefilter on receipt embeddings to find similar decisions, then expand particle edges to surface which inputs/policies drove past approvals or denials.
+- For active planning, include recent receipts in the context state vector so the planner respects the latest approvals/denials without re-running heavy checks.
+
+### Implementation Guardrails
+
+- Keep instrumentation minimal: emit receipts at commit surfaces only, and reuse existing IDs/logs instead of rebuilding the world from scratch.
+- Respect PII/safety constraints: do not ingest or list receipts unless associated episodes/spans have `pii_cleared=true`, `pending_review=false`, and redactions noted (`pii_redacted=true` when applicable).
+- Stage evolution: **v1** structured logging only; **v2** promote into the dual-layer graph with embeddings/decay; **v3** enable learned relation suggestions (link prediction) gated by policy edges and human approval.
