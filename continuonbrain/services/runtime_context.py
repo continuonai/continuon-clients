@@ -68,6 +68,7 @@ class WorldModelCapabilities:
     jax_available: bool = False
     mamba_available: bool = False
     world_model_type: str = ""  # "jax_core", "mamba", "stub"
+    adapter_ready: bool = False
     checkpoint_path: str = ""
     can_predict: bool = False
     can_plan: bool = False
@@ -77,6 +78,7 @@ class WorldModelCapabilities:
             "jax_available": self.jax_available,
             "mamba_available": self.mamba_available,
             "world_model_type": self.world_model_type,
+            "adapter_ready": self.adapter_ready,
             "checkpoint_path": self.checkpoint_path,
             "can_predict": self.can_predict,
             "can_plan": self.can_plan,
@@ -431,7 +433,7 @@ class RuntimeContextManager:
             logger.info(f"⚠️ HOPE brain not available: {e}")
         
         # Check integration with other systems
-        caps.integrated_world_model = hardware_caps.world_model.can_predict
+        caps.integrated_world_model = hardware_caps.world_model.adapter_ready
         caps.integrated_semantic_search = hardware_caps.semantic_search.encoder_available
         caps.integrated_vision = hardware_caps.sam3_available or hardware_caps.hailo_available
         
@@ -494,6 +496,22 @@ class RuntimeContextManager:
                 self.context.training_active = True
         
         return self.context
+
+    def mark_world_model_ready(
+        self,
+        world_model_type: Optional[str] = None,
+        can_plan: Optional[bool] = None,
+    ) -> WorldModelCapabilities:
+        """Mark the runtime context as having an initialized world model adapter."""
+        wm = self.context.hardware.world_model
+        wm.adapter_ready = True
+        if world_model_type:
+            wm.world_model_type = world_model_type
+        wm.can_predict = True
+        if can_plan is not None:
+            wm.can_plan = bool(can_plan)
+        self.context.hardware.hope_agent.integrated_world_model = True
+        return wm
     
     def get_context(self) -> RuntimeContext:
         """Get current runtime context."""
@@ -505,6 +523,7 @@ class RuntimeContextManager:
         """Get full status for API."""
         ctx = self.get_context()
         status = ctx.to_dict()
+        status["world_model_ready"] = bool(ctx.hardware.world_model.adapter_ready)
         
         # Add recommended actions based on mode
         status["recommendations"] = self._get_recommendations()
@@ -539,6 +558,8 @@ class RuntimeContextManager:
         
         # World model recommendations
         wm = hw.world_model
+        if (wm.jax_available or wm.mamba_available) and not wm.adapter_ready:
+            recs.append("World model runtime not initialized; start the adapter or verify JAX/Mamba setup.")
         if not wm.jax_available and not wm.mamba_available:
             recs.append("World model limited to stub. Install JAX for physics prediction: pip install jax jaxlib")
         elif not wm.checkpoint_path:
@@ -600,7 +621,8 @@ class RuntimeContextManager:
         if wm.can_predict:
             checkpoint = " + checkpoint" if wm.checkpoint_path else " (untrained)"
             planning = " + planning" if wm.can_plan else ""
-            print(f"   ✅ World Model ({wm.world_model_type}){checkpoint}{planning}")
+            readiness = " + adapter_ready" if wm.adapter_ready else " (adapter not initialized)"
+            print(f"   ✅ World Model ({wm.world_model_type}){checkpoint}{planning}{readiness}")
         else:
             print("   ❌ World Model unavailable")
         
@@ -660,4 +682,3 @@ def initialize_runtime_context(config_dir: str = "/opt/continuonos/brain") -> Ru
     )
     
     return manager.get_context()
-
