@@ -130,6 +130,13 @@ def _build_status_payload() -> dict:
     except Exception:
         pass
 
+    world_model_ready = bool(getattr(brain_service, "jax_adapter", None))
+    if runtime_ctx:
+        try:
+            world_model_ready = bool(runtime_ctx.get("hardware", {}).get("world_model", {}).get("adapter_ready", world_model_ready))
+        except Exception:
+            pass
+
     return {
         "api_state": "ok",
         "hardware_mode": hardware_mode,
@@ -147,6 +154,7 @@ def _build_status_payload() -> dict:
         "current_skill": {"id": selected_skill_id} if selected_skill_id else None,
         "learning": learning,
         "runtime_context": runtime_ctx,
+        "world_model_ready": world_model_ready,
     }
 
 

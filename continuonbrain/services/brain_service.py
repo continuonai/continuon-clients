@@ -347,6 +347,7 @@ class BrainService:
         self.tool_router_evaluator = None
         self._tool_router_bundle = None
         self.jax_adapter = None
+        self._prime_world_model_adapter()
 
         # Teacher Mode State (HITL)
         self.teacher_mode_active = False
@@ -2362,25 +2363,72 @@ class BrainService:
             return {"success": True, "message": "OK", "clipping": res.get("safety_level") == 1}
         return {"success": False, "message": "No drivetrain"}
 
+    def _prime_world_model_adapter(self) -> None:
+        """Initialize the world model adapter when JAX is available in the runtime context."""
+        if self.jax_adapter is not None:
+            return
+        try:
+            from continuonbrain.services.runtime_context import get_runtime_context_manager
+
+            runtime_mgr = get_runtime_context_manager(self.config_dir)
+            context = runtime_mgr.get_context()
+            hardware = getattr(context, "hardware", None)
+            wm_caps = getattr(hardware, "world_model", None) if hardware else None
+            if not wm_caps or not wm_caps.jax_available:
+                return
+            if self.gemma_chat and getattr(self.gemma_chat, "model_name", "").lower().startswith("mock"):
+                logger.info("Skipping JAX world model init: Gemma chat backend is in mock mode.")
+                return
+
+            self._init_jax_search()
+            if getattr(self, "jax_adapter", None):
+                mark_ready = getattr(runtime_mgr, "mark_world_model_ready", None)
+                if callable(mark_ready):
+                    try:
+                        mark_ready(world_model_type=wm_caps.world_model_type, can_plan=wm_caps.can_plan)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug(f"Failed to publish world model readiness to runtime context: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"World model auto-init skipped: {exc}")
+
     def _init_jax_search(self):
         """Initialize JAX model adapter for search if JAX is available/selected."""
-        if self.gemma_chat and getattr(self.gemma_chat, "model_name", "").startswith("mock"):
-             # Skip JAX init in mock mode unless forced?
-             pass
+        if self.jax_adapter is not None:
+            return
+        if self.gemma_chat and getattr(self.gemma_chat, "model_name", "").lower().startswith("mock"):
+            logger.info("Skipping JAX world model init: mock chat backend active.")
+            return
+
+        try:
+            import jax  # noqa: WPS433
+        except Exception as exc:  # noqa: BLE001
+            logger.info(f"[BrainService] Skipping JAX search adapter init; JAX unavailable ({exc}).")
+            return
 
         try:
             # Lazy import to avoid hard dependency if not used
             from continuonbrain.jax_models.core_model import make_core_model, CoreModelConfig
             from continuonbrain.reasoning.jax_adapter import JaxWorldModelAdapter
-            import jax
             
             # Check for cached/shared params? For now create fresh for search (inefficient but safe)
             rng = jax.random.PRNGKey(0)
             model, params = make_core_model(rng, obs_dim=128, action_dim=32, output_dim=32)
             self.jax_adapter = JaxWorldModelAdapter(model, params, CoreModelConfig.pi5_optimized())
-            print("[BrainService] JAX World Model Adapter initialized for Search.")
+            try:
+                from continuonbrain.services.runtime_context import get_runtime_context_manager
+
+                runtime_mgr = get_runtime_context_manager(self.config_dir)
+                wm_type = None
+                try:
+                    wm_type = runtime_mgr.get_context().hardware.world_model.world_model_type
+                except Exception:
+                    wm_type = None
+                runtime_mgr.mark_world_model_ready(world_model_type=wm_type or "jax_core", can_plan=True)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug(f"Failed to mark runtime context world model readiness: {exc}")
+            logger.info("[BrainService] JAX World Model Adapter initialized for Search.")
         except Exception as e:
-            print(f"[BrainService] Failed to init JAX search adapter: {e}")
+            logger.warning(f"[BrainService] Failed to init JAX search adapter: {e}")
 
     async def RunSymbolicSearch(self, payload: dict) -> dict:
         """Run Symbolic/Tree search using the JAX World Model."""
