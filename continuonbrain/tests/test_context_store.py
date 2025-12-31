@@ -4,6 +4,8 @@ import json
 from datetime import datetime
 from continuonbrain.core.context_graph_models import Node, Edge
 from continuonbrain.core.context_graph_store import SQLiteContextStore
+from continuonbrain.core.graph_ingestor import GraphIngestor
+from continuonbrain.core.context_retriever import ContextRetriever
 
 class TestSQLiteContextStore:
     def setup_method(self):
@@ -99,3 +101,43 @@ class TestNetworkXContextStore:
         assert len(neighbors) == 1
         assert neighbors[0].id == "n2"
 
+
+def test_graph_ingestor_builds_typed_nodes_and_edges(tmp_path):
+    store = SQLiteContextStore(":memory:")
+    store.initialize_db()
+    ingestor = GraphIngestor(store, gemma_chat=None)
+
+    episode_payload = {
+        "episode_id": "ep_ingest",
+        "agent_id": "tester",
+        "timestamp": "2024-01-01T00:00:00Z",
+        "steps": [
+            {
+                "observation": {"instruction": "Pick up the block"},
+                "action": {"tool_calls": [{"name": "gripper"}]},
+                "step_metadata": {"cms_spans": [{"id": "span-1", "text": "block grasp", "confidence": 0.9}]},
+            }
+        ],
+    }
+    episode_path = tmp_path / "episode.json"
+    episode_path.write_text(json.dumps(episode_payload))
+
+    ingestor.ingest_episode(str(episode_path), cms_spans=[{"id": "span-1", "tags": ["cms"]}])
+
+    nodes = store.list_nodes(limit=20)
+    node_types = {node.type for node in nodes}
+    assert "episode" in node_types
+    assert "intent" in node_types
+    assert "tool" in node_types
+    assert any(node.type == "span" for node in nodes)
+
+    edges = store.list_edges()
+    assert any(edge.type == "tool_use" for edge in edges)
+    assert any(edge.provenance.get("cms_span_id") == "span-1" for edge in edges)
+
+    retriever = ContextRetriever(store)
+    episode_ids = [node.id for node in nodes if node.type == "episode"]
+    subgraph = retriever.build_subgraph(episode_ids, depth=2)
+    sub_nodes = {node.type for node in subgraph["nodes"]}
+    assert "tool" in sub_nodes
+    assert "intent" in sub_nodes

@@ -44,6 +44,7 @@ from continuonbrain.core.context_graph_store import SQLiteContextStore
 from continuonbrain.core.graph_ingestor import GraphIngestor
 from continuonbrain.core.context_retriever import ContextRetriever
 from continuonbrain.core.session_store import SQLiteSessionStore
+from continuonbrain.core.context_graph_models import Node
 
 logger = logging.getLogger(__name__)
 
@@ -379,6 +380,69 @@ class BrainService:
     def uptime_seconds(self) -> float:
         return time.time() - self._start_time
 
+    def _ensure_session_node(self, session_id: str) -> str:
+        """
+        Ensure a context_session node exists for the active chat session.
+        """
+        session_node_id = f"context_session/{session_id}"
+        existing = self.context_store.get_node(session_node_id)
+        if not existing:
+            session_node = Node(
+                id=session_node_id,
+                type="context_session",
+                name=f"Session {session_id}",
+                attributes={"session_id": session_id, "tags": ["chat_session"]},
+            )
+            self.context_store.add_node(session_node)
+        return session_node_id
+
+    def get_context_subgraph(
+        self,
+        session_id: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        depth: int = 2,
+        limit: int = 50,
+        min_confidence: float = 0.0,
+    ) -> Dict[str, Any]:
+        """
+        Retrieve a scoped context subgraph for the active session/tag filter.
+        """
+        if not self.context_retriever:
+            return {"nodes": [], "edges": [], "seeds": []}
+
+        seeds: List[str] = []
+        if session_id:
+            seeds.append(self._ensure_session_node(session_id))
+        if tags:
+            tagged_nodes = [node.id for node in self.context_store.list_nodes(tags=tags, limit=limit)]
+            seeds.extend([n for n in tagged_nodes if n not in seeds])
+        if not seeds:
+            seeds.extend([node.id for node in self.context_store.list_nodes(types=["episode"], limit=1)])
+
+        seeds = [s for idx, s in enumerate(seeds) if s and s not in seeds[:idx]]
+        if not seeds:
+            return {"nodes": [], "edges": [], "seeds": []}
+
+        subgraph = self.context_retriever.build_subgraph(
+            seeds, depth=depth, min_confidence=min_confidence
+        )
+        subgraph["seeds"] = seeds
+        return subgraph
+
+    def _summarize_context_subgraph(self, subgraph: Dict[str, Any], node_limit: int = 5) -> str:
+        if not subgraph or not subgraph.get("nodes"):
+            return ""
+        lines = []
+        nodes = subgraph.get("nodes", [])[:node_limit]
+        for node in nodes:
+            tags = node.attributes.get("tags", []) if hasattr(node, "attributes") else []
+            lines.append(f"[{node.type}] {node.name} {' '.join(tags)}".strip())
+        if len(subgraph.get("nodes", [])) > node_limit:
+            lines.append(f"... +{len(subgraph.get('nodes', [])) - node_limit} more nodes")
+        if subgraph.get("edges"):
+            lines.append(f"Edges: {len(subgraph.get('edges', []))}")
+        return "\n".join(lines)
+
     def _load_or_create_device_id(self, config_dir: str) -> str:
         cfg_path = Path(config_dir) / "device_id.json"
         if cfg_path.exists():
@@ -604,6 +668,8 @@ class BrainService:
         status_lines.append(f"Vision: {'OK' if caps['has_vision'] else 'None'}")
         
         system_context = "\n".join(status_lines)
+        context_subgraph = self.get_context_subgraph(session_id=session_id, depth=2)
+        context_summary = self._summarize_context_subgraph(context_subgraph)
         
         # Tool Instructions
         system_context += "\\nTOOLS: You can use tools by outputting: [TOOL: ACTION args].\\n"
@@ -621,6 +687,9 @@ class BrainService:
         
         # Status updates list
         status_updates = []
+        if context_summary:
+            status_updates.append("Context graph ready")
+            system_context += f"\n--- CONTEXT GRAPH ---\n{context_summary}\n"
         
         # ==== HIERARCHICAL AGENT RESPONSE ====
         # 1. HOPE brain (Fast Loop)
@@ -646,7 +715,9 @@ class BrainService:
                     vision_service=getattr(self, 'vision_service', None),  # Vision
                 )
                 
-                can_answer, hope_confidence = hope_agent.can_answer(message)
+                can_answer, hope_confidence = hope_agent.can_answer(
+                    message, context_subgraph=context_subgraph
+                )
                 logger.info(f"HOPE confidence for '{message[:50]}...': {hope_confidence:.2f}")
                 
                 if can_answer:
@@ -690,13 +761,20 @@ class BrainService:
                         world_model=getattr(self, 'jax_adapter', None),
                         semantic_search=self.experience_logger,
                     )
-                    memories = hope_agent.get_relevant_memories(message, max_memories=3, experience_logger=self.experience_logger)
+                    memories = hope_agent.get_relevant_memories(
+                        message,
+                        max_memories=3,
+                        experience_logger=self.experience_logger,
+                        context_subgraph=context_subgraph,
+                    )
                     
                     if memories:
                         hope_context = "\n\n--- MY LEARNED KNOWLEDGE ---\n"
                         for i, mem in enumerate(memories, 1):
                             hope_context += f"{i}. {mem['description']}\n"
                         hope_context += "----------------------------\n"
+                        if context_summary:
+                            hope_context += f"Context Graph:\n{context_summary}\n"
                         status_updates.append(f"Consulting {len(memories)} memories")
                 except Exception as e:
                     logger.warning(f"Failed to retrieve HOPE memories: {e}")

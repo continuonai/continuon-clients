@@ -215,4 +215,93 @@ class SQLiteContextStore(ContextStore):
             ))
         return edges
 
+    def list_nodes(
+        self,
+        types: Optional[List[str]] = None,
+        limit: int = 100,
+        tags: Optional[List[str]] = None,
+    ) -> List[Node]:
+        """
+        Fetch recent nodes ordered by insertion order.
+        Applies lightweight filtering in SQL and tag filtering in Python.
+        """
+        conn = self._get_conn()
+        cursor = conn.cursor()
 
+        query = "SELECT * FROM nodes"
+        params: List[Any] = []
+        if types:
+            placeholders = ",".join("?" for _ in types)
+            query += f" WHERE type IN ({placeholders})"
+            params.extend(types)
+        query += " ORDER BY rowid DESC LIMIT ?"
+        params.append(limit)
+
+        cursor.execute(query, params)
+        results: List[Node] = []
+        for row in cursor.fetchall():
+            attrs = json.loads(row["attributes"]) if row["attributes"] else {}
+            if tags:
+                tag_values = attrs.get("tags", [])
+                if not any(tag in tag_values for tag in tags):
+                    continue
+            results.append(
+                Node(
+                    id=row["id"],
+                    type=row["type"],
+                    name=row["name"],
+                    attributes=attrs,
+                    embedding=json.loads(row["embedding"]) if row["embedding"] else None,
+                    belief=json.loads(row["belief"]) if row["belief"] else {},
+                )
+            )
+        return results
+
+    def list_edges(
+        self,
+        source_ids: Optional[List[str]] = None,
+        target_ids: Optional[List[str]] = None,
+        limit: int = 200,
+        min_confidence: float = 0.0,
+    ) -> List[Edge]:
+        conn = self._get_conn()
+        cursor = conn.cursor()
+
+        query = "SELECT * FROM edges"
+        clauses = []
+        params: List[Any] = []
+        if source_ids:
+            placeholders = ",".join("?" for _ in source_ids)
+            clauses.append(f"source IN ({placeholders})")
+            params.extend(source_ids)
+        if target_ids:
+            placeholders = ",".join("?" for _ in target_ids)
+            clauses.append(f"target IN ({placeholders})")
+            params.extend(target_ids)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY rowid DESC LIMIT ?"
+        params.append(limit)
+
+        cursor.execute(query, params)
+        edges: List[Edge] = []
+        for row in cursor.fetchall():
+            confidence = row["confidence"]
+            if confidence is not None and confidence < min_confidence:
+                continue
+            edges.append(
+                Edge(
+                    id=row["id"],
+                    source=row["source"],
+                    target=row["target"],
+                    type=row["type"],
+                    scope=json.loads(row["scope"]) if row["scope"] else {},
+                    provenance=json.loads(row["provenance"]) if row["provenance"] else {},
+                    assertion=json.loads(row["assertion"]) if row["assertion"] else None,
+                    confidence=confidence,
+                    embedding=json.loads(row["embedding"]) if row["embedding"] else None,
+                    salience=json.loads(row["salience"]) if row["salience"] else {},
+                    policy=json.loads(row["policy"]) if row["policy"] else None,
+                )
+            )
+        return edges
