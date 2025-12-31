@@ -26,33 +26,46 @@ class RobotControllerMixin:
         data = json.loads(body)
         joint_idx = data.get("joint_index")
         val = data.get("value")
-        
-        if brain_service.arm and joint_idx is not None:
-            # ROUTE THROUGH SAFETY KERNEL
-            joint_map = {0: "base", 1: "shoulder", 2: "elbow", 3: "wrist", 4: "gripper"}
-            joint_name = joint_map.get(joint_idx, f"joint_{joint_idx}")
-            
-            res = brain_service.safety_client.send_command("move_joints", {"joints": {joint_name: float(val)}})
-            
-            if res.get("status") != "ok":
-                    self.send_json({"success": False, "message": f"Safety Kernel Blocked: {res.get('reason')}"})
-                    return
 
-            # Apply safe action
-            safe_val = res.get("args", {}).get("joints", {}).get(joint_name, val)
-            
-            # Get current state first
-            current = brain_service.arm.get_normalized_state()
-            # Determine target
-            target = list(current)
-            if 0 <= joint_idx < 6:
-                target[joint_idx] = float(safe_val)
-                brain_service.arm.set_normalized_action(target)
-                self.send_json({"success": True, "clipping": res.get("safety_level") == 1})
-            else:
-                self.send_json({"success": False, "message": "Invalid joint index"})
-        else:
+        if joint_idx is None:
             self.send_json({"success": False, "message": "No arm or invalid data"})
+            return
+
+        # ROUTE THROUGH SAFETY KERNEL
+        joint_map = {0: "base", 1: "shoulder", 2: "elbow", 3: "wrist", 4: "gripper"}
+        joint_name = joint_map.get(joint_idx, f"joint_{joint_idx}")
+        session_id = data.get("session_id")
+        res = brain_service.safety_client.send_command(
+            "move_joints", {"joints": {joint_name: float(val if val is not None else 0.0)}}
+        )
+        provenance = {"safety_level": res.get("safety_level"), "raw": res}
+        brain_service.record_policy_trace(
+            session_id=session_id or "robot_control",
+            action_ref=f"joints/{joint_name}",
+            outcome="allowed" if res.get("status") == "ok" else "blocked",
+            reason=res.get("reason", ""),
+            provenance=provenance,
+        )
+
+        if res.get("status") != "ok":
+            self.send_json({"success": False, "message": f"Safety Kernel Blocked: {res.get('reason')}"})
+            return
+
+        if not brain_service.arm:
+            self.send_json({"success": False, "message": "No arm or invalid data"})
+            return
+
+        # Apply safe action
+        safe_val = res.get("args", {}).get("joints", {}).get(joint_name, val)
+
+        current = brain_service.arm.get_normalized_state()
+        target = list(current)
+        if 0 <= joint_idx < 6:
+            target[joint_idx] = float(safe_val)
+            brain_service.arm.set_normalized_action(target)
+            self.send_json({"success": True, "clipping": res.get("safety_level") == 1})
+        else:
+            self.send_json({"success": False, "message": "Invalid joint index"})
 
     @require_role(UserRole.CONSUMER)
     def handle_mode_set(self, target_mode: str):

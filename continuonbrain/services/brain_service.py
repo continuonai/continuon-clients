@@ -45,6 +45,7 @@ from continuonbrain.core.graph_ingestor import GraphIngestor
 from continuonbrain.core.context_retriever import ContextRetriever
 from continuonbrain.core.session_store import SQLiteSessionStore
 from continuonbrain.core.context_graph_models import Node
+from continuonbrain.core.decision_trace_logger import DecisionTraceLogger
 
 logger = logging.getLogger(__name__)
 
@@ -340,6 +341,9 @@ class BrainService:
         self.context_store.initialize_db()
         self.graph_ingestor = GraphIngestor(self.context_store, self.gemma_chat)
         self.context_retriever = ContextRetriever(self.context_store)
+        self.decision_trace_logger = DecisionTraceLogger(
+            self.context_store, session_node_provider=self._ensure_session_node
+        )
         
         # JAX-based trainers/tool-router are intentionally lazy-imported
         self.wavecore_trainer = None
@@ -428,6 +432,94 @@ class BrainService:
         )
         subgraph["seeds"] = seeds
         return subgraph
+
+    def get_decision_trace_subgraph(
+        self,
+        *,
+        depth: int = 2,
+        limit: int = 50,
+        min_confidence: float = 0.0,
+    ) -> Dict[str, Any]:
+        """
+        Return a subgraph focused on recent decision-trace nodes (policy/tool edges).
+        """
+        if not self.context_retriever:
+            return {"nodes": [], "edges": [], "seeds": []}
+
+        decision_nodes = [node.id for node in self.context_store.list_nodes(types=["decision"], limit=limit)]
+        session_nodes = [node.id for node in self.context_store.list_nodes(types=["context_session"], limit=limit)]
+        seeds = []
+        for node_id in decision_nodes + session_nodes:
+            if node_id not in seeds:
+                seeds.append(node_id)
+
+        if not seeds:
+            return {"nodes": [], "edges": [], "seeds": []}
+
+        subgraph = self.context_retriever.build_subgraph(
+            seeds,
+            depth=depth,
+            min_confidence=min_confidence,
+        )
+        subgraph["seeds"] = seeds
+        return subgraph
+
+    def record_action_plan_trace(
+        self,
+        *,
+        session_id: Optional[str],
+        plan_text: str,
+        actor: str,
+        tools: Optional[List[str]] = None,
+        provenance: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        if not self.decision_trace_logger:
+            return None
+        return self.decision_trace_logger.log_action_plan(
+            session_id=session_id,
+            plan_text=plan_text,
+            actor=actor,
+            tools=tools,
+            provenance=provenance,
+        )
+
+    def record_policy_trace(
+        self,
+        *,
+        session_id: Optional[str],
+        action_ref: str,
+        outcome: str,
+        reason: str,
+        provenance: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        if not self.decision_trace_logger:
+            return None
+        return self.decision_trace_logger.log_policy_decision(
+            session_id=session_id,
+            action_ref=action_ref,
+            outcome=outcome,
+            reason=reason,
+            provenance=provenance,
+        )
+
+    def record_human_decision_trace(
+        self,
+        *,
+        session_id: Optional[str],
+        action_ref: str,
+        approved: bool,
+        user_id: str,
+        notes: str = "",
+    ) -> Optional[str]:
+        if not self.decision_trace_logger:
+            return None
+        return self.decision_trace_logger.log_human_feedback(
+            session_id=session_id,
+            action_ref=action_ref,
+            approved=approved,
+            user_id=user_id,
+            notes=notes,
+        )
 
     def _summarize_context_subgraph(self, subgraph: Dict[str, Any], node_limit: int = 5) -> str:
         if not subgraph or not subgraph.get("nodes"):
@@ -875,12 +967,22 @@ class BrainService:
                     tool_cmd = response[start+7:end].strip()
                     parts = tool_cmd.split()
                     action = parts[0].upper()
+                    plan_node_id = None
+                    if self.decision_trace_logger:
+                        plan_node_id = self.record_action_plan_trace(
+                            session_id=session_id or "chat",
+                            plan_text=tool_cmd,
+                            actor=response_agent,
+                            tools=[action.lower()],
+                            provenance={"user_message": message},
+                        )
                     
                     # SAFETY CHECK: Validate tool action against safety protocol
                     action_description = f"Execute tool command: {tool_cmd}"
                     is_safe, safety_reason = self._check_safety_protocol(
                         action_description,
-                        {"tool_action": action, "user_message": message}
+                        {"tool_action": action, "user_message": message, "session_id": session_id},
+                        decision_id=plan_node_id,
                     )
                     
                     if not is_safe:
@@ -1648,12 +1750,18 @@ class BrainService:
         
         return options[:3]  # Limit to 3 options
 
-    def _check_safety_protocol(self, action: str, context: dict = None) -> tuple[bool, str]:
+    def _check_safety_protocol(
+        self,
+        action: str,
+        context: dict = None,
+        decision_id: Optional[str] = None,
+    ) -> tuple[bool, str]:
         """Check if an action complies with safety protocol.
         
         Args:
             action: Description of the action to be taken
             context: Additional context for the decision
+            decision_id: Optional decision/plan identifier for traceability
             
         Returns:
             (is_safe, reason) tuple
@@ -1677,12 +1785,12 @@ class BrainService:
         )
         
         # Log the safety decision
-        self._log_safety_decision(action, is_safe, reason, violated_rules, context)
+        self._log_safety_decision(action, is_safe, reason, violated_rules, context, decision_id=decision_id)
         
         return is_safe, reason
     
     def _log_safety_decision(self, action: str, is_safe: bool, reason: str, 
-                            violated_rules: list, context: dict) -> None:
+                            violated_rules: list, context: dict, decision_id: Optional[str] = None) -> None:
         """Log safety-related decisions for audit trail.
         
         Args:
@@ -1691,6 +1799,7 @@ class BrainService:
             reason: Explanation for the decision
             violated_rules: List of rules that were violated (if any)
             context: Context in which the decision was made
+            decision_id: Optional trace id for linking to policy edges
         """
         log_dir = Path(self.config_dir) / "logs" / "safety"
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -1714,6 +1823,18 @@ class BrainService:
         try:
             with open(log_file, "a") as f:
                 f.write(json.dumps(entry) + "\n")
+            if self.decision_trace_logger:
+                self.decision_trace_logger.log_policy_decision(
+                    session_id=context.get("session_id") if isinstance(context, dict) else None,
+                    action_ref=decision_id or action,
+                    outcome="allowed" if is_safe else "blocked",
+                    reason=reason,
+                    provenance={
+                        "source": "safety_kernel",
+                        "violated_rules": violated_rules,
+                        "context_mode": context.get("current_mode") if isinstance(context, dict) else None,
+                    },
+                )
         except Exception as e:
             # Don't fail on logging errors, but print warning
             print(f"⚠️  Failed to log safety decision: {e}")
@@ -2408,8 +2529,10 @@ class BrainService:
             {
                 "steering": steering,
                 "throttle": throttle,
-                "requires_motion": True
-            }
+                "requires_motion": True,
+                "session_id": "robot_control",
+            },
+            decision_id=action_description,
         )
         
         if not is_safe:

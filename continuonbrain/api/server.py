@@ -774,6 +774,53 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 data = brain_service.get_brain_structure()
                 self.send_json(data)
 
+            elif self.path.startswith("/api/context/graph/decisions"):
+                try:
+                    parsed = urlparse(self.path)
+                    query = parse_qs(parsed.query)
+                    depth = int((query.get("depth") or ["2"])[0])
+                    limit = int((query.get("limit") or ["50"])[0])
+                    min_conf = float((query.get("min_confidence") or ["0.0"])[0])
+
+                    subgraph = brain_service.get_decision_trace_subgraph(
+                        depth=depth, limit=limit, min_confidence=min_conf
+                    )
+
+                    nodes_payload = []
+                    for node in subgraph.get("nodes", []):
+                        n = {
+                            "id": node.id,
+                            "type": node.type,
+                            "name": node.name,
+                            "attributes": node.attributes,
+                            "belief": getattr(node, "belief", {}),
+                        }
+                        if getattr(node, "embedding", None):
+                            n["embedding"] = "[vector]"
+                        nodes_payload.append(n)
+
+                    edges_payload = []
+                    for edge in subgraph.get("edges", []):
+                        e = {
+                            "id": edge.id,
+                            "source": edge.source,
+                            "target": edge.target,
+                            "type": edge.type,
+                            "scope": edge.scope,
+                            "provenance": edge.provenance,
+                            "assertion": edge.assertion,
+                            "confidence": edge.confidence,
+                            "salience": edge.salience,
+                            "policy": edge.policy,
+                        }
+                        if edge.embedding:
+                            e["embedding"] = "[vector]"
+                        edges_payload.append(e)
+
+                    self.send_json({"nodes": nodes_payload, "edges": edges_payload, "seeds": subgraph.get("seeds", [])})
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
+
             elif self.path.startswith("/api/context/graph"):
                 try:
                     parsed = urlparse(self.path)
@@ -1300,6 +1347,32 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_json({"success": True, "message": f"Session {session_id} cleared"})
                 else:
                     self.send_json({"success": False, "message": "session_id required"}, status=400)
+
+            elif self.path == "/api/context/decision/plan":
+                data = json.loads(body) if body else {}
+                plan_text = data.get("plan_text") or data.get("summary") or ""
+                actor = data.get("actor") or "agent_manager"
+                tools = data.get("tools") or []
+                provenance = data.get("provenance") or {}
+                plan_node = brain_service.record_action_plan_trace(
+                    session_id=data.get("session_id"),
+                    plan_text=plan_text,
+                    actor=actor,
+                    tools=tools if isinstance(tools, list) else [tools],
+                    provenance=provenance if isinstance(provenance, dict) else {},
+                )
+                self.send_json({"success": True, "plan_node": plan_node})
+
+            elif self.path == "/api/context/decision/feedback":
+                data = json.loads(body) if body else {}
+                decision_id = brain_service.record_human_decision_trace(
+                    session_id=data.get("session_id"),
+                    action_ref=data.get("action_ref") or data.get("plan_id") or "",
+                    approved=bool(data.get("approved", False)),
+                    user_id=data.get("user_id") or "unknown_user",
+                    notes=data.get("notes") or "",
+                )
+                self.send_json({"success": True, "decision_id": decision_id})
 
             elif self.path == "/api/admin/factory_reset":
                 self.handle_factory_reset(body)
