@@ -65,4 +65,43 @@ class NetworkXContextStore(ContextStore):
                 edges.append(self.edges_map[edge_id])
         return edges
 
+    def list_nodes(
+        self,
+        types: Optional[List[str]] = None,
+        limit: int = 100,
+        tags: Optional[List[str]] = None,
+    ) -> List[Node]:
+        nodes: List[Node] = []
+        for node_id in reversed(list(self.graph.nodes)):
+            node = self.graph.nodes[node_id]["data"]
+            if types and node.type not in types:
+                continue
+            if tags:
+                node_tags = node.attributes.get("tags", [])
+                if not any(tag in node_tags for tag in tags):
+                    continue
+            nodes.append(node)
+            if len(nodes) >= limit:
+                break
+        return nodes
+
+    def list_edges(
+        self,
+        source_ids: Optional[List[str]] = None,
+        target_ids: Optional[List[str]] = None,
+        limit: int = 200,
+        min_confidence: float = 0.0,
+    ) -> List[Edge]:
+        edges: List[Edge] = []
+        for edge_id, edge in self.edges_map.items():
+            if source_ids and edge.source not in source_ids:
+                continue
+            if target_ids and edge.target not in target_ids:
+                continue
+            if edge.confidence is not None and edge.confidence < min_confidence:
+                continue
+            edges.append(edge)
+            if len(edges) >= limit:
+                break
+        return edges
 

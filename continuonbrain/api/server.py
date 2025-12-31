@@ -774,34 +774,56 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 data = brain_service.get_brain_structure()
                 self.send_json(data)
 
-            elif self.path == "/api/context/graph":
+            elif self.path.startswith("/api/context/graph"):
                 try:
-                    # Dump recent nodes/edges for viz
-                    # Access store directly via service
-                    store = brain_service.context_store
-                    # We need to access underlying DB for raw dump or use get_node/edge
-                    # SQLiteContextStore exposes _get_conn
-                    conn = store._get_conn()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT * FROM nodes") # Get all for now, or limit
-                    nodes = []
-                    for row in cursor.fetchall():
-                        n = dict(row)
-                        if n.get("attributes"): n["attributes"] = json.loads(n["attributes"])
-                        if n.get("belief"): n["belief"] = json.loads(n["belief"])
-                        if n.get("embedding"): n["embedding"] = "[vector]" # Hide vector
-                        nodes.append(n)
-                        
-                    cursor.execute("SELECT * FROM edges")
-                    edges = []
-                    for row in cursor.fetchall():
-                        e = dict(row)
-                        if e.get("scope"): e["scope"] = json.loads(e["scope"])
-                        if e.get("provenance"): e["provenance"] = json.loads(e["provenance"])
-                        if e.get("embedding"): e["embedding"] = "[vector]"
-                        edges.append(e)
-                        
-                    self.send_json({"nodes": nodes, "edges": edges})
+                    parsed = urlparse(self.path)
+                    query = parse_qs(parsed.query)
+                    session_id = (query.get("session_id") or [None])[0]
+                    tags = query.get("tag") or query.get("tags") or None
+                    depth = int((query.get("depth") or ["2"])[0])
+                    limit = int((query.get("limit") or ["50"])[0])
+                    min_conf = float((query.get("min_confidence") or ["0.0"])[0])
+
+                    subgraph = brain_service.get_context_subgraph(
+                        session_id=session_id,
+                        tags=tags,
+                        depth=depth,
+                        limit=limit,
+                        min_confidence=min_conf,
+                    )
+
+                    nodes_payload = []
+                    for node in subgraph.get("nodes", []):
+                        n = {
+                            "id": node.id,
+                            "type": node.type,
+                            "name": node.name,
+                            "attributes": node.attributes,
+                            "belief": node.belief,
+                        }
+                        if node.embedding:
+                            n["embedding"] = "[vector]"
+                        nodes_payload.append(n)
+
+                    edges_payload = []
+                    for edge in subgraph.get("edges", []):
+                        e = {
+                            "id": edge.id,
+                            "source": edge.source,
+                            "target": edge.target,
+                            "type": edge.type,
+                            "scope": edge.scope,
+                            "provenance": edge.provenance,
+                            "assertion": edge.assertion,
+                            "confidence": edge.confidence,
+                            "salience": edge.salience,
+                            "policy": edge.policy,
+                        }
+                        if edge.embedding:
+                            e["embedding"] = "[vector]"
+                        edges_payload.append(e)
+
+                    self.send_json({"nodes": nodes_payload, "edges": edges_payload, "seeds": subgraph.get("seeds", [])})
                 except Exception as e:
                     self.send_json({"error": str(e)}, status=500)
 

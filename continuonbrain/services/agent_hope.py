@@ -56,7 +56,7 @@ class HOPEAgent:
         self._last_prediction = None
         self._last_plan = None
         
-    def can_answer(self, message: str) -> Tuple[bool, float]:
+    def can_answer(self, message: str, context_subgraph: Optional[Dict[str, Any]] = None) -> Tuple[bool, float]:
         """
         Determine if HOPE can confidently answer a query.
         
@@ -95,6 +95,9 @@ class HOPEAgent:
                 if metrics.get('is_stable', True) == False:
                     confidence *= 0.5
                 
+                if context_subgraph:
+                    intent_boost = len([n for n in context_subgraph.get("nodes", []) if getattr(n, "type", "") == "intent"])
+                    confidence += min(0.1, 0.02 * intent_boost)
                 return (confidence >= self.confidence_threshold, confidence)
                 
             except Exception as e:
@@ -141,7 +144,13 @@ class HOPEAgent:
             logger.error(f"Error generating HOPE response: {e}")
             return None
     
-    def get_relevant_memories(self, query: str, max_memories: int = 5, experience_logger=None) -> List[Dict[str, Any]]:
+    def get_relevant_memories(
+        self,
+        query: str,
+        max_memories: int = 5,
+        experience_logger=None,
+        context_subgraph: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Retrieve relevant memories from HOPE's CMS and learned conversations.
         
@@ -176,6 +185,18 @@ class HOPEAgent:
                         "source": "learned_conversation"
                     })
             
+            # Add symbolic context from the particle graph if available
+            if context_subgraph:
+                for node in context_subgraph.get("nodes", []):
+                    memories.append(
+                        {
+                            "description": f"Context node ({node.type}): {node.name}",
+                            "confidence": node.belief.get("score", 0.5) if hasattr(node, "belief") else 0.5,
+                            "timestamp": getattr(node, "attributes", {}).get("timestamp", "context"),
+                            "source": "context_graph",
+                        }
+                    )
+
             # Sort by confidence and return top results
             memories.sort(key=lambda x: x.get("confidence", 0), reverse=True)
             return memories[:max_memories]
