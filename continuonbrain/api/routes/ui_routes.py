@@ -1,7 +1,22 @@
-from typing import Dict, Any
+import importlib.util
 from pathlib import Path
+from typing import Any, Dict
+
 import jinja2
-from flask import Blueprint
+
+_flask_spec = importlib.util.find_spec("flask")
+if _flask_spec:
+    from flask import Blueprint  # type: ignore
+else:
+    class Blueprint:  # type: ignore[too-many-instance-attributes]
+        def __init__(self, *args, **kwargs) -> None:
+            self.name = kwargs.get("name")
+
+        def route(self, *args, **kwargs):
+            def decorator(func):
+                return func
+
+            return decorator
 
 # Initialize Blueprint
 ui_bp = Blueprint('ui', __name__)

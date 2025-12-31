@@ -22,6 +22,7 @@
         <div style="display:flex; gap:10px;">
             <button onclick="loadGraph('context')">Context Graph</button>
             <button onclick="loadGraph('knowledge')">Knowledge Map</button>
+            <button onclick="loadGraph('decisions')">Decision Traces</button>
         </div>
         <div class="legend" id="legend">
             <!-- Dynamic Legend -->
@@ -63,6 +64,14 @@
                     <div class="legend-item"><div class="dot" style="background:#4f9dff"></div> Goal/Intent</div>
                     <div class="legend-item"><div class="dot" style="background:#8df5c7"></div> Tool</div>
                 `;
+            } else if (mode === 'decisions') {
+                const data = await fetch('/api/context/graph/decisions').then(r => r.json());
+                renderContextGraph(data);
+                legend.innerHTML = `
+                    <div class="legend-item"><div class="dot" style="background:#f5b14f"></div> Decision/Plan</div>
+                    <div class="legend-item"><div class="dot" style="background:#8df5c7"></div> Tool</div>
+                    <div class="legend-item"><div class="dot" style="background:#c3a4ff"></div> Session</div>
+                `;
             } else {
                 const data = await fetch('/api/agent/knowledge_map').then(r => r.json());
                 renderKnowledgeMap(data);
@@ -77,6 +86,14 @@
         function renderContextGraph(data) {
             const nodes = data.nodes.map(n => ({id: n.id, group: n.type, name: n.name}));
             const links = data.edges.map(e => ({source: e.source, target: e.target, type: e.type}));
+            const colorMap = {
+                "episode": "#ff4d6d",
+                "tool": "#8df5c7",
+                "intent": "#4f9dff",
+                "decision": "#f5b14f",
+                "context_session": "#c3a4ff",
+            };
+            const fallbackColor = "#4f9dff";
             
             simulation = d3.forceSimulation(nodes)
                 .force("link", d3.forceLink(links).id(d => d.id).distance(100))
@@ -95,7 +112,7 @@
                 .data(nodes)
                 .join("circle")
                 .attr("r", 6)
-                .attr("fill", d => d.group === 'episode' ? '#ff4d6d' : d.group === 'tool' ? '#8df5c7' : '#4f9dff')
+                .attr("fill", d => colorMap[d.group] || fallbackColor)
                 .call(drag(simulation));
 
             node.append("title").text(d => d.name || d.id);

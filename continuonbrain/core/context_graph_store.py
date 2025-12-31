@@ -263,6 +263,7 @@ class SQLiteContextStore(ContextStore):
         target_ids: Optional[List[str]] = None,
         limit: int = 200,
         min_confidence: float = 0.0,
+        types: Optional[List[str]] = None,
     ) -> List[Edge]:
         conn = self._get_conn()
         cursor = conn.cursor()
@@ -278,6 +279,10 @@ class SQLiteContextStore(ContextStore):
             placeholders = ",".join("?" for _ in target_ids)
             clauses.append(f"target IN ({placeholders})")
             params.extend(target_ids)
+        if types:
+            placeholders = ",".join("?" for _ in types)
+            clauses.append(f"type IN ({placeholders})")
+            params.extend(types)
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY rowid DESC LIMIT ?"
