@@ -51,7 +51,16 @@ class CurriculumManager:
                 LessonChallenge("vqvae-ratio", "VQ-VAE Compression Ratio", "calculator", {"expression": "(64*64*3) / (8*8)"}, "192.0"),
                 # Latent Dim Check
                 LessonChallenge("vqvae-dim", "Latent Dimension", "calculator", {"expression": "64"}, "64") 
-            ])
+            ]),
+            "coding-basics": Lesson("coding-basics", "Agentic Coding Capability", [
+                LessonChallenge("hello-file", "Write Hello World File", "filesystem", {"action": "write", "path": "hello_world.txt", "content": "Hello World"}, "success"),
+                LessonChallenge("read-file", "Read Created File", "filesystem", {"action": "read", "path": "hello_world.txt"}, "Hello World")
+            ]),
+            "visual-monitor": Lesson("visual-monitor", "Visual Self-Monitoring", [
+                # Taking a screenshot is a side-effect, we check if file exists after
+                LessonChallenge("capture-screen", "Capture Screenshot", "vision_core", {"action": "screenshot", "filename": "monitor_test.jpg"}, "success"),
+                LessonChallenge("check-screen", "Verify Screenshot Exists", "filesystem", {"action": "list", "path": "."}, "monitor_test.jpg")
+            ]),
         }
 
     async def run_lesson(self, lesson_id: str) -> Dict[str, Any]:

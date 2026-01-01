@@ -21,7 +21,7 @@ class FileSystemTool(BaseBrainTool):
         target = Path(self.root, path).resolve()
         return self.root in target.parents or target == self.root
 
-    async def execute(self, action: str, path: str = ".") -> Any:
+    async def execute(self, action: str, path: str = ".", content: Optional[str] = None) -> Any:
         """Execute filesystem actions."""
         if not self._is_safe(path):
             return {"error": "Access denied: Path is outside the permitted workspace.", "path": path}
@@ -59,6 +59,18 @@ class FileSystemTool(BaseBrainTool):
             except Exception as e:
                 return {"error": f"Read error: {str(e)}", "path": path}
 
+        elif action == "write":
+            if not content:
+                return {"error": "Content is required for write action.", "path": path}
+            
+            try:
+                # Ensure parent directory exists
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+                return {"success": True, "path": path, "size": len(content)}
+            except Exception as e:
+                return {"error": f"Write error: {str(e)}", "path": path}
+
         return {"error": f"Unknown action: {action}"}
 
     def _get_params_spec(self) -> Dict[str, Any]:
@@ -67,12 +79,16 @@ class FileSystemTool(BaseBrainTool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["list", "read"],
-                    "description": "The action to perform: 'list' directories or 'read' file content."
+                    "enum": ["list", "read", "write"],
+                    "description": "The action to perform: 'list', 'read', or 'write'."
                 },
                 "path": {
                     "type": "string",
                     "description": "The relative path within the workspace."
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Content to write (required for 'write' action)."
                 }
             },
             "required": ["action"]

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-16-Hour Extended Training Session
-- Robust memory management
-- Automatic recovery
-- Periodic checkpointing
+2-Hour Focused Training Session
+- Duration: 2 Hours
+- Memory Safety: Strict (Swap < 85%)
+- Features: WaveCore, CMS, Physics, Agentic Self-Improvement
 """
 
 import json
@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 API_BASE = "http://127.0.0.1:8081"
-LOG_FILE = Path("/home/craigm26/Downloads/ContinuonXR/training_10hr_log.jsonl")
-DURATION_HOURS = 10
+LOG_FILE = Path("/home/craigm26/Downloads/ContinuonXR/training_2hr_log.jsonl")
+DURATION_HOURS = 2
 CYCLE_INTERVAL_MIN = 15  # Run every 15 minutes
 
 def log_event(event_type: str, data: dict = None):
@@ -49,16 +49,20 @@ def api_call(method: str, endpoint: str, data: dict = None, timeout: int = 180):
     return {"error": "max retries exceeded"}
 
 def check_memory():
-    """Check memory status"""
+    """Check memory status with STRICT swap limits"""
     try:
         import psutil
         mem = psutil.virtual_memory()
         swap = psutil.swap_memory()
+        
+        # Stricter checks due to 2GB swap bottleneck
+        is_ok = mem.percent < 90 and swap.percent < 85
+        
         return {
             "mem_percent": mem.percent,
             "swap_percent": swap.percent,
             "available_mb": mem.available // (1024*1024),
-            "ok": mem.percent < 85 and swap.percent < 90
+            "ok": is_ok
         }
     except:
         return {"ok": True, "mem_percent": 0}
@@ -119,15 +123,16 @@ def check_server_health():
 
 def main():
     print("=" * 60)
-    print("  10-HOUR EXTENDED TRAINING SESSION")
+    print("  2-HOUR FOCUSED TRAINING SESSION")
     print(f"  Start: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  End:   {(datetime.now() + timedelta(hours=DURATION_HOURS)).strftime('%Y-%m-%d %H:%M:%S')}")
+    print("  Note:  Stricter memory checks enabled (Swap < 85%)")
     print("=" * 60)
     
     log_event("session_start", {
         "duration_hours": DURATION_HOURS,
         "cycle_interval_min": CYCLE_INTERVAL_MIN,
-        "mode": "extended"
+        "mode": "focused_2hr"
     })
     
     end_time = datetime.now() + timedelta(hours=DURATION_HOURS)
@@ -148,10 +153,11 @@ def main():
         # Memory check
         mem = check_memory()
         log_event("memory_check", mem)
-        print(f"  Memory: {mem.get('mem_percent', 0):.1f}% | Available: {mem.get('available_mb', 0)}MB")
+        print(f"  Memory: {mem.get('mem_percent', 0):.1f}% | Swap: {mem.get('swap_percent', 0):.1f}% | Avail: {mem.get('available_mb', 0)}MB")
         
         if not mem.get("ok", True):
-            print("  ⚠️  Memory pressure - waiting 60s...")
+            print("  ⚠️  Memory pressure (Swap > 85%) - skipping cycle to compact...")
+            run_cms_compact() # Force compact
             gc.collect()
             time.sleep(60)
             continue
@@ -228,8 +234,8 @@ def main():
         # Cleanup
         gc.collect()
         
-        # Checkpoint every 10 cycles
-        if cycle % 10 == 0:
+        # Checkpoint every 4 cycles (more frequent for short run)
+        if cycle % 4 == 0:
             log_event("checkpoint", {
                 "cycle": cycle,
                 "successful": successful_cycles,
@@ -249,7 +255,7 @@ def main():
     })
     
     print(f"\n{'='*60}")
-    print("  10-HOUR TRAINING SESSION COMPLETE!")
+    print("  2-HOUR TRAINING SESSION COMPLETE!")
     print(f"  Total Cycles: {cycle}")
     print(f"  Successful: {successful_cycles}")
     print(f"  Failed: {failed_cycles}")
@@ -257,4 +263,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

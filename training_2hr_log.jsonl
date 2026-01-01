@@ -1,0 +1,2 @@
+{"timestamp": "2026-01-01T07:58:34.622146", "type": "session_start", "data": {"duration_hours": 2, "cycle_interval_min": 15, "mode": "focused_2hr"}}
+{"timestamp": "2026-01-01T07:58:34.669535", "type": "memory_check", "data": {"mem_percent": 41.0, "swap_percent": 96.6, "available_mb": 9565, "ok": false}}

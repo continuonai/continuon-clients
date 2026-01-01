@@ -543,6 +543,24 @@ class VisionCore:
             logger.error(f"VQ-VAE surprise compute failed: {e}")
             return 0.0
 
+    def save_screenshot(self, filename: str) -> bool:
+        """Save the current RGB frame to disk."""
+        rgb = self._oak_camera.get_frame().get("rgb")
+        if rgb is None:
+            return False
+            
+        try:
+            import cv2
+            path = Path(filename).resolve()
+            # Ensure safe path relative to permitted area (e.g. workspace)
+            # In services, we trust the caller (tools verify safety)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(str(path), rgb)
+            return True
+        except Exception as e:
+            logger.error(f"Screenshot failed: {e}")
+            return False
+
     def close(self):
         """Cleanup resources."""
         if self._oak_camera:
