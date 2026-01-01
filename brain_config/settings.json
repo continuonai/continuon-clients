@@ -28,8 +28,8 @@
       "interval_s": 300,
       "turns_per_cycle": 12,
       "model_hint": "mock",
-      "delegate_model_hint": "consult:google/gemma-3-270m-it",
-      "topic": "curiosity-driven HOPE v1 self-improvement: CMS, safety, planning, tool-use, and robot skills",
+      "delegate_model_hint": "consult:google/gemma-3-4b-it",
+      "topic": "curiosity-driven self-improvement and architectural understanding: World Model, SSM, Mamba, CMS (Fast/Mid/Slow loops), Particle/Wave splitting, and autonomous system optimization.",
       "modes": [
         "idle",
         "autonomous"

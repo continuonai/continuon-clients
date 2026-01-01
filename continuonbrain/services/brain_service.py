@@ -1083,6 +1083,27 @@ class BrainService:
                                     status_updates.append("Tool: Gemini consultation failed")
                             except Exception as e:
                                 result = f"Tool Parse Error (ASK_GEMINI): {e}"
+                        elif action == "WIKIPEDIA" and len(parts) >= 2:
+                            query = " ".join(parts[1:])
+                            try:
+                                # Bridge sync tool parser with async tool
+                                wiki_tool = self.tool_registry.get_tool("wikipedia")
+                                if wiki_tool:
+                                    import asyncio
+                                    # We use a safe wrapper or assume we can run it
+                                    # Since this parser is in ChatWithGemma (sync), we use asyncio.run
+                                    # WARNING: This may be slow, but it's an ad-hoc legacy parser.
+                                    res_dict = asyncio.run(wiki_tool.execute(query))
+                                    if "error" in res_dict:
+                                        result = f"Wikipedia Error: {res_dict['error']}"
+                                    else:
+                                        result = f"Wikipedia Summary for '{query}':\n{res_dict.get('summary', 'No summary available.')}"
+                                    status_updates.append(f"Tool: Researched '{query}' on Wikipedia")
+                                else:
+                                    result = "Wikipedia tool not found in registry"
+                            except Exception as e:
+                                result = f"Wikipedia Error: {e}"
+                                status_updates.append("Tool: Wikipedia research failed")
                         elif action == "TRAIN_VISION":
                             # Launch training in background
                             import threading
@@ -2689,43 +2710,49 @@ class BrainService:
             "We are training the HOPE Agent Manager through multi-agent conversations.\n"
             "You are the Agent Manager (primary orchestrator) with CURIOSITY about the system.\n"
             "\n"
+            "--- SYSTEM ARCHITECTURE CONTEXT ---\n"
+            "HOPE operates on a 'One Brain, Many Shells' architecture using CMS (Contextual Memory System).\n"
+            "1) Fast Loop (ms-100ms): Reactive control, 'Particle' path (MLPs/Convs).\n"
+            "2) Mid Loop (1-10s): Tactical planning, skill sequencing.\n"
+            "3) Slow Loop (min-hours): Strategic reasoning, 'Wave' path (Mamba SSM, Spectral mixers).\n"
+            "CMS consolidates Episodic memory into Parametric memory through Sleep/Compaction cycles.\n"
+            "------------------------------------\n"
+            "\n"
             "CURIOSITY DIRECTIVE: Be curious about how the system works, what it can learn, and how to improve it.\n"
             "\n"
             "For each turn:\n"
             "1) As the Agent Manager, be CURIOUS about the system:\n"
             "   - What aspects of HOPE's architecture are most interesting or mysterious?\n"
-            "   - What learning capabilities could be enhanced?\n"
-            "   - How does the system actually work internally (CMS, WaveCore, symbolic search)?\n"
-            "   - What patterns emerge from the training data?\n"
-            "   - How can we make HOPE more helpful through better understanding?\n"
+            "   - How does the Mamba SSM (Wave path) transition episodic traces to parametric weights?\n"
+            "   - What learning capabilities could be enhanced by optimizing CMS compaction?\n"
+            "   - How does the system actually work internally (Fast/Mid/Slow loops)?\n"
+            "   - How can we make HOPE more helpful through better architectural understanding?\n"
             "\n"
             "2) Formulate CURIOUS questions that explore:\n"
             "   - System internals: How does CMS compaction actually work? What triggers it?\n"
             "   - Learning mechanisms: How does WaveCore fast/mid/slow differ? What do they learn?\n"
-            "   - Symbolic search: How does tool router map language to actions? Can it improve?\n"
+            "   - Memory: How is the 'Wave' state maintained in linear-time SSMs?\n"
             "   - Training data: What patterns exist in RLDS episodes? What's missing?\n"
-            "   - Safety: How are safety policies enforced? Can they be more effective?\n"
-            "   - Performance: What bottlenecks exist? How can we optimize?\n"
+            "   - Self-Improvement: How can the brain optimize its own inference stack?\n"
             "\n"
             "3) Consult the subagent (Gemma 3n) with your curious questions about system internals.\n"
             "\n"
             "4) As Agent Manager, synthesize the subagent's insights and decide:\n"
             "   - What did we learn about how the system works?\n"
             "   - How can HOPE learn from this understanding?\n"
-            "   - What concrete improvements would this enable?\n"
+            "   - What concrete architectural improvements would this enable?\n"
             "\n"
             "5) Be CURIOUS about learning itself:\n"
-            "   - How does continuous learning actually happen?\n"
+            "   - How does continuous learning actually happen in the 'One Brain' model?\n"
             "   - What makes some learning episodes more valuable than others?\n"
             "   - How can we make the system more curious and exploratory?\n"
             "\n"
             "Example curious conversation flow:\n"
-            "- Agent Manager: 'I'm curious: How does CMS compaction actually consolidate memories? "
-            "What triggers it, and could we make it more adaptive based on memory pressure patterns?'\n"
-            "- Subagent: 'CMS compaction uses energy transfer from episodic memory to long-term parameters. "
-            "It's triggered every 300s, but could be adaptive based on memory usage trends...'\n"
-            "- Agent Manager: 'Fascinating! So HOPE could learn to predict when compaction is needed "
-            "and trigger it proactively. This would improve memory efficiency and stability...'\n"
+            "- Agent Manager: 'I'm curious: How does the Mamba SSM layer consolidate episodic knowledge? "
+            "How can we optimize the energy transfer between Particle and Wave paths?'\n"
+            "- Subagent: 'The Mamba SSM uses selective state space updates to maintain long-range context...'\n"
+            "- Agent Manager: 'Excellent insight! This suggests we can tune the selectivity to preserve "
+            "critical safety traces while compacting routine motor data...'\n"
             "\n"
             f"Topic focus: {topic}.\n"
             "Be GENUINELY CURIOUS about the system. Ask questions that explore how things work, "

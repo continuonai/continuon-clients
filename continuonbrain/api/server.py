@@ -1339,6 +1339,22 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 brain_service.clear_chat_history()
                 self.send_json({"success": True})
 
+            elif self.path == "/api/training/wavecore_loops":
+                data = json.loads(body) if body else {}
+                # Bridge sync handler to async service method
+                result = asyncio.run(brain_service.RunWavecoreLoops(data))
+                self.send_json(result)
+
+            elif self.path == "/api/cms/compact":
+                result = brain_service.compact_memory()
+                self.send_json(result)
+
+            elif self.path == "/api/training/manual":
+                data = json.loads(body) if body else {}
+                # Bridge sync handler to async service method
+                result = asyncio.run(brain_service.RunManualTraining(data))
+                self.send_json(result)
+
             elif self.path == "/api/chat/session/clear":
                 data = json.loads(body) if body else {}
                 session_id = data.get("session_id")
