@@ -197,7 +197,40 @@ class ResourceMonitor:
         except Exception as e:
             logger.error(f"Failed to read meminfo: {e}")
             return 0, 0, 0, 0
-    
+
+    def release_heavy_buffers(self):
+        """
+        Attempt to release heavy tensor buffers (JAX/TF).
+        Useful during memory critical states.
+        """
+        logger.warning("Releasing heavy buffers...")
+        
+        # 1. Clear JAX
+        try:
+            import jax
+            # JAX doesn't have a direct 'clear_cache', but deleting backend refs helps
+            # Triggering GC is the main way
+            jax.clear_backends()
+            logger.info("Cleared JAX backends")
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to clear JAX: {e}")
+
+        # 2. Clear TensorFlow/Keras
+        try:
+            import tensorflow as tf
+            tf.keras.backend.clear_session()
+            logger.info("Cleared TF session")
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to clear TF: {e}")
+            
+        # 3. Force GC
+        import gc
+        gc.collect()
+
     def check_resources(self) -> ResourceStatus:
         """
         Check current resource usage.
@@ -237,13 +270,14 @@ class ResourceMonitor:
             level = ResourceLevel.EMERGENCY
             message = f"EMERGENCY: Memory at {memory_percent:.1f}% - only {available_mb}MB available"
             can_allocate = False
-        elif memory_percent >= self.limits.critical_threshold_percent:
+        elif memory_percent >= self.limits.critical_threshold_percent or swap_percent > 90.0:
+            # Upgrade to CRITICAL if Swap is full
             level = ResourceLevel.CRITICAL
-            message = f"CRITICAL: Memory at {memory_percent:.1f}% - {available_mb}MB available"
+            message = f"CRITICAL: Memory {memory_percent:.1f}% | Swap {swap_percent:.1f}%"
             can_allocate = available_mb > self.limits.system_reserve_mb
-        elif memory_percent >= self.limits.warning_threshold_percent:
+        elif memory_percent >= self.limits.warning_threshold_percent or swap_percent > 75.0:
             level = ResourceLevel.WARNING
-            message = f"WARNING: Memory at {memory_percent:.1f}% - {available_mb}MB available"
+            message = f"WARNING: Memory {memory_percent:.1f}% | Swap {swap_percent:.1f}%"
             can_allocate = available_mb > self.limits.system_reserve_mb
         else:
             level = ResourceLevel.NORMAL
@@ -270,6 +304,11 @@ class ResourceMonitor:
         if level != self.last_level:
             logger.warning(f"Resource level changed: {self.last_level.value} -> {level.value}: {message}")
             self._trigger_callbacks(level)
+            
+            # Auto-remediation on critical
+            if level in [ResourceLevel.CRITICAL, ResourceLevel.EMERGENCY]:
+                self.release_heavy_buffers()
+                
         elif self.limits.log_usage and level != ResourceLevel.NORMAL:
             logger.info(message)
         

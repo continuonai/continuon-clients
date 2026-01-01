@@ -49,7 +49,7 @@ def api_call(method: str, endpoint: str, data: dict = None, timeout: int = 180):
     return {"error": "max retries exceeded"}
 
 def check_memory():
-    """Check memory status with STRICT swap limits"""
+    """Check memory status with STRICT swap limits and AUTO-REMEDIATION"""
     try:
         import psutil
         mem = psutil.virtual_memory()
@@ -58,6 +58,24 @@ def check_memory():
         # Stricter checks due to 2GB swap bottleneck
         is_ok = mem.percent < 90 and swap.percent < 85
         
+        if not is_ok:
+             print(f"  ⚠️  Memory Pressure detected (Swap: {swap.percent}%)")
+             print("  🧹 Triggering cleanup...")
+             # Attempt remediation
+             try:
+                # We can import internal modules here if path allows, 
+                # or just use GC/Manual release if module not found.
+                # Ideally: from continuonbrain.resource_monitor import ResourceMonitor
+                # But for this script, we'll implement a local cleanup
+                import gc
+                gc.collect()
+                
+                # Check if we should recommend expansion
+                if swap.percent > 95:
+                    print("  🚨 CRITICAL SWAP! Run 'sudo ./scripts/expand_swap.sh 4096' to fix.")
+             except:
+                pass
+
         return {
             "mem_percent": mem.percent,
             "swap_percent": swap.percent,
