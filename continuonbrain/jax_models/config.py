@@ -70,6 +70,13 @@ class CoreModelConfig:
     mamba_state_dim: int = 1
     mamba_dt_min: float = 1e-4
     mamba_dt_scale: float = 1.0
+
+    # VQ-VAE & Object Features
+    num_vq_vocab: int = 512       # Vocabulary size for VQ-VAE
+    obs_token_len: int = 64       # Number of tokens (e.g. 8x8=64)
+    use_object_features: bool = False
+    object_dim: int = 32          # Dimension of each object feature (label + bbox + conf + depth)
+    max_objects: int = 10         # Connects to VisionCore output
     
     def __post_init__(self):
         """Validate configuration."""

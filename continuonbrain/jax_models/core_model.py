@@ -39,27 +39,39 @@ class InputEncoder(nn.Module):
     action_dim: int
     
     @nn.compact
-    def __call__(self, x_obs: jnp.ndarray, a_prev: jnp.ndarray, r_t: jnp.ndarray) -> jnp.ndarray:
+    def __call__(
+        self, 
+        x_obs: jnp.ndarray, 
+        a_prev: jnp.ndarray, 
+        r_t: jnp.ndarray,
+        object_features: Optional[jnp.ndarray] = None
+    ) -> jnp.ndarray:
         """
         Encode inputs into unified feature.
         
         Args:
-            x_obs: Observation [obs_dim] or [B, obs_dim]
-            a_prev: Previous action [action_dim] or [B, action_dim]
-            r_t: Reward scalar [1] or [B, 1]
-        
-        Returns:
-            e_t: Encoded feature [d_e] or [B, d_e]
+            x_obs: Observation (pixels or tokens)
+            a_prev: Previous action
+            r_t: Scalar reward
+            object_features: Optional [B, max_objects, object_dim]
         """
         d_e = self.config.d_e
         hidden_dim = 2 * d_e
         
         # Ensure batch dimension
-        if x_obs.ndim == 1:
+        if x_obs.ndim == 1 and self.config.obs_type != "vqvae":
             x_obs = x_obs[None, :]
+        if self.config.obs_type == "vqvae" and x_obs.ndim == 1:
+            # tokens: [L] -> [1, L]
+            x_obs = x_obs[None, :]
+            
+        if a_prev.ndim == 1:
             a_prev = a_prev[None, :]
-            r_t = r_t[None, :] if r_t.ndim == 1 else r_t[None, None]
-        
+        if r_t.ndim == 0:
+            r_t = r_t[None, None]
+        elif r_t.ndim == 1:
+            r_t = r_t[None, :]
+
         # Observation encoder
         if self.config.obs_type == "vector":
             obs_feat = nn.Dense(hidden_dim)(x_obs)
@@ -68,18 +80,36 @@ class InputEncoder(nn.Module):
             obs_feat = nn.Dense(d_e)(obs_feat)
         elif self.config.obs_type == "image":
             # Simple CNN for image observations
-            # Assumes input shape: [B, C, H, W]
             x = nn.Conv(features=32, kernel_size=(3, 3), strides=(2, 2), padding='SAME')(x_obs)
             x = nn.relu(x)
             x = nn.Conv(features=64, kernel_size=(3, 3), strides=(2, 2), padding='SAME')(x)
             x = nn.relu(x)
             x = nn.Conv(features=64, kernel_size=(3, 3), strides=(2, 2), padding='SAME')(x)
             x = nn.relu(x)
-            # Global average pooling
             x = jnp.mean(x, axis=(2, 3))  # [B, 64]
+            obs_feat = nn.Dense(d_e)(x)
+        elif self.config.obs_type == "vqvae":
+            # VQ-VAE Token Encoder
+            # x_obs is [B, L] integers
+            vocab_size = self.config.num_vq_vocab
+            embed_dim = 64
+            
+            x = nn.Embed(vocab_size, embed_dim)(x_obs) # [B, L, 64]
+            # Simple Flatten + Dense (fastest for Pi)
+            x = x.reshape((x.shape[0], -1)) # [B, L*64]
             obs_feat = nn.Dense(d_e)(x)
         else:
             raise ValueError(f"Unknown obs_type: {self.config.obs_type}")
+            
+        # Object Feature Encoder (Permutation Invariant)
+        obj_feat = jnp.zeros((x_obs.shape[0], d_e))
+        if self.config.use_object_features and object_features is not None:
+             # object_features: [B, N, D]
+             # Encode each object: MLP(obj) -> [B, N, d_e]
+             x_obj = nn.Dense(d_e)(object_features)
+             x_obj = nn.relu(x_obj)
+             # Max pool over objects (permutation invariant)
+             obj_feat = jnp.max(x_obj, axis=1) # [B, d_e]
         
         # Action encoder
         action_feat = nn.Dense(d_e // 2)(a_prev)
@@ -90,9 +120,8 @@ class InputEncoder(nn.Module):
         reward_feat = nn.relu(reward_feat)
         
         # Fusion layer
-        combined = jnp.concatenate([obs_feat, action_feat, reward_feat], axis=-1)
-        fusion_input_dim = d_e + (d_e // 2) + (d_e // 4)
-        assert combined.shape[-1] == fusion_input_dim
+        # Concat: [obs, action, reward, objects]
+        combined = jnp.concatenate([obs_feat, action_feat, reward_feat, obj_feat], axis=-1)
         
         e_t = nn.Dense(hidden_dim)(combined)
         e_t = nn.LayerNorm()(e_t)
@@ -511,6 +540,7 @@ class CoreModel(nn.Module):
         p_prev: jnp.ndarray,
         cms_memories: List[jnp.ndarray],
         cms_keys: List[jnp.ndarray],
+        object_features: Optional[jnp.ndarray] = None,
     ) -> Tuple[jnp.ndarray, Dict[str, Any]]:
         """
         Forward pass of CoreModel.
@@ -524,13 +554,14 @@ class CoreModel(nn.Module):
             p_prev: Previous particle state [d_p] or [B, d_p]
             cms_memories: List of CMS memory matrices per level
             cms_keys: List of CMS key matrices per level
+            object_features: Optional [B, max_objects, object_dim]
         
         Returns:
             y_t: Output [output_dim] or [B, output_dim]
             info: Dictionary with intermediate states and attention weights
         """
         # 1. Encode
-        e_t = self.encoder(x_obs, a_prev, r_t)
+        e_t = self.encoder(x_obs, a_prev, r_t, object_features=object_features)
         
         # 2. CMS Read
         q_t, c_t, attn_weights = self.cms_read(cms_memories, cms_keys, s_prev, e_t)
@@ -605,6 +636,7 @@ def make_core_model(
         dummy_p,
         dummy_cms_memories,
         dummy_cms_keys,
+        dummy_object_features=jnp.zeros((batch_size, config.max_objects, config.object_dim)) if config.use_object_features else None,
     )
     
     return model, params

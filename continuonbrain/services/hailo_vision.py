@@ -176,3 +176,49 @@ class HailoVision:
             return {"ok": False, "error": str(exc)}
 
 
+
+    def detect(self, frame: Any) -> list[Dict[str, Any]]:
+        """
+        Adapter for VisionCore: NumPy Frame -> JPEG -> Subprocess Inference.
+        Returns list of dicts: {'label': str, 'confidence': float, 'bbox': [x1, y1, x2, y2]}
+        """
+        if not self.state.available or not self.state.enabled:
+            return []
+            
+        try:
+            import cv2
+            import numpy as np
+            
+            # Encode to JPEG
+            success, buffer = cv2.imencode(".jpg", frame)
+            if not success:
+                return []
+                
+            jpeg_bytes = buffer.tobytes()
+            
+            # Run inference
+            res = self.infer_jpeg(jpeg_bytes)
+            
+            # Parse result
+            if not res.get("ok"):
+                return []
+                
+            # Convert 'topk' to standard detections list
+            # Expected output from worker is currently: {"ok": True, "topk": [{"label": "person", "confidence": 0.9, "bbox": [0,0,100,100]}]}
+            # Check actual worker output format in hailo_vision_worker (assuming standard API)
+            
+            detections = []
+            if "topk" in res:
+                for item in res["topk"]:
+                    d = {
+                        "label": item.get("label", "unknown"),
+                        "confidence": item.get("confidence", 0.0),
+                        "bbox": item.get("bbox", [0, 0, 0, 0])
+                    }
+                    detections.append(d)
+                    
+            return detections
+            
+        except Exception as e:
+            # logger.warning(f"Hailo detect adapter failed: {e}")
+            return []

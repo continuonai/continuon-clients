@@ -169,7 +169,7 @@ class VisionCore:
         # OAK-D Camera
         if self.enable_depth:
             try:
-                from continuonbrain.sensors.depth_sensor import OAKDepthCapture
+                from continuonbrain.sensors.oak_depth import OAKDepthCapture
                 self._oak_camera = OAKDepthCapture()
                 self._oak_camera.start()
                 self._oak_available = True
@@ -340,26 +340,46 @@ class VisionCore:
             try:
                 prompt = segmentation_prompt or self.sam3_prompt
                 result = self._sam3_service.segment_text(rgb_frame, prompt)
-                if result and result.get("masks"):
-                    for i, mask in enumerate(result["masks"]):
+                
+                # Handle both object (SegmentationResult) and dict (legacy) return types
+                masks = None
+                scores = []
+                
+                if result:
+                    if hasattr(result, "masks"):
+                        masks = result.masks
+                        scores = result.scores
+                    elif isinstance(result, dict):
+                        masks = result.get("masks")
+                        scores = result.get("scores", [])
+                
+                if masks is not None and len(masks) > 0:
+                    for i, mask in enumerate(masks):
                         self._object_id += 1
-                        # Compute bbox from mask
-                        if isinstance(mask, np.ndarray):
+                        # Compute bbox from mask (if not present)
+                        bbox = (0, 0, 0, 0)
+                        
+                        # Use provided boxes if available
+                        if hasattr(result, "boxes_xyxy") and i < len(result.boxes_xyxy):
+                            b = result.boxes_xyxy[i]
+                            if len(b) >= 4:
+                                bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+                        
+                        # Fallback to computing from mask
+                        if bbox == (0, 0, 0, 0) and isinstance(mask, np.ndarray):
                             rows = np.any(mask, axis=1)
                             cols = np.any(mask, axis=0)
                             if rows.any() and cols.any():
                                 y1, y2 = np.where(rows)[0][[0, -1]]
                                 x1, x2 = np.where(cols)[0][[0, -1]]
                                 bbox = (int(x1), int(y1), int(x2), int(y2))
-                            else:
-                                bbox = (0, 0, 0, 0)
-                        else:
-                            bbox = (0, 0, 0, 0)
+                        
+                        score = scores[i] if i < len(scores) else 0.8
                         
                         obj = DetectedObject(
                             id=self._object_id,
                             label=prompt,
-                            confidence=result.get("scores", [0.8])[i] if i < len(result.get("scores", [])) else 0.8,
+                            confidence=float(score) if hasattr(score, "dtype") else score, # handle numpy float
                             bbox=bbox,
                             mask=mask if isinstance(mask, np.ndarray) else None,
                             source="sam3",
