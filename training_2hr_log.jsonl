@@ -1,2 +1,12 @@
 {"timestamp": "2026-01-01T07:58:34.622146", "type": "session_start", "data": {"duration_hours": 2, "cycle_interval_min": 15, "mode": "focused_2hr"}}
 {"timestamp": "2026-01-01T07:58:34.669535", "type": "memory_check", "data": {"mem_percent": 41.0, "swap_percent": 96.6, "available_mb": 9565, "ok": false}}
+l{"timestamp": "2026-01-01T07:59:49.757190", "type": "memory_check", "data": {"mem_percent": 52.4, "swap_percent": 96.6, "available_mb": 7714, "ok": false}}
+{"timestamp": "2026-01-01T08:00:54.260773", "type": "memory_check", "data": {"mem_percent": 52.3, "swap_percent": 96.6, "available_mb": 7728, "ok": false}}
+{"timestamp": "2026-01-01T08:01:54.321689", "type": "memory_check", "data": {"mem_percent": 50.2, "swap_percent": 96.6, "available_mb": 8073, "ok": false}}
+{"timestamp": "2026-01-01T08:02:54.382119", "type": "memory_check", "data": {"mem_percent": 50.3, "swap_percent": 96.6, "available_mb": 8059, "ok": false}}
+{"timestamp": "2026-01-01T08:03:54.436827", "type": "memory_check", "data": {"mem_percent": 50.3, "swap_percent": 96.6, "available_mb": 8060, "ok": false}}
+{"timestamp": "2026-01-01T08:04:54.500811", "type": "memory_check", "data": {"mem_percent": 50.4, "swap_percent": 96.6, "available_mb": 8038, "ok": false}}
+{"timestamp": "2026-01-01T08:05:54.561499", "type": "memory_check", "data": {"mem_percent": 50.4, "swap_percent": 96.6, "available_mb": 8051, "ok": false}}
+{"timestamp": "2026-01-01T08:06:54.620018", "type": "memory_check", "data": {"mem_percent": 50.4, "swap_percent": 96.6, "available_mb": 8049, "ok": false}}
+{"timestamp": "2026-01-01T08:07:54.680731", "type": "memory_check", "data": {"mem_percent": 50.3, "swap_percent": 96.6, "available_mb": 8058, "ok": false}}
+{"timestamp": "2026-01-01T08:08:54.735169", "type": "memory_check", "data": {"mem_percent": 50.5, "swap_percent": 96.6, "available_mb": 8035, "ok": false}}
