@@ -39,6 +39,7 @@ from continuonbrain.kernel.safety_kernel import SafetyKernelClient
 from continuonbrain.studio_server import StateAggregator
 from continuonbrain.tools import create_default_registry
 from continuonbrain.services.curriculum_manager import CurriculumManager # Added
+from continuonbrain.services.vision_core import create_vision_core
 from continuonbrain.services.cloud_relay import CloudRelay
 from continuonbrain.core.context_graph_store import SQLiteContextStore
 from continuonbrain.core.graph_ingestor import GraphIngestor
@@ -334,7 +335,8 @@ class BrainService:
         self.state_aggregator = StateAggregator()
         self.state_aggregator.set_event_queue(self.chat_event_queue)
         self.tool_registry = create_default_registry()
-        self.curriculum_manager = CurriculumManager(self, self.state_aggregator) # Added
+        self.curriculum_manager = CurriculumManager(self, self.state_aggregator)
+        self.vision_core = create_vision_core()
         
         # Context Graph
         self.context_store = SQLiteContextStore(str(Path(config_dir) / "context_graph.db"))
@@ -758,6 +760,16 @@ class BrainService:
         
         caps = self.capabilities
         status_lines.append(f"Vision: {'OK' if caps['has_vision'] else 'None'}")
+        
+        # Unified Perception (VisionCore Scene Awareness)
+        if self.vision_core:
+            try:
+                scene_desc = self.vision_core.describe_scene()
+                status_lines.append(f"\n--- SCENE AWARENESS ---")
+                status_lines.append(f"CURRENT VIEW: {scene_desc}")
+                status_lines.append("---------------------------\n")
+            except Exception as e:
+                logger.warning(f"VisionCore description failed: {e}")
         
         system_context = "\n".join(status_lines)
         context_subgraph = self.get_context_subgraph(session_id=session_id, depth=2)
@@ -2404,6 +2416,31 @@ class BrainService:
         self._status_pulse_thread.start()
         logger.info("Started status pulse thread")
 
+    def measure_surprise(self) -> float:
+        """
+        Get the current system-wide surprise (prediction error).
+        Combines Visual Surprise (VQ-VAE) and World Model Surprise (HOPE).
+        """
+        visual_surprise = 0.0
+        model_surprise = 0.0
+        
+        # 1. Visual Surprise
+        if self.vision_core:
+            try:
+                visual_surprise = self.vision_core.compute_visual_surprise() * 10.0 # Scale up small MSE
+            except Exception:
+                pass
+        
+        # 2. World Model Surprise (HOPE)
+        if self.hope_brain:
+             try:
+                col = self.hope_brain.columns[self.hope_brain.active_column_idx]
+                model_surprise = getattr(col, 'last_novelty', 0.0)
+             except Exception:
+                pass
+        
+        return max(visual_surprise, model_surprise)
+
     def _now_iso(self) -> str:
         return datetime.datetime.now().isoformat()
         
@@ -2755,6 +2792,10 @@ class BrainService:
             "critical safety traces while compacting routine motor data...'\n"
             "\n"
             f"Topic focus: {topic}.\n"
+            "\n--- CURRENT SCENE AWARENESS ---\n"
+            f"Robot's current view: {self.vision_core.describe_scene() if self.vision_core else 'No vision'}\n"
+            "--------------------------------\n"
+            "\n"
             "Be GENUINELY CURIOUS about the system. Ask questions that explore how things work, "
             "what could be better, and how learning actually happens.\n"
             "End each turn with the required structured JSON line.\n"

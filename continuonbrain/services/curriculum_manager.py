@@ -39,6 +39,18 @@ class CurriculumManager:
             "world-knowledge": Lesson("world-knowledge", "Global Knowledge (Wikipedia)", [
                 LessonChallenge("wiki-1", "General Knowledge", "wikipedia", {"query": "Raspberry Pi 5"}, "Raspberry Pi"),
                 LessonChallenge("wiki-2", "Scientific Fact", "wikipedia", {"query": "Mars"}, "planet")
+            ]),
+            "physics-lab": Lesson("physics-lab", "Symbolic Physics Reasoning", [
+                LessonChallenge("kinematics-1", "Velocity Calculation", "physics_solver", {"problem_type": "kinematics", "variables": {"u": 10, "a": 2, "t": 5}}, "20.0"),
+                LessonChallenge("kinematics-2", "Distance Calculation", "physics_solver", {"problem_type": "kinematics", "variables": {"u": 0, "a": 9.8, "t": 2}}, "19.6"),
+                LessonChallenge("dynamics-1", "Force Calculation", "physics_solver", {"problem_type": "force", "variables": {"m": 5, "a": 10}}, "50.0"),
+                LessonChallenge("energy-1", "Kinetic Energy", "physics_solver", {"problem_type": "energy", "variables": {"m": 2, "v": 10}}, "100.0")
+            ]),
+            "self-awareness": Lesson("self-awareness", "Architectural Self-Awareness", [
+                # VQ-VAE: 64x64x3 RGB (12288 bytes) -> 8x8 indices (64 bytes). Ratio check.
+                LessonChallenge("vqvae-ratio", "VQ-VAE Compression Ratio", "calculator", {"expression": "(64*64*3) / (8*8)"}, "192.0"),
+                # Latent Dim Check
+                LessonChallenge("vqvae-dim", "Latent Dimension", "calculator", {"expression": "64"}, "64") 
             ])
         }
 

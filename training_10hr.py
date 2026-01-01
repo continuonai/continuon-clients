@@ -83,14 +83,31 @@ def run_cms_compact():
 def run_chat_learn(topic: str = None):
     """Run a multi-turn curiosity cycle"""
     payload = {
-        "turns": 6,
+        "turns": 4,
         "delegate_model_hint": "consult:google/gemma-3-4b-it"
     }
     if topic:
         payload["topic"] = topic
     
-    result = api_call("POST", "/api/learning/chat_learn", payload, timeout=600)
+    # Increase timeout significantly for 4B model inference
+    result = api_call("POST", "/api/learning/chat_learn", payload, timeout=3600)
     return result
+
+def run_curriculum_lesson(lesson_id: str):
+    """Trigger a specific curriculum lesson."""
+    payload = {"lesson_id": lesson_id}
+    # fast deterministic checks
+    return api_call("POST", "/api/curriculum/run", payload, timeout=30)
+
+def check_server_status_full():
+    """Get full status payload"""
+    try:
+        resp = requests.get(f"{API_BASE}/api/status", timeout=5)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+    return None
 
 def check_server_health():
     """Check if server is responsive"""
@@ -169,9 +186,20 @@ def main():
         log_event("cms_compact", cms_result)
         
         # Chat Learn (Discovery & Self-Improvement)
-        if cycle % 2 == 1:
-            print("  🤔 Running Curiosity/Discovery loop (Self-Improvement focus)...")
-            topic = "Self-improvement across system objectives: World Model (Mamba), CMS loops, and Contextual Search."
+        # Check surprise level first
+        status = check_server_status_full() or {}
+        surprise = status.get("surprise", 0.0)
+        
+        # Always run curiosity if high surprise, otherwise every odd cycle
+        high_surprise = surprise > 0.5
+        
+        if high_surprise or cycle % 2 == 1:
+            reason = "High Surprise" if high_surprise else "Routine"
+            print(f"  🤔 Running Curiosity/Discovery loop ({reason}). Surprise={surprise:.2f}")
+            topic = "Self-improvement across system objectives: VQ-VAE, World Model (Mamba), CMS loops."
+            if high_surprise:
+                topic = "Investigate unexpected prediction error (High Surprise). Why did the model fail to predict the scene?"
+                
             cl_result = run_chat_learn(topic=topic)
             log_event("chat_learn", cl_result)
             if "error" in cl_result:
@@ -179,6 +207,16 @@ def main():
             else:
                 print(f"  ✅ ChatLearn discovery complete. Teacher: Google Gemma-3-4B-IT")
         
+        # Physics Lab Integration (Every 4th cycle to test grounding)
+        if cycle % 4 == 0:
+            print("  🧪 Running Physics Lab (Symbolic Grounding)...")
+            phys_result = run_curriculum_lesson("physics-lab")
+            log_event("physics_lab", phys_result)
+            if phys_result.get("success"):
+                 print(f"  ✅ Physics checks passed. ({phys_result.get('score', 0)}/100)")
+            else:
+                 print(f"  ⚠️ Physics checks failed or incomplete: {phys_result.get('message')}")
+
         # Cleanup
         gc.collect()
         

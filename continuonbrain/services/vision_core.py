@@ -221,6 +221,25 @@ class VisionCore:
                     logger.warning("⚠️ VisionCore: SAM3 not available")
             except Exception as e:
                 logger.warning(f"⚠️ VisionCore: SAM3 failed: {e}")
+
+        # VQ-VAE (JAX)
+        self._vqvae = None
+        self._vqvae_params = None
+        try:
+            from continuonbrain.jax_models.vq_vae import VQVAE
+            import jax
+            import jax.numpy as jnp
+            
+            self._vqvae = VQVAE()
+            # Init with dummy input
+            key = jax.random.PRNGKey(0)
+            dummy = jnp.ones((1, 64, 64, 3))
+            self._vqvae_params = self._vqvae.init(key, dummy)
+            logger.info("✅ VisionCore: VQ-VAE initialized (random weights)")
+        except ImportError:
+            logger.warning("⚠️ VisionCore: JAX/Flax not available for VQ-VAE")
+        except Exception as e:
+            logger.warning(f"⚠️ VisionCore: VQ-VAE init failed: {e}")
     
     def is_ready(self) -> bool:
         """Check if at least one vision component is ready."""
@@ -477,6 +496,53 @@ class VisionCore:
         
         return None
     
+
+    def capture_latent(self, rgb_frame: Optional[np.ndarray] = None) -> Optional[np.ndarray]:
+        """Encode scene into discrete latent tokens using VQ-VAE."""
+        if not self._vqvae or self._vqvae_params is None:
+            return None
+        
+        frame = rgb_frame if rgb_frame is not None else self._oak_camera.get_frame().get("rgb")
+        if frame is None:
+            return None
+
+        try:
+            import cv2
+            import jax.numpy as jnp
+            
+            # Resize to 64x64 for VQ-VAE
+            resized = cv2.resize(frame, (64, 64))
+            # Normalize to [0, 1]
+            img_batch = jnp.expand_dims(jnp.array(resized, dtype=jnp.float32) / 255.0, axis=0)
+            
+            indices = self._vqvae.apply(self._vqvae_params, img_batch, method=self._vqvae.encode)
+            return np.array(indices)
+        except Exception as e:
+            logger.error(f"VQ-VAE encoding failed: {e}")
+            return None
+
+    def compute_visual_surprise(self, rgb_frame: Optional[np.ndarray] = None) -> float:
+        """Compute reconstruction loss as a proxy for visual surprise."""
+        if not self._vqvae or self._vqvae_params is None:
+            return 0.0
+        
+        frame = rgb_frame if rgb_frame is not None else self._oak_camera.get_frame().get("rgb")
+        if frame is None:
+            return 0.0
+
+        try:
+            import cv2
+            import jax.numpy as jnp
+            
+            resized = cv2.resize(frame, (64, 64))
+            img_batch = jnp.expand_dims(jnp.array(resized, dtype=jnp.float32) / 255.0, axis=0)
+            
+            recon, loss, _ = self._vqvae.apply(self._vqvae_params, img_batch)
+            return float(loss)
+        except Exception as e:
+            logger.error(f"VQ-VAE surprise compute failed: {e}")
+            return 0.0
+
     def close(self):
         """Cleanup resources."""
         if self._oak_camera:

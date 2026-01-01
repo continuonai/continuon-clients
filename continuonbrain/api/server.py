@@ -137,7 +137,15 @@ def _build_status_payload() -> dict:
         except Exception:
             pass
 
+    surprise = 0.0
+    if brain_service and hasattr(brain_service, "measure_surprise"):
+        try:
+            surprise = brain_service.measure_surprise()
+        except Exception:
+            pass
+
     return {
+        "surprise": surprise,
         "api_state": "ok",
         "hardware_mode": hardware_mode,
         "mode": mode_value,
