@@ -467,6 +467,95 @@ class CMSRead(nn.Module):
         return q_t, c_t, attention_weights
 
 
+class CMSWrite(nn.Module):
+    """
+    CMS Write: Gated memory update with decay.
+    
+    Math:
+        For each level ℓ:
+            # Write gate (novelty-based)
+            g_write = σ(W_g [s_t || e_t || r_t])
+            
+            # Value to write
+            v_write = W_v [s_t || e_t]
+            
+            # Key to write
+            k_write = W_k [s_t || e_t]
+            
+            # Decay existing memories
+            M_t^(ℓ) = (1 - λ_ℓ) * M_{t-1}^(ℓ)
+            K_t^(ℓ) = (1 - λ_ℓ) * K_{t-1}^(ℓ)
+            
+            # Gated write to slot 0 (FIFO-like)
+            M_t^(ℓ)[0] = g_write * v_write + (1 - g_write) * M_t^(ℓ)[0]
+            K_t^(ℓ)[0] = g_write * k_write + (1 - g_write) * K_t^(ℓ)[0]
+    """
+    config: CoreModelConfig
+    
+    @nn.compact
+    def __call__(
+        self,
+        cms_memories: List[jnp.ndarray],
+        cms_keys: List[jnp.ndarray],
+        s_t: jnp.ndarray,
+        e_t: jnp.ndarray,
+        r_t: jnp.ndarray,
+    ) -> Tuple[List[jnp.ndarray], List[jnp.ndarray]]:
+        """
+        Write to CMS memory.
+        
+        Args:
+            cms_memories: List of [B, N_ℓ, d_ℓ] memory matrices
+            cms_keys: List of [B, N_ℓ, d_k] key matrices
+            s_t: Current fast state [B, d_s]
+            e_t: Encoded input [B, d_e]
+            r_t: Reward signal [B, 1]
+        
+        Returns:
+            new_cms_memories: Updated memory matrices
+            new_cms_keys: Updated key matrices
+        """
+        # Compute write features
+        write_input = jnp.concatenate([s_t, e_t], axis=-1)  # [B, d_s + d_e]
+        gate_input = jnp.concatenate([s_t, e_t, r_t], axis=-1)  # [B, d_s + d_e + 1]
+        
+        new_memories = []
+        new_keys = []
+        
+        for level_idx, (M, K) in enumerate(zip(cms_memories, cms_keys)):
+            decay = self.config.cms_decays[level_idx]
+            mem_dim = self.config.cms_dims[level_idx]
+            
+            # Write gate: higher for novel/salient experiences
+            g_write = nn.Dense(1, name=f"write_gate_{level_idx}")(gate_input)
+            g_write = nn.sigmoid(g_write)  # [B, 1]
+            
+            # Value and key to write
+            v_write = nn.Dense(mem_dim, name=f"write_value_{level_idx}")(write_input)  # [B, d_ℓ]
+            k_write = nn.Dense(self.config.d_k, name=f"write_key_{level_idx}")(write_input)  # [B, d_k]
+            
+            # Apply decay to existing memories (exponential forgetting)
+            M_decayed = M * (1.0 - decay)  # [B, N, d_ℓ]
+            K_decayed = K * (1.0 - decay)  # [B, N, d_k]
+            
+            # Gated write to first slot (slot 0)
+            # M_new[0] = g * v + (1-g) * M_old[0]
+            M_slot0_old = M_decayed[:, 0, :]  # [B, d_ℓ]
+            K_slot0_old = K_decayed[:, 0, :]  # [B, d_k]
+            
+            M_slot0_new = g_write * v_write + (1 - g_write) * M_slot0_old  # [B, d_ℓ]
+            K_slot0_new = g_write * k_write + (1 - g_write) * K_slot0_old  # [B, d_k]
+            
+            # Reconstruct memory with updated slot 0
+            M_new = M_decayed.at[:, 0, :].set(M_slot0_new)
+            K_new = K_decayed.at[:, 0, :].set(K_slot0_new)
+            
+            new_memories.append(M_new)
+            new_keys.append(K_new)
+        
+        return new_memories, new_keys
+
+
 class OutputDecoder(nn.Module):
     """
     Output decoder for producing predictions/actions.
@@ -528,6 +617,9 @@ class CoreModel(nn.Module):
         # CMS read
         self.cms_read = CMSRead(self.config)
         
+        # CMS write (memory update)
+        self.cms_write = CMSWrite(self.config)
+        
         # HOPE core
         self.hope_core = HOPECore(self.config)
         
@@ -567,13 +659,18 @@ class CoreModel(nn.Module):
         # 1. Encode
         e_t = self.encoder(x_obs, a_prev, r_t, object_features=object_features)
         
-        # 2. CMS Read
+        # 2. CMS Read (retrieve context from memory)
         q_t, c_t, attn_weights = self.cms_read(cms_memories, cms_keys, s_prev, e_t)
         
         # 3. Core Dynamics
         s_t, w_t, p_t = self.hope_core(s_prev, w_prev, p_prev, e_t, c_t)
         
-        # 4. Decode
+        # 4. CMS Write (update memory with new experience)
+        new_cms_memories, new_cms_keys = self.cms_write(
+            cms_memories, cms_keys, s_t, e_t, r_t
+        )
+        
+        # 5. Decode
         y_t = self.decoder(s_t, c_t)
         
         info = {
@@ -583,6 +680,8 @@ class CoreModel(nn.Module):
             'fast_state': s_t,
             'wave_state': w_t,
             'particle_state': p_t,
+            'cms_memories': new_cms_memories,  # Updated memories
+            'cms_keys': new_cms_keys,  # Updated keys
         }
         
         return y_t, info

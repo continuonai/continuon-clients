@@ -209,13 +209,13 @@ class SeedModel:
             cms_keys=state['cms_keys'],
         )
         
-        # Update state
+        # Update state with new CMS memories from write operation
         new_state = {
             's': info['fast_state'],
             'w': info['wave_state'],
             'p': info['particle_state'],
-            'cms_memories': state['cms_memories'],  # TODO: update with write
-            'cms_keys': state['cms_keys'],
+            'cms_memories': info.get('cms_memories', state['cms_memories']),
+            'cms_keys': info.get('cms_keys', state['cms_keys']),
         }
         
         return output, new_state
