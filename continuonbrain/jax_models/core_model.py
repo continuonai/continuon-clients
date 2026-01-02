@@ -120,8 +120,11 @@ class InputEncoder(nn.Module):
         reward_feat = nn.relu(reward_feat)
         
         # Fusion layer
-        # Concat: [obs, action, reward, objects]
-        combined = jnp.concatenate([obs_feat, action_feat, reward_feat, obj_feat], axis=-1)
+        # Concat: [obs, action, reward] + [objects] if enabled
+        if self.config.use_object_features:
+            combined = jnp.concatenate([obs_feat, action_feat, reward_feat, obj_feat], axis=-1)
+        else:
+            combined = jnp.concatenate([obs_feat, action_feat, reward_feat], axis=-1)
         
         e_t = nn.Dense(hidden_dim)(combined)
         e_t = nn.LayerNorm()(e_t)

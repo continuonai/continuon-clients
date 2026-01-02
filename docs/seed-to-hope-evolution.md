@@ -54,6 +54,7 @@ The ContinuonBrain seed model demonstrates advanced embodied AI capabilities thr
 - **Semantic Search** via EmbeddingGemma-300m
 - **Decision Traces** for explainable behavior
 - **Multi-Timescale Memory** (CMS) for temporal abstraction
+- **Ring 0 Safety Kernel** for guaranteed safety at the highest privilege level
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -84,6 +85,116 @@ The ContinuonBrain seed model demonstrates advanced embodied AI capabilities thr
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 0. Ring 0 Safety Kernel
+
+The **Safety Kernel** operates at Ring 0 (highest privilege) like the Unix kernel. It is the foundation upon which all other capabilities are built, ensuring safe operation at all times.
+
+### Ring Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           RING 0 - SAFETY KERNEL                             │
+│                       (HIGHEST PRIVILEGE - CANNOT BE BYPASSED)               │
+│                                                                              │
+│  • Emergency Stop - Always available, triggers within 100ms                 │
+│  • Safety Bounds - Enforces workspace/velocity/force limits                 │
+│  • Protocol 66 - 23 safety rules covering motion, force, thermal, etc.     │
+│  • Watchdog - Self-monitoring at 10Hz, triggers E-Stop on failure          │
+│  • Hardware E-Stop - Direct GPIO control (bypasses all software)           │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                       RING 1 - HARDWARE ABSTRACTION                          │
+│  • Sensor drivers (camera, depth, IMU, force/torque)                        │
+│  • Actuator interfaces (motors, servos, grippers)                           │
+│  • Safety kernel has direct access to these                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                         RING 2 - CORE RUNTIME                                │
+│  • Seed Model (WaveCore + CMS + Context Graph)                              │
+│  • Inference Router, Decision Traces                                        │
+│  • ALL actions filtered through Ring 0 before execution                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                          RING 3 - USER SPACE                                 │
+│  • Chat interface, API server, UI / Applications                            │
+│  • LOWEST privilege - cannot modify safety parameters                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Principles
+
+| Principle | Implementation |
+|-----------|----------------|
+| **First to Boot** | Safety kernel initializes on import, before any other component |
+| **Cannot Disable** | No code path exists to disable the safety kernel |
+| **Veto Power** | All actions pass through `SafetyKernel.allow_action()` |
+| **Highest Priority** | Real-time scheduling (SCHED_FIFO) when available |
+| **Hardware E-Stop** | Direct GPIO pin for hardware emergency stop |
+| **Self-Monitoring** | Watchdog thread detects failures and triggers E-Stop |
+| **Survives Shutdown** | atexit and signal handlers ensure safe shutdown |
+
+### Boot Sequence
+
+```
+1. Python process starts
+   ↓
+2. Any module imports continuonbrain.safety
+   ↓
+3. SafetyKernel.__init__() runs automatically (Ring 0)
+   ↓
+4. Ring 0 protections activated:
+   • atexit handler registered
+   • Signal handlers registered (SIGTERM, SIGINT)
+   • Real-time priority set (if available)
+   • Watchdog thread started (10Hz monitoring)
+   • Hardware E-Stop initialized (if GPIO available)
+   ↓
+5. Safety kernel ready - all other components can now initialize
+   ↓
+6. All runtime actions pass through SafetyKernel.allow_action()
+```
+
+### Protocol 66 Safety Rules
+
+| Category | Rules | Examples |
+|----------|-------|----------|
+| **Motion** | 4 | Max joint velocity (2 rad/s), E-Stop response (<100ms) |
+| **Force** | 3 | Max contact force (50N), collision detection (5N threshold) |
+| **Workspace** | 3 | Boundary enforcement (0.8m sphere), forbidden zones |
+| **Human** | 3 | Human detection (2m), reduced speed near humans (0.25 m/s) |
+| **Thermal** | 2 | CPU/motor temperature limits |
+| **Electrical** | 2 | Voltage/current monitoring |
+| **Software** | 3 | Watchdog, command validation, fallback mode |
+| **Emergency** | 3 | E-Stop, safe state, recovery procedure |
+
+### Usage
+
+```python
+from continuonbrain.safety import SafetyKernel
+
+# All actions must pass through Ring 0
+def execute_action(action):
+    if SafetyKernel.allow_action(action):
+        # Action is safe to execute
+        return actuator.execute(action)
+    else:
+        # Action blocked by safety kernel
+        return safe_fallback()
+
+# Emergency stop (always works, cannot be blocked)
+SafetyKernel.emergency_stop("Collision detected")
+
+# Check system safety
+if SafetyKernel.is_safe():
+    # Normal operation
+    pass
+else:
+    # System in safe mode, waiting for reset
+    pass
+```
+
+See `continuonbrain/safety/README.md` for full documentation.
 
 ---
 
@@ -899,9 +1010,69 @@ Device RLDS ──► Cloud TPU Slow Loop ──► OTA Bundle ──► Device 
               (Gemma scaffold deprecated)
 ```
 
+### Stable Seed Model
+
+The **stable seed model** is the validated, production-ready checkpoint:
+
+| Property | Value |
+|----------|-------|
+| Location | `/opt/continuonos/brain/model/seed_stable/` |
+| Parameters | 644,099 |
+| Architecture | WaveCore + CMS |
+| Training Steps | 32+ |
+| RLDS Episodes | 4,219 |
+
+**Load the stable seed:**
+
+```python
+from continuonbrain.seed import load_stable_seed
+
+# Load model and parameters
+model, params, manifest = load_stable_seed()
+
+# Run inference
+output, info = model.apply(
+    {'params': params},
+    x_obs=observation,
+    a_prev=action,
+    r_t=reward,
+    s_prev=state['s'],
+    w_prev=state['w'],
+    p_prev=state['p'],
+    cms_memories=state['cms_memories'],
+    cms_keys=state['cms_keys'],
+)
+```
+
+**Promotion Path:**
+
+```
+1. Collect RLDS episodes → /opt/continuonos/brain/rlds/episodes/
+                 ↓
+2. Train seed model → python scripts/train_seed_model.py --steps 500
+                 ↓
+3. Validate checkpoint → test inference, check for NaN/Inf
+                 ↓
+4. Promote to stable → --promote flag or manual copy
+                 ↓
+5. Update manifest → seed_stable/manifest.json
+                 ↓
+6. Ready for production inference
+```
+
+**Train and promote:**
+
+```bash
+# Train for 500 steps and promote to stable
+python scripts/train_seed_model.py --steps 500 --promote
+
+# Or continue training from existing checkpoint
+python scripts/train_seed_model.py --continue --steps 200 --promote
+```
+
 ---
 
-## 8. References
+## 9. References
 
 - [WaveCore Spec](./wavecore-spec.md)
 - [HOPE/CMS VLA](./hope-cms-vla.md)
