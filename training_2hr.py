@@ -105,13 +105,14 @@ def run_cms_compact():
 def run_chat_learn(topic: str = None):
     """Run a multi-turn curiosity cycle"""
     # Preferred local paths (fastest/offline)
+    # Preferred local paths (fastest/offline)
     candidate_paths = [
-        Path.home() / "models/gemma-2-2b-it",
-        Path("/opt/continuonos/models/gemma-2-2b-it"),
-        Path("models/gemma-2-2b-it").resolve(),
+        Path.home() / "models/functiongemma-270m-it",
+        Path.home() / "models/gemma-3-4b-it", # Downloaded!
+        Path("/opt/continuonos/models/functiongemma-270m-it"),
     ]
     
-    model_hint = "google/gemma-2-2b-it" # Standardizing on known 2B model
+    model_hint = "google/gemma-3-4b-it" # Default if not found locally
     
     for path in candidate_paths:
         if path.exists():
