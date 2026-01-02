@@ -104,15 +104,31 @@ def run_cms_compact():
 
 def run_chat_learn(topic: str = None):
     """Run a multi-turn curiosity cycle"""
+    # Preferred local paths (fastest/offline)
+    candidate_paths = [
+        Path.home() / "models/gemma-2-2b-it",
+        Path("/opt/continuonos/models/gemma-2-2b-it"),
+        Path("models/gemma-2-2b-it").resolve(),
+    ]
+    
+    model_hint = "google/gemma-2-2b-it" # Standardizing on known 2B model
+    
+    for path in candidate_paths:
+        if path.exists():
+            print(f"  Found local model: {path}")
+            model_hint = str(path)
+            break
+            
     payload = {
-        "turns": 4,
-        "delegate_model_hint": "consult:google/gemma-3-4b-it"
+        "turns": 2, 
+        "delegate_model_hint": f"consult:{model_hint}"
     }
     if topic:
         payload["topic"] = topic
     
-    # Increase timeout significantly for 4B model inference
-    result = api_call("POST", "/api/learning/chat_learn", payload, timeout=3600)
+    print(f"  ... Requesting ChatLearn (Model: {model_hint}, Turns: 2) - This may take 2-5 mins ...")
+    # Increase timeout significantly for Inference
+    result = api_call("POST", "/api/learning/chat_learn", payload, timeout=600)
     return result
 
 def run_curriculum_lesson(lesson_id: str):
