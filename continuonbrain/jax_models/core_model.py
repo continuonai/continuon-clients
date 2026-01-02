@@ -424,20 +424,21 @@ class CMSRead(nn.Module):
         
         for level_idx, (M_level, K_level) in enumerate(zip(cms_memories, cms_keys)):
             # Compute attention: α = softmax(K q / √d_k)
-            # K_level: [N_ℓ, d_k], q_t: [d_k] or [B, d_k]
-            if q_t.ndim == 1:
+            # Handle batched: M_level [B, N, D], K_level [B, N, d_k], q_t [B, d_k]
+            # Or unbatched: M_level [N, D], K_level [N, d_k], q_t [d_k]
+            
+            if q_t.ndim == 1 and K_level.ndim == 2:
+                # Unbatched case
                 scores = jnp.dot(K_level, q_t) / jnp.sqrt(float(self.config.d_k))
+                attn = nn.softmax(scores, axis=-1)  # [N]
+                c_level = jnp.dot(attn, M_level)  # [D]
             else:
-                scores = jnp.dot(K_level, q_t.T) / jnp.sqrt(float(self.config.d_k))  # [N_ℓ, B]
-                scores = scores.T  # [B, N_ℓ]
-            
-            attn = nn.softmax(scores, axis=-1)  # [N_ℓ] or [B, N_ℓ]
-            
-            # Retrieve context: c^(ℓ) = Σ_i α_i M_i
-            if attn.ndim == 1:
-                c_level = jnp.dot(attn, M_level)  # [d_ℓ]
-            else:
-                c_level = jnp.dot(attn, M_level)  # [B, d_ℓ]
+                # Batched case: K_level [B, N, d_k], q_t [B, d_k]
+                # scores = einsum('bnd,bd->bn', K_level, q_t)
+                scores = jnp.einsum('bnd,bd->bn', K_level, q_t) / jnp.sqrt(float(self.config.d_k))
+                attn = nn.softmax(scores, axis=-1)  # [B, N]
+                # c_level = einsum('bn,bnd->bd', attn, M_level)
+                c_level = jnp.einsum('bn,bnd->bd', attn, M_level)  # [B, D]
             
             # Project to d_c
             # Flax modules in a list need to be called directly
@@ -619,10 +620,10 @@ def make_core_model(
     dummy_w = jnp.zeros((batch_size, config.d_w))
     dummy_p = jnp.zeros((batch_size, config.d_p))
     dummy_cms_memories = [
-        jnp.zeros((size, dim)) for size, dim in zip(config.cms_sizes, config.cms_dims)
+        jnp.zeros((batch_size, size, dim)) for size, dim in zip(config.cms_sizes, config.cms_dims)
     ]
     dummy_cms_keys = [
-        jnp.zeros((size, config.d_k)) for size in config.cms_sizes
+        jnp.zeros((batch_size, size, config.d_k)) for size in config.cms_sizes
     ]
     
     # Initialize parameters
@@ -636,7 +637,7 @@ def make_core_model(
         dummy_p,
         dummy_cms_memories,
         dummy_cms_keys,
-        dummy_object_features=jnp.zeros((batch_size, config.max_objects, config.object_dim)) if config.use_object_features else None,
+        object_features=jnp.zeros((batch_size, config.max_objects, config.object_dim)) if config.use_object_features else None,
     )
     
     return model, params

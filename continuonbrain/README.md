@@ -1,5 +1,62 @@
 # ContinuonBrain
 
+The **Seed Model** is the universal initialization point for every robot in the Continuon ecosystem. It runs on any hardware platform and provides foundational cognitive capabilities.
+
+## Core Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **Universal** | Every new robot starts from the same seed model |
+| **Hardware-Agnostic** | Runs on ARM, x64, RISC-V, quantum, neuromorphic |
+| **Permanent** | Core foundation—never deprecated |
+| **Evolvable** | Continuous learning builds on seed capabilities |
+
+## Capabilities
+
+| Capability | Implementation | Status |
+|------------|----------------|--------|
+| **World Model** | Next-token prediction via WaveCore (Mamba SSM) | ✅ Active |
+| **Context Graph** | Relational reasoning with entity tracking | ✅ Active |
+| **Semantic Search** | EmbeddingGemma-300m (768-dim) | ✅ Active |
+| **Decision Traces** | Explainable provenance logging | ✅ Active |
+| **CMS Memory** | 3-level hierarchical (Fast/Mid/Slow) | ✅ Active |
+| **RLDS Training** | 4,219 episodes (91K steps) | ✅ Active |
+
+## Hardware Portability
+
+| Platform | Runtime | Accelerator | Status |
+|----------|---------|-------------|--------|
+| ARM64 (Pi5) | JAX CPU | Hailo-8 NPU | ✅ Primary |
+| ARM64 (Jetson) | JAX CUDA | Tensor Cores | ✅ Supported |
+| x86_64 (PC) | JAX CPU/CUDA | NVIDIA GPU | ✅ Supported |
+| x86_64 (Cloud) | JAX TPU | TPU v4/v5 | ✅ Supported |
+| RISC-V | Portable C | Custom NPU | 🔶 Planned |
+| Apple Silicon | JAX Metal | ANE | 🔶 Planned |
+| Quantum | Pennylane/JAX | QPU | 🔮 Research |
+
+**Full Documentation:** [Seed Model Architecture](../docs/seed-to-hope-evolution.md)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SEED MODEL ARCHITECTURE                       │
+├─────────────────────────────────────────────────────────────────┤
+│  Sensors → Encoder → WaveCore (Mamba SSM, 172K params) → Policy │
+│                          ↕                                       │
+│            CMS Memory (3-level) ↔ Context Graph                 │
+│                          ↕                                       │
+│        EmbeddingGemma-300m ↔ Experience Memory (768-dim)        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+See [docs/CAPABILITIES.md](docs/CAPABILITIES.md) for detailed documentation on:
+- World model next-token prediction
+- Context graph reasoning
+- Semantic search and retrieval
+- Decision trace logging
+- CMS memory operations
+
+---
+
 The Continuon Brain runtime and scaffolding now live together in this monorepo. Use this folder to ship production runtime assets alongside the existing **scaffolding and contracts** used by ContinuonXR:
 
 - **Training topology (v0.2):** See `docs/continuonbrain_training_topology.md` for the JAX-first, Google-aligned plan that starts with a Colab/TPU seed, seeds down to Pi 5 for HOPE loop embodiment, and scales back to Vertex TPU with OTA channels. RTX 3050 laptops are acceptable for the first tiny seed runs; Pi 5 **8GB is supported** and Pi 5 **16GB** is the recommended drop-in upgrade for heavier on-device workloads (AI HAT+/segmentation), with Jetson Orin Nano Super Dev Kit as an optional local consolidation companion.

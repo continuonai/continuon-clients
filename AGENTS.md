@@ -48,6 +48,37 @@ TODO (offline Wikipedia context)
 - Training visualization endpoints (UI): `GET /api/training/metrics`, `GET /api/training/eval_summary`, `GET /api/training/data_quality`.
 - Chat → RLDS logging is supported but **opt-in** (privacy): enable only with explicit consent via `CONTINUON_LOG_CHAT_RLDS=1`.
 
+## Seed Model Architecture (Universal Initialization)
+
+The **Seed Model** is the universal initialization point for every robot in the ecosystem. It is a permanent, hardware-agnostic core—not a temporary bootstrap phase.
+
+### Seed Model (Permanent Core)
+- **Hardware-Agnostic**: Runs on ARM, x64, RISC-V, quantum, neuromorphic
+- **WaveCore (JAX)**: 172K params Mamba SSM, O(n) complexity
+- **CMS Memory**: 3-level hierarchical (Fast/Mid/Slow)
+- **EmbeddingGemma-300m**: 768-dim semantic embeddings
+- **Context Graph**: Relational reasoning with entity tracking
+- **Decision Traces**: Explainable provenance logging
+- **Checkpoint location**: `/opt/continuonos/brain/model/adapters/candidate/core_model_seed/`
+
+### Continuous Evolution (Post-Initialization)
+After seed initialization, robots learn continuously:
+- **Local Learning**: Fast/Mid loops on device (Pi5, Jetson, etc.)
+- **Cloud Aggregation**: TPU slow loop trains on aggregated RLDS
+- **OTA Updates**: Updated weights distributed to devices
+- **Scaffold Evolution**: Gemma 3n provides chat; HOPE WaveCore grows capabilities
+
+### Hardware Portability
+| Platform | Runtime | Accelerator | Status |
+|----------|---------|-------------|--------|
+| ARM64 (Pi5) | JAX CPU | Hailo-8 NPU | ✅ Primary |
+| ARM64 (Jetson) | JAX CUDA | Tensor Cores | ✅ Supported |
+| x86_64 (PC/Cloud) | JAX TPU/CUDA | TPU/GPU | ✅ Supported |
+| RISC-V / Apple Silicon | Planned | Custom | 🔶 Future |
+| Quantum / Neuromorphic | Research | QPU/Loihi | 🔮 Research |
+
+See `docs/seed-to-hope-evolution.md` for full architecture details.
+
 ## Ownership / pairing (LAN-only, non-biometric)
 - Prefer **QR pairing + 6-digit confirm code** for local ownership claim; do **not** implement face recognition / biometric identification.
 - Endpoints (robot runtime):

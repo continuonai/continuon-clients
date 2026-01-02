@@ -1,315 +1,278 @@
-# HOPE Implementation
+# HOPE Implementation: Hierarchical Orchestrated Predictive Engine
 
-PyTorch implementation of the HOPE (Hierarchical Online Predictive Encoding) architecture optimized for Raspberry Pi 5 deployment.
+**Status:** Seed Phase  
+**Framework:** PyTorch (CMS), JAX (Core)
 
-## Overview
+This directory contains the Python/PyTorch implementation of HOPE components, particularly the Continuous Memory System (CMS).
 
-HOPE is a hybrid dynamical system that combines:
-- **Wave subsystem**: SSM-like global linear dynamics
-- **Particle subsystem**: Local nonlinear dynamics  
-- **Continuous Memory System (CMS)**: Hierarchical content-addressable memory with decay
-- **Nested Learning**: Slow parameter adaptation
-
-This implementation provides a complete, production-ready system suitable for edge deployment on Raspberry Pi 5.
+---
 
 ## Architecture
 
 ```
-Input (obs, action, reward)
-    ↓
-Encoder → e_t
-    ↓
-CMS Read → (q_t, c_t)
-    ↓
-HOPE Core (wave-particle hybrid) → (s_t, w_t, p_t)
-    ↓
-Output Decoder → y_t
-    ↓
-CMS Write → M_t
-    ↓
-Nested Learning → Θ_t
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           HOPE ARCHITECTURE                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                         AGENT MANAGER                                   ││
+│  │  Goal parsing │ Task decomposition │ Tool routing │ Response synthesis ││
+│  └───────────────────────────────────┬─────────────────────────────────────┘│
+│                                      │                                       │
+│         ┌────────────────────────────┼────────────────────────────┐          │
+│         │                            │                            │          │
+│         ▼                            ▼                            ▼          │
+│  ┌────────────┐              ┌────────────┐              ┌────────────┐     │
+│  │ FAST LOOP  │              │ MID LOOP   │              │ SLOW LOOP  │     │
+│  │ τ = 10ms   │◄────────────►│ τ = 100ms  │◄────────────►│ τ = 1s     │     │
+│  │            │              │            │              │            │     │
+│  │ Reflexes   │              │ Attention  │              │ Planning   │     │
+│  │ Safety     │              │ Context    │              │ Goals      │     │
+│  │ Motor      │              │ Integration│              │ Learning   │     │
+│  └────────────┘              └────────────┘              └────────────┘     │
+│         │                            │                            │          │
+│         └────────────────────────────┼────────────────────────────┘          │
+│                                      │                                       │
+│                                      ▼                                       │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                    CONTINUOUS MEMORY SYSTEM (CMS)                       ││
+│  │                                                                          ││
+│  │  Level 0: EPISODIC     Level 1: WORKING      Level 2: SEMANTIC         ││
+│  │  ┌───────────────┐     ┌───────────────┐     ┌───────────────┐         ││
+│  │  │ τ = 100ms     │     │ τ = 10s       │     │ τ = ∞         │         ││
+│  │  │ decay = 0.9   │────►│ decay = 0.99  │────►│ decay = 0.999 │         ││
+│  │  │ 64 slots      │     │ 128 slots     │     │ 256 slots     │         ││
+│  │  │               │     │               │     │               │         ││
+│  │  │ Raw sensory   │     │ Task context  │     │ Knowledge     │         ││
+│  │  │ Motor cmds    │     │ Active goals  │     │ Skills        │         ││
+│  │  └───────────────┘     └───────────────┘     └───────────────┘         ││
+│  │                                                                          ││
+│  │  Operations:                                                             ││
+│  │  • READ: Content-addressable attention retrieval                        ││
+│  │  • WRITE: Salience-gated memory storage                                 ││
+│  │  • CONSOLIDATE: Sleep-like pattern compression                          ││
+│  │  • FORGET: Decay-based memory pruning                                   ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Installation
+---
 
-```bash
-cd /home/craigm26/ContinuonXR/continuonbrain
+## Files
 
-# Install dependencies (already in requirements.txt)
-pip install torch>=2.2.0 numpy>=1.26.0
+| File | Description |
+|------|-------------|
+| `brain.py` | `HOPEBrain` main class with column architecture |
+| `cms.py` | Continuous Memory System (PyTorch) |
+| `state.py` | `CMSMemory`, `MemoryLevel` state dataclasses |
+| `config.py` | HOPE configuration |
 
-# For testing
-pip install pytest
+---
+
+## Continuous Memory System (CMS)
+
+### Mathematical Specification
+
+```
+Memory State: M^(ℓ) ∈ ℝ^{N_ℓ × d_ℓ} for level ℓ ∈ {0, 1, ..., L-1}
+
+READ Operation:
+  q_t = Q_ψ(s_{t-1}, e_t)                    # Generate query
+  α_t^(ℓ) = softmax(K^(ℓ) q_t / √d_k)       # Per-level attention
+  c_t^(ℓ) = Σ_i α_{t,i}^(ℓ) M_i^(ℓ)         # Context retrieval
+  c_t = Σ_ℓ β_t^(ℓ) U^(ℓ) c_t^(ℓ)           # Hierarchical mixing
+
+WRITE Operation:
+  w_t = W_φ(s_t, e_t, r_t)                   # Write weight
+  v_t = V_θ(s_t, e_t)                        # Value to write
+  M_t^(ℓ) = (1 - α_ℓ · w_t) ⊙ M_{t-1}^(ℓ) + α_ℓ · w_t · v_t^T
+
+DECAY:
+  M_t^(ℓ) = γ_ℓ · M_{t-1}^(ℓ)                # Exponential decay
+  where γ_ℓ ∈ [0.9, 0.99, 0.999] for ℓ ∈ {0, 1, 2}
+
+CONSOLIDATION:
+  Pattern extraction: P = SVD(M^(ℓ), k=r)
+  Schema compression: M^(ℓ+1) ← merge(M^(ℓ+1), compress(P))
 ```
 
-## Quick Start
-
-### Minimal Example
+### Implementation
 
 ```python
-from hope_impl.config import HOPEConfig
-from hope_impl.brain import HOPEBrain
-import torch
+from continuonbrain.hope_impl.cms import CMSRead, CMSWrite
 
-# Create configuration
-config = HOPEConfig.development()
-
-# Create brain
-brain = HOPEBrain(
-    config=config,
-    obs_dim=10,
-    action_dim=4,
-    output_dim=4,
-)
-
-# Reset state
-brain.reset()
-
-# Run a step
-x_obs = torch.randn(10)
-a_prev = torch.zeros(4)
-r_t = 0.0
-
-state_next, y_t, info = brain.step(x_obs, a_prev, r_t)
-print(f"Output: {y_t}")
-print(f"Lyapunov energy: {info['lyapunov']}")
-```
-
-### Pi5 Deployment
-
-```python
-from hope_impl.config import HOPEConfig
-from hope_impl.brain import HOPEBrain
-from hope_impl.pi5_optimizations import optimize_for_pi5, benchmark_inference
-
-# Create Pi5-optimized configuration
-config = HOPEConfig.pi5_optimized()
-
-# Create and optimize brain
-brain = HOPEBrain(config=config, obs_dim=10, action_dim=4, output_dim=4)
-brain = optimize_for_pi5(brain)
-
-# Benchmark
-results = benchmark_inference(brain, obs_dim=10, action_dim=4, num_steps=100)
-print(f"Steps/sec: {results['steps_per_second']:.2f}")
-print(f"Memory: {results['memory_total_mb']:.2f} MB")
-```
-
-## Module Structure
-
-```
-hope_impl/
-├── __init__.py           # Package exports
-├── config.py             # Configuration management
-├── state.py              # State objects (FastState, CMSMemory, etc.)
-├── encoders.py           # Input/output encoders
-├── cms.py                # CMS read/write operations
-├── core.py               # HOPE core dynamics
-├── learning.py           # Nested learning
-├── stability.py          # Lyapunov functions and monitoring
-├── brain.py              # Main HOPEBrain interface
-└── pi5_optimizations.py  # Pi5-specific optimizations
-```
-
-## Configuration Presets
-
-### Development (Fast Iteration)
-```python
-config = HOPEConfig.development()
-# Small dimensions, 2 CMS levels
-# ~5 MB memory, fast inference
-```
-
-### Pi5 Optimized (Production)
-```python
-config = HOPEConfig.pi5_optimized()
-# Balanced dimensions, 3 CMS levels
-# INT8 quantization enabled
-# <2 GB memory, >10 steps/sec
-```
-
-### Custom
-```python
-config = HOPEConfig(
-    d_s=256,
-    d_w=256,
-    d_p=128,
+# Initialize
+cms_read = CMSRead(
+    d_s=64,         # Fast state dimension
+    d_e=64,         # Encoded input dimension
+    d_k=32,         # Key dimension
+    d_c=64,         # Context output dimension
     num_levels=3,
-    cms_sizes=[64, 128, 256],
-    cms_dims=[128, 256, 512],
-    cms_decays=[0.1, 0.05, 0.01],
-    use_quantization=True,
+    cms_dims=[32, 64, 128],
+)
+
+cms_write = CMSWrite(
+    d_s=64,
+    d_e=64,
+    num_levels=3,
+    cms_dims=[32, 64, 128],
+)
+
+# Read
+query, context, attentions = cms_read(
+    cms_memory,     # Current memory state
+    s_prev,         # Previous fast state
+    e_t,            # Encoded input
+)
+
+# Write
+new_memory = cms_write(
+    cms_memory,
+    s_t,
+    e_t,
+    r_t,            # Reward (salience signal)
 )
 ```
 
-## Testing
+---
 
-```bash
-# Run all tests
-pytest tests/test_hope_impl.py -v
+## HOPE Brain
 
-# Run specific test class
-pytest tests/test_hope_impl.py::TestHOPEBrain -v
+### Column Architecture
 
-# Run with coverage
-pytest tests/test_hope_impl.py --cov=hope_impl
-```
-
-## Examples
-
-### 1. Minimal Demo
-```bash
-python examples/hope_minimal_demo.py
-```
-
-Demonstrates:
-- Brain initialization
-- Single step execution
-- Multi-step rollout
-- Checkpoint save/load
-
-### 2. Pi5 Deployment
-```bash
-python examples/hope_pi5_deployment.py
-```
-
-Demonstrates:
-- Quantized model loading
-- Real-time inference loop
-- Memory monitoring
-- Performance benchmarking
-
-## Performance Targets (Pi5)
-
-| Metric | Target | Typical |
-|--------|--------|---------|
-| Inference speed | >10 steps/sec | ~15-20 steps/sec |
-| Memory usage | <2 GB | ~500 MB - 1 GB |
-| Model size | <500 MB | ~200-300 MB |
-| Quantized accuracy | >95% of FP32 | ~98% |
-
-## API Reference
-
-### HOPEBrain
-
-Main interface for HOPE architecture.
-
-**Methods:**
-- `reset()` - Initialize/reset brain state
-- `step(x_obs, a_prev, r_t)` - Execute one HOPE step
-- `save_checkpoint(path)` - Save brain state
-- `load_checkpoint(path)` - Load brain state
-- `to_quantized(dtype)` - Convert to quantized version
-- `get_memory_usage()` - Get memory statistics
-
-**Returns from `step()`:**
-- `state_next`: Updated full state
-- `y_t`: Output tensor
-- `info`: Dict with query, context, attention weights, stability metrics
-
-### Configuration
-
-**HOPEConfig fields:**
-- `d_s, d_w, d_p`: Fast state dimensions
-- `d_e, d_k, d_c`: Encoder/key/context dimensions
-- `num_levels`: Number of CMS levels
-- `cms_sizes, cms_dims, cms_decays`: Per-level CMS parameters
-- `use_quantization`: Enable quantization
-- `learning_rate, eta_init`: Training parameters
-
-## Mathematical Foundation
-
-See [`docs/CMS_FORMAL_SPEC.md`](file:///home/craigm26/ContinuonXR/continuonbrain/docs/CMS_FORMAL_SPEC.md) for complete mathematical specification including:
-- CMS update rule derivation
-- Stability proofs (Lyapunov analysis)
-- Computational complexity
-- Implementation guidance
-
-## Checkpointing
+Each HOPE column operates at a different timescale:
 
 ```python
-# Save
-brain.save_checkpoint("brain.pt")
+from continuonbrain.hope_impl.brain import HOPEBrain, HOPEColumn
 
-# Load
-brain = HOPEBrain.load_checkpoint("brain.pt")
+brain = HOPEBrain(
+    embed_dim=64,
+    num_columns=3,
+    cms_levels=3,
+)
+
+# Process input through all columns
+outputs = brain(
+    observation=obs,
+    prev_action=a_prev,
+    reward=r,
+    cms_state=cms,
+)
+
+# Each column contributes:
+# - Fast: Reflexive responses (safety, motor)
+# - Mid: Contextualized responses (attention, integration)
+# - Slow: Goal-directed responses (planning, learning)
 ```
 
-Checkpoints include:
-- Model weights
-- Internal state (fast state, CMS, parameters)
-- Stability monitor history
-- Configuration
+### Consolidation
 
-## Optimization Tips
-
-### Memory Reduction
-1. Use smaller dimensions (`d_s`, `d_w`, `d_p`)
-2. Reduce CMS levels or slots per level
-3. Enable quantization (`use_quantization=True`)
-4. Use FP16 instead of FP32
-
-### Speed Improvement
-1. Reduce CMS levels
-2. Use smaller hidden dimensions
-3. Enable quantization
-4. Set `torch.set_num_threads(4)` for Pi5
-
-### Stability
-1. Enable layer normalization (`use_layer_norm=True`)
-2. Use gradient clipping during training
-3. Monitor Lyapunov energy
-4. Start with conservative decay rates
-
-## Troubleshooting
-
-**Q: Memory usage too high?**
-- Use `HOPEConfig.pi5_optimized()` preset
-- Enable quantization
-- Reduce CMS sizes
-
-**Q: Inference too slow?**
-- Reduce number of CMS levels
-- Use smaller dimensions
-- Enable quantization
-- Check `torch.set_num_threads()`
-
-**Q: Unstable training?**
-- Enable layer normalization
-- Reduce learning rate
-- Use gradient clipping
-- Monitor Lyapunov energy
-
-**Q: NaN values appearing?**
-- Check input normalization
-- Reduce learning rate
-- Enable gradient clipping
-- Check decay rates (should be in (0, 1))
-
-## Citation
-
-If you use this implementation, please cite:
-
-```bibtex
-@software{hope_impl_2024,
-  title={HOPE: Hierarchical Online Predictive Encoding},
-  author={ContinuonXR Team},
-  year={2024},
-  url={https://github.com/continuonxr/ContinuonXR}
-}
+```python
+# Background consolidation (sleep-like)
+brain.consolidate_memory(
+    fast_to_mid=True,   # Compress episodic → working
+    mid_to_slow=True,   # Compress working → semantic
+    threshold=0.5,      # Salience threshold
+)
 ```
 
-## License
+---
 
-See main repository LICENSE file.
+## Memory Levels
 
-## Contributing
+### Level 0: Episodic (Fast)
 
-This is part of the ContinuonXR project. For contributions, see the main repository.
+| Property | Value |
+|----------|-------|
+| **Timescale** | ~100ms |
+| **Decay** | 0.9 |
+| **Slots** | 64 |
+| **Content** | Raw sensory, motor commands, immediate context |
+| **Update** | Every perception cycle |
 
-## References
+### Level 1: Working (Mid)
 
-- Original HOPE specification: [`hope.py`](file:///home/craigm26/ContinuonXR/continuonbrain/hope.py)
-- Mathematical foundations: [`maths.md`](file:///home/craigm26/ContinuonXR/continuonbrain/maths.md)
-- CMS formal specification: [`docs/CMS_FORMAL_SPEC.md`](file:///home/craigm26/ContinuonXR/continuonbrain/docs/CMS_FORMAL_SPEC.md)
-- Implementation plan: See artifacts directory
+| Property | Value |
+|----------|-------|
+| **Timescale** | ~10s |
+| **Decay** | 0.99 |
+| **Slots** | 128 |
+| **Content** | Current task state, active goals, recent events |
+| **Update** | Event-driven (significant changes) |
+
+### Level 2: Semantic (Slow)
+
+| Property | Value |
+|----------|-------|
+| **Timescale** | Persistent |
+| **Decay** | 0.999 |
+| **Slots** | 256 |
+| **Content** | Learned skills, factual knowledge, identity |
+| **Update** | Background consolidation |
+
+---
+
+## Integration with WaveCore
+
+The PyTorch CMS integrates with the JAX WaveCore model:
+
+```python
+# HOPE CMS (PyTorch) for memory operations
+cms = CMSMemory(num_levels=3, dims=[32, 64, 128])
+
+# WaveCore (JAX) for state dynamics
+from continuonbrain.jax_models.core_model import CoreModel
+
+# Bridge: Convert PyTorch tensors to JAX arrays
+import jax.numpy as jnp
+
+def torch_to_jax(t):
+    return jnp.array(t.detach().numpy())
+
+def jax_to_torch(a):
+    return torch.from_numpy(np.array(a))
+
+# Combined inference
+def hope_forward(obs, cms_state):
+    # 1. CMS read (PyTorch)
+    context = cms_read(cms_state, ...)
+    
+    # 2. WaveCore dynamics (JAX)
+    y, info = wavecore.apply(params, torch_to_jax(obs), ...)
+    
+    # 3. CMS write (PyTorch)
+    new_cms = cms_write(cms_state, jax_to_torch(info['fast_state']), ...)
+    
+    return y, new_cms
+```
+
+---
+
+## Formal Specification
+
+See [CMS_FORMAL_SPEC.md](../docs/CMS_FORMAL_SPEC.md) for the complete mathematical specification including:
+
+- Convergence guarantees
+- Stability analysis
+- Capacity bounds
+- Forgetting dynamics
+
+---
+
+## Next Steps
+
+### Seed Phase Goals
+
+1. Validate CMS read/write correctness
+2. Verify decay dynamics
+3. Test consolidation patterns
+4. Integrate with WaveCore training
+
+### Production Migration
+
+- Port CMS to JAX for unified inference
+- Enable TPU-accelerated memory operations
+- Optimize for edge deployment
+
+See [seed-to-hope-evolution.md](../../docs/seed-to-hope-evolution.md) for the full transition plan.
