@@ -6,7 +6,7 @@ try:
     data = resp.json()
     print("Top Level Keys:", list(data.keys()))
     print("\nCapabilities:", data.get("capabilities"))
-    print("\nDetected Hardware:", data.get("detected_hardware"))
+    print("\nDetected Hardware:", data.get(ll"detected_hardware"))
     print("\nVision Core Key?", data.get("vision_core"))
     print("\nHardware Mode:", data.get("hardware_mode"))
 except Exception as e:
