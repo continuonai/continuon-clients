@@ -233,10 +233,16 @@ class GemmaChat:
     
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
+    
+    Gemma 3n E2B is preferred (2B effective params, multimodal).
+    Reference: https://huggingface.co/google/gemma-3n-E2B-it
     """
-    DEFAULT_MODEL_ID = "google/gemma-3-270m-it"  # Use model that's actually in cache
-    # Fallbacks (retain prior defaults for larger variants):
-    # "google/gemma-3n-E2B-it"
+    # Gemma 3n E2B: 2B effective params (6B total with selective activation)
+    # Supports text, image, audio, video inputs
+    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"
+    
+    # Fallback for lower memory systems
+    FALLBACK_MODEL_ID = "google/gemma-3-270m-it"
 
     def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
         """
@@ -295,9 +301,17 @@ class GemmaChat:
 
         try:
             # Try importing transformers
-            # Try importing transformers
             from transformers import AutoTokenizer, AutoModelForCausalLM, AutoProcessor
             import torch
+            
+            # Import Gemma 3n specific model class (preferred for gemma-3n-E2B-it)
+            Gemma3nForConditionalGeneration = None
+            try:
+                from transformers import Gemma3nForConditionalGeneration
+            except ImportError:
+                pass
+            
+            # Fallback to AutoModelForImageTextToText for other VLM models
             try:
                 from transformers import AutoModelForImageTextToText
             except ImportError:
@@ -321,8 +335,18 @@ class GemmaChat:
                 try:
                     logger.info(f"Attempting to load VLM: {self.model_name}")
                     
-                    if AutoModelForImageTextToText is None:
-                        raise ImportError("AutoModelForImageTextToText not available in installed transformers version")
+                    # Determine the best model class for loading
+                    # Gemma 3n E2B uses Gemma3nForConditionalGeneration
+                    is_gemma3n = "gemma-3n" in self.model_name.lower()
+                    
+                    if is_gemma3n and Gemma3nForConditionalGeneration is not None:
+                        ModelClass = Gemma3nForConditionalGeneration
+                        logger.info(f"Using Gemma3nForConditionalGeneration for {self.model_name}")
+                    elif AutoModelForImageTextToText is not None:
+                        ModelClass = AutoModelForImageTextToText
+                        logger.info(f"Using AutoModelForImageTextToText for {self.model_name}")
+                    else:
+                        raise ImportError("No suitable VLM model class available in installed transformers version")
                         
                     # We already resolved snapshot_path above.
                     if not snapshot_path:
@@ -350,8 +374,8 @@ class GemmaChat:
                     
                     # Load model - ALWAYS use local cache if available
                     try:
-                        logger.info("Loading VLM model from snapshot (local_files_only=True)")
-                        self.model = AutoModelForImageTextToText.from_pretrained(
+                        logger.info(f"Loading VLM model from snapshot (local_files_only=True) using {ModelClass.__name__}")
+                        self.model = ModelClass.from_pretrained(
                             str(snapshot_path),
                             local_files_only=True,
                             trust_remote_code=True,
@@ -368,7 +392,7 @@ class GemmaChat:
                         logger.warning(
                             f"VLM load failed: {e}. Retrying on CPU with torch_dtype=None, low_cpu_mem_usage=True..."
                         )
-                        self.model = AutoModelForImageTextToText.from_pretrained(
+                        self.model = ModelClass.from_pretrained(
                             str(snapshot_path),
                             local_files_only=True,
                             trust_remote_code=True,
@@ -961,19 +985,25 @@ def build_chat_service() -> Optional[Any]:
     
     # Check for LiteRT availability (lazy check via import attempt or pkg util)
     litert_available = False
+    litert_has_real_inference = False
     try:
-        from continuonbrain.services.chat.litert_chat import HAS_LITERT, LiteRTGemmaChat
+        from continuonbrain.services.chat.litert_chat import HAS_LITERT, HAS_MEDIAPIPE_GENAI, LiteRTGemmaChat
         litert_available = HAS_LITERT
+        # Real inference requires MediaPipe GenAI (not available on ARM64/Pi)
+        litert_has_real_inference = HAS_MEDIAPIPE_GENAI
     except ImportError:
         pass
 
-    # If LiteRT is PREFERRED, try it BEFORE JAX
-    if prefer_litert and litert_available and use_litert:
+    # If LiteRT is PREFERRED and has real inference, try it BEFORE JAX
+    if prefer_litert and litert_available and use_litert and litert_has_real_inference:
         try:
              # Check for LiteRT model preference or default
              chat = LiteRTGemmaChat(accelerator_device=accelerator_device)
-             logger.info("Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)")
-             return chat
+             if chat.load_model() and not chat.is_mock:
+                 logger.info("Using LiteRT (TensorFlow Lite) Gemma chat backend (Preferred)")
+                 return chat
+             else:
+                 logger.info("LiteRT in mock mode, falling back to transformers")
         except Exception as exc:
              logger.warning(f"LiteRT Chat init failed: {exc}")
 
@@ -990,14 +1020,17 @@ def build_chat_service() -> Optional[Any]:
             logger.info(f"JAX/Flax Gemma chat unavailable ({exc}); falling back.")
 
 
-    if headless and not allow_transformers and not litert_available:
-        logger.info("Headless mode: transformers chat disabled and LiteRT unavailable.")
+    if headless and not allow_transformers and not litert_has_real_inference:
+        logger.info("Headless mode: transformers chat disabled and LiteRT real inference unavailable.")
         return None
 
-    # If LiteRT was NOT preferred but is available, try it now (after JAX failed or wasn't preferred)
-    if litert_available and use_litert:
+    # If LiteRT was NOT preferred but has real inference, try it now (after JAX failed or wasn't preferred)
+    if litert_available and use_litert and litert_has_real_inference:
          try:
-             return LiteRTGemmaChat(accelerator_device=accelerator_device)
+             chat = LiteRTGemmaChat(accelerator_device=accelerator_device)
+             if chat.load_model() and not chat.is_mock:
+                 logger.info("Using LiteRT (TensorFlow Lite) Gemma chat backend")
+                 return chat
          except Exception as exc:
              logger.warning(f"LiteRT Chat init failed: {exc}")
 

@@ -14,21 +14,48 @@ from continuonbrain.core.feedback_store import SQLiteFeedbackStore
 
 logger = logging.getLogger(__name__)
 
-# Lazy load sentence-transformers to avoid slow startup
+# Lazy load embedding model to avoid slow startup
 _encoder = None
+_encoder_name = None
 
 def get_encoder():
-    """Lazy load the sentence transformer model."""
-    global _encoder
+    """
+    Lazy load the embedding model for semantic search.
+    
+    Priority:
+    1. EmbeddingGemma-300m (state-of-the-art, 768d)
+    2. all-MiniLM-L6-v2 fallback (fast, 384d)
+    """
+    global _encoder, _encoder_name
     if _encoder is None:
+        # Try EmbeddingGemma first (best quality)
+        try:
+            from continuonbrain.services.embedding_gemma import get_embedding_model
+            _encoder = get_embedding_model()
+            if _encoder is not None:
+                _encoder_name = "google/embeddinggemma-300m"
+                logger.info("✅ Loaded EmbeddingGemma-300m for semantic search (768d)")
+                return _encoder
+        except Exception as e:
+            logger.debug(f"EmbeddingGemma unavailable: {e}")
+        
+        # Fallback to MiniLM
         try:
             from sentence_transformers import SentenceTransformer
             _encoder = SentenceTransformer('all-MiniLM-L6-v2')  # 80MB, fast
-            logger.info("Loaded sentence-transformers model for semantic search")
+            _encoder_name = "all-MiniLM-L6-v2"
+            logger.info("Loaded MiniLM for semantic search (fallback)")
         except Exception as e:
             logger.warning(f"Failed to load sentence-transformers: {e}")
             _encoder = False  # Mark as failed, don't retry
     return _encoder if _encoder is not False else None
+
+
+def get_encoder_name() -> str:
+    """Get the name of the loaded encoder model."""
+    global _encoder_name
+    get_encoder()  # Ensure encoder is loaded
+    return _encoder_name or "none"
 
 
 class ExperienceLogger:

@@ -319,14 +319,26 @@ class RuntimeContextManager:
         """Detect semantic search / memory retrieval capabilities."""
         caps = SemanticSearchCapabilities()
         
-        # Check for sentence-transformers encoder
+        # Check for EmbeddingGemma first (preferred)
         try:
-            from sentence_transformers import SentenceTransformer
-            caps.encoder_available = True
-            caps.encoder_model = "all-MiniLM-L6-v2"  # Default model
-            logger.info("✅ Semantic search encoder available (sentence-transformers)")
-        except ImportError:
-            logger.info("⚠️ Semantic search encoder not available (sentence-transformers not installed)")
+            from continuonbrain.services.embedding_gemma import get_embedding_model
+            encoder = get_embedding_model()
+            if encoder is not None:
+                caps.encoder_available = True
+                caps.encoder_model = "google/embeddinggemma-300m"
+                logger.info("✅ Semantic search encoder available (EmbeddingGemma-300m)")
+        except Exception as e:
+            logger.debug(f"EmbeddingGemma check failed: {e}")
+        
+        # Fallback to sentence-transformers
+        if not caps.encoder_available:
+            try:
+                from sentence_transformers import SentenceTransformer
+                caps.encoder_available = True
+                caps.encoder_model = "all-MiniLM-L6-v2"  # Fallback model
+                logger.info("✅ Semantic search encoder available (MiniLM fallback)")
+            except ImportError:
+                logger.info("⚠️ Semantic search encoder not available")
         
         # Check for existing memories
         try:

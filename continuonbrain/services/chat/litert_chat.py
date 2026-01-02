@@ -27,9 +27,16 @@ logger = logging.getLogger(__name__)
 class LiteRTGemmaChat:
     """
     Gemma 3N backend using LiteRT (TensorFlow Lite) for inference.
+    
+    Uses google/gemma-3n-E2B-it-litert-lm by default (2B parameter model).
+    Requires mediapipe-genai package for inference.
     """
     
-    DEFAULT_MODEL_ID = "google/gemma-3-270m-it"
+    # Default to Gemma 3n E2B LiteRT (has .litertlm files)
+    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it-litert-lm"
+    
+    # Fallback if user explicitly requests 270M
+    FALLBACK_MODEL_ID = "google/gemma-3-270m-it"
 
     def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", accelerator_device: Optional[str] = None):
         # Verification Mode: If GenAI unavailable, force mock mode for .litertlm support
@@ -87,12 +94,25 @@ class LiteRTGemmaChat:
                 logger.error(f"No .litertlm or .tflite file found in {model_id} snapshot at {snapshot}")
                 return None
                 
-            # Prefer the generic int4 model if multiple exist
+            # Prefer the generic int4 model (non-Web, non-Mediatek variant)
             resolved_model_path = tflite_files[0]
+            preferred_names = [
+                "gemma-3n-E2B-it-int4.litertlm",  # Primary choice
+                "gemma-3-270m-it-int4.litertlm",  # Smaller variant
+            ]
+            for pref_name in preferred_names:
+                for p_file in tflite_files:
+                    if p_file.name == pref_name:
+                        resolved_model_path = p_file
+                        logger.info(f"Selected LiteRT model: {p_file.name}")
+                        return resolved_model_path
+            
+            # Fallback: avoid Web/MediaTek variants
             for p_file in tflite_files:
-                if p_file.name == "gemma-3n-E2B-it-int4.litertlm":
+                if "Web" not in p_file.name and "mediatek" not in p_file.name:
                     resolved_model_path = p_file
                     break
+                    
             return resolved_model_path
             
         except Exception as e:
@@ -110,7 +130,9 @@ class LiteRTGemmaChat:
 
             if not HAS_MEDIAPIPE_GENAI:
                 if self.is_mock:
-                    logger.warning("Mocking LiteRT load (GenAI runtime missing).")
+                    logger.warning("MediaPipe GenAI unavailable. LiteRT will use mock mode.")
+                    logger.warning("Note: mediapipe-genai is not available for ARM64 (Pi 5).")
+                    logger.warning("Consider using Gemini API (GOOGLE_API_KEY) or transformers backend.")
                     self.loaded = True
                     return True
                 logger.error("MediaPipe GenAI not installed. Cannot load .litertlm file.")
@@ -130,6 +152,10 @@ class LiteRTGemmaChat:
         except Exception as e:
             logger.error(f"Failed to load MediaPipe GenAI model: {e}")
             return False
+    
+    def is_real_inference_available(self) -> bool:
+        """Check if real inference is available (not mock)."""
+        return self.loaded and not self.is_mock and self.agent is not None
 
     def chat(self, message: str, system_context: Optional[str] = None, image: Any = None, model_hint: Optional[str] = None, history: Optional[List[Dict[str, str]]] = None) -> str:
         """
