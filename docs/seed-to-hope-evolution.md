@@ -1,8 +1,20 @@
 # Seed Model: Universal Robot Initialization
 
-**Version:** 1.2.0  
-**Status:** Core Architecture  
+**Version:** 3.0.0  
+**Status:** Production Ready  
 **Date:** 2026-01-02
+
+## Quick Stats
+
+| Metric | Value |
+|--------|-------|
+| **Parameters** | 3,408,521 (3.4M) |
+| **Memory** | 14 MB (float32) |
+| **Embedding** | EmbeddingGemma-300m (768-dim) |
+| **Inference** | 231 steps/sec (4.3ms/step) |
+| **Training Loss** | 0.011 |
+| **CMS Levels** | 3 (Fast/Mid/Slow) |
+| **RLDS Episodes** | 4,218 |
 
 ## Overview
 
@@ -12,6 +24,7 @@ The **Seed Model** is the universal initialization point for every robot in the 
 - **Runs on any chip**: ARM, x64, RISC-V, quantum, neuromorphic
 - **Provides** the foundation for all higher-level capabilities
 - **Evolves** through continuous learning while maintaining core stability
+- **Golden Rule**: Must run on devices with <8GB RAM
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -74,7 +87,7 @@ The ContinuonBrain seed model demonstrates advanced embodied AI capabilities thr
 │                                    ▼                                        │
 │  ┌────────────────────────────────────────────────────────────────────────┐│
 │  │                    WaveCore (Mamba SSM + Spectral)                     ││
-│  │                    172K params | O(n) complexity                       ││
+│  │                    3.4M params | O(n) complexity | 231 step/s          ││
 │  └────────────────────────────────────────────────────────────────────────┘│
 │                                    │                                        │
 │                                    ▼                                        │
@@ -85,6 +98,48 @@ The ContinuonBrain seed model demonstrates advanced embodied AI capabilities thr
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Scaling Roadmap (Golden Rule: <8GB RAM)
+
+The seed model is designed to scale over time while always fitting within devices with less than 8GB RAM.
+
+### Memory Budget (8GB Device)
+
+| Component | Memory |
+|-----------|--------|
+| Total RAM | 8.0 GB |
+| OS overhead | 1.5 GB |
+| Embeddings (EmbeddingGemma) | 0.5 GB |
+| CMS memory | 0.3 GB |
+| JAX runtime | 0.5 GB |
+| Safety margin | 0.5 GB |
+| **Available for model** | **4.7 GB** |
+
+**Maximum Parameters:** ~1.2B (float32) or ~2.4B (float16)
+
+### Scaling Tiers
+
+| Version | Parameters | Memory | Speed | Target | Status |
+|---------|------------|--------|-------|--------|--------|
+| v2.0 | 1M | 4 MB | 404 step/s | Pi 5 (8GB) | ✅ Released |
+| **v3.0** | **3.4M** | **14 MB** | **231 step/s** | **Pi 5 (8GB)** | **✅ Current** |
+| v4.0 | 25M | 100 MB | ~50 step/s | Pi 5 (8GB) | 🔶 Q1 2026 |
+| v5.0 | 100M | 200 MB | ~20 step/s | Pi 5 + Float16 | 🔶 Q2 2026 |
+| v6.0 | 500M | 500 MB | ~5 step/s | 8GB + Int8 | 🔶 Q3 2026 |
+
+### Dimension Scaling
+
+| Version | d_s | d_w | d_p | d_e | CMS Sizes | CMS Dims |
+|---------|-----|-----|-----|-----|-----------|----------|
+| v2.0 | 128 | 128 | 64 | 128 | 32/64/128 | 64/128/256 |
+| v3.0 | 256 | 256 | 128 | 256 | 64/128/256 | 128/256/512 |
+| v4.0 | 512 | 512 | 256 | 512 | 128/256/512 | 256/512/1024 |
+| v5.0 | 1024 | 1024 | 512 | 1024 | 256/512/1024 | 512/1024/2048 |
+| v6.0 | 2048 | 2048 | 1024 | 2048 | 512/1024/2048 | 1024/2048/4096 |
+
+See `continuonbrain/jax_models/scaling_configs.py` for tier definitions.
 
 ---
 

@@ -123,6 +123,30 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 
 > Orchestrator: `python -m continuonbrain.services.training_manager --help` provides a dry-run view of the training plan with optional execution flags.
 
+### Seed Model v3.0.0 (January 2026)
+
+The universal initialization point for all Continuon robots:
+
+| Metric | Value |
+|--------|-------|
+| **Parameters** | 3.4M |
+| **Memory** | 14 MB |
+| **Embedding** | EmbeddingGemma-300m (768-dim) |
+| **Inference** | 231 steps/sec (4.3ms) |
+| **Training Loss** | 0.011 |
+
+**Scaling Roadmap (Golden Rule: <8GB RAM):**
+
+| Version | Params | Status |
+|---------|--------|--------|
+| v2.0 | 1M | ✅ Released |
+| **v3.0** | **3.4M** | **✅ Current** |
+| v4.0 | 25M | 🔶 Q1 2026 |
+| v5.0 | 100M | 🔶 Q2 2026 |
+| v6.0 | 500M | 🔶 Q3 2026 |
+
+See [Seed Model Architecture](docs/seed-to-hope-evolution.md) for full details.
+
 ### On-device WaveCore seed + HOPE eval (JAX, Pi-class)
 
 * **WaveCore loops API:** `POST /api/training/wavecore_loops` runs fast/mid/slow loops on the JAX CoreModel using RLDS JSON at `/opt/continuonos/brain/rlds/episodes`, exports a seed manifest/checkpoint to `/opt/continuonos/brain/model/adapters/candidate/core_model_seed`, and checkpoints to `/opt/continuonos/brain/trainer/checkpoints/core_model_seed`.

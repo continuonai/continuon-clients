@@ -52,14 +52,41 @@ TODO (offline Wikipedia context)
 
 The **Seed Model** is the universal initialization point for every robot in the ecosystem. It is a permanent, hardware-agnostic core—not a temporary bootstrap phase.
 
+### Current Version: v3.0.0 (January 2026)
+
+| Metric | Value |
+|--------|-------|
+| **Parameters** | 3.4M |
+| **Memory** | 14 MB (float32) |
+| **Embedding** | EmbeddingGemma-300m (768-dim) |
+| **Inference** | 231 steps/sec (4.3ms/step) |
+| **Training Loss** | 0.011 |
+| **RLDS Episodes** | 4,218 |
+
 ### Seed Model (Permanent Core)
 - **Hardware-Agnostic**: Runs on ARM, x64, RISC-V, quantum, neuromorphic
-- **WaveCore (JAX)**: 172K params Mamba SSM, O(n) complexity
-- **CMS Memory**: 3-level hierarchical (Fast/Mid/Slow)
+- **WaveCore (JAX)**: 3.4M params Mamba SSM, O(n) complexity
+- **CMS Memory**: 3-level hierarchical (Fast/Mid/Slow) with write-back
 - **EmbeddingGemma-300m**: 768-dim semantic embeddings
 - **Context Graph**: Relational reasoning with entity tracking
 - **Decision Traces**: Explainable provenance logging
-- **Checkpoint location**: `/opt/continuonos/brain/model/adapters/candidate/core_model_seed/`
+- **Checkpoint location**: `/opt/continuonos/brain/model/seed_stable/`
+
+### Scaling Roadmap (Golden Rule: <8GB RAM)
+
+| Version | Parameters | Memory | Target | Status |
+|---------|------------|--------|--------|--------|
+| v2.0 | 1M | 4 MB | Pi 5 (8GB) | ✅ Released |
+| **v3.0** | **3.4M** | **14 MB** | **Pi 5 (8GB)** | **✅ Current** |
+| v4.0 | 25M | 100 MB | Pi 5 (8GB) | 🔶 Q1 2026 |
+| v5.0 | 100M | 200 MB | Pi 5 + Float16 | 🔶 Q2 2026 |
+| v6.0 | 500M | 500 MB | 8GB + Int8 | 🔶 Q3 2026 |
+
+**Memory Budget (8GB device):**
+- Total RAM: 8.0 GB
+- OS + Runtime overhead: 3.3 GB
+- **Available for model: 4.7 GB (~1.2B params)**
+- Current utilization: **0.3%** (room to grow 350x!)
 
 ### Continuous Evolution (Post-Initialization)
 After seed initialization, robots learn continuously:
@@ -77,7 +104,14 @@ After seed initialization, robots learn continuously:
 | RISC-V / Apple Silicon | Planned | Custom | 🔶 Future |
 | Quantum / Neuromorphic | Research | QPU/Loihi | 🔮 Research |
 
+### Training Pipeline
+1. **RLDS Episodes** → Text extraction → EmbeddingGemma (768-dim)
+2. **WaveCore Training** → JAX/Flax, Adam optimizer, gradient clipping
+3. **CMS Memory** → 3-level write-back during inference
+4. **Hailo Export** → ONNX → HEF (requires DFC on x86)
+
 See `docs/seed-to-hope-evolution.md` for full architecture details.
+See `continuonbrain/jax_models/scaling_configs.py` for tier definitions.
 
 ## Safety Kernel (Ring 0)
 

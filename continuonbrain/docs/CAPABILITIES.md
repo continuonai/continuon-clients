@@ -1,7 +1,18 @@
 # ContinuonBrain Seed Model Capabilities
 
-**Version:** 1.1.0  
-**Status:** Universal Core (Permanent)
+**Version:** 3.0.0  
+**Status:** Production Ready  
+**Date:** January 2026
+
+## Quick Stats
+
+| Metric | Value |
+|--------|-------|
+| **Parameters** | 3.4M |
+| **Memory** | 14 MB |
+| **Embedding** | EmbeddingGemma-300m (768-dim) |
+| **Inference** | 231 steps/sec (4.3ms) |
+| **Loss** | 0.011 |
 
 The **Seed Model** is the universal initialization point for every robot in the Continuon ecosystem. It provides the foundational cognitive capabilities that all robots share, regardless of their hardware platform.
 
@@ -13,6 +24,7 @@ The **Seed Model** is the universal initialization point for every robot in the 
 | **Hardware-Agnostic** | Runs on ARM, x64, RISC-V, quantum, neuromorphic |
 | **Permanent** | Not deprecated—always the initialization point |
 | **Evolvable** | Continuous learning builds on the seed foundation |
+| **Golden Rule** | Must run on devices with <8GB RAM |
 
 This document describes the advanced embodied AI capabilities implemented in the ContinuonBrain seed model.
 

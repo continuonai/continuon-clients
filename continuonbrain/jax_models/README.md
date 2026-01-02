@@ -1,10 +1,31 @@
 # JAX Models: WaveCore Seed Implementation
 
-**Status:** Seed Phase (Bootstrap)  
+**Status:** Production Ready (v3.0.0)  
 **Framework:** JAX/Flax  
-**Parameters:** 172,202
+**Parameters:** 3,408,521 (3.4M)  
+**Inference:** 231 steps/sec (4.3ms)
 
-This directory contains the JAX/Flax implementation of the WaveCore seed model, which will evolve into the HOPE Agent Manager for production.
+This directory contains the JAX/Flax implementation of the WaveCore seed model.
+
+## Quick Stats
+
+| Metric | Value |
+|--------|-------|
+| Parameters | 3.4M |
+| Memory | 14 MB |
+| Embedding | EmbeddingGemma-300m (768-dim) |
+| Inference | 231 steps/sec |
+| Loss | 0.011 |
+
+## Scaling Tiers
+
+| Version | d_s | d_w | Params | Status |
+|---------|-----|-----|--------|--------|
+| v2.0 | 128 | 128 | 1M | ✅ Released |
+| **v3.0** | **256** | **256** | **3.4M** | **✅ Current** |
+| v4.0 | 512 | 512 | 25M | 🔶 Next |
+
+See `scaling_configs.py` for tier definitions.
 
 ---
 
@@ -309,17 +330,24 @@ def cms_write(memories, keys, content, key, salience, decay):
 
 ```json
 {
-  "version": "1.0.0",
-  "phase": "seed",
-  "timestamp": "2026-01-02T10:10:31.775877",
-  "model_type": "wavecore_seed",
-  "param_count": 172202,
-  "scaffold": "google/gemma-3n-E2B-it (TEMPORARY)",
-  "embedding": "google/embeddinggemma-300m (RETAINED)",
-  "target": "hope_wavecore (non-transformers)",
+  "version": "3.0.0",
+  "type": "stable_seed_model",
+  "created": "2026-01-02T12:42:49.048678",
+  "model": {
+    "type": "jax_core_model",
+    "architecture": "wavecore_cms_write",
+    "param_count": 3408521,
+    "embedding_model": "google/embeddinggemma-300m"
+  },
+  "config": {
+    "d_s": 256, "d_w": 256, "d_p": 128, "d_e": 256,
+    "cms_sizes": [64, 128, 256],
+    "cms_dims": [128, 256, 512]
+  },
   "training": {
-    "final_loss": 0.0,
-    "rlds_episodes": 4219
+    "steps": 3000,
+    "final_loss": 0.011,
+    "text_samples": 310
   }
 }
 ```

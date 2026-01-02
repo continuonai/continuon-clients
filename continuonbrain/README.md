@@ -2,6 +2,17 @@
 
 The **Seed Model** is the universal initialization point for every robot in the Continuon ecosystem. It runs on any hardware platform and provides foundational cognitive capabilities.
 
+## Current Version: v3.0.0 (January 2026)
+
+| Metric | Value |
+|--------|-------|
+| **Parameters** | 3,408,521 (3.4M) |
+| **Memory** | 14 MB (float32) |
+| **Embedding** | EmbeddingGemma-300m (768-dim) |
+| **Inference Speed** | 231 steps/sec (4.3ms/step) |
+| **Training Loss** | 0.011 |
+| **CMS Levels** | 3 (64/128/256 slots) |
+
 ## Core Principles
 
 | Principle | Description |
@@ -10,6 +21,7 @@ The **Seed Model** is the universal initialization point for every robot in the 
 | **Hardware-Agnostic** | Runs on ARM, x64, RISC-V, quantum, neuromorphic |
 | **Permanent** | Core foundation—never deprecated |
 | **Evolvable** | Continuous learning builds on seed capabilities |
+| **Golden Rule** | Must run on devices with <8GB RAM |
 
 ## Capabilities
 
@@ -19,8 +31,21 @@ The **Seed Model** is the universal initialization point for every robot in the 
 | **Context Graph** | Relational reasoning with entity tracking | ✅ Active |
 | **Semantic Search** | EmbeddingGemma-300m (768-dim) | ✅ Active |
 | **Decision Traces** | Explainable provenance logging | ✅ Active |
-| **CMS Memory** | 3-level hierarchical (Fast/Mid/Slow) | ✅ Active |
-| **RLDS Training** | 4,219 episodes (91K steps) | ✅ Active |
+| **CMS Memory Write** | Dynamic memory updates during inference | ✅ Active |
+| **RLDS Training** | 4,218 episodes, 310 text samples | ✅ Active |
+
+## Scaling Roadmap
+
+| Version | Parameters | Memory | Speed | Status |
+|---------|------------|--------|-------|--------|
+| v2.0 | 1M | 4 MB | 404 step/s | ✅ Released |
+| **v3.0** | **3.4M** | **14 MB** | **231 step/s** | **✅ Current** |
+| v4.0 | 25M | 100 MB | ~50 step/s | 🔶 Q1 2026 |
+| v5.0 | 100M | 200 MB | ~20 step/s | 🔶 Q2 2026 |
+| v6.0 | 500M | 500 MB | ~5 step/s | 🔶 Q3 2026 |
+
+**8GB Device Budget:** 4.7 GB available for model (~1.2B params max)
+**Current Utilization:** 0.3% — room to grow 350x!
 
 ## Hardware Portability
 
@@ -38,15 +63,24 @@ The **Seed Model** is the universal initialization point for every robot in the 
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    SEED MODEL ARCHITECTURE                       │
+│                  SEED MODEL v3.0 ARCHITECTURE                    │
 ├─────────────────────────────────────────────────────────────────┤
-│  Sensors → Encoder → WaveCore (Mamba SSM, 172K params) → Policy │
+│  Sensors → Encoder → WaveCore (Mamba SSM, 3.4M params) → Policy │
 │                          ↕                                       │
-│            CMS Memory (3-level) ↔ Context Graph                 │
+│        CMS Memory (3-level, write-back) ↔ Context Graph         │
 │                          ↕                                       │
 │        EmbeddingGemma-300m ↔ Experience Memory (768-dim)        │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `/opt/continuonos/brain/model/seed_stable/seed_model.pkl` | Trained model weights |
+| `/opt/continuonos/brain/model/seed_stable/manifest.json` | Model metadata & config |
+| `continuonbrain/jax_models/scaling_configs.py` | Scaling tier definitions |
+| `continuonbrain/seed/optimized_inference.py` | JIT-compiled inference |
 
 See [docs/CAPABILITIES.md](docs/CAPABILITIES.md) for detailed documentation on:
 - World model next-token prediction
