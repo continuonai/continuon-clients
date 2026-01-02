@@ -209,12 +209,14 @@ def main():
         
         # 4. Curiosity & Discovery (Odd Cycles)
         if cycle % 2 == 1:
-            print("  🤔 Running Discovery (ChatLearn)...")
-            cl_result = run_chat_learn()
-            if "error" in cl_result:
-                 print(f"  ❌ ChatLearn Error: {cl_result.get('error')}")
-            else:
-                 print(f"  ✅ ChatLearn Complete")
+            # SKIP CHAT LEARN due to CPU/Hang stability issues
+            # We focus on WaveCore + Vision for the 10hr run.
+            print("  🤔 Skipping ChatLearn (Stability Mode)...")
+            # cl_result = run_chat_learn()
+            # if "error" in cl_result:
+            #      print(f"  ❌ ChatLearn Error: {cl_result.get('error')}")
+            # else:
+            #      print(f"  ✅ ChatLearn Complete")
                  
         # 5. Physics Lab (Every 4th Cycle)
         if cycle % 4 == 0:
