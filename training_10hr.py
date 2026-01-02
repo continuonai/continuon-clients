@@ -82,12 +82,24 @@ def check_memory():
         return {"ok": True, "mem_percent": 0}
 
 def check_hailo_status():
-    """Verify Hailo NPU availability details via VisionCore status"""
-    status = api_call("GET", "/api/status", timeout=5)
-    vision_ready = status.get("vision_core", False) 
-    # Note: detailed Hailo stats might need a specific endpoint if avail
-    # For now, we trust /api/status or infer from logs
-    return {"available": vision_ready, "raw": status}
+    """Verify Hailo NPU availability details via detected hardware"""
+    try:
+        status = api_call("GET", "/api/status", timeout=5)
+        hardware = status.get("detected_hardware", {})
+        devices = hardware.get("devices", {})
+        accelerators = devices.get("ai_accelerator", [])
+        
+        is_active = False
+        if accelerators:
+            # Check if any accelerator is active
+            for acc in accelerators:
+                if acc.get("config", {}).get("runtime_status") == "active":
+                    is_active = True
+                    break
+        
+        return {"available": is_active, "raw": accelerators}
+    except:
+        return {"available": False, "raw": []}
 
 def run_wavecore():
     """Run WaveCore training"""
