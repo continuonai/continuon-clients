@@ -79,6 +79,42 @@ After seed initialization, robots learn continuously:
 
 See `docs/seed-to-hope-evolution.md` for full architecture details.
 
+## Safety Kernel (Ring 0)
+
+The **Safety Kernel** operates at Ring 0 (highest privilege) like the Unix kernel. It is:
+- **First to initialize** on boot, before any other component
+- **Cannot be disabled** or bypassed by any other code
+- **Veto power** over all actions via `SafetyKernel.allow_action()`
+- **Hardware E-Stop** via GPIO (direct motor power cutoff)
+
+### Ring Architecture
+```
+Ring 0 - SAFETY KERNEL (cannot be bypassed)
+Ring 1 - Hardware Abstraction (sensors, actuators)
+Ring 2 - Core Runtime (Seed Model, WaveCore, CMS)
+Ring 3 - User Space (Chat, API, UI)
+```
+
+### Key Components
+- `continuonbrain/safety/kernel.py` - Ring 0 SafetyKernel singleton
+- `continuonbrain/safety/protocol.py` - Protocol 66 (default safety rules)
+- `continuonbrain/safety/bounds.py` - Workspace and motion limits
+- `continuonbrain/safety/monitor.py` - Continuous safety monitoring
+
+### Usage
+```python
+from continuonbrain.safety import SafetyKernel
+
+# All actions must pass through Ring 0
+if SafetyKernel.allow_action(action):
+    execute(action)
+
+# Emergency stop (always works, cannot be blocked)
+SafetyKernel.emergency_stop("Reason")
+```
+
+See `continuonbrain/safety/README.md` for full documentation.
+
 ## Ownership / pairing (LAN-only, non-biometric)
 - Prefer **QR pairing + 6-digit confirm code** for local ownership claim; do **not** implement face recognition / biometric identification.
 - Endpoints (robot runtime):
