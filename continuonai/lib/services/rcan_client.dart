@@ -14,7 +14,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../models/robot_entity.dart';
 import '../models/user_role.dart';
 
 /// RCAN Message types
@@ -270,15 +269,18 @@ class DiscoveredRobot {
     );
   }
 
-  /// Convert to RobotEntity for UI compatibility
-  RobotEntity toRobotEntity() {
-    return RobotEntity(
-      id: ruri,
-      name: friendlyName.isNotEmpty ? friendlyName : model,
-      host: host,
-      port: port,
-      isConnected: false,
-    );
+  /// Convert to a map for UI compatibility
+  Map<String, dynamic> toMap() {
+    return {
+      'id': ruri,
+      'name': friendlyName.isNotEmpty ? friendlyName : model,
+      'host': host,
+      'port': port,
+      'ruri': ruri,
+      'model': model,
+      'capabilities': capabilities,
+      'supportedRoles': supportedRoles,
+    };
   }
 }
 

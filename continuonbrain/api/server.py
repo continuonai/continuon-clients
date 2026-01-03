@@ -237,6 +237,14 @@ def _build_discovery_payload(handler) -> dict:
     except Exception:
         pass
     
+    # Get RCAN info if available
+    rcan_info = {}
+    try:
+        if brain_service and hasattr(brain_service, 'rcan'):
+            rcan_info = brain_service.rcan.get_discovery_info()
+    except Exception:
+        pass
+    
     return {
         "status": "ok",
         "product": "continuon_brain_runtime",
@@ -255,9 +263,11 @@ def _build_discovery_payload(handler) -> dict:
             "discovery",
             "hailo_accelerator",
             "sam_segmentation",
+            "rcan",  # RCAN protocol support
         ],
         "base_url": base_url,
         "discovery": {"kind": "lan_http", "via": "continuonbrain/api/server.py"},
+        "rcan": rcan_info,  # RCAN protocol info
         "endpoints": {
             "status": f"{base_url}/api/status",
             "mobile_summary": f"{base_url}/api/mobile/summary",
@@ -266,6 +276,11 @@ def _build_discovery_payload(handler) -> dict:
             "pair_confirm": f"{base_url}/api/ownership/pair/confirm",
             "pair_qr_png": f"{base_url}/api/ownership/pair/qr",
             "discovery": f"{base_url}/api/discovery/info",
+            # RCAN endpoints
+            "rcan_status": f"{base_url}/rcan/v1/status",
+            "rcan_claim": f"{base_url}/rcan/v1/auth/claim",
+            "rcan_release": f"{base_url}/rcan/v1/auth/release",
+            "rcan_command": f"{base_url}/rcan/v1/command",
         },
         "pairing": pairing_info,
     }
@@ -925,6 +940,18 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path in {"/api/discovery", "/api/discovery/info"}:
                 # Discovery endpoint for LAN device discovery
                 self.send_json(_build_discovery_payload(self))
+            
+            # ===================================================================
+            # RCAN Protocol Endpoints (Robot Communication & Addressing Network)
+            # ===================================================================
+            elif self.path == "/rcan/v1/status":
+                # Get RCAN service status
+                if brain_service and hasattr(brain_service, 'rcan'):
+                    status = brain_service.rcan.get_status()
+                    status["discovery"] = brain_service.rcan.get_discovery_info()
+                    self.send_json(status)
+                else:
+                    self.send_json({"error": "RCAN service not available"}, status=503)
             
             elif self.path.startswith("/api/status"):
                 # Enriched robot status for UI
@@ -2014,6 +2041,62 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
 
             elif self.path == "/api/model/install":
                 self.handle_install_model(body)
+
+            # ===================================================================
+            # RCAN Protocol POST Endpoints
+            # ===================================================================
+            elif self.path == "/rcan/v1/discover":
+                # Handle discovery request
+                data = json.loads(body) if body else {}
+                if brain_service and hasattr(brain_service, 'rcan'):
+                    from continuonbrain.services.rcan_service import RCANMessage
+                    msg = RCANMessage.from_dict(data)
+                    response = brain_service.rcan.handle_discover(msg)
+                    self.send_json(response.to_dict())
+                else:
+                    self.send_json({"error": "RCAN service not available"}, status=503)
+            
+            elif self.path == "/rcan/v1/auth/claim":
+                # Claim control of the robot
+                data = json.loads(body) if body else {}
+                if brain_service and hasattr(brain_service, 'rcan'):
+                    from continuonbrain.services.rcan_service import RCANMessage, UserRole
+                    msg = RCANMessage(
+                        source_ruri=data.get("source_ruri", ""),
+                        target_ruri=brain_service.rcan.identity.ruri,
+                    )
+                    user_id = data.get("user_id", "")
+                    role_str = data.get("role", "guest").upper()
+                    try:
+                        role = UserRole[role_str]
+                    except KeyError:
+                        role = UserRole.GUEST
+                    response = brain_service.rcan.handle_claim(msg, user_id, role)
+                    self.send_json(response.to_dict())
+                else:
+                    self.send_json({"error": "RCAN service not available"}, status=503)
+            
+            elif self.path == "/rcan/v1/auth/release":
+                # Release control
+                data = json.loads(body) if body else {}
+                session_id = data.get("session_id", "")
+                if brain_service and hasattr(brain_service, 'rcan'):
+                    response = brain_service.rcan.handle_release(session_id)
+                    self.send_json(response.to_dict())
+                else:
+                    self.send_json({"error": "RCAN service not available"}, status=503)
+            
+            elif self.path == "/rcan/v1/command":
+                # Send command via RCAN
+                data = json.loads(body) if body else {}
+                session_id = data.get("session_id", "")
+                if brain_service and hasattr(brain_service, 'rcan'):
+                    from continuonbrain.services.rcan_service import RCANMessage
+                    msg = RCANMessage.from_dict(data.get("message", {}))
+                    response = brain_service.rcan.handle_command(msg, session_id)
+                    self.send_json(response.to_dict())
+                else:
+                    self.send_json({"error": "RCAN service not available"}, status=503)
 
             else:
                 self.send_error(404)
