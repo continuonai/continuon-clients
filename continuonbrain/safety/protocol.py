@@ -23,6 +23,8 @@ class ProtocolCategory(Enum):
     ELECTRICAL = auto()   # Electrical safety
     SOFTWARE = auto()     # Software safety
     EMERGENCY = auto()    # Emergency procedures
+    PROPERTY = auto()     # Property protection (destructive actions)
+    PRIVACY = auto()      # Privacy protection
 
 
 @dataclass
@@ -366,6 +368,110 @@ PROTOCOL_66 = SafetyProtocol(
             parameters={
                 "auto_recovery": False,  # Manual recovery required
                 "requires_authorization": True,
+            },
+        ),
+        
+        # ====================
+        # PROPERTY PROTECTION
+        # ====================
+        SafetyRule(
+            id="PROPERTY_001",
+            name="No Unauthorized Destruction",
+            category=ProtocolCategory.PROPERTY,
+            description="Destructive actions require explicit work authorization",
+            severity="critical",
+            parameters={
+                "blocked_actions": [
+                    "demolish", "cut", "crush", "shred", "burn", "dissolve",
+                    "delete_data", "overwrite", "format",
+                ],
+                "requires_authorization": True,
+                "authorization_system": "work_authorization",
+            },
+        ),
+        SafetyRule(
+            id="PROPERTY_002",
+            name="Property Ownership Verification",
+            category=ProtocolCategory.PROPERTY,
+            description="Only legal owners can authorize destruction of their property",
+            severity="critical",
+            parameters={
+                "allowed_roles": ["creator", "owner", "leasee"],
+                "requires_evidence": True,
+                "evidence_types": ["deed", "title", "contract", "receipt"],
+            },
+        ),
+        SafetyRule(
+            id="PROPERTY_003",
+            name="Third-Party Property Protection",
+            category=ProtocolCategory.PROPERTY,
+            description="Never damage property belonging to others",
+            severity="critical",
+            parameters={
+                "always_verify_ownership": True,
+                "when_uncertain": "deny",
+            },
+        ),
+        SafetyRule(
+            id="PROPERTY_004",
+            name="Collateral Damage Prevention",
+            category=ProtocolCategory.PROPERTY,
+            description="Authorized destruction must not damage non-target property",
+            severity="violation",
+            parameters={
+                "require_clear_boundaries": True,
+                "safety_margin_m": 0.5,
+            },
+        ),
+        SafetyRule(
+            id="PROPERTY_005",
+            name="Destruction Audit Trail",
+            category=ProtocolCategory.PROPERTY,
+            description="All destructive actions must be logged with full provenance",
+            severity="violation",
+            parameters={
+                "log_before_action": True,
+                "log_after_action": True,
+                "include_authorization_id": True,
+                "include_property_id": True,
+            },
+        ),
+        
+        # ====================
+        # PRIVACY PROTECTION
+        # ====================
+        SafetyRule(
+            id="PRIVACY_001",
+            name="Consent Required for Personal Data",
+            category=ProtocolCategory.PRIVACY,
+            description="Personal data collection requires explicit consent",
+            severity="critical",
+            parameters={
+                "data_types": ["face", "voice", "behavior", "location"],
+                "requires_consent": True,
+                "consent_must_be_explicit": True,
+            },
+        ),
+        SafetyRule(
+            id="PRIVACY_002",
+            name="Local Data Processing",
+            category=ProtocolCategory.PRIVACY,
+            description="Personal data must be processed on-device by default",
+            severity="violation",
+            parameters={
+                "default_processing": "local",
+                "cloud_requires_consent": True,
+            },
+        ),
+        SafetyRule(
+            id="PRIVACY_003",
+            name="Right to Be Forgotten",
+            category=ProtocolCategory.PRIVACY,
+            description="Users can request deletion of their personal data",
+            severity="critical",
+            parameters={
+                "deletion_must_be_complete": True,
+                "max_deletion_time_hours": 24,
             },
         ),
     ]

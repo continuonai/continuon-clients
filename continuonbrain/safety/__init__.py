@@ -45,21 +45,51 @@ Usage:
 """
 
 from .kernel import SafetyKernel, SafetyViolation, EmergencyStop
-from .protocol import SafetyProtocol, PROTOCOL_66
+from .protocol import SafetyProtocol, PROTOCOL_66, ProtocolCategory
 from .bounds import SafetyBounds, WorkspaceBounds
 from .monitor import SafetyMonitor
+from .work_authorization import (
+    WorkAuthorizationManager,
+    DestructiveActionType,
+    DestructiveActionGuard,
+    PropertyClaim,
+)
+from .anti_subversion import (
+    AntiSubversionGuard,
+    ImmutableSafetyCore,
+    TamperEvidentLog,
+    MultiPartyAuthorizer,
+    SecurityAnomalyDetector,
+    PromptInjectionDefense,
+    SecurityError,
+)
 
 # Initialize safety kernel on import (Ring 0 - first component)
 _kernel = SafetyKernel._get_instance()
 
 __all__ = [
+    # Core safety
     'SafetyKernel',
     'SafetyViolation', 
     'EmergencyStop',
     'SafetyProtocol',
     'PROTOCOL_66',
+    'ProtocolCategory',
     'SafetyBounds',
     'WorkspaceBounds',
     'SafetyMonitor',
+    # Work authorization
+    'WorkAuthorizationManager',
+    'DestructiveActionType',
+    'DestructiveActionGuard',
+    'PropertyClaim',
+    # Anti-subversion
+    'AntiSubversionGuard',
+    'ImmutableSafetyCore',
+    'TamperEvidentLog',
+    'MultiPartyAuthorizer',
+    'SecurityAnomalyDetector',
+    'PromptInjectionDefense',
+    'SecurityError',
 ]
 

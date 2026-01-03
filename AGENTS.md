@@ -209,10 +209,26 @@ SafetyKernel.emergency_stop("Reason")
 
 See `continuonbrain/safety/README.md` for full documentation.
 
-## Ownership / pairing (LAN-only, non-biometric)
-- Prefer **QR pairing + 6-digit confirm code** for local ownership claim; do **not** implement face recognition / biometric identification.
+## Ownership / pairing (LAN-only)
+- Prefer **QR pairing + 6-digit confirm code** for local ownership claim.
 - Endpoints (robot runtime):
   - `POST /api/ownership/pair/start`, `POST /api/ownership/pair/confirm`, `GET /api/ownership/status`, `GET /api/ownership/pair/qr`, `GET /pair?token=...`.
   - Keep `/api/ownership/status` backward-compatible for existing clients that expect flat keys.
+
+## User Recognition (Consent-Based Face Recognition)
+- Face recognition is **opt-in only** - users must explicitly consent to be remembered.
+- Purpose: Robot recognizes familiar users for personalized interactions and role-based access.
+- **Privacy principles**:
+  - Only face embeddings stored (not photos) - cannot be reversed to images
+  - All processing on-device (never sent to cloud)
+  - Users can delete their data anytime (right to be forgotten)
+  - Transparent: users know when recognition is active
+- **User roles** (in order of privilege): creator, owner, leasee, user, guest, unknown
+- **Module**: `continuonbrain/recognition/` - see README.md for full documentation.
+- **Endpoints**:
+  - `POST /api/recognition/register` - Register face with consent
+  - `POST /api/recognition/recognize` - Identify user from image
+  - `DELETE /api/recognition/revoke/{user_id}` - Delete user data
+  - `GET /api/consent/status/{user_id}` - Check consent status
 
 Note: Conversation on 2025-12-10 about Pi5 startup/training is logged at `docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
