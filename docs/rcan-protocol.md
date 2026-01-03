@@ -330,28 +330,74 @@ guest_limits:
 
 ### 7.1 ContinuonBrain Integration
 
+**Status: ✅ Implemented (January 2026)**
+
 The RCAN protocol is implemented in `continuonbrain/services/rcan_service.py`:
 
 ```python
 class RCANService:
     def handle_discover(self, message: RCANMessage) -> RCANMessage
-    def handle_claim(self, message: RCANMessage, auth: AuthContext) -> RCANMessage
-    def handle_command(self, message: RCANMessage, auth: AuthContext) -> RCANMessage
-    def broadcast_status(self) -> None
-    def validate_role(self, auth: AuthContext, capability: str) -> bool
+    def handle_claim(self, message: RCANMessage, user_id: str, role: UserRole) -> RCANMessage
+    def handle_command(self, message: RCANMessage, session_id: str) -> RCANMessage
+    def handle_release(self, session_id: str) -> RCANMessage
+    def get_status(self) -> dict
+    def get_discovery_info(self) -> dict
+    def validate_session(self, session_id: str, capability: RobotCapability) -> tuple[bool, str]
 ```
+
+**HTTP Endpoints (in `continuonbrain/server/routes.py`):**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/rcan/v1/discover` | POST | Discovery request/response |
+| `/rcan/v1/status` | GET | Robot RCAN status and discovery info |
+| `/rcan/v1/auth/claim` | POST | Claim control (returns session) |
+| `/rcan/v1/auth/release` | DELETE | Release control |
+| `/rcan/v1/command` | POST | Send command via RCAN |
+| `/rcan/v1/handoff` | POST | Transfer control (not yet implemented) |
+
+The service is automatically initialized with `BrainService` and accessible via `self.service.rcan`.
 
 ### 7.2 ContinuonAI Flutter Integration
 
+**Status: ✅ Implemented (January 2026)**
+
+The RCAN protocol client is implemented in `continuonai/lib/services/rcan_client.dart`:
+
 ```dart
 class RCANClient {
-  Future<List<RobotEntity>> discover({Duration timeout = const Duration(seconds: 5)});
-  Future<AuthSession> claim(String ruri, UserRole role);
-  Stream<RobotStatus> statusStream(String ruri);
-  Future<CommandResult> sendCommand(String ruri, RCANCommand command);
-  Future<void> release(String ruri);
+  /// Discover robots via HTTP probe
+  Future<List<DiscoveredRobot>> discover({Duration timeout, List<String>? hosts});
+  
+  /// Claim control of a robot
+  Future<RCANSession?> claim({required String userId, required UserRole role});
+  
+  /// Get RCAN status from connected robot  
+  Future<Map<String, dynamic>> getStatus();
+  
+  /// Send command to the robot
+  Future<RCANCommandResult> sendCommand({required String command, Map<String, dynamic>? parameters});
+  
+  /// Release control
+  Future<bool> release();
+  
+  /// Stream of discovered robots
+  Stream<List<DiscoveredRobot>> get discoveredRobots;
 }
 ```
+
+**Integration with BrainClient:**
+
+- `BrainClient` now includes an `RCANClient rcan` instance
+- RCAN client is automatically connected when `BrainClient.connect()` is called
+- Session persistence via `FlutterSecureStorage`
+- Helper methods: `claimRobotRcan()`, `releaseRobotRcan()`, `sendRcanCommand()`, `getRcanStatus()`
+
+**Scanner Service Updates:**
+
+- Native scanner (`scanner_service_native.dart`) scans for `_rcan._tcp` mDNS service
+- Web scanner (`scanner_service_web.dart`) probes `/rcan/v1/status` endpoint first
+- Both fall back to legacy endpoints for backward compatibility
 
 ## 8. References
 

@@ -329,6 +329,12 @@ class BrainService:
         self.log_system_event("Initializing Gemma Chat Service...")
         self.gemma_chat = build_chat_service()
         self.pairing = PairingManager(config_dir)
+        
+        # RCAN Protocol Service
+        from continuonbrain.services.rcan_service import RCANService
+        self.rcan = RCANService(config_dir=config_dir, port=8080)
+        logger.info(f"🌐 RCAN Service initialized: {self.rcan.identity.ruri}")
+        
         self.training_runner = TrainingRunner(config_dir=config_dir)
         self.stream_helper = VideoStreamHelper(self)
         self.safety_client = SafetyKernelClient()

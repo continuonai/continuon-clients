@@ -395,6 +395,13 @@ class SimpleJSONServer:
                     "confirm_code": confirm_code,
                 }
             
+            # Get RCAN info if available
+            rcan_info = {}
+            try:
+                rcan_info = self.service.rcan.get_discovery_info()
+            except Exception:
+                rcan_info = {}
+            
             payload: Dict[str, Any] = {
                 "status": "ok",
                 "product": "continuon_brain_runtime",
@@ -408,9 +415,11 @@ class SimpleJSONServer:
                     "autonomous_mode",
                     "pairing",
                     "discovery",
+                    "rcan",  # RCAN protocol support
                 ],
                 "base_url": base_url,
                 "discovery": {"kind": "lan_http", "via": "continuonbrain/server/routes.py"},
+                "rcan": rcan_info,  # RCAN protocol info
                 "endpoints": {
                     "status": f"{base_url}/api/status",
                     "mobile_summary": f"{base_url}/api/mobile/summary",
@@ -419,6 +428,12 @@ class SimpleJSONServer:
                     "pair_confirm": f"{base_url}/api/ownership/pair/confirm",
                     "pair_qr_png": f"{base_url}/api/ownership/pair/qr",
                     "discovery": f"{base_url}/api/discovery/info",
+                    # RCAN endpoints
+                    "rcan_discover": f"{base_url}/rcan/v1/discover",
+                    "rcan_status": f"{base_url}/rcan/v1/status",
+                    "rcan_claim": f"{base_url}/rcan/v1/auth/claim",
+                    "rcan_release": f"{base_url}/rcan/v1/auth/release",
+                    "rcan_command": f"{base_url}/rcan/v1/command",
                 },
                 "pairing": pairing_info,
             }
@@ -1017,6 +1032,73 @@ class SimpleJSONServer:
                 return header.encode("utf-8") + png
             except Exception as exc:  # noqa: BLE001
                 return self._json_response({"status": "error", "message": str(exc)}, status_code=500)
+
+        # =====================================================================
+        # RCAN Protocol Endpoints (Robot Communication & Addressing Network)
+        # See: docs/rcan-protocol.md, docs/rcan-technical-spec.md
+        # =====================================================================
+        
+        elif path == "/rcan/v1/discover" and method == "POST":
+            # Handle discovery request
+            payload = await self._read_json_body(reader, headers)
+            from continuonbrain.services.rcan_service import RCANMessage
+            msg = RCANMessage.from_dict(payload or {})
+            response = self.service.rcan.handle_discover(msg)
+            return self._json_response(response.to_dict())
+        
+        elif path == "/rcan/v1/status" and method == "GET":
+            # Get RCAN service status
+            status = self.service.rcan.get_status()
+            # Add discovery info
+            status["discovery"] = self.service.rcan.get_discovery_info()
+            return self._json_response(status)
+        
+        elif path == "/rcan/v1/auth/claim" and method == "POST":
+            # Claim control of the robot
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                return self._json_response({"error": "Invalid payload"}, status_code=400)
+            
+            from continuonbrain.services.rcan_service import RCANMessage, UserRole
+            msg = RCANMessage.from_dict({
+                "source_ruri": payload.get("source_ruri", ""),
+                "target_ruri": self.service.rcan.identity.ruri,
+            })
+            user_id = payload.get("user_id", "")
+            role_str = payload.get("role", "guest").lower()
+            role = UserRole[role_str.upper()] if hasattr(UserRole, role_str.upper()) else UserRole.GUEST
+            
+            response = self.service.rcan.handle_claim(msg, user_id, role)
+            return self._json_response(response.to_dict())
+        
+        elif path == "/rcan/v1/auth/release" and method == "DELETE":
+            # Release control
+            payload = await self._read_json_body(reader, headers)
+            session_id = (payload or {}).get("session_id", "")
+            response = self.service.rcan.handle_release(session_id)
+            return self._json_response(response.to_dict())
+        
+        elif path == "/rcan/v1/command" and method == "POST":
+            # Send command via RCAN
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                return self._json_response({"error": "Invalid payload"}, status_code=400)
+            
+            session_id = payload.get("session_id", "")
+            from continuonbrain.services.rcan_service import RCANMessage
+            msg = RCANMessage.from_dict(payload.get("message", {}))
+            
+            response = self.service.rcan.handle_command(msg, session_id)
+            return self._json_response(response.to_dict())
+        
+        elif path == "/rcan/v1/handoff" and method == "POST":
+            # Transfer control between users
+            payload = await self._read_json_body(reader, headers)
+            # TODO: Implement handoff logic
+            return self._json_response({
+                "status": "not_implemented",
+                "message": "Handoff not yet implemented"
+            }, status_code=501)
 
         elif path == "/api/planning/arm_search" and method == "POST":
             payload = await self._read_json_body(reader, headers)

@@ -83,7 +83,36 @@ class ScannerService {
   }
 
   Future<void> _probeHost(String host) async {
-    // Try discovery endpoint first (preferred, richer metadata)
+    // Try RCAN status endpoint first (preferred, RCAN protocol)
+    try {
+      final rcanUrl = Uri.http('$host:8080', '/rcan/v1/status');
+      final rcanResponse = await html.HttpRequest.request(
+        rcanUrl.toString(),
+        method: 'GET',
+        requestHeaders: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 3));
+
+      if (rcanResponse.status == 200 && rcanResponse.responseText != null) {
+        final payload = jsonDecode(rcanResponse.responseText!);
+        if (payload is Map<String, dynamic>) {
+          final robot = _parseRobotFromRcan(host, payload);
+          if (robot != null) {
+            _addRobot(robot);
+            html.window.localStorage['continuon_last_host'] = robot.host;
+            // Store robot name and RURI for .local hostname support
+            final discovery = payload['discovery'] as Map<String, dynamic>?;
+            if (discovery != null && discovery['ruri'] != null) {
+              html.window.localStorage['continuon_last_ruri'] = discovery['ruri'].toString();
+            }
+            return; // Success with RCAN endpoint
+          }
+        }
+      }
+    } catch (_) {
+      // Fall through to discovery endpoint
+    }
+    
+    // Try discovery endpoint (legacy, still preferred over status)
     try {
       final discoveryUrl = Uri.http('$host:8080', '/api/discovery/info');
       final discoveryResponse = await html.HttpRequest.request(
@@ -137,6 +166,28 @@ class ScannerService {
     } catch (_) {
       // Swallow network/CORS errors: discovery should be best-effort on web.
     }
+  }
+
+  ScannedRobot? _parseRobotFromRcan(
+      String host, Map<String, dynamic> payload) {
+    // Parse RCAN /rcan/v1/status endpoint response format
+    final discovery = payload['discovery'] as Map<String, dynamic>?;
+    if (discovery == null) return null;
+    
+    final ruri = discovery['ruri']?.toString() ?? '';
+    final model = discovery['model']?.toString() ?? 'companion-v1';
+    final hostname = discovery['hostname']?.toString() ?? host;
+    final port = discovery['port'] as int? ?? 8080;
+    
+    // Extract friendly name from model or RURI
+    final name = model.isNotEmpty ? model : 'ContinuonBrain';
+    
+    return ScannedRobot(
+      name: name,
+      host: hostname,
+      port: port,
+      httpPort: port,
+    );
   }
 
   ScannedRobot? _parseRobotFromDiscovery(

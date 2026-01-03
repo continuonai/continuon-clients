@@ -64,13 +64,11 @@ class ScannerService {
 
     await _requestPermissions();
 
-    // Start mDNS Scan
+    // Start mDNS Scan for RCAN protocol service
     try {
-      // Scan for generic HTTP or specific Continuon service
-      // Note: '_continuon._tcp' would be ideal if the robot broadcasts it.
-      // For now, we might scan for _http._tcp and filter, or assume the user knows.
-      // Let's try scanning for a specific service type if possible, or generic.
-      _discovery = await startDiscovery('_continuon._tcp',
+      // RCAN protocol uses _rcan._tcp.local for mDNS service discovery
+      // Fallback to _continuon._tcp for legacy compatibility
+      _discovery = await startDiscovery('_rcan._tcp',
           ipLookupType: IpLookupType.v4);
       _discovery!.addServiceListener((service, status) {
         if (status == ServiceStatus.found) {
@@ -78,7 +76,19 @@ class ScannerService {
         }
       });
     } catch (e) {
-      debugPrint('mDNS Error: $e');
+      debugPrint('RCAN mDNS Error: $e');
+      // Fallback to legacy _continuon._tcp service type
+      try {
+        _discovery = await startDiscovery('_continuon._tcp',
+            ipLookupType: IpLookupType.v4);
+        _discovery!.addServiceListener((service, status) {
+          if (status == ServiceStatus.found) {
+            _parseMdnsService(service);
+          }
+        });
+      } catch (e2) {
+        debugPrint('Fallback mDNS Error: $e2');
+      }
     }
 
     // Start BLE Scan
@@ -143,21 +153,52 @@ class ScannerService {
 
   void _parseMdnsService(Service service) {
     // Extract IP and Port
-    final name = service.name ?? 'Unknown Robot';
+    var name = service.name ?? 'Unknown Robot';
     final host = service.host ?? '';
-    final port = service.port ?? 8080;
+    var port = service.port ?? 8080;
 
     // Simple validation
     if (host.isEmpty) return;
 
-    // Extract HTTP port from TXT records if available
+    // Extract RCAN-specific TXT records if available
     int httpPort = 8080;
+    String? ruri;
+    String? model;
+    List<String> capabilities = [];
+    
     final txt = service.txt;
     if (txt != null) {
+      // RCAN protocol TXT record fields
+      if (txt.containsKey('ruri')) {
+        final val = txt['ruri'];
+        if (val != null) {
+          ruri = String.fromCharCodes(val);
+        }
+      }
+      if (txt.containsKey('model')) {
+        final val = txt['model'];
+        if (val != null) {
+          model = String.fromCharCodes(val);
+          name = model; // Use model as display name
+        }
+      }
+      if (txt.containsKey('caps')) {
+        final val = txt['caps'];
+        if (val != null) {
+          capabilities = String.fromCharCodes(val).split(',');
+        }
+      }
       if (txt.containsKey('http_port')) {
         final val = txt['http_port'];
         if (val != null) {
           httpPort = int.tryParse(String.fromCharCodes(val)) ?? 8080;
+        }
+      }
+      // RCAN uses 'name' for friendly name
+      if (txt.containsKey('name')) {
+        final val = txt['name'];
+        if (val != null) {
+          name = String.fromCharCodes(val);
         }
       }
     }

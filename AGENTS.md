@@ -266,6 +266,49 @@ See `continuonbrain/swarm/README.md` for full documentation.
   - `POST /api/ownership/pair/start`, `POST /api/ownership/pair/confirm`, `GET /api/ownership/status`, `GET /api/ownership/pair/qr`, `GET /pair?token=...`.
   - Keep `/api/ownership/status` backward-compatible for existing clients that expect flat keys.
 
+## RCAN Protocol (Robot Communication & Addressing Network)
+
+**Status: ✅ Implemented (January 2026)**
+
+RCAN is a protocol for addressing, discovering, authenticating, and communicating with robotic agents. Similar to how ICANN manages domain names for the internet, RCAN provides a hierarchical addressing scheme for robots.
+
+### Robot URI (RURI)
+```
+rcan://<registry>/<manufacturer>/<model>/<device-id>[:<port>][/<capability>]
+```
+
+Example: `rcan://continuon.cloud/continuon/companion-v1/d3a4b5c6`
+
+### Role Hierarchy (Level 5 = highest)
+| Role | Level | Description |
+|------|-------|-------------|
+| Creator | 5 | Full hardware/software control |
+| Owner | 4 | Configuration, OTA, user management |
+| Leasee | 3 | Time-bound operational control |
+| User | 2 | Operational control within modes |
+| Guest | 1 | Limited (chat, status queries) |
+
+### Key Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/rcan/v1/discover` | POST | Discovery request/response |
+| `/rcan/v1/status` | GET | Robot RCAN status |
+| `/rcan/v1/auth/claim` | POST | Claim control |
+| `/rcan/v1/auth/release` | DELETE | Release control |
+| `/rcan/v1/command` | POST | Send command |
+
+### Key Files
+- **Brain Service**: `continuonbrain/services/rcan_service.py`
+- **Server Routes**: `continuonbrain/server/routes.py` (RCAN endpoints)
+- **Flutter Client**: `continuonai/lib/services/rcan_client.dart`
+- **Documentation**: `docs/rcan-protocol.md`, `docs/rcan-technical-spec.md`
+
+### mDNS Discovery
+```
+Service type: _rcan._tcp.local
+TXT records: ruri, model, caps, roles, version, name, status
+```
+
 ## User Recognition (Consent-Based Face Recognition)
 - Face recognition is **opt-in only** - users must explicitly consent to be remembered.
 - Purpose: Robot recognizes familiar users for personalized interactions and role-based access.

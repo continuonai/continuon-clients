@@ -11,7 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/teleop_models.dart';
+import '../models/user_role.dart';
 import 'platform_channels.dart';
+import 'rcan_client.dart';
 import 'task_recorder.dart';
 
 class ConnectionDiagnostic {
@@ -58,12 +60,18 @@ class BrainClient {
     grpc.ClientChannel? channel,
     PlatformBrainBridge platformBridge = const PlatformBrainBridge(),
     this.clientId = 'flutter-companion',
+    RCANClient? rcanClient,
   })  : _channel = channel,
-        _platformBridge = platformBridge;
+        _platformBridge = platformBridge,
+        rcan = rcanClient ?? RCANClient(clientId: 'continuonai-flutter');
 
   dynamic _channel;
   final PlatformBrainBridge _platformBridge;
   final String clientId;
+  
+  /// RCAN Protocol client for robot communication
+  final RCANClient rcan;
+  
   StreamController<RobotState>? _stateController;
   grpc.CallOptions _callOptions = grpc.CallOptions();
   bool _usePlatformBridge = false;
@@ -74,6 +82,12 @@ class BrainClient {
   bool hasSubscription = false;
   String? _authToken;
   bool _lanLikely = true;
+  
+  /// Current RCAN session
+  RCANSession? get rcanSession => rcan.session;
+  
+  /// Whether RCAN is authenticated
+  bool get isRcanAuthenticated => rcan.isAuthenticated;
 
   String? get authToken => _authToken;
 
@@ -216,6 +230,10 @@ class BrainClient {
     _callOptions = authToken != null
         ? grpc.CallOptions(metadata: {'authorization': 'Bearer $authToken'})
         : grpc.CallOptions();
+    
+    // Connect RCAN client
+    await rcan.connect(host: host, port: httpPort);
+    await rcan.loadSession();
 
     if (_usePlatformBridge) {
       await _platformBridge.initConnection(host, port,
@@ -244,6 +262,32 @@ class BrainClient {
         options: grpc.ChannelOptions(credentials: credentials),
       );
     }
+  }
+  
+  /// Claim control of the robot using RCAN protocol
+  Future<RCANSession?> claimRobotRcan({
+    required String userId,
+    required UserRole role,
+  }) async {
+    return await rcan.claim(userId: userId, role: role);
+  }
+  
+  /// Release RCAN control
+  Future<bool> releaseRobotRcan() async {
+    return await rcan.release();
+  }
+  
+  /// Send command via RCAN protocol
+  Future<RCANCommandResult> sendRcanCommand({
+    required String command,
+    Map<String, dynamic>? parameters,
+  }) async {
+    return await rcan.sendCommand(command: command, parameters: parameters);
+  }
+  
+  /// Get RCAN status from robot
+  Future<Map<String, dynamic>> getRcanStatus() async {
+    return await rcan.getStatus();
   }
 
   Future<Map<String, dynamic>> getRobotStatus() async {

@@ -20,4 +20,38 @@ Scope: `continuonai/` (Flutter app hosted on web/iOS/Android/Linux + consolidate
 
 - Local pairing: prefer QR pairing (robot UI shows QR + 6-digit code; app scans QR + posts `POST /api/ownership/pair/confirm`). Avoid biometric identification.
 
+## RCAN Protocol Integration (January 2026)
+
+The app now supports the RCAN (Robot Communication & Addressing Network) protocol for robot discovery, authentication, and communication.
+
+### Key Files
+- `lib/services/rcan_client.dart` - RCAN protocol client
+- `lib/models/user_role.dart` - Role hierarchy and capability matrix
+
+### Integration Points
+- `BrainClient` includes an `RCANClient rcan` instance, automatically connected on `connect()`
+- Scanner services (`scanner_service_native.dart`, `scanner_service_web.dart`) probe `/rcan/v1/status` for discovery
+- Native scanner uses `_rcan._tcp` mDNS service type
+- Session persistence via `FlutterSecureStorage`
+
+### Usage
+```dart
+// Claim control
+final session = await brainClient.claimRobotRcan(
+  userId: 'user-uuid',
+  role: UserRole.owner,
+);
+
+// Send command
+final result = await brainClient.sendRcanCommand(
+  command: 'teleop',
+  parameters: {'action': 'move_forward'},
+);
+
+// Release control
+await brainClient.releaseRobotRcan();
+```
+
+See `../docs/rcan-protocol.md` for protocol specification.
+
 Context: Conversation on 2025-12-10 about Pi5 startup/training is logged at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
