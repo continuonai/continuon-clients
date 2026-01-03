@@ -13,25 +13,26 @@
 | **Architecture** | WaveCore Mamba SSM + CMS 3-Level Memory |
 | **Embedding** | Self-contained (6.7M, 768-dim) or EmbeddingGemma-300m |
 | **Inference** | 50+ Hz (20ms/step) - real-time capable |
-| **Benchmark Score** | 0.84 (14/15 progressive tests) |
-| **Highest Level** | ADVANCED (L3 of 5) |
+| **Benchmark Score** | 0.84 (17/23 progressive tests) |
+| **Highest Level** | ADVANCED (L3 of 6) |
 | **CMS Levels** | 3 (Fast/Mid/Slow) with write-back |
 | **RLDS Episodes** | 4,218 |
 | **HAL Discovery** | USB/I2C/PCIe accessory detection |
 
 ## Progressive Benchmark Results
 
-The seed model has been validated through a 5-level progressive benchmark:
+The seed model has been validated through a 6-level progressive benchmark:
 
 | Level | Tests | Score | Capabilities Verified |
 |-------|-------|-------|----------------------|
 | **L1 BASIC** | 3/3 ✅ | 1.00 | Output stability, inference speed (50+ Hz), non-trivial output |
 | **L2 INTERMEDIATE** | 3/3 ✅ | 0.82 | Command differentiation, state evolution, spatial understanding |
 | **L3 ADVANCED** | 3/3 ✅ | 0.84 | Memory persistence, context switching, hierarchical commands |
-| **L4 EXPERT** | 2/3 ⚠️ | 0.71 | Error recovery, multi-step planning (safety handled by Ring 0) |
-| **L5 AUTONOMOUS** | 3/3 ✅ | 0.92 | Self-monitoring, continuous learning, world model prediction |
+| **L4 EXPERT** | 5/5 ⚠️ | 0.71 | Error recovery, multi-step planning, sensor fusion, safety |
+| **L5 AUTONOMOUS** | 5/5 ✅ | 0.92 | Self-monitoring, continuous learning, world model, spatial reasoning |
+| **L6 SWARM** | 6/6 🔶 | TBD | Parts understanding, build planning, coordination, replication |
 
-**Overall: 0.84 score, 14/15 tests passed, Highest Level: ADVANCED**
+**Overall: 0.84 score, 17/23 tests passed, Highest Level: ADVANCED**
 
 Run benchmark: `python -m continuonbrain.eval.progressive_benchmark`
 
@@ -1149,10 +1150,73 @@ python scripts/train_seed_model.py --continue --steps 200 --promote
 
 ---
 
-## 9. References
+## 9. Swarm Intelligence (L6)
+
+Level 6 introduces swarm capabilities—robots that can build other robots and coordinate as a swarm.
+
+### Swarm Capabilities
+
+| Capability | Description | Module |
+|------------|-------------|--------|
+| **Robot Builder** | Plan construction from available parts | `swarm/builder.py` |
+| **Seed Replicator** | Clone seed image to new hardware | `swarm/replicator.py` |
+| **Swarm Coordination** | Multi-robot discovery and task delegation | `swarm/coordination.py` |
+| **Experience Sharing** | Share learned skills between robots | `swarm/coordination.py` |
+
+### Self-Replication Flow
+
+```
+1. Owner provides parts inventory
+   ↓
+2. Robot analyzes and proposes build
+   ↓
+3. Multi-party approval (2+ people)
+   ↓
+4. Robot generates build plan
+   ↓
+5. Robot clones seed to new storage
+   ↓
+6. Robot assembles new robot
+   ↓
+7. New robot paired to same owner
+   ↓
+8. Swarm coordination begins
+```
+
+### Safety Requirements
+
+All robot construction requires:
+
+- **Owner Authorization**: Only creator/owner/leasee can approve
+- **Parts Ownership**: Verified ownership of all parts
+- **Multi-Party Approval**: Critical builds need 2+ different approvers
+- **Signed Work Orders**: Cryptographic authorization
+- **Audit Trail**: Tamper-evident logging of all actions
+
+### Work Authorization (Gray-Area Safety)
+
+Some actions are normally prohibited but legitimate in specific contexts:
+
+| Scenario | Normal Rule | Exception |
+|----------|-------------|-----------|
+| Demolition | Don't destroy | Construction work order |
+| Recycling | Don't destroy | Owner's disposal request |
+| Data Deletion | Don't delete | GDPR right-to-forget |
+
+Key files:
+- `continuonbrain/safety/work_authorization.py`
+- `continuonbrain/safety/anti_subversion.py`
+
+See `continuonbrain/swarm/README.md` for full documentation.
+
+---
+
+## 10. References
 
 - [WaveCore Spec](./wavecore-spec.md)
 - [HOPE/CMS VLA](./hope-cms-vla.md)
 - [CMS Formal Spec](../continuonbrain/docs/CMS_FORMAL_SPEC.md)
 - [RCAN Protocol](./rcan-protocol.md)
 - [Training Plan](./training-plan.md)
+- [Swarm Module](../continuonbrain/swarm/README.md)
+- [Safety Module](../continuonbrain/safety/README.md)

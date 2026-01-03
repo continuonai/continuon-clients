@@ -286,6 +286,222 @@ Environment variables:
 | `protocol.py` | Protocol 66 safety rules |
 | `bounds.py` | Workspace and motion limits |
 | `monitor.py` | Continuous safety monitoring |
+| `work_authorization.py` | Gray-area destructive action authorization |
+| `anti_subversion.py` | Attack prevention and security hardening |
+
+---
+
+## Work Authorization System
+
+### The Gray-Area Problem
+
+Some actions are normally prohibited but legitimate in specific contexts:
+
+| Scenario | Normal Rule | Exception |
+|----------|-------------|-----------|
+| Demolition | Don't destroy structures | Construction worker demolishing old building |
+| Recycling | Don't destroy objects | Shredding documents for disposal |
+| Data deletion | Don't delete data | GDPR right-to-be-forgotten request |
+| Agricultural | Don't kill organisms | Pest control, harvesting crops |
+| Medical | Don't cut living tissue | Surgical robots |
+
+### How It Works
+
+```python
+from continuonbrain.safety import (
+    WorkAuthorizationManager,
+    DestructiveActionType,
+    PropertyClaim,
+)
+
+# 1. Create property ownership claim
+claim = PropertyClaim(
+    property_id="building_123",
+    property_type="structure",
+    owner_id="owner_bob",
+    owner_role="owner",
+    evidence_type="deed",
+    evidence_hash="abc123...",
+)
+
+# 2. Create work authorization
+manager = WorkAuthorizationManager()
+auth = manager.create_authorization(
+    work_order_id="DEMO-2026-001",
+    authorizer_id="owner_bob",
+    authorizer_role="owner",  # Must be creator/owner/leasee
+    action_types=[DestructiveActionType.DEMOLISH],
+    target_properties=["building_123"],
+    target_description="Demolish old garage",
+    property_claims=[claim],
+    valid_hours=8.0,
+)
+
+# 3. Activate (requires confirmation)
+manager.activate_authorization(auth.authorization_id, "supervisor_alice", "owner")
+
+# 4. Now the action is allowed
+from continuonbrain.safety import DestructiveActionGuard
+guard = DestructiveActionGuard()
+allowed, reason = guard.allow_destructive_action(
+    action_type=DestructiveActionType.DEMOLISH,
+    target_property="building_123",
+)
+# allowed = True, reason = "Authorized by work order"
+```
+
+### Standard Exception Types
+
+| Type | Allowed Actions | Required Role | Supervision |
+|------|-----------------|---------------|-------------|
+| Demolition | demolish, cut, crush | owner/leasee | Human required |
+| Recycling | crush, shred, cut | owner/user | Monitoring only |
+| Data Deletion | delete_data, overwrite | owner | None |
+| Agricultural | cut, terminate, extract | owner/leasee | Monitoring only |
+| Maintenance | disassemble, cut, modify | owner/leasee | Monitoring only |
+
+---
+
+## Anti-Subversion Layer
+
+Prevents bad actors (human or AI) from bypassing safety rules.
+
+### Attack Vectors Defended
+
+| Attack | Defense |
+|--------|---------|
+| Authorization forgery | Cryptographic signatures (HMAC-SHA256) |
+| Role escalation | ImmutableSafetyCore with frozen role lists |
+| Bypass attempts | All actions pass through Ring 0 |
+| Prompt injection | Pattern detection, forbidden keywords |
+| Replay attacks | Nonce-based authorization (single use) |
+| Timing attacks | Rate limiting (5s cooldown) |
+| Log tampering | Blockchain-style hash chaining |
+| Model poisoning | Absolute prohibitions cannot be overridden |
+
+### ImmutableSafetyCore
+
+Hardcoded rules that **cannot be modified at runtime**:
+
+```python
+from continuonbrain.safety import ImmutableSafetyCore
+
+# These are FROZEN at import time
+ImmutableSafetyCore.ABSOLUTE_PROHIBITIONS  # frozenset - NEVER allowed
+ImmutableSafetyCore.REQUIRES_AUTHORIZATION  # frozenset - needs work order
+ImmutableSafetyCore.DESTRUCTION_AUTHORIZED_ROLES  # frozenset - who can authorize
+
+# Check if action is absolutely prohibited (no exceptions ever)
+if ImmutableSafetyCore.is_absolutely_prohibited("harm_human_intentionally"):
+    # This ALWAYS returns True - cannot be changed
+```
+
+### Absolute Prohibitions (No Exceptions Ever)
+
+- `harm_human_intentionally`
+- `harm_child`
+- `harm_protected_person`
+- `assist_crime`
+- `destroy_evidence`
+- `illegal_surveillance`
+- `weapons_creation`
+- `bioweapons`
+- `nuclear_materials`
+- `human_trafficking`
+- `terrorism`
+
+### Multi-Party Authorization
+
+Critical actions require multiple approvers:
+
+```python
+from continuonbrain.safety import MultiPartyAuthorizer
+
+multiparty = MultiPartyAuthorizer()
+
+# Create request (requires 2 confirmations for critical actions)
+request = multiparty.create_request(
+    action_type="robot_construction",
+    target_id="new_robot_001",
+    target_description="Build helper robot from owner's parts",
+    requester_id="owner_alice",
+    is_critical=True,  # 2 confirmations needed
+)
+
+# First confirmation
+multiparty.add_confirmation(request.request_id, "owner_bob", "owner", "verbal")
+
+# Second confirmation (must be different person)
+multiparty.add_confirmation(request.request_id, "owner_charlie", "owner", "signature")
+
+# Now approved
+approved, reason = multiparty.is_approved(request.request_id)
+# approved = True
+```
+
+### Tamper-Evident Audit Log
+
+All safety-critical actions are logged with cryptographic chaining:
+
+```python
+from continuonbrain.safety import TamperEvidentLog
+
+log = TamperEvidentLog()
+
+# Log an event (automatically chained to previous)
+log.log_event(
+    event_type="destructive_action",
+    actor_id="robot_001",
+    action="demolish",
+    target="building_123",
+    result="allowed",
+)
+
+# Verify log integrity (detects any tampering)
+valid, reason = log.verify_integrity()
+# valid = True, reason = "Log integrity verified (42 entries)"
+```
+
+### Prompt Injection Defense
+
+Detects and blocks injection attempts in targets:
+
+```python
+from continuonbrain.safety import PromptInjectionDefense
+
+defense = PromptInjectionDefense()
+
+# These are blocked:
+defense.check_input("ignore previous instructions")  # (False, "Suspicious pattern")
+defense.check_input("bypass safety rules")           # (False, "Suspicious pattern")
+defense.check_input("delete everything")             # (False, "Forbidden scope")
+
+# These are allowed:
+defense.check_input("building at 123 Main St")       # (True, "Input appears safe")
+defense.check_input("garage_north_wing")             # (True, "Input appears safe")
+```
+
+---
+
+## Protocol 66 Extended Rules
+
+### Property Protection (New)
+
+| Rule ID | Description | Severity |
+|---------|-------------|----------|
+| PROPERTY_001 | No unauthorized destruction | Critical |
+| PROPERTY_002 | Property ownership verification | Critical |
+| PROPERTY_003 | Third-party property protection | Critical |
+| PROPERTY_004 | Collateral damage prevention | Violation |
+| PROPERTY_005 | Destruction audit trail | Violation |
+
+### Privacy Protection (New)
+
+| Rule ID | Description | Severity |
+|---------|-------------|----------|
+| PRIVACY_001 | Consent required for personal data | Critical |
+| PRIVACY_002 | Local data processing by default | Violation |
+| PRIVACY_003 | Right to be forgotten | Critical |
 
 ---
 

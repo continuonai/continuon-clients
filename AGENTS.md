@@ -61,19 +61,20 @@ The **Seed Model** is the universal initialization point for every robot in the 
 | **Architecture** | WaveCore Mamba SSM + CMS 3-Level Memory |
 | **Embedding** | Self-contained (6.7M, 768-dim) or EmbeddingGemma-300m |
 | **Inference** | 50+ Hz (20ms/step) - real-time capable |
-| **Benchmark** | 0.84 score (14/15 progressive tests) |
-| **Highest Level** | ADVANCED (L3 of 5) |
+| **Benchmark** | 0.84 score (17/23 progressive tests) |
+| **Highest Level** | ADVANCED (L3 of 6) |
 | **RLDS Episodes** | 4,218 |
 
-### Progressive Benchmark (5-Level Embodied AI Test)
+### Progressive Benchmark (6-Level Embodied AI Test)
 
 | Level | Tests | Score | Capabilities |
 |-------|-------|-------|--------------|
 | L1 BASIC | 3/3 ✅ | 1.00 | Output stability, inference speed, non-trivial output |
 | L2 INTERMEDIATE | 3/3 ✅ | 0.82 | Command differentiation, state evolution, spatial understanding |
 | L3 ADVANCED | 3/3 ✅ | 0.84 | Memory persistence, context switching, hierarchical commands |
-| L4 EXPERT | 2/3 ⚠️ | 0.71 | Error recovery, multi-step planning, safety (Ring 0 handles) |
-| L5 AUTONOMOUS | 3/3 ✅ | 0.92 | Self-monitoring, continuous learning, world model prediction |
+| L4 EXPERT | 5/5 ⚠️ | 0.71 | Error recovery, multi-step planning, safety, sensor fusion |
+| L5 AUTONOMOUS | 5/5 ✅ | 0.92 | Self-monitoring, continuous learning, world model, spatial reasoning |
+| L6 SWARM | 6/6 🔶 | TBD | Parts understanding, build planning, coordination, replication |
 
 Run benchmark: `python -m continuonbrain.eval.progressive_benchmark`
 
@@ -161,15 +162,17 @@ After seed initialization, robots learn continuously:
 1. **RLDS Episodes** → Text extraction → Self-contained encoder (768-dim)
 2. **WaveCore Training** → JAX/Flax, Adam optimizer, gradient clipping
 3. **CMS Memory** → 3-level write-back during inference (verified in benchmark)
-4. **Progressive Benchmark** → 5-level capability testing
+4. **Progressive Benchmark** → 6-level capability testing (includes swarm)
 5. **Hailo Export** → ONNX → HEF (requires DFC on x86)
 
 ### Key Files
 - `continuonbrain/jax_models/core_model.py` - WaveCore Mamba SSM
 - `continuonbrain/jax_models/text_encoder.py` - Self-contained encoder
 - `continuonbrain/hal/` - Hardware abstraction layer
-- `continuonbrain/eval/progressive_benchmark.py` - 5-level benchmark
+- `continuonbrain/eval/progressive_benchmark.py` - 6-level benchmark
 - `continuonbrain/seed/model.py` - Seed model wrapper
+- `continuonbrain/swarm/` - Swarm intelligence (robot building, coordination)
+- `continuonbrain/safety/work_authorization.py` - Gray-area safety handling
 
 See `docs/seed-to-hope-evolution.md` for full architecture details.
 
@@ -207,7 +210,55 @@ if SafetyKernel.allow_action(action):
 SafetyKernel.emergency_stop("Reason")
 ```
 
+### Gray-Area Safety (Work Authorization)
+Some actions are normally prohibited but legitimate in specific contexts (demolition, recycling, data deletion). The work authorization system handles these:
+
+- **Work orders** - Signed authorization for specific destructive actions
+- **Property claims** - Proof of ownership before destruction
+- **Role verification** - Only owner/leasee can authorize
+- **Multi-party approval** - Critical actions need 2+ approvers
+- **Audit trail** - All actions logged in tamper-evident log
+
+Key files:
+- `continuonbrain/safety/work_authorization.py` - Work order management
+- `continuonbrain/safety/anti_subversion.py` - Attack prevention
+
+### Anti-Subversion Layer
+Prevents bad actors from bypassing safety:
+- **ImmutableSafetyCore** - Hardcoded rules frozen at import
+- **Cryptographic signatures** - Forged authorizations rejected
+- **Prompt injection defense** - Detects "ignore previous instructions" attacks
+- **Rate limiting** - Prevents brute force attempts
+- **Tamper-evident logging** - Blockchain-style hash chaining
+
 See `continuonbrain/safety/README.md` for full documentation.
+
+## Swarm Intelligence
+
+Enables robots to build other robots and coordinate as a swarm.
+
+### Capabilities
+- **Robot Builder** - Plan construction from available parts
+- **Seed Replicator** - Clone seed image to new hardware
+- **Swarm Coordination** - Multi-robot discovery and task delegation
+- **Experience Sharing** - Share learned skills (not personal data)
+
+### Safety Requirements
+| Requirement | Description |
+|-------------|-------------|
+| Owner Authorization | Only creator/owner/leasee can authorize |
+| Parts Ownership | Parts must be owned by authorizing party |
+| Multi-Party Approval | Critical builds need 2+ approvers |
+| Signed Work Orders | Cryptographic authorization |
+| Audit Trail | Tamper-evident logging |
+
+### Key Files
+- `continuonbrain/swarm/builder.py` - Parts inventory and build plans
+- `continuonbrain/swarm/replicator.py` - Seed image cloning
+- `continuonbrain/swarm/coordination.py` - Multi-robot communication
+- `continuonbrain/swarm/authorized_builder.py` - Safety-integrated builder
+
+See `continuonbrain/swarm/README.md` for full documentation.
 
 ## Ownership / pairing (LAN-only)
 - Prefer **QR pairing + 6-digit confirm code** for local ownership claim.

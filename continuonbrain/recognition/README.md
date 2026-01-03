@@ -1,4 +1,4 @@
-p# User Recognition Module
+# User Recognition Module
 
 Privacy-first face recognition for user role identification.
 
