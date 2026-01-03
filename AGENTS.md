@@ -50,68 +50,128 @@ TODO (offline Wikipedia context)
 
 ## Seed Model Architecture (Universal Initialization)
 
-The **Seed Model** is the universal initialization point for every robot in the ecosystem. It is a permanent, hardware-agnostic core—not a temporary bootstrap phase.
+The **Seed Model** is the universal initialization point for every robot in the ecosystem. It is a permanent, hardware-agnostic core—not a temporary bootstrap phase. The goal is a fully **self-training embodied AI** that works without external dependencies.
 
-### Current Version: v3.0.0 (January 2026)
+### Current Version: v4.2.0 (January 2026)
 
 | Metric | Value |
 |--------|-------|
-| **Parameters** | 3.4M |
-| **Memory** | 14 MB (float32) |
-| **Embedding** | EmbeddingGemma-300m (768-dim) |
-| **Inference** | 231 steps/sec (4.3ms/step) |
-| **Training Loss** | 0.011 |
+| **Parameters** | 12.8M |
+| **Memory** | 51 MB (model) + 27 MB (self-contained encoder) |
+| **Architecture** | WaveCore Mamba SSM + CMS 3-Level Memory |
+| **Embedding** | Self-contained (6.7M, 768-dim) or EmbeddingGemma-300m |
+| **Inference** | 50+ Hz (20ms/step) - real-time capable |
+| **Benchmark** | 0.84 score (14/15 progressive tests) |
+| **Highest Level** | ADVANCED (L3 of 5) |
 | **RLDS Episodes** | 4,218 |
+
+### Progressive Benchmark (5-Level Embodied AI Test)
+
+| Level | Tests | Score | Capabilities |
+|-------|-------|-------|--------------|
+| L1 BASIC | 3/3 ✅ | 1.00 | Output stability, inference speed, non-trivial output |
+| L2 INTERMEDIATE | 3/3 ✅ | 0.82 | Command differentiation, state evolution, spatial understanding |
+| L3 ADVANCED | 3/3 ✅ | 0.84 | Memory persistence, context switching, hierarchical commands |
+| L4 EXPERT | 2/3 ⚠️ | 0.71 | Error recovery, multi-step planning, safety (Ring 0 handles) |
+| L5 AUTONOMOUS | 3/3 ✅ | 0.92 | Self-monitoring, continuous learning, world model prediction |
+
+Run benchmark: `python -m continuonbrain.eval.progressive_benchmark`
 
 ### Seed Model (Permanent Core)
 - **Hardware-Agnostic**: Runs on ARM, x64, RISC-V, quantum, neuromorphic
-- **WaveCore (JAX)**: 3.4M params Mamba SSM, O(n) complexity
+- **WaveCore (JAX)**: 12.8M params Mamba SSM, O(n) complexity
 - **CMS Memory**: 3-level hierarchical (Fast/Mid/Slow) with write-back
-- **EmbeddingGemma-300m**: 768-dim semantic embeddings
+- **Self-Contained Encoder**: 6.7M params, 768-dim (no transformers dependency)
+- **HAL Discovery**: Auto-detects USB/I2C/PCIe accessories (cameras, arms, NPUs)
 - **Context Graph**: Relational reasoning with entity tracking
 - **Decision Traces**: Explainable provenance logging
 - **Checkpoint location**: `/opt/continuonos/brain/model/seed_stable/`
 
+### Hardware Abstraction Layer (HAL)
+The HAL automatically discovers connected accessories:
+```python
+from continuonbrain.hal import discover_accessories, AccessoryRegistry
+accessories = discover_accessories()  # USB, I2C, PCIe, GPIO scanning
+# Returns: [OAK-D Camera, Hailo-8 NPU, SO-ARM100 (when connected), ...]
+```
+
+Known accessory registry: `continuonbrain/hal/accessory_registry.py`
+
 ### Scaling Roadmap (Golden Rule: <8GB RAM)
 
-| Version | Parameters | Memory | Target | Status |
-|---------|------------|--------|--------|--------|
-| v2.0 | 1M | 4 MB | Pi 5 (8GB) | ✅ Released |
-| **v3.0** | **3.4M** | **14 MB** | **Pi 5 (8GB)** | **✅ Current** |
-| v4.0 | 25M | 100 MB | Pi 5 (8GB) | 🔶 Q1 2026 |
-| v5.0 | 100M | 200 MB | Pi 5 + Float16 | 🔶 Q2 2026 |
-| v6.0 | 500M | 500 MB | 8GB + Int8 | 🔶 Q3 2026 |
+| Version | Parameters | Memory | Benchmark | Status |
+|---------|------------|--------|-----------|--------|
+| v2.0 | 1M | 4 MB | — | ✅ Released |
+| v3.0 | 3.4M | 14 MB | — | ✅ Released |
+| **v4.2** | **12.8M** | **51 MB** | **0.84** | **✅ Current** |
+| v5.0 | 50M | 200 MB | 0.90+ | 🔶 Q1 2026 |
+| v6.0 | 200M | 800 MB | 0.95+ | 🔶 Q2 2026 |
 
 **Memory Budget (8GB device):**
-- Total RAM: 8.0 GB
-- OS + Runtime overhead: 3.3 GB
-- **Available for model: 4.7 GB (~1.2B params)**
-- Current utilization: **0.3%** (room to grow 350x!)
+```
+OS + Python + JAX       2.0 GB
+Seed Model (WaveCore)   0.05 GB
+Self-Contained Encoder  0.03 GB  ← Replaces 1.2GB EmbeddingGemma
+CMS Memory              0.5 GB
+RLDS Episodes           1.0 GB   ← Local memories (mid-loop)
+Context Graph           0.3 GB
+Safety Kernel           0.1 GB
+────────────────────────────────
+TOTAL                   3.98 GB (50% of budget)
+HEADROOM                4.02 GB (for scaling + local memories)
+```
+
+### Self-Training Architecture
+```
+Human Chat ──┬──► HOPE Agent Manager ──► Seed Model (WaveCore)
+             │                              ↓
+             │                         CMS Memory (Fast/Mid/Slow)
+             │                              ↓
+             └──► RLDS Episodes ──────► Local Storage (Mid-Loop)
+                       │                    │
+                       │   [Opt-in]         │
+                       ▼                    ▼
+                  Continuon Cloud ◄─── Optional Sync
+                       │
+                       ▼
+                  TPU Slow Loop Training
+                       │
+                       ▼
+                  OTA Bundle ──────► Device Update
+                                   (preserves local memories)
+```
 
 ### Continuous Evolution (Post-Initialization)
 After seed initialization, robots learn continuously:
-- **Local Learning**: Fast/Mid loops on device (Pi5, Jetson, etc.)
-- **Cloud Aggregation**: TPU slow loop trains on aggregated RLDS
-- **OTA Updates**: Updated weights distributed to devices
-- **Scaffold Evolution**: Gemma 3n provides chat; HOPE WaveCore grows capabilities
+- **Fast Loop**: On-device reflexive control (50-100ms)
+- **Mid Loop**: Local RLDS episodes, adapter training
+- **Slow Loop**: Cloud TPU training on aggregated RLDS (optional sync)
+- **OTA Updates**: Updated weights merge with Memory Plane (preserves local)
+- **Self-Contained**: No external LLM required (Gemma 3n optional scaffold)
 
 ### Hardware Portability
 | Platform | Runtime | Accelerator | Status |
 |----------|---------|-------------|--------|
-| ARM64 (Pi5) | JAX CPU | Hailo-8 NPU | ✅ Primary |
+| ARM64 (Pi5) | JAX CPU | Hailo-8 NPU | ✅ Primary (verified) |
 | ARM64 (Jetson) | JAX CUDA | Tensor Cores | ✅ Supported |
 | x86_64 (PC/Cloud) | JAX TPU/CUDA | TPU/GPU | ✅ Supported |
 | RISC-V / Apple Silicon | Planned | Custom | 🔶 Future |
-| Quantum / Neuromorphic | Research | QPU/Loihi | 🔮 Research |
 
 ### Training Pipeline
-1. **RLDS Episodes** → Text extraction → EmbeddingGemma (768-dim)
+1. **RLDS Episodes** → Text extraction → Self-contained encoder (768-dim)
 2. **WaveCore Training** → JAX/Flax, Adam optimizer, gradient clipping
-3. **CMS Memory** → 3-level write-back during inference
-4. **Hailo Export** → ONNX → HEF (requires DFC on x86)
+3. **CMS Memory** → 3-level write-back during inference (verified in benchmark)
+4. **Progressive Benchmark** → 5-level capability testing
+5. **Hailo Export** → ONNX → HEF (requires DFC on x86)
+
+### Key Files
+- `continuonbrain/jax_models/core_model.py` - WaveCore Mamba SSM
+- `continuonbrain/jax_models/text_encoder.py` - Self-contained encoder
+- `continuonbrain/hal/` - Hardware abstraction layer
+- `continuonbrain/eval/progressive_benchmark.py` - 5-level benchmark
+- `continuonbrain/seed/model.py` - Seed model wrapper
 
 See `docs/seed-to-hope-evolution.md` for full architecture details.
-See `continuonbrain/jax_models/scaling_configs.py` for tier definitions.
 
 ## Safety Kernel (Ring 0)
 

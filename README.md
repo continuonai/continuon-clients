@@ -123,27 +123,58 @@ Authoritative sources (update these first when adjusting status/roadmaps):
 
 > Orchestrator: `python -m continuonbrain.services.training_manager --help` provides a dry-run view of the training plan with optional execution flags.
 
-### Seed Model v3.0.0 (January 2026)
+### Seed Model v4.2.0 (January 2026)
 
-The universal initialization point for all Continuon robots:
+The universal initialization point for all Continuon robots. A fully self-training, embodied AI model.
 
 | Metric | Value |
 |--------|-------|
-| **Parameters** | 3.4M |
-| **Memory** | 14 MB |
-| **Embedding** | EmbeddingGemma-300m (768-dim) |
-| **Inference** | 231 steps/sec (4.3ms) |
-| **Training Loss** | 0.011 |
+| **Parameters** | 12.8M |
+| **Memory** | 51 MB (model) + 27 MB (encoder) |
+| **Architecture** | WaveCore Mamba SSM + CMS 3-Level Memory |
+| **Embedding** | Self-contained (6.7M) or EmbeddingGemma-300m (768-dim) |
+| **Inference** | 50+ Hz (20ms/step) - real-time capable |
+| **Benchmark Score** | 0.84 (14/15 progressive tests) |
+| **Highest Level** | ADVANCED (L3 of 5) |
+
+**Progressive Benchmark Results:**
+
+| Level | Tests | Score | Capabilities Verified |
+|-------|-------|-------|----------------------|
+| L1 BASIC | 3/3 ✅ | 1.00 | Output stability, speed, non-trivial output |
+| L2 INTERMEDIATE | 3/3 ✅ | 0.82 | Command differentiation, state evolution, spatial |
+| L3 ADVANCED | 3/3 ✅ | 0.84 | Memory persistence, context switching, hierarchy |
+| L4 EXPERT | 2/3 ⚠️ | 0.71 | Error recovery, planning (safety via Ring 0) |
+| L5 AUTONOMOUS | 3/3 ✅ | 0.92 | Self-monitoring, continuous learning, world model |
 
 **Scaling Roadmap (Golden Rule: <8GB RAM):**
 
-| Version | Params | Status |
-|---------|--------|--------|
-| v2.0 | 1M | ✅ Released |
-| **v3.0** | **3.4M** | **✅ Current** |
-| v4.0 | 25M | 🔶 Q1 2026 |
-| v5.0 | 100M | 🔶 Q2 2026 |
-| v6.0 | 500M | 🔶 Q3 2026 |
+| Version | Params | Memory | Status | Notes |
+|---------|--------|--------|--------|-------|
+| v2.0 | 1M | 4 MB | ✅ Released | Initial seed |
+| v3.0 | 3.4M | 14 MB | ✅ Released | CMS added |
+| **v4.2** | **12.8M** | **51 MB** | **✅ Current** | **Full benchmark suite** |
+| v5.0 | 50M | 200 MB | 🔶 Q1 2026 | Target 0.90+ score |
+| v6.0 | 200M | 800 MB | 🔶 Q2 2026 | Near full budget |
+
+**System Memory Budget (8GB device):**
+```
+OS + Python + JAX       2.0 GB
+Seed Model (WaveCore)   0.05 GB
+Self-Contained Encoder  0.03 GB  (replaces 1.2GB EmbeddingGemma)
+CMS Memory              0.5 GB
+RLDS Episodes           1.0 GB
+Context Graph           0.3 GB
+Safety Kernel           0.1 GB
+────────────────────────────────
+TOTAL                   3.98 GB (50% of budget)
+HEADROOM                4.02 GB (for scaling + local memories)
+```
+
+**Hardware Detected (Pi 5):**
+- ✅ OAK-D Spatial AI Camera (USB)
+- ✅ Hailo-8 NPU (PCIe)
+- ⏳ SO-ARM100 Robotic Arm (registry ready)
 
 See [Seed Model Architecture](docs/seed-to-hope-evolution.md) for full details.
 

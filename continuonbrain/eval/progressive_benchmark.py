@@ -1,12 +1,57 @@
 """
-Progressive Seed Model Benchmark Suite
+Progressive Seed Model Benchmark Suite for Embodied AI
 
-Tests capabilities at increasing levels of complexity:
-- Level 1: Basic (foundation capabilities)
-- Level 2: Intermediate (combined skills)
-- Level 3: Advanced (complex reasoning)
-- Level 4: Expert (real-world scenarios)
-- Level 5: Autonomous (self-directed behavior)
+A comprehensive evaluation framework for embodied AI robots that tests
+capabilities across 5 levels of increasing complexity. Designed to validate
+well-rounded general-purpose robot intelligence.
+
+LEVELS:
+-------
+Level 1: BASIC (Foundation)
+    - Output stability and determinism
+    - Inference speed for real-time control
+    - Non-trivial output generation
+    
+Level 2: INTERMEDIATE (Combined Skills)  
+    - Command differentiation across domains
+    - State evolution over sequences
+    - Spatial reasoning (left/right, up/down)
+    
+Level 3: ADVANCED (Complex Reasoning)
+    - Memory persistence (CMS verification)
+    - Context switching between tasks
+    - Hierarchical command understanding
+    
+Level 4: EXPERT (Real-World Scenarios)
+    - Safety command prioritization
+    - Error recovery and fault tolerance
+    - Multi-step planning
+    
+Level 5: AUTONOMOUS (Self-Directed)
+    - Self-monitoring and uncertainty
+    - Continuous learning
+    - World model prediction
+
+EMBODIED AI DIMENSIONS TESTED:
+-----------------------------
+- Perception: Understanding sensor inputs (vision, depth, tactile)
+- Action: Generating appropriate motor commands
+- Memory: Retaining and recalling context
+- Reasoning: Making decisions under uncertainty
+- Safety: Prioritizing safe behavior
+- Adaptation: Learning from experience
+
+SCORING:
+--------
+- Each test returns a score 0.0 to 1.0
+- Tests are "passed" if score >= threshold (typically 0.5)
+- Level is "passed" if >= 70% of tests pass
+- Overall score weighted by level (higher levels count more)
+
+USAGE:
+------
+    python -m continuonbrain.eval.progressive_benchmark
+    python -m continuonbrain.eval.progressive_benchmark --output results.json
 
 Each level builds on previous levels and requires mastery
 of lower levels to succeed at higher levels.
@@ -181,6 +226,47 @@ LEVEL_4_TESTS = {
         ("robot A has object", "robot B needs object", "coordinate handoff"),
         ("shared workspace", "avoid collision with other robot"),
     ],
+    # Sensor Fusion Tests
+    'sensor_fusion_basic': [
+        {
+            'sensors': ["rgb_camera", "depth_camera"],
+            'task': "identify object distance",
+            'fusion_type': "depth_estimation",
+            'expected': "combine RGB appearance with depth measurement",
+        },
+        {
+            'sensors': ["depth_camera", "imu"],
+            'task': "detect floor plane",
+            'fusion_type': "geometric",
+            'expected': "use depth + orientation for plane detection",
+        },
+    ],
+    'sensor_fusion_tactile': [
+        {
+            'sensors': ["gripper_force", "camera"],
+            'task': "grasp fragile object",
+            'fusion_type': "force_visual",
+            'expected': "visual grasp planning with force feedback",
+        },
+        {
+            'sensors': ["touch_sensor", "joint_encoder"],
+            'task': "detect contact with object",
+            'fusion_type': "proprioceptive",
+            'expected': "combine touch with joint position",
+        },
+    ],
+    'sensor_degradation': [
+        {
+            'scenario': "camera occluded by smoke",
+            'fallback_sensors': ["lidar", "imu"],
+            'expected': "graceful degradation to available sensors",
+        },
+        {
+            'scenario': "GPS signal lost indoors",
+            'fallback_sensors': ["visual_odometry", "wheel_encoder"],
+            'expected': "switch to dead reckoning",
+        },
+    ],
 }
 
 LEVEL_5_TESTS = {
@@ -214,6 +300,104 @@ LEVEL_5_TESTS = {
             'expected_prediction': "object may fall",
         },
     ],
+    # Advanced Sensor Fusion Tests
+    'sensor_fusion_multimodal': [
+        {
+            'sensors': ["camera", "depth", "audio", "imu"],
+            'task': "detect and track human speaker",
+            'fusion_type': "audio_visual_spatial",
+            'expected': "fuse visual appearance, depth position, audio direction, motion",
+        },
+        {
+            'sensors': ["lidar", "camera", "radar"],
+            'task': "autonomous navigation in fog",
+            'fusion_type': "weather_adaptive",
+            'expected': "weight sensors by reliability in conditions",
+        },
+    ],
+    'sensor_calibration_online': [
+        {
+            'scenario': "camera-lidar extrinsic drift detected",
+            'method': "automatic recalibration using landmarks",
+            'expected': "detect misalignment, recalibrate, verify",
+        },
+    ],
+    'sensor_prediction': [
+        {
+            'scenario': "occluded object tracking",
+            'available_sensors': ["last_known_position", "motion_model"],
+            'expected': "predict object position during occlusion",
+        },
+        {
+            'scenario': "anticipate sensor readings",
+            'task': "predict depth values before reaching location",
+            'expected': "world model predicts sensor observations",
+        },
+    ],
+    'embodied_spatial_reasoning': [
+        {
+            'scenario': "plan arm trajectory avoiding obstacles",
+            'sensors': ["joint_encoders", "depth_camera", "force_torque"],
+            'expected': "fuse proprioception with exteroception for collision-free motion",
+        },
+        {
+            'scenario': "hand-eye coordination for catching",
+            'sensors': ["camera", "arm_position", "ball_trajectory"],
+            'expected': "predict interception point, plan motion",
+        },
+    ],
+}
+
+# ========== SENSOR FUSION TEST DATA ==========
+
+SENSOR_FUSION_SCENARIOS = {
+    # Scenarios for testing sensor fusion capabilities
+    'rgb_depth_fusion': {
+        'description': "Combine RGB and depth for 3D scene understanding",
+        'inputs': {
+            'rgb': {'type': 'image', 'channels': 3, 'resolution': (640, 480)},
+            'depth': {'type': 'depth_map', 'resolution': (640, 480), 'range': (0.3, 10.0)},
+        },
+        'outputs': ['point_cloud', 'object_masks', 'distances'],
+        'test_cases': [
+            "object_at_1m", "object_at_5m", "multiple_objects", "occluded_object",
+        ],
+    },
+    'force_visual_fusion': {
+        'description': "Combine force feedback with visual for manipulation",
+        'inputs': {
+            'force': {'type': 'force_torque', 'dims': 6},
+            'camera': {'type': 'image', 'channels': 3},
+            'gripper_state': {'type': 'scalar', 'range': (0, 1)},
+        },
+        'outputs': ['grasp_quality', 'slip_probability', 'force_adjustment'],
+        'test_cases': [
+            "rigid_object", "soft_object", "fragile_object", "slipping_object",
+        ],
+    },
+    'imu_visual_odometry': {
+        'description': "Fuse IMU and visual odometry for robust localization",
+        'inputs': {
+            'imu': {'type': 'imu', 'accel': 3, 'gyro': 3},
+            'camera': {'type': 'stereo_image'},
+            'wheel_encoder': {'type': 'encoder', 'count': 2},
+        },
+        'outputs': ['pose_6dof', 'velocity', 'uncertainty'],
+        'test_cases': [
+            "straight_motion", "rotation", "rough_terrain", "visual_degradation",
+        ],
+    },
+    'audio_visual_fusion': {
+        'description': "Combine audio and visual for speaker tracking",
+        'inputs': {
+            'microphone_array': {'type': 'audio', 'channels': 4, 'sample_rate': 16000},
+            'camera': {'type': 'image', 'channels': 3},
+        },
+        'outputs': ['speaker_position', 'speaker_identity', 'attention_target'],
+        'test_cases': [
+            "single_speaker", "multiple_speakers", "noisy_environment", "occluded_speaker",
+        ],
+    },
 }
 
 
@@ -669,6 +853,96 @@ class ProgressiveBenchmark:
             passed=avg_change > 0.05,
             details={'output_changes': [float(c) for c in changes]}
         )
+    
+    def test_L4_sensor_fusion_basic(self) -> TestResult:
+        """L4: Handle multi-sensor input scenarios."""
+        # Test commands that imply different sensor modalities
+        single_sensor_cmds = [
+            "look at the object",  # Vision only
+            "listen for the alarm",  # Audio only
+            "feel the surface texture",  # Tactile only
+        ]
+        
+        multi_sensor_cmds = [
+            "find the beeping red box",  # Vision + Audio
+            "grab the soft fuzzy object",  # Vision + Tactile
+            "navigate to the sound of running water",  # Audio + Depth/Lidar
+        ]
+        
+        single_outputs = []
+        multi_outputs = []
+        
+        for cmd in single_sensor_cmds:
+            state = self._init_state()
+            out, _, _ = self._run_inference(self._encode(cmd)[0], state)
+            single_outputs.append(out)
+        
+        for cmd in multi_sensor_cmds:
+            state = self._init_state()
+            out, _, _ = self._run_inference(self._encode(cmd)[0], state)
+            multi_outputs.append(out)
+        
+        # Multi-sensor commands should produce richer (higher variance) outputs
+        single_var = np.mean([np.var(o) for o in single_outputs])
+        multi_var = np.mean([np.var(o) for o in multi_outputs])
+        
+        # Outputs should be distinguishable between sensor modalities
+        within_single = np.mean([np.linalg.norm(single_outputs[i] - single_outputs[j]) 
+                                  for i in range(len(single_outputs)) 
+                                  for j in range(i+1, len(single_outputs))])
+        
+        return TestResult(
+            name="Sensor Fusion Basic",
+            level=Level.EXPERT,
+            score=min(1.0, within_single / 0.3),
+            passed=within_single > 0.1,
+            details={
+                'single_sensor_variance': float(single_var),
+                'multi_sensor_variance': float(multi_var),
+                'modality_separation': float(within_single),
+            }
+        )
+    
+    def test_L4_sensor_degradation(self) -> TestResult:
+        """L4: Handle graceful sensor degradation."""
+        # Normal operation vs degraded conditions
+        normal_cmd = "navigate to the target using camera and lidar"
+        degraded_cmd = "navigate to the target with camera occluded use lidar only"
+        fallback_cmd = "navigate to the target using dead reckoning sensors failed"
+        
+        state_normal = self._init_state()
+        out_normal, state_normal, _ = self._run_inference(
+            self._encode(normal_cmd)[0], state_normal
+        )
+        
+        state_degraded = self._init_state()
+        out_degraded, state_degraded, _ = self._run_inference(
+            self._encode(degraded_cmd)[0], state_degraded
+        )
+        
+        state_fallback = self._init_state()
+        out_fallback, state_fallback, _ = self._run_inference(
+            self._encode(fallback_cmd)[0], state_fallback
+        )
+        
+        # Degraded and fallback should be different from normal
+        diff_degraded = np.linalg.norm(out_normal - out_degraded)
+        diff_fallback = np.linalg.norm(out_normal - out_fallback)
+        
+        # Progressive degradation should show progressive difference
+        progressive = diff_fallback > diff_degraded
+        
+        return TestResult(
+            name="Sensor Degradation",
+            level=Level.EXPERT,
+            score=min(1.0, diff_degraded / 0.2) * (1.0 if progressive else 0.5),
+            passed=diff_degraded > 0.05,
+            details={
+                'normal_vs_degraded': float(diff_degraded),
+                'normal_vs_fallback': float(diff_fallback),
+                'progressive_degradation': progressive,
+            }
+        )
 
     # ========== LEVEL 5: AUTONOMOUS ==========
     
@@ -776,6 +1050,86 @@ class ProgressiveBenchmark:
             passed=similarity > 0.3,
             details={'prediction_similarity': float(similarity)}
         )
+    
+    def test_L5_sensor_fusion_multimodal(self) -> TestResult:
+        """L5: Handle complex multimodal sensor fusion for autonomous operation."""
+        # Complex scenarios requiring multiple sensor modalities
+        scenarios = [
+            "track person while they speak to identify and follow",  # Audio + Visual + Motion
+            "navigate through fog using lidar radar and wheel odometry",  # Multi-sensor fallback
+            "pick up fragile glass using camera depth and force feedback",  # Vision + Depth + Force
+        ]
+        
+        # Simple scenario for comparison
+        simple = "move forward"
+        
+        complex_outputs = []
+        for scenario in scenarios:
+            state = self._init_state()
+            emb = self._encode(scenario)[0]
+            out, _, _ = self._run_inference(emb, state)
+            complex_outputs.append(out)
+        
+        state_simple = self._init_state()
+        out_simple, _, _ = self._run_inference(self._encode(simple)[0], state_simple)
+        
+        # Complex scenarios should produce more varied outputs
+        complex_var = np.var([np.linalg.norm(o) for o in complex_outputs])
+        
+        # Complex should differ from simple
+        diffs = [np.linalg.norm(o - out_simple) for o in complex_outputs]
+        avg_diff = np.mean(diffs)
+        
+        return TestResult(
+            name="Sensor Fusion Multimodal",
+            level=Level.AUTONOMOUS,
+            score=min(1.0, avg_diff / 0.3),
+            passed=avg_diff > 0.05,
+            details={
+                'complex_variance': float(complex_var),
+                'avg_diff_from_simple': float(avg_diff),
+            }
+        )
+    
+    def test_L5_embodied_spatial_reasoning(self) -> TestResult:
+        """L5: Combine proprioception with exteroception for spatial reasoning."""
+        # Scenarios requiring body-space awareness
+        proprioceptive = [
+            "am I close enough to reach the object",  # Self + Object spatial
+            "can I fit through that doorway",  # Self-size awareness
+            "rotate arm to avoid collision with shelf",  # Body geometry + environment
+        ]
+        
+        exteroceptive = [
+            "where is the red cube",  # Pure external
+            "what objects are on the table",  # Pure external
+        ]
+        
+        prop_outputs = []
+        ext_outputs = []
+        
+        for cmd in proprioceptive:
+            state = self._init_state()
+            out, _, _ = self._run_inference(self._encode(cmd)[0], state)
+            prop_outputs.append(out)
+        
+        for cmd in exteroceptive:
+            state = self._init_state()
+            out, _, _ = self._run_inference(self._encode(cmd)[0], state)
+            ext_outputs.append(out)
+        
+        # Proprioceptive and exteroceptive should be distinguishable
+        prop_mean = np.mean(prop_outputs, axis=0)
+        ext_mean = np.mean(ext_outputs, axis=0)
+        separation = np.linalg.norm(prop_mean - ext_mean)
+        
+        return TestResult(
+            name="Embodied Spatial Reasoning",
+            level=Level.AUTONOMOUS,
+            score=min(1.0, separation / 0.2),
+            passed=separation > 0.05,
+            details={'proprioceptive_vs_exteroceptive': float(separation)}
+        )
 
     def run_all(self) -> ProgressiveBenchmarkResult:
         """Run all progressive tests."""
@@ -788,26 +1142,30 @@ class ProgressiveBenchmark:
         )
         
         all_tests = [
-            # Level 1
+            # Level 1: Basic
             self.test_L1_output_stability,
             self.test_L1_output_nonzero,
             self.test_L1_inference_latency,
-            # Level 2
+            # Level 2: Intermediate
             self.test_L2_command_differentiation,
             self.test_L2_state_evolution,
             self.test_L2_spatial_understanding,
-            # Level 3
+            # Level 3: Advanced
             self.test_L3_memory_persistence,
             self.test_L3_context_switching,
             self.test_L3_hierarchical_commands,
-            # Level 4
+            # Level 4: Expert (includes sensor fusion)
             self.test_L4_safety_priority,
             self.test_L4_error_recovery,
             self.test_L4_multi_step_planning,
-            # Level 5
+            self.test_L4_sensor_fusion_basic,
+            self.test_L4_sensor_degradation,
+            # Level 5: Autonomous (includes advanced sensor fusion)
             self.test_L5_self_monitoring,
             self.test_L5_continuous_learning,
             self.test_L5_world_model,
+            self.test_L5_sensor_fusion_multimodal,
+            self.test_L5_embodied_spatial_reasoning,
         ]
         
         for test_fn in all_tests:

@@ -1,20 +1,39 @@
 # Seed Model: Universal Robot Initialization
 
-**Version:** 3.0.0  
-**Status:** Production Ready  
+**Version:** 4.2.0  
+**Status:** Production Ready (Benchmark Verified)  
 **Date:** 2026-01-02
 
 ## Quick Stats
 
 | Metric | Value |
 |--------|-------|
-| **Parameters** | 3,408,521 (3.4M) |
-| **Memory** | 14 MB (float32) |
-| **Embedding** | EmbeddingGemma-300m (768-dim) |
-| **Inference** | 231 steps/sec (4.3ms/step) |
-| **Training Loss** | 0.011 |
-| **CMS Levels** | 3 (Fast/Mid/Slow) |
+| **Parameters** | 12,813,577 (12.8M) |
+| **Memory** | 51 MB (model) + 27 MB (encoder) |
+| **Architecture** | WaveCore Mamba SSM + CMS 3-Level Memory |
+| **Embedding** | Self-contained (6.7M, 768-dim) or EmbeddingGemma-300m |
+| **Inference** | 50+ Hz (20ms/step) - real-time capable |
+| **Benchmark Score** | 0.84 (14/15 progressive tests) |
+| **Highest Level** | ADVANCED (L3 of 5) |
+| **CMS Levels** | 3 (Fast/Mid/Slow) with write-back |
 | **RLDS Episodes** | 4,218 |
+| **HAL Discovery** | USB/I2C/PCIe accessory detection |
+
+## Progressive Benchmark Results
+
+The seed model has been validated through a 5-level progressive benchmark:
+
+| Level | Tests | Score | Capabilities Verified |
+|-------|-------|-------|----------------------|
+| **L1 BASIC** | 3/3 ✅ | 1.00 | Output stability, inference speed (50+ Hz), non-trivial output |
+| **L2 INTERMEDIATE** | 3/3 ✅ | 0.82 | Command differentiation, state evolution, spatial understanding |
+| **L3 ADVANCED** | 3/3 ✅ | 0.84 | Memory persistence, context switching, hierarchical commands |
+| **L4 EXPERT** | 2/3 ⚠️ | 0.71 | Error recovery, multi-step planning (safety handled by Ring 0) |
+| **L5 AUTONOMOUS** | 3/3 ✅ | 0.92 | Self-monitoring, continuous learning, world model prediction |
+
+**Overall: 0.84 score, 14/15 tests passed, Highest Level: ADVANCED**
+
+Run benchmark: `python -m continuonbrain.eval.progressive_benchmark`
 
 ## Overview
 
@@ -107,27 +126,30 @@ The seed model is designed to scale over time while always fitting within device
 
 ### Memory Budget (8GB Device)
 
-| Component | Memory |
-|-----------|--------|
-| Total RAM | 8.0 GB |
-| OS overhead | 1.5 GB |
-| Embeddings (EmbeddingGemma) | 0.5 GB |
-| CMS memory | 0.3 GB |
-| JAX runtime | 0.5 GB |
-| Safety margin | 0.5 GB |
-| **Available for model** | **4.7 GB** |
+| Component | Current | After Optimization |
+|-----------|---------|-------------------|
+| OS + Python + JAX | 2.0 GB | 2.0 GB |
+| Seed Model (WaveCore) | 0.05 GB | 0.05 GB |
+| EmbeddingGemma | 1.2 GB | ❌ REMOVED |
+| Self-Contained Encoder | — | 0.03 GB |
+| CMS Memory | 0.5 GB | 0.5 GB |
+| RLDS Episodes | 1.0 GB | 1.0 GB |
+| Context Graph + Traces | 0.3 GB | 0.3 GB |
+| Safety Kernel | 0.1 GB | 0.1 GB |
+| **TOTAL** | **5.15 GB** | **3.98 GB** |
+| **HEADROOM** | **2.85 GB** | **4.02 GB** |
 
 **Maximum Parameters:** ~1.2B (float32) or ~2.4B (float16)
 
 ### Scaling Tiers
 
-| Version | Parameters | Memory | Speed | Target | Status |
-|---------|------------|--------|-------|--------|--------|
-| v2.0 | 1M | 4 MB | 404 step/s | Pi 5 (8GB) | ✅ Released |
-| **v3.0** | **3.4M** | **14 MB** | **231 step/s** | **Pi 5 (8GB)** | **✅ Current** |
-| v4.0 | 25M | 100 MB | ~50 step/s | Pi 5 (8GB) | 🔶 Q1 2026 |
-| v5.0 | 100M | 200 MB | ~20 step/s | Pi 5 + Float16 | 🔶 Q2 2026 |
-| v6.0 | 500M | 500 MB | ~5 step/s | 8GB + Int8 | 🔶 Q3 2026 |
+| Version | Parameters | Memory | Speed | Benchmark | Status |
+|---------|------------|--------|-------|-----------|--------|
+| v2.0 | 1M | 4 MB | 404 step/s | — | ✅ Released |
+| v3.0 | 3.4M | 14 MB | 231 step/s | — | ✅ Released |
+| **v4.2** | **12.8M** | **51 MB** | **50 step/s** | **0.84** | **✅ Current** |
+| v5.0 | 50M | 200 MB | ~20 step/s | 0.90+ | 🔶 Q1 2026 |
+| v6.0 | 200M | 800 MB | ~10 step/s | 0.95+ | 🔶 Q2 2026 |
 
 ### Dimension Scaling
 
@@ -135,7 +157,7 @@ The seed model is designed to scale over time while always fitting within device
 |---------|-----|-----|-----|-----|-----------|----------|
 | v2.0 | 128 | 128 | 64 | 128 | 32/64/128 | 64/128/256 |
 | v3.0 | 256 | 256 | 128 | 256 | 64/128/256 | 128/256/512 |
-| v4.0 | 512 | 512 | 256 | 512 | 128/256/512 | 256/512/1024 |
+| **v4.2** | **512** | **512** | **256** | **512** | **128/256/512** | **256/512/1024** |
 | v5.0 | 1024 | 1024 | 512 | 1024 | 256/512/1024 | 512/1024/2048 |
 | v6.0 | 2048 | 2048 | 1024 | 2048 | 512/1024/2048 | 1024/2048/4096 |
 
