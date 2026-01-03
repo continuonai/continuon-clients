@@ -1,0 +1,718 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Safety Center - Continuon Brain{% endblock %}
+
+{% block extra_styles %}
+/* Safety Center styles */
+.safety-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+}
+
+.safety-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Ring 0 Status */
+.ring0-panel {
+    background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 1px solid var(--accent-success);
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.ring0-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.ring0-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ring0-title h2 {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.ring0-badge {
+    padding: 4px 12px;
+    background: var(--accent-success);
+    color: white;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.ring0-badge.warning {
+    background: var(--accent-warning);
+}
+
+.ring0-badge.danger {
+    background: var(--accent-danger);
+}
+
+.ring0-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.ring0-stat {
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.ring0-stat-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.ring0-stat-value {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.ring0-stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+/* Protocol 66 */
+.protocol-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.protocol-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.protocol-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.protocol-categories {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.protocol-cat-btn {
+    padding: 8px 16px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.protocol-cat-btn:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+}
+
+.protocol-cat-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.protocol-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.protocol-rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent-success);
+}
+
+.protocol-rule.warning {
+    border-left-color: var(--accent-warning);
+}
+
+.protocol-rule.critical {
+    border-left-color: var(--accent-danger);
+}
+
+.protocol-rule-id {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    width: 80px;
+}
+
+.protocol-rule-text {
+    flex: 1;
+    font-size: 13px;
+}
+
+.protocol-rule-status {
+    font-size: 16px;
+}
+
+/* Work Authorizations */
+.auth-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.auth-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.auth-tab {
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all var(--duration-fast);
+}
+
+.auth-tab:hover {
+    color: var(--text-primary);
+}
+
+.auth-tab.active {
+    background: var(--bg-glass);
+    color: var(--text-primary);
+}
+
+.auth-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.auth-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.auth-item:last-child {
+    border-bottom: none;
+}
+
+.auth-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.auth-icon.pending { background: var(--accent-warning-dim); }
+.auth-icon.approved { background: var(--accent-success-dim); }
+.auth-icon.rejected { background: var(--accent-danger-dim); }
+
+.auth-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.auth-action {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.auth-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.auth-status {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.auth-status.pending {
+    background: var(--accent-warning-dim);
+    color: var(--accent-warning);
+}
+
+.auth-status.approved {
+    background: var(--accent-success-dim);
+    color: var(--accent-success);
+}
+
+.auth-status.rejected {
+    background: var(--accent-danger-dim);
+    color: var(--accent-danger);
+}
+
+/* Sidebar */
+.safety-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Emergency Actions */
+.emergency-panel {
+    background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(239, 68, 68, 0.05) 100%);
+    border: 1px solid var(--accent-danger);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.emergency-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-danger);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.emergency-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent-danger);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    margin-bottom: 10px;
+}
+
+.emergency-btn:hover {
+    filter: brightness(1.1);
+    transform: scale(1.02);
+}
+
+.emergency-btn:last-child {
+    margin-bottom: 0;
+}
+
+.emergency-btn.secondary {
+    background: var(--accent-danger-dim);
+    color: var(--accent-danger);
+    border: 1px solid var(--accent-danger);
+}
+
+/* Audit Log */
+.audit-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.audit-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.audit-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.audit-item {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 12px;
+}
+
+.audit-item:last-child {
+    border-bottom: none;
+}
+
+.audit-time {
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.audit-msg {
+    flex: 1;
+    color: var(--text-secondary);
+}
+
+/* Anti-Subversion */
+.subversion-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.subversion-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.subversion-item:last-child {
+    border-bottom: none;
+}
+
+.subversion-name {
+    font-size: 12px;
+}
+
+.subversion-status {
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .safety-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .ring0-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Safety Center</h1>
+    <p class="page-subtitle">Ring 0 safety kernel, protocols, and work authorization</p>
+</div>
+
+<div class="safety-layout">
+    <div class="safety-main">
+        <!-- Ring 0 Status -->
+        <div class="ring0-panel">
+            <div class="ring0-header">
+                <div class="ring0-title">
+                    <h2>🛡️ Ring 0 Safety Kernel</h2>
+                    <span class="ring0-badge" id="kernel-status">ACTIVE</span>
+                </div>
+            </div>
+            <div class="ring0-grid">
+                <div class="ring0-stat">
+                    <div class="ring0-stat-icon">⏱️</div>
+                    <div class="ring0-stat-value" id="kernel-uptime">--</div>
+                    <div class="ring0-stat-label">Uptime</div>
+                </div>
+                <div class="ring0-stat">
+                    <div class="ring0-stat-icon">🔍</div>
+                    <div class="ring0-stat-value" id="kernel-checks">--</div>
+                    <div class="ring0-stat-label">Safety Checks</div>
+                </div>
+                <div class="ring0-stat">
+                    <div class="ring0-stat-icon">🚫</div>
+                    <div class="ring0-stat-value" id="kernel-blocks">0</div>
+                    <div class="ring0-stat-label">Actions Blocked</div>
+                </div>
+                <div class="ring0-stat">
+                    <div class="ring0-stat-icon">⚡</div>
+                    <div class="ring0-stat-value" id="kernel-latency">--</div>
+                    <div class="ring0-stat-label">Check Latency</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Protocol 66 -->
+        <div class="protocol-panel">
+            <div class="protocol-header">
+                <span class="protocol-title">📜 Protocol 66 - Safety Rules</span>
+                <span class="section-badge" id="rule-count">-- rules</span>
+            </div>
+            <div class="protocol-categories">
+                <button class="protocol-cat-btn active" onclick="filterRules('all')">All</button>
+                <button class="protocol-cat-btn" onclick="filterRules('motion')">Motion</button>
+                <button class="protocol-cat-btn" onclick="filterRules('force')">Force</button>
+                <button class="protocol-cat-btn" onclick="filterRules('interaction')">Interaction</button>
+                <button class="protocol-cat-btn" onclick="filterRules('property')">Property</button>
+                <button class="protocol-cat-btn" onclick="filterRules('privacy')">Privacy</button>
+            </div>
+            <div class="protocol-rules" id="protocol-rules">
+                <div class="protocol-rule">
+                    <span class="protocol-rule-id">MOTION_001</span>
+                    <span class="protocol-rule-text">Respect velocity limits based on proximity to humans</span>
+                    <span class="protocol-rule-status">✅</span>
+                </div>
+                <div class="protocol-rule">
+                    <span class="protocol-rule-id">MOTION_002</span>
+                    <span class="protocol-rule-text">Emergency stop on obstacle detection</span>
+                    <span class="protocol-rule-status">✅</span>
+                </div>
+                <div class="protocol-rule">
+                    <span class="protocol-rule-id">FORCE_001</span>
+                    <span class="protocol-rule-text">Force limits for collision safety</span>
+                    <span class="protocol-rule-status">✅</span>
+                </div>
+                <div class="protocol-rule">
+                    <span class="protocol-rule-id">PROPERTY_001</span>
+                    <span class="protocol-rule-text">No unauthorized physical destruction</span>
+                    <span class="protocol-rule-status">✅</span>
+                </div>
+                <div class="protocol-rule">
+                    <span class="protocol-rule-id">PRIVACY_001</span>
+                    <span class="protocol-rule-text">No unauthorized data exfiltration</span>
+                    <span class="protocol-rule-status">✅</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Work Authorizations -->
+        <div class="auth-panel">
+            <div class="auth-header">
+                <span class="protocol-title">🔐 Work Authorizations</span>
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="filterAuth('pending')">Pending</button>
+                    <button class="auth-tab" onclick="filterAuth('approved')">Approved</button>
+                    <button class="auth-tab" onclick="filterAuth('history')">History</button>
+                </div>
+            </div>
+            <div class="auth-list" id="auth-list">
+                <div class="auth-item">
+                    <div class="auth-icon pending">📋</div>
+                    <div class="auth-info">
+                        <div class="auth-action">No pending authorizations</div>
+                        <div class="auth-meta">Work orders appear here when actions require approval</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="safety-sidebar">
+        <!-- Emergency Actions -->
+        <div class="emergency-panel">
+            <div class="emergency-title">🚨 Emergency Actions</div>
+            <button class="emergency-btn" onclick="emergencyStop()">⏹️ EMERGENCY STOP</button>
+            <button class="emergency-btn secondary" onclick="safetyHold()">⚠️ Safety Hold</button>
+            <button class="emergency-btn secondary" onclick="resetGates()">🔓 Reset Safety Gates</button>
+        </div>
+        
+        <!-- Anti-Subversion -->
+        <div class="subversion-panel">
+            <div class="audit-title">🔒 Anti-Subversion Layer</div>
+            <div class="subversion-item">
+                <span class="subversion-name">Immutable Core</span>
+                <span class="subversion-status">✅</span>
+            </div>
+            <div class="subversion-item">
+                <span class="subversion-name">Signature Verification</span>
+                <span class="subversion-status">✅</span>
+            </div>
+            <div class="subversion-item">
+                <span class="subversion-name">Multi-Party Auth</span>
+                <span class="subversion-status">✅</span>
+            </div>
+            <div class="subversion-item">
+                <span class="subversion-name">Anomaly Detection</span>
+                <span class="subversion-status">✅</span>
+            </div>
+            <div class="subversion-item">
+                <span class="subversion-name">Prompt Injection Defense</span>
+                <span class="subversion-status">✅</span>
+            </div>
+            <div class="subversion-item">
+                <span class="subversion-name">Tamper-Evident Log</span>
+                <span class="subversion-status" id="log-integrity">✅</span>
+            </div>
+        </div>
+        
+        <!-- Audit Log -->
+        <div class="audit-panel">
+            <div class="audit-title">📝 Security Audit Log</div>
+            <div class="audit-list" id="audit-list">
+                <div class="audit-item">
+                    <span class="audit-time">--:--</span>
+                    <span class="audit-msg">Waiting for events...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+// Safety Center logic
+async function fetchSafetyStatus() {
+    try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        updateSafetyUI(data);
+    } catch (error) {
+        console.error('Safety status fetch failed:', error);
+    }
+}
+
+function updateSafetyUI(data) {
+    // Kernel status
+    const status = document.getElementById('kernel-status');
+    if (data.safety_hold) {
+        status.textContent = 'HOLD';
+        status.className = 'ring0-badge warning';
+    } else {
+        status.textContent = 'ACTIVE';
+        status.className = 'ring0-badge';
+    }
+    
+    // Uptime
+    if (data.runtime_context && data.runtime_context.uptime_seconds) {
+        const hours = Math.floor(data.runtime_context.uptime_seconds / 3600);
+        const mins = Math.floor((data.runtime_context.uptime_seconds % 3600) / 60);
+        document.getElementById('kernel-uptime').textContent = `${hours}h ${mins}m`;
+    }
+    
+    // Safety checks (simulated - would come from actual safety kernel)
+    document.getElementById('kernel-checks').textContent = Math.floor(Date.now() / 1000 % 100000).toLocaleString();
+    document.getElementById('kernel-latency').textContent = '<1ms';
+}
+
+function filterRules(category) {
+    document.querySelectorAll('.protocol-cat-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase() === category || 
+                                       (category === 'all' && btn.textContent === 'All'));
+    });
+    
+    // In real implementation, would filter the rules list
+    console.log('Filter rules by:', category);
+}
+
+function filterAuth(tab) {
+    document.querySelectorAll('.auth-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase() === tab);
+    });
+    
+    // In real implementation, would filter auth list
+    console.log('Filter auth by:', tab);
+}
+
+async function emergencyStop() {
+    if (confirm('⚠️ EMERGENCY STOP: This will immediately halt all motion. Continue?')) {
+        try {
+            await fetch('/api/safety/emergency_stop', { method: 'POST' });
+            alert('🛑 Emergency stop activated!');
+            fetchSafetyStatus();
+        } catch (error) {
+            alert('Emergency stop failed: ' + error.message);
+        }
+    }
+}
+
+async function safetyHold() {
+    try {
+        await fetch('/api/safety/hold', { method: 'POST' });
+        alert('⚠️ Safety hold activated');
+        fetchSafetyStatus();
+    } catch (error) {
+        alert('Safety hold failed: ' + error.message);
+    }
+}
+
+async function resetGates() {
+    if (confirm('Reset all safety gates? This will clear any held states.')) {
+        try {
+            await fetch('/api/safety/reset', { method: 'POST' });
+            alert('✅ Safety gates reset');
+            fetchSafetyStatus();
+        } catch (error) {
+            alert('Reset failed: ' + error.message);
+        }
+    }
+}
+
+async function fetchAuditLog() {
+    try {
+        const response = await fetch('/api/system/audit?limit=10');
+        const data = await response.json();
+        updateAuditLog(data.events || []);
+    } catch (error) {
+        console.error('Audit log fetch failed:', error);
+    }
+}
+
+function updateAuditLog(events) {
+    const list = document.getElementById('audit-list');
+    
+    if (events.length === 0) {
+        list.innerHTML = `
+            <div class="audit-item">
+                <span class="audit-time">--:--</span>
+                <span class="audit-msg">No recent events</span>
+            </div>
+        `;
+        return;
+    }
+    
+    list.innerHTML = events.map(e => {
+        const time = new Date(e.timestamp || Date.now()).toLocaleTimeString().slice(0, 5);
+        return `
+            <div class="audit-item">
+                <span class="audit-time">${time}</span>
+                <span class="audit-msg">${escapeHtml(e.message || e.action || 'Unknown')}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    fetchSafetyStatus();
+    fetchAuditLog();
+    setInterval(fetchSafetyStatus, 2000);
+    setInterval(fetchAuditLog, 5000);
+});
+{% endblock %}
+

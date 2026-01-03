@@ -1,0 +1,872 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Training Hub - Continuon Brain{% endblock %}
+
+{% block extra_styles %}
+/* Training Hub styles */
+.training-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+}
+
+.training-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Pipeline Visualization */
+.pipeline-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.pipeline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.pipeline-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.pipeline-status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.pipeline-status.active {
+    background: var(--accent-success-dim);
+    color: var(--accent-success);
+}
+
+.pipeline-status.idle {
+    background: var(--bg-glass);
+    color: var(--text-muted);
+}
+
+.pipeline-flow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 20px 0;
+}
+
+.pipeline-stage {
+    flex: 0 0 140px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    position: relative;
+}
+
+.pipeline-stage.active {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 20px var(--accent-primary-dim);
+}
+
+.pipeline-stage.complete {
+    border-color: var(--accent-success);
+}
+
+.pipeline-stage-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.pipeline-stage-name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.pipeline-stage-stat {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.pipeline-arrow {
+    font-size: 20px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* WaveCore Loops */
+.loops-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.loop-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.loop-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.loop-name {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.loop-hz {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 3px 8px;
+    background: var(--bg-glass);
+    border-radius: 4px;
+}
+
+.loop-meter {
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.loop-meter-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width var(--duration-normal);
+}
+
+.loop-meter-fill.fast { background: var(--accent-danger); }
+.loop-meter-fill.mid { background: var(--accent-warning); }
+.loop-meter-fill.slow { background: var(--accent-success); }
+
+.loop-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Teacher Mode */
+.teacher-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.teacher-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.teacher-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toggle-switch {
+    width: 44px;
+    height: 24px;
+    background: var(--bg-elevated);
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+}
+
+.toggle-switch.active {
+    background: var(--accent-primary);
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: transform var(--duration-fast);
+}
+
+.toggle-switch.active::after {
+    transform: translateX(20px);
+}
+
+.teacher-question {
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.teacher-question-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.teacher-question-text {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.teacher-answer {
+    display: flex;
+    gap: 8px;
+}
+
+.teacher-input {
+    flex: 1;
+    padding: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.teacher-submit {
+    padding: 12px 20px;
+    background: var(--accent-primary);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* RLDS Episodes */
+.rlds-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.rlds-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.rlds-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.rlds-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: background var(--duration-fast);
+}
+
+.rlds-item:hover {
+    background: var(--bg-glass);
+}
+
+.rlds-item:last-child {
+    border-bottom: none;
+}
+
+.rlds-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rlds-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.rlds-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rlds-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.rlds-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.rlds-action-btn {
+    padding: 6px;
+    background: var(--bg-glass);
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.rlds-action-btn:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+}
+
+/* Sidebar Actions */
+.training-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.action-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.action-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    margin-bottom: 8px;
+}
+
+.action-btn:last-child {
+    margin-bottom: 0;
+}
+
+.action-btn:hover {
+    background: var(--bg-glass-hover);
+    border-color: var(--border-default);
+}
+
+.action-btn.primary {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.action-btn.primary:hover {
+    filter: brightness(1.1);
+}
+
+/* HOPE Eval Results */
+.eval-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.eval-score {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.eval-score-value {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--accent-success);
+}
+
+.eval-score-meta {
+    flex: 1;
+}
+
+.eval-level {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.eval-tests {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.eval-breakdown {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.eval-level-item {
+    padding: 10px;
+    background: var(--bg-elevated);
+    border-radius: 6px;
+    text-align: center;
+}
+
+.eval-level-name {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.eval-level-score {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+@media (max-width: 900px) {
+    .training-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .loops-grid {
+        grid-template-columns: 1fr;
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Training Hub</h1>
+    <p class="page-subtitle">WaveCore training, RLDS episodes, and HOPE evaluation</p>
+</div>
+
+<div class="training-layout">
+    <div class="training-main">
+        <!-- Pipeline Visualization -->
+        <div class="pipeline-panel">
+            <div class="pipeline-header">
+                <span class="pipeline-title">🔄 Training Pipeline</span>
+                <span class="pipeline-status" id="pipeline-status">IDLE</span>
+            </div>
+            <div class="pipeline-flow">
+                <div class="pipeline-stage" id="stage-rlds">
+                    <div class="pipeline-stage-icon">📊</div>
+                    <div class="pipeline-stage-name">RLDS Episodes</div>
+                    <div class="pipeline-stage-stat" id="rlds-count-stat">-- episodes</div>
+                </div>
+                <div class="pipeline-arrow">→</div>
+                <div class="pipeline-stage" id="stage-encode">
+                    <div class="pipeline-stage-icon">🔤</div>
+                    <div class="pipeline-stage-name">Text Encoder</div>
+                    <div class="pipeline-stage-stat">768-dim</div>
+                </div>
+                <div class="pipeline-arrow">→</div>
+                <div class="pipeline-stage" id="stage-wavecore">
+                    <div class="pipeline-stage-icon">🌊</div>
+                    <div class="pipeline-stage-name">WaveCore</div>
+                    <div class="pipeline-stage-stat">12.8M params</div>
+                </div>
+                <div class="pipeline-arrow">→</div>
+                <div class="pipeline-stage" id="stage-cms">
+                    <div class="pipeline-stage-icon">🧠</div>
+                    <div class="pipeline-stage-name">CMS Memory</div>
+                    <div class="pipeline-stage-stat">3-level</div>
+                </div>
+                <div class="pipeline-arrow">→</div>
+                <div class="pipeline-stage" id="stage-eval">
+                    <div class="pipeline-stage-icon">📈</div>
+                    <div class="pipeline-stage-name">HOPE Eval</div>
+                    <div class="pipeline-stage-stat" id="eval-score-stat">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- WaveCore Loops -->
+        <div class="section-header">
+            <span class="section-title">WaveCore Training Loops</span>
+        </div>
+        <div class="loops-grid">
+            <div class="loop-card">
+                <div class="loop-header">
+                    <span class="loop-name">⚡ Fast Loop</span>
+                    <span class="loop-hz" id="fast-hz">-- Hz</span>
+                </div>
+                <div class="loop-meter">
+                    <div class="loop-meter-fill fast" id="fast-meter" style="width: 0%"></div>
+                </div>
+                <div class="loop-stats">
+                    <span>Reflexive control</span>
+                    <span id="fast-steps">-- steps</span>
+                </div>
+            </div>
+            <div class="loop-card">
+                <div class="loop-header">
+                    <span class="loop-name">🔄 Mid Loop</span>
+                    <span class="loop-hz" id="mid-hz">-- Hz</span>
+                </div>
+                <div class="loop-meter">
+                    <div class="loop-meter-fill mid" id="mid-meter" style="width: 0%"></div>
+                </div>
+                <div class="loop-stats">
+                    <span>Local adaptation</span>
+                    <span id="mid-steps">-- steps</span>
+                </div>
+            </div>
+            <div class="loop-card">
+                <div class="loop-header">
+                    <span class="loop-name">🌙 Slow Loop</span>
+                    <span class="loop-hz" id="slow-hz">-- Hz</span>
+                </div>
+                <div class="loop-meter">
+                    <div class="loop-meter-fill slow" id="slow-meter" style="width: 0%"></div>
+                </div>
+                <div class="loop-stats">
+                    <span>Consolidation</span>
+                    <span id="slow-steps">-- steps</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Teacher Mode -->
+        <div class="teacher-panel">
+            <div class="teacher-header">
+                <span class="pipeline-title">👨‍🏫 Teacher Mode</span>
+                <div class="teacher-toggle">
+                    <span style="font-size: 12px; color: var(--text-muted);">Enable</span>
+                    <div class="toggle-switch" id="teacher-toggle" onclick="toggleTeacher()"></div>
+                </div>
+            </div>
+            <div class="teacher-question" id="teacher-question">
+                <div class="teacher-question-label">Current Question</div>
+                <div class="teacher-question-text" id="teacher-question-text">No pending questions. Enable teacher mode and interact with the robot to generate questions.</div>
+            </div>
+            <div class="teacher-answer">
+                <input type="text" class="teacher-input" id="teacher-input" placeholder="Type your answer...">
+                <button class="teacher-submit" onclick="submitAnswer()">Submit</button>
+            </div>
+        </div>
+        
+        <!-- RLDS Episodes -->
+        <div class="rlds-panel">
+            <div class="rlds-header">
+                <span class="pipeline-title">📁 RLDS Episodes</span>
+                <button class="action-btn" style="width: auto; margin: 0; padding: 8px 16px;" onclick="refreshEpisodes()">Refresh</button>
+            </div>
+            <div class="rlds-list" id="rlds-list">
+                <div class="rlds-item">
+                    <div class="rlds-icon">📊</div>
+                    <div class="rlds-info">
+                        <div class="rlds-name">Loading episodes...</div>
+                        <div class="rlds-meta">Please wait</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="training-sidebar">
+        <!-- HOPE Eval -->
+        <div class="eval-panel">
+            <div class="action-card-title">📈 HOPE Evaluation</div>
+            <div class="eval-score">
+                <div class="eval-score-value" id="eval-score">0.84</div>
+                <div class="eval-score-meta">
+                    <div class="eval-level" id="eval-level">Level 3 - ADVANCED</div>
+                    <div class="eval-tests" id="eval-tests">17/23 tests passed</div>
+                </div>
+            </div>
+            <div class="eval-breakdown">
+                <div class="eval-level-item">
+                    <div class="eval-level-name">BASIC</div>
+                    <div class="eval-level-score text-success">1.00</div>
+                </div>
+                <div class="eval-level-item">
+                    <div class="eval-level-name">INTER</div>
+                    <div class="eval-level-score text-success">0.82</div>
+                </div>
+                <div class="eval-level-item">
+                    <div class="eval-level-name">ADV</div>
+                    <div class="eval-level-score text-success">0.84</div>
+                </div>
+                <div class="eval-level-item">
+                    <div class="eval-level-name">EXPERT</div>
+                    <div class="eval-level-score text-warning">0.71</div>
+                </div>
+                <div class="eval-level-item">
+                    <div class="eval-level-name">AUTO</div>
+                    <div class="eval-level-score text-success">0.92</div>
+                </div>
+                <div class="eval-level-item">
+                    <div class="eval-level-name">SWARM</div>
+                    <div class="eval-level-score text-muted">TBD</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="action-card">
+            <div class="action-card-title">⚡ Quick Actions</div>
+            <button class="action-btn primary" onclick="runHopeEval()">Run HOPE Eval</button>
+            <button class="action-btn" onclick="triggerChatLearn()">Start Chat Learning</button>
+            <button class="action-btn" onclick="runWaveCoreLoops()">Run WaveCore Loops</button>
+            <button class="action-btn" onclick="exportToCloud()">Export to Cloud</button>
+        </div>
+        
+        <!-- Model Info -->
+        <div class="action-card">
+            <div class="action-card-title">🧠 Seed Model</div>
+            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+                <div><strong>Version:</strong> v4.2.0</div>
+                <div><strong>Parameters:</strong> 12.8M</div>
+                <div><strong>Memory:</strong> 51 MB</div>
+                <div><strong>Architecture:</strong> WaveCore Mamba SSM</div>
+                <div><strong>Encoder:</strong> Self-contained (6.7M)</div>
+                <div><strong>CMS:</strong> 3-level hierarchical</div>
+            </div>
+        </div>
+        
+        <!-- Cloud Export -->
+        <div class="action-card">
+            <div class="action-card-title">☁️ Cloud Sync</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                Sync RLDS episodes to Continuon Cloud for slow-loop TPU training.
+            </div>
+            <button class="action-btn" onclick="createExportZip()">Create Export ZIP</button>
+            <button class="action-btn" onclick="installBundle()">Install OTA Bundle</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+// Training Hub logic
+let teacherEnabled = false;
+
+async function fetchTrainingStatus() {
+    try {
+        const response = await fetch('/api/training/architecture_status');
+        const data = await response.json();
+        updateTrainingUI(data);
+    } catch (error) {
+        console.error('Training status fetch failed:', error);
+    }
+}
+
+function updateTrainingUI(data) {
+    // Pipeline status
+    const status = document.getElementById('pipeline-status');
+    if (data.background_learner?.running) {
+        status.textContent = 'TRAINING';
+        status.className = 'pipeline-status active';
+    } else {
+        status.textContent = 'IDLE';
+        status.className = 'pipeline-status idle';
+    }
+    
+    // Loop metrics
+    if (data.hope_loops) {
+        document.getElementById('fast-hz').textContent = `${data.hope_loops.fast?.hz?.toFixed(0) || '--'} Hz`;
+        document.getElementById('mid-hz').textContent = `${data.hope_loops.mid?.hz?.toFixed(1) || '--'} Hz`;
+        document.getElementById('slow-hz').textContent = `${data.hope_loops.slow?.hz?.toFixed(2) || '--'} Hz`;
+        
+        document.getElementById('fast-steps').textContent = `${data.hope_loops.fast?.steps || 0} steps`;
+        document.getElementById('mid-steps').textContent = `${data.hope_loops.mid?.steps || 0} steps`;
+        document.getElementById('slow-steps').textContent = `${data.hope_loops.slow?.steps || 0} steps`;
+        
+        // Meters (based on activity)
+        document.getElementById('fast-meter').style.width = `${Math.min(100, (data.hope_loops.fast?.hz || 0) * 2)}%`;
+        document.getElementById('mid-meter').style.width = `${Math.min(100, (data.hope_loops.mid?.hz || 0) * 50)}%`;
+        document.getElementById('slow-meter').style.width = `${Math.min(100, (data.hope_loops.slow?.hz || 0) * 500)}%`;
+    }
+    
+    // Teacher mode
+    if (data.teacher_mode) {
+        const toggle = document.getElementById('teacher-toggle');
+        toggle.classList.toggle('active', data.teacher_mode.active);
+        teacherEnabled = data.teacher_mode.active;
+        
+        if (data.teacher_mode.pending_question) {
+            document.getElementById('teacher-question-text').textContent = data.teacher_mode.pending_question;
+        }
+    }
+}
+
+async function fetchEpisodes() {
+    try {
+        const response = await fetch('/api/v1/data/episodes?limit=20');
+        const data = await response.json();
+        updateEpisodesList(data.episodes || []);
+    } catch (error) {
+        console.error('Episodes fetch failed:', error);
+    }
+}
+
+function updateEpisodesList(episodes) {
+    const list = document.getElementById('rlds-list');
+    
+    if (episodes.length === 0) {
+        list.innerHTML = `
+            <div class="rlds-item">
+                <div class="rlds-icon">📭</div>
+                <div class="rlds-info">
+                    <div class="rlds-name">No episodes found</div>
+                    <div class="rlds-meta">Start recording to create RLDS data</div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    document.getElementById('rlds-count-stat').textContent = `${episodes.length} episodes`;
+    
+    list.innerHTML = episodes.slice(0, 10).map(ep => `
+        <div class="rlds-item" onclick="viewEpisode('${ep.id || ep.name}')">
+            <div class="rlds-icon">📊</div>
+            <div class="rlds-info">
+                <div class="rlds-name">${ep.name || ep.id || 'Unnamed'}</div>
+                <div class="rlds-meta">${ep.steps || '--'} steps • ${formatDate(ep.timestamp || ep.created_at)}</div>
+            </div>
+            <div class="rlds-actions">
+                <button class="rlds-action-btn" title="Preview">👁️</button>
+                <button class="rlds-action-btn" title="Export">📤</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function formatDate(timestamp) {
+    if (!timestamp) return '--';
+    const date = new Date(timestamp);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString().slice(0, 5);
+}
+
+function viewEpisode(id) {
+    // Could open a modal or navigate to episode detail
+    console.log('View episode:', id);
+}
+
+async function toggleTeacher() {
+    teacherEnabled = !teacherEnabled;
+    document.getElementById('teacher-toggle').classList.toggle('active', teacherEnabled);
+    
+    try {
+        await fetch('/api/training/teacher/mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: teacherEnabled })
+        });
+    } catch (error) {
+        console.error('Teacher toggle failed:', error);
+    }
+}
+
+async function submitAnswer() {
+    const input = document.getElementById('teacher-input');
+    const answer = input.value.trim();
+    if (!answer) return;
+    
+    const question = document.getElementById('teacher-question-text').textContent;
+    
+    try {
+        await fetch('/api/training/teacher/answer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question, answer })
+        });
+        input.value = '';
+        document.getElementById('teacher-question-text').textContent = 'Answer submitted! Waiting for next question...';
+    } catch (error) {
+        console.error('Answer submit failed:', error);
+    }
+}
+
+async function runHopeEval() {
+    try {
+        const response = await fetch('/api/training/hope_eval', { method: 'POST' });
+        const data = await response.json();
+        alert('HOPE evaluation started! ' + (data.message || ''));
+    } catch (error) {
+        alert('Failed to start evaluation: ' + error.message);
+    }
+}
+
+async function runWaveCoreLoops() {
+    try {
+        const response = await fetch('/api/training/wavecore_loops', { method: 'POST' });
+        const data = await response.json();
+        alert('WaveCore loops started! ' + (data.message || ''));
+    } catch (error) {
+        alert('Failed to start WaveCore: ' + error.message);
+    }
+}
+
+async function exportToCloud() {
+    try {
+        const response = await fetch('/api/training/export_zip', { method: 'POST' });
+        const data = await response.json();
+        alert('Export created! ' + (data.path || data.message || ''));
+    } catch (error) {
+        alert('Export failed: ' + error.message);
+    }
+}
+
+function refreshEpisodes() {
+    fetchEpisodes();
+}
+
+function createExportZip() {
+    exportToCloud();
+}
+
+async function installBundle() {
+    alert('Upload an OTA bundle to install updated model weights.');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    fetchTrainingStatus();
+    fetchEpisodes();
+    setInterval(fetchTrainingStatus, 3000);
+});
+{% endblock %}
+

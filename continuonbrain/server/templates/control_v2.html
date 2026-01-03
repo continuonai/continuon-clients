@@ -1,0 +1,619 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Control Center - Continuon Brain{% endblock %}
+
+{% block extra_styles %}
+/* Control Center styles */
+.control-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    height: calc(100vh - var(--header-height) - var(--footer-height) - 100px);
+}
+
+.camera-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.camera-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.camera-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.camera-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.camera-btn {
+    padding: 6px 12px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.camera-btn:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+}
+
+.camera-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.camera-feed {
+    flex: 1;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 400px;
+}
+
+.camera-feed img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.camera-placeholder {
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.camera-placeholder .icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.camera-overlay {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+.camera-stat {
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.7);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* Controls Panel */
+.controls-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.control-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.control-card-header {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+/* Drive Controls */
+.drive-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-width: 200px;
+    margin: 0 auto;
+}
+
+.drive-btn {
+    aspect-ratio: 1;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.drive-btn:hover {
+    background: var(--accent-primary-dim);
+    border-color: var(--accent-primary);
+}
+
+.drive-btn:active {
+    background: var(--accent-primary);
+    transform: scale(0.95);
+}
+
+.drive-btn.empty {
+    background: transparent;
+    border: none;
+    cursor: default;
+}
+
+.drive-btn.stop {
+    background: var(--accent-danger-dim);
+    border-color: var(--accent-danger);
+    color: var(--accent-danger);
+}
+
+/* Joint Controls */
+.joint-sliders {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.joint-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.joint-label {
+    width: 30px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.joint-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    outline: none;
+}
+
+.joint-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.joint-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.joint-value {
+    width: 50px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: right;
+}
+
+/* Gripper Controls */
+.gripper-controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.gripper-btn {
+    flex: 1;
+    padding: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.gripper-btn:hover {
+    background: var(--bg-glass-hover);
+    border-color: var(--border-default);
+}
+
+.gripper-btn .icon {
+    font-size: 24px;
+}
+
+.gripper-btn .label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Recording Controls */
+.recording-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.record-btn {
+    padding: 14px;
+    background: var(--accent-danger-dim);
+    border: 2px solid var(--accent-danger);
+    border-radius: 10px;
+    color: var(--accent-danger);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.record-btn:hover {
+    background: var(--accent-danger);
+    color: white;
+}
+
+.record-btn.recording {
+    background: var(--accent-danger);
+    color: white;
+    animation: recording-pulse 1s infinite;
+}
+
+@keyframes recording-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.record-status {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.record-status.active {
+    color: var(--accent-danger);
+}
+
+/* Quick Poses */
+.pose-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.pose-btn {
+    padding: 10px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.pose-btn:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+    .control-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .controls-panel {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Control Center</h1>
+    <p class="page-subtitle">Manual robot control and teleoperation</p>
+</div>
+
+<div class="control-grid">
+    <!-- Camera Feed -->
+    <div class="camera-panel">
+        <div class="camera-header">
+            <span class="camera-title">📷 Live Camera Feed</span>
+            <div class="camera-controls">
+                <button class="camera-btn active" onclick="setCamera('rgb')">RGB</button>
+                <button class="camera-btn" onclick="setCamera('depth')">Depth</button>
+                <button class="camera-btn" onclick="setCamera('segmentation')">SAM</button>
+            </div>
+        </div>
+        <div class="camera-feed" id="camera-feed">
+            <div class="camera-placeholder">
+                <div class="icon">📷</div>
+                <div>Camera feed loading...</div>
+                <div style="font-size: 12px; margin-top: 8px;">Click to start stream</div>
+            </div>
+            <div class="camera-overlay">
+                <span class="camera-stat" id="camera-fps">-- FPS</span>
+                <span class="camera-stat" id="camera-resolution">--x--</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Controls Panel -->
+    <div class="controls-panel">
+        <!-- Drive Pad -->
+        <div class="control-card">
+            <div class="control-card-header">🚗 Drive Controls</div>
+            <div class="drive-pad">
+                <div class="drive-btn empty"></div>
+                <button class="drive-btn" onmousedown="drive('forward')" onmouseup="drive('stop')">⬆️</button>
+                <div class="drive-btn empty"></div>
+                <button class="drive-btn" onmousedown="drive('left')" onmouseup="drive('stop')">⬅️</button>
+                <button class="drive-btn stop" onclick="drive('stop')">⏹️</button>
+                <button class="drive-btn" onmousedown="drive('right')" onmouseup="drive('stop')">➡️</button>
+                <div class="drive-btn empty"></div>
+                <button class="drive-btn" onmousedown="drive('backward')" onmouseup="drive('stop')">⬇️</button>
+                <div class="drive-btn empty"></div>
+            </div>
+        </div>
+        
+        <!-- Arm Joints -->
+        <div class="control-card">
+            <div class="control-card-header">🦾 Arm Joints</div>
+            <div class="joint-sliders">
+                <div class="joint-row">
+                    <span class="joint-label">J1</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
+                           oninput="updateJoint(0, this.value)">
+                    <span class="joint-value" id="joint-0">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">J2</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
+                           oninput="updateJoint(1, this.value)">
+                    <span class="joint-value" id="joint-1">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">J3</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
+                           oninput="updateJoint(2, this.value)">
+                    <span class="joint-value" id="joint-2">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">J4</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
+                           oninput="updateJoint(3, this.value)">
+                    <span class="joint-value" id="joint-3">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">J5</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
+                           oninput="updateJoint(4, this.value)">
+                    <span class="joint-value" id="joint-4">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">J6</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
+                           oninput="updateJoint(5, this.value)">
+                    <span class="joint-value" id="joint-5">0°</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gripper -->
+        <div class="control-card">
+            <div class="control-card-header">✊ Gripper</div>
+            <div class="gripper-controls">
+                <button class="gripper-btn" onclick="gripper('open')">
+                    <span class="icon">🖐️</span>
+                    <span class="label">Open</span>
+                </button>
+                <button class="gripper-btn" onclick="gripper('close')">
+                    <span class="icon">✊</span>
+                    <span class="label">Close</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Quick Poses -->
+        <div class="control-card">
+            <div class="control-card-header">📐 Quick Poses</div>
+            <div class="pose-grid">
+                <button class="pose-btn" onclick="setPose('home')">🏠 Home</button>
+                <button class="pose-btn" onclick="setPose('ready')">✋ Ready</button>
+                <button class="pose-btn" onclick="setPose('reach')">👆 Reach</button>
+                <button class="pose-btn" onclick="setPose('rest')">😴 Rest</button>
+            </div>
+        </div>
+        
+        <!-- Recording -->
+        <div class="control-card">
+            <div class="control-card-header">🔴 RLDS Recording</div>
+            <div class="recording-section">
+                <button class="record-btn" id="record-btn" onclick="toggleRecording()">
+                    <span>⏺️</span>
+                    <span id="record-label">Start Recording</span>
+                </button>
+                <div class="record-status" id="record-status">Not recording</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+// Control Center logic
+let isRecording = false;
+let cameraStream = null;
+let cameraMode = 'rgb';
+
+// Camera
+function setCamera(mode) {
+    cameraMode = mode;
+    document.querySelectorAll('.camera-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase().includes(mode));
+    });
+    startCameraStream();
+}
+
+function startCameraStream() {
+    const feed = document.getElementById('camera-feed');
+    const streamUrl = `/api/camera/stream?mode=${cameraMode}&t=${Date.now()}`;
+    
+    feed.innerHTML = `
+        <img src="${streamUrl}" alt="Camera feed" onerror="cameraError()">
+        <div class="camera-overlay">
+            <span class="camera-stat" id="camera-fps">30 FPS</span>
+            <span class="camera-stat" id="camera-resolution">640x480</span>
+        </div>
+    `;
+}
+
+function cameraError() {
+    const feed = document.getElementById('camera-feed');
+    feed.innerHTML = `
+        <div class="camera-placeholder">
+            <div class="icon">⚠️</div>
+            <div>Camera not available</div>
+            <div style="font-size: 12px; margin-top: 8px;">Check hardware connection</div>
+        </div>
+    `;
+}
+
+// Drive controls
+async function drive(direction) {
+    const commands = {
+        forward: { linear: 0.3, angular: 0 },
+        backward: { linear: -0.3, angular: 0 },
+        left: { linear: 0, angular: 0.5 },
+        right: { linear: 0, angular: -0.5 },
+        stop: { linear: 0, angular: 0 }
+    };
+    
+    try {
+        await fetch('/api/robot/drive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(commands[direction] || commands.stop)
+        });
+    } catch (error) {
+        console.error('Drive command failed:', error);
+    }
+}
+
+// Joint controls
+let jointDebounce = null;
+function updateJoint(index, value) {
+    document.getElementById(`joint-${index}`).textContent = `${value}°`;
+    
+    // Debounce API calls
+    clearTimeout(jointDebounce);
+    jointDebounce = setTimeout(async () => {
+        const joints = [];
+        for (let i = 0; i < 6; i++) {
+            const slider = document.querySelectorAll('.joint-slider')[i];
+            joints.push(parseFloat(slider.value));
+        }
+        
+        try {
+            await fetch('/api/robot/joints', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ positions: joints })
+            });
+        } catch (error) {
+            console.error('Joint update failed:', error);
+        }
+    }, 100);
+}
+
+// Gripper
+async function gripper(action) {
+    try {
+        await fetch('/api/robot/gripper', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+        });
+    } catch (error) {
+        console.error('Gripper command failed:', error);
+    }
+}
+
+// Quick poses
+async function setPose(pose) {
+    try {
+        await fetch(`/api/robot/pose/${pose}`, { method: 'POST' });
+    } catch (error) {
+        console.error('Pose command failed:', error);
+    }
+}
+
+// Recording
+async function toggleRecording() {
+    isRecording = !isRecording;
+    const btn = document.getElementById('record-btn');
+    const label = document.getElementById('record-label');
+    const status = document.getElementById('record-status');
+    
+    if (isRecording) {
+        btn.classList.add('recording');
+        label.textContent = 'Stop Recording';
+        status.textContent = 'Recording RLDS episode...';
+        status.classList.add('active');
+        
+        try {
+            await fetch('/api/training/record/start', { method: 'POST' });
+        } catch (error) {
+            console.error('Recording start failed:', error);
+        }
+    } else {
+        btn.classList.remove('recording');
+        label.textContent = 'Start Recording';
+        status.textContent = 'Not recording';
+        status.classList.remove('active');
+        
+        try {
+            await fetch('/api/training/record/stop', { method: 'POST' });
+        } catch (error) {
+            console.error('Recording stop failed:', error);
+        }
+    }
+}
+
+// Initialize camera on click
+document.getElementById('camera-feed').addEventListener('click', startCameraStream);
+{% endblock %}
+

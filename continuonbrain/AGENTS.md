@@ -2,6 +2,47 @@
 
 Scope: `continuonbrain/`.
 
+## Service Architecture (Single Entry Point)
+
+The `startup_manager.py` is the **canonical entry point** for all ContinuonBrain services. Do not start `api/server.py` directly.
+
+### Starting Services
+
+```bash
+# Recommended: via shell script
+./scripts/start_services.sh start --mode desktop|rpi
+
+# Or via systemd (production)
+systemctl --user start continuonbrain.service
+
+# Or via Python module (redirects to startup_manager)
+python -m continuonbrain --config-dir /path/to/config --port 8081
+```
+
+### Service Hierarchy
+
+```
+startup_manager (PID parent)
+├── safety_kernel (Ring 0 - always first)
+├── api.server (HTTP/JSON API, Web UI, RCAN protocol)
+├── training_report_daemon (optional, background)
+└── wavecore_trainer (optional, JAX training)
+```
+
+### Key Files
+- `startup_manager.py` - Unified service orchestration
+- `api/server.py` - HTTP API server (started by startup_manager)
+- `scripts/start_services.sh` - Shell launcher for systemd integration
+- `~/.config/systemd/user/continuonbrain.service` - systemd user service
+
+### Environment Variables
+- `CONTINUON_ALLOW_DIRECT_SERVER=1` - Bypass warning when starting api/server.py directly (not recommended)
+- `CONTINUON_HEADLESS=1` - Disable UI auto-launch (default on ARM/Pi)
+- `CONTINUON_FORCE_MOCK_HARDWARE=1` - Use mock hardware (default on desktop)
+- `CONTINUON_FORCE_REAL_HARDWARE=1` - Use real hardware (default on Pi)
+
+---
+
 - The Continuon Brain runtime and scaffolding are now co-located in this monorepo. Keep docs clear about what is production-ready versus staged scaffolding so downstream consumers can promote pieces confidently.
 - Prefer small, dependency-light utilities. Avoid adding heavy ML packages beyond what the trainer stubs already expect; keep optional imports guarded so Pi/Jetson environments can still import modules.
 - Maintain alignment with RLDS inputs/outputs: update comments/examples when changing schema expectations, and keep sample manifests/configs consistent with the trainer defaults.

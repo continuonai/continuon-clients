@@ -20,7 +20,6 @@ else:
 
 # Initialize Blueprint
 ui_bp = Blueprint('ui', __name__)
-print("DEBUG: Loading ui_routes.py with Jinja2 templates")
 
 # Template Directory
 # Templates are in continuonbrain/server/templates/
@@ -69,14 +68,12 @@ def api_explorer():
 # These are called directly by server.py's BaseHTTPRequestHandler
 
 def get_home_html() -> str:
-    print(f"DEBUG: get_home_html called. TEMPLATE_DIR={TEMPLATE_DIR}")
-    content = render_template("ui.html", active_page="home")
-    print(f"DEBUG: Rendered content length: {len(content)}")
-    print(f"DEBUG: Content snippet: {content[:100]}")
-    return content
+    """Legacy route - now serves v2 dashboard."""
+    return get_v2_dashboard_html()
 
 def get_safety_html() -> str:
-    return render_template("safety.html", active_page="safety")
+    """Legacy route - now serves v2 safety center."""
+    return get_v2_safety_html()
 
 def get_tasks_html() -> str:
     return render_template("tasks.html", active_page="tasks")
@@ -91,27 +88,32 @@ def get_api_explorer_html() -> str:
     return render_template("api_explorer.html", active_page="api_explorer")
 
 def get_training_html() -> str:
-    return render_template("training.html", active_page="training")
+    """Legacy route - now serves v2 training hub."""
+    return get_v2_training_html()
 
 def get_training_proof_html() -> str:
     return render_template("training_proof.html", active_page="training_proof")
 
-# Legacy/Placeholder routes (mapped to new UI or kept as is)
+# Legacy/Placeholder routes - all now use v2
 def get_status_html() -> str:
-    return get_home_html()
+    """Legacy route - now serves v2 dashboard."""
+    return get_v2_dashboard_html()
 
 def get_dashboard_html() -> str:
-    return get_home_html()
+    """Legacy route - now serves v2 dashboard."""
+    return get_v2_dashboard_html()
 
 def get_chat_html() -> str:
-    # Chat is now an overlay/sidebar in base.html, but if a direct link is needed:
-    return get_home_html() 
+    """Legacy route - chat is now in agent rail."""
+    return get_v2_dashboard_html() 
 
 def get_settings_html() -> str:
+    """Settings page - uses existing template."""
     return render_template("settings.html", active_page="settings")
 
 def get_manual_html() -> str:
-    return render_template("control.html", active_page="manual") # Assuming control.html exists
+    """Legacy route - now serves v2 control center."""
+    return get_v2_control_html()
 
 def get_brain_map_html() -> str:
     return render_template("wiring.html", active_page="wiring") # Assuming wiring.html exists
@@ -132,3 +134,37 @@ def get_hope_stability_html() -> str:
 
 def get_hope_training_html() -> str:
     return render_template("hope.html", active_page="hope", hope_section="training")
+
+# ============================================
+# V2 UI - Command Center Style
+# ============================================
+
+def get_v2_dashboard_html() -> str:
+    """New dashboard with live metrics and RCAN status."""
+    return render_template("dashboard_v2.html", active_page="dashboard")
+
+def get_v2_control_html() -> str:
+    """Control center with camera feed and manual controls."""
+    return render_template("control_v2.html", active_page="control")
+
+def get_v2_training_html() -> str:
+    """Training hub with pipeline viz and teacher mode."""
+    return render_template("training_v2.html", active_page="training")
+
+def get_v2_safety_html() -> str:
+    """Safety center with Ring 0 status and work authorization."""
+    return render_template("safety_v2.html", active_page="safety")
+
+def get_v2_network_html() -> str:
+    """Network & RCAN page with WiFi/BT managers."""
+    return render_template("network_v2.html", active_page="network")
+
+def get_v2_agent_html() -> str:
+    """Agent intelligence page with chat and knowledge map."""
+    # Falls back to dashboard since agent rail is always visible
+    return render_template("dashboard_v2.html", active_page="agent")
+
+def get_v2_settings_html() -> str:
+    """Settings page in v2 style."""
+    # Reuse existing settings for now, can be upgraded later
+    return render_template("settings.html", active_page="settings")

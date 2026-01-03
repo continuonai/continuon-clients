@@ -15,9 +15,13 @@ from typing import Any, Dict
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "identity": {
-        # Human-readable, non-biometric label used for creator alignment in prompts and UI.
-        # Example: "Craig Michael Merry"
+        # Robot's display name (editable by owner)
+        "robot_name": "ContinuonBot",
+        # Human-readable, non-biometric label for the creator (not editable).
+        # This is hardcoded and represents the creator of the Continuon project.
         "creator_display_name": "Craig Michael Merry",
+        # Creator name is immutable - system enforced
+        "_creator_immutable": True,
     },
     "safety": {
         "allow_motion": True,
@@ -126,12 +130,19 @@ class SettingsStore:
         normalized = self._defaults()
 
         identity = payload.get("identity", {}) if isinstance(payload, dict) else {}
-        creator = identity.get("creator_display_name", normalized["identity"]["creator_display_name"])
-        creator_str = str(creator or "").strip()
-        if len(creator_str) > 80:
-            errors.append("Creator display name must be <= 80 characters")
-        else:
-            normalized["identity"]["creator_display_name"] = creator_str
+        
+        # Robot name is editable by owner
+        robot_name = identity.get("robot_name", normalized["identity"]["robot_name"])
+        robot_name_str = str(robot_name or "").strip()
+        if len(robot_name_str) > 50:
+            errors.append("Robot name must be <= 50 characters")
+        elif robot_name_str:
+            normalized["identity"]["robot_name"] = robot_name_str
+        
+        # Creator display name is IMMUTABLE - always use hardcoded default
+        # This represents "Craig Michael Merry" and cannot be changed
+        normalized["identity"]["creator_display_name"] = DEFAULT_SETTINGS["identity"]["creator_display_name"]
+        normalized["identity"]["_creator_immutable"] = True
 
         safety = payload.get("safety", {}) if isinstance(payload, dict) else {}
         normalized["safety"]["allow_motion"] = bool(

@@ -1,0 +1,827 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Network & RCAN - Continuon Brain{% endblock %}
+
+{% block extra_styles %}
+/* Network page styles */
+.network-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.network-full {
+    grid-column: 1 / -1;
+}
+
+/* RCAN Identity */
+.rcan-identity-panel {
+    background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(99, 102, 241, 0.08) 100%);
+    border: 1px solid var(--accent-primary);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.rcan-identity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.rcan-identity-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rcan-identity-title h2 {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.rcan-protocol-badge {
+    padding: 4px 12px;
+    background: var(--accent-primary);
+    color: white;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.rcan-ruri-display {
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rcan-ruri-text {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    flex: 1;
+    word-break: break-all;
+}
+
+.copy-btn {
+    padding: 8px 12px;
+    background: var(--bg-glass);
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.copy-btn:hover {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.rcan-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.rcan-info-item {
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.rcan-info-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.rcan-info-value {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Active Sessions */
+.sessions-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.sessions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.sessions-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.sessions-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.session-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.session-item:last-child {
+    border-bottom: none;
+}
+
+.session-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.session-avatar.creator { background: rgba(168, 85, 247, 0.15); }
+.session-avatar.owner { background: var(--accent-primary-dim); }
+.session-avatar.user { background: rgba(59, 130, 246, 0.15); }
+.session-avatar.guest { background: var(--bg-elevated); }
+
+.session-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.session-name {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.session-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.session-role {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.session-role.creator { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+.session-role.owner { background: var(--accent-primary-dim); color: var(--accent-primary); }
+.session-role.user { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.session-role.guest { background: var(--bg-elevated); color: var(--text-muted); }
+
+/* Ownership Panel */
+.ownership-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.ownership-header {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.owner-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: var(--bg-elevated);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.owner-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.owner-info {
+    flex: 1;
+}
+
+.owner-name {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.owner-email {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.ownership-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.ownership-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.ownership-btn:hover {
+    background: var(--bg-glass-hover);
+}
+
+/* WiFi Manager */
+.wifi-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.wifi-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.wifi-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.wifi-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.wifi-status-dot.connected { background: var(--accent-success); }
+.wifi-status-dot.disconnected { background: var(--accent-danger); }
+
+.scan-btn {
+    padding: 8px 16px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.scan-btn:hover {
+    background: var(--bg-glass-hover);
+}
+
+.wifi-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.wifi-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: background var(--duration-fast);
+}
+
+.wifi-item:hover {
+    background: var(--bg-glass);
+}
+
+.wifi-item:last-child {
+    border-bottom: none;
+}
+
+.wifi-item.connected {
+    background: var(--accent-success-dim);
+}
+
+.wifi-icon {
+    font-size: 20px;
+}
+
+.wifi-info {
+    flex: 1;
+}
+
+.wifi-ssid {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.wifi-security {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.wifi-signal {
+    display: flex;
+    gap: 2px;
+}
+
+.wifi-bar {
+    width: 4px;
+    background: var(--text-muted);
+    border-radius: 2px;
+}
+
+.wifi-bar.active { background: var(--accent-success); }
+.wifi-bar:nth-child(1) { height: 6px; }
+.wifi-bar:nth-child(2) { height: 10px; }
+.wifi-bar:nth-child(3) { height: 14px; }
+.wifi-bar:nth-child(4) { height: 18px; }
+
+/* Bluetooth */
+.bt-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.bt-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.bt-item:last-child {
+    border-bottom: none;
+}
+
+.bt-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--bg-elevated);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.bt-info {
+    flex: 1;
+}
+
+.bt-name {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.bt-type {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.bt-status {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.bt-status.paired {
+    background: var(--accent-success-dim);
+    color: var(--accent-success);
+}
+
+.bt-status.available {
+    background: var(--bg-glass);
+    color: var(--text-muted);
+}
+
+/* Pairing QR */
+.pairing-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+
+.pairing-qr {
+    width: 160px;
+    height: 160px;
+    background: white;
+    border-radius: 8px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pairing-qr img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.pairing-code {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+}
+
+.pairing-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+    .network-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .rcan-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Network & RCAN</h1>
+    <p class="page-subtitle">Robot identity, connectivity, and session management</p>
+</div>
+
+<!-- RCAN Identity -->
+<div class="rcan-identity-panel network-full">
+    <div class="rcan-identity-header">
+        <div class="rcan-identity-title">
+            <h2>📡 RCAN Identity</h2>
+            <span class="rcan-protocol-badge">Protocol v1.0</span>
+        </div>
+    </div>
+    <div class="rcan-ruri-display">
+        <span class="rcan-ruri-text" id="rcan-ruri">rcan://continuon.cloud/continuon/companion-v1/loading...</span>
+        <button class="copy-btn" onclick="copyRuri()">📋 Copy</button>
+    </div>
+    <div class="rcan-info-grid">
+        <div class="rcan-info-item">
+            <div class="rcan-info-label">Registry</div>
+            <div class="rcan-info-value" id="rcan-registry">continuon.cloud</div>
+        </div>
+        <div class="rcan-info-item">
+            <div class="rcan-info-label">Model</div>
+            <div class="rcan-info-value" id="rcan-model">companion-v1</div>
+        </div>
+        <div class="rcan-info-item">
+            <div class="rcan-info-label">Status</div>
+            <div class="rcan-info-value" id="rcan-status" style="color: var(--accent-success);">● Online</div>
+        </div>
+        <div class="rcan-info-item">
+            <div class="rcan-info-label">mDNS</div>
+            <div class="rcan-info-value" id="rcan-mdns">_rcan._tcp.local</div>
+        </div>
+    </div>
+</div>
+
+<div class="network-layout">
+    <!-- Active Sessions -->
+    <div class="sessions-panel">
+        <div class="sessions-header">
+            <span class="sessions-title">👥 Active Sessions</span>
+            <span class="section-badge" id="session-count">0 active</span>
+        </div>
+        <div class="sessions-list" id="sessions-list">
+            <div class="session-item">
+                <div class="session-avatar guest">👤</div>
+                <div class="session-info">
+                    <div class="session-name">No active sessions</div>
+                    <div class="session-meta">Connect via ContinuonAI app</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ownership -->
+    <div class="ownership-panel">
+        <div class="ownership-header">👑 Ownership</div>
+        <div class="owner-card" id="owner-card">
+            <div class="owner-avatar">👤</div>
+            <div class="owner-info">
+                <div class="owner-name" id="owner-name">Not claimed</div>
+                <div class="owner-email" id="owner-email">This robot has no owner</div>
+            </div>
+        </div>
+        <div class="ownership-actions">
+            <button class="ownership-btn" onclick="claimRobot()">🔑 Claim</button>
+            <button class="ownership-btn" onclick="transferOwnership()">🔄 Transfer</button>
+        </div>
+    </div>
+    
+    <!-- WiFi -->
+    <div class="wifi-panel">
+        <div class="wifi-header">
+            <span class="sessions-title">📶 WiFi Networks</span>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="wifi-status">
+                    <span class="wifi-status-dot" id="wifi-dot"></span>
+                    <span id="wifi-status-text">Checking...</span>
+                </div>
+                <button class="scan-btn" onclick="scanWifi()">🔄 Scan</button>
+            </div>
+        </div>
+        <div class="wifi-list" id="wifi-list">
+            <div class="wifi-item">
+                <span class="wifi-icon">📶</span>
+                <div class="wifi-info">
+                    <div class="wifi-ssid">Scanning...</div>
+                    <div class="wifi-security">Please wait</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bluetooth -->
+    <div class="bt-panel">
+        <div class="wifi-header">
+            <span class="sessions-title">🔵 Bluetooth Devices</span>
+            <button class="scan-btn" onclick="scanBluetooth()">🔄 Scan</button>
+        </div>
+        <div id="bt-list">
+            <div class="bt-item">
+                <div class="bt-icon">🔵</div>
+                <div class="bt-info">
+                    <div class="bt-name">No devices found</div>
+                    <div class="bt-type">Scan to discover devices</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pairing QR -->
+    <div class="pairing-panel">
+        <div class="ownership-header" style="justify-content: center;">📱 Pair ContinuonAI App</div>
+        <div class="pairing-qr" id="pairing-qr">
+            <img src="/api/ownership/pair/qr" alt="Pairing QR Code" onerror="this.parentElement.innerHTML='QR Loading...'">
+        </div>
+        <div class="pairing-code" id="pairing-code">------</div>
+        <div class="pairing-hint">Scan QR or enter code in the ContinuonAI app</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+// Network page logic
+async function fetchRCANStatus() {
+    try {
+        const response = await fetch('/rcan/v1/status');
+        const data = await response.json();
+        updateRCANUI(data);
+    } catch (error) {
+        console.error('RCAN status fetch failed:', error);
+    }
+}
+
+function updateRCANUI(data) {
+    if (data.ruri) {
+        document.getElementById('rcan-ruri').textContent = data.ruri;
+    }
+    
+    if (data.discovery) {
+        const d = data.discovery;
+        document.getElementById('rcan-registry').textContent = d.registry || 'continuon.cloud';
+        document.getElementById('rcan-model').textContent = d.model || 'companion-v1';
+    }
+    
+    const status = document.getElementById('rcan-status');
+    status.innerHTML = data.status === 'active' ? 
+        '<span style="color: var(--accent-success);">● Online</span>' : 
+        '<span style="color: var(--accent-danger);">● Offline</span>';
+    
+    // Sessions
+    if (data.active_sessions !== undefined) {
+        document.getElementById('session-count').textContent = `${data.active_sessions} active`;
+    }
+}
+
+async function fetchOwnershipStatus() {
+    try {
+        const response = await fetch('/api/ownership/status');
+        const data = await response.json();
+        updateOwnershipUI(data);
+    } catch (error) {
+        console.error('Ownership status fetch failed:', error);
+    }
+}
+
+function updateOwnershipUI(data) {
+    if (data.owner) {
+        document.getElementById('owner-name').textContent = data.owner.name || data.owner.display_name || 'Unknown';
+        document.getElementById('owner-email').textContent = data.owner.email || 'No email';
+    } else {
+        document.getElementById('owner-name').textContent = 'Not claimed';
+        document.getElementById('owner-email').textContent = 'This robot has no owner';
+    }
+    
+    if (data.pairing_code) {
+        document.getElementById('pairing-code').textContent = data.pairing_code;
+    }
+}
+
+async function fetchWifiStatus() {
+    try {
+        const response = await fetch('/api/network/wifi/status');
+        const data = await response.json();
+        updateWifiStatus(data);
+    } catch (error) {
+        console.error('WiFi status fetch failed:', error);
+    }
+}
+
+function updateWifiStatus(data) {
+    const dot = document.getElementById('wifi-dot');
+    const text = document.getElementById('wifi-status-text');
+    
+    if (data.connected) {
+        dot.className = 'wifi-status-dot connected';
+        text.textContent = data.ssid || 'Connected';
+    } else {
+        dot.className = 'wifi-status-dot disconnected';
+        text.textContent = 'Not connected';
+    }
+}
+
+async function scanWifi() {
+    try {
+        document.getElementById('wifi-list').innerHTML = '<div class="wifi-item"><span class="wifi-icon">🔄</span><div class="wifi-info"><div class="wifi-ssid">Scanning...</div></div></div>';
+        
+        const response = await fetch('/api/network/wifi/scan', { method: 'POST' });
+        const data = await response.json();
+        updateWifiList(data.networks || []);
+    } catch (error) {
+        console.error('WiFi scan failed:', error);
+    }
+}
+
+function updateWifiList(networks) {
+    const list = document.getElementById('wifi-list');
+    
+    if (networks.length === 0) {
+        list.innerHTML = '<div class="wifi-item"><span class="wifi-icon">📶</span><div class="wifi-info"><div class="wifi-ssid">No networks found</div></div></div>';
+        return;
+    }
+    
+    list.innerHTML = networks.map(n => {
+        const signal = Math.min(4, Math.max(1, Math.ceil((n.signal || -70 + 100) / 25)));
+        const bars = Array(4).fill(0).map((_, i) => 
+            `<div class="wifi-bar ${i < signal ? 'active' : ''}"></div>`
+        ).join('');
+        
+        return `
+            <div class="wifi-item ${n.connected ? 'connected' : ''}" onclick="connectWifi('${n.ssid}')">
+                <span class="wifi-icon">${n.secure ? '🔒' : '📶'}</span>
+                <div class="wifi-info">
+                    <div class="wifi-ssid">${escapeHtml(n.ssid)}</div>
+                    <div class="wifi-security">${n.security || 'Open'}</div>
+                </div>
+                <div class="wifi-signal">${bars}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function connectWifi(ssid) {
+    const password = prompt(`Enter password for "${ssid}":`);
+    if (password === null) return;
+    
+    try {
+        await fetch('/api/network/wifi/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ssid, password })
+        });
+        alert('Connecting to ' + ssid + '...');
+        setTimeout(fetchWifiStatus, 3000);
+    } catch (error) {
+        alert('Connection failed: ' + error.message);
+    }
+}
+
+async function scanBluetooth() {
+    try {
+        document.getElementById('bt-list').innerHTML = '<div class="bt-item"><div class="bt-icon">🔄</div><div class="bt-info"><div class="bt-name">Scanning...</div></div></div>';
+        
+        const response = await fetch('/api/network/bluetooth/scan', { method: 'POST' });
+        const data = await response.json();
+        updateBluetoothList(data.devices || []);
+    } catch (error) {
+        console.error('Bluetooth scan failed:', error);
+    }
+}
+
+function updateBluetoothList(devices) {
+    const list = document.getElementById('bt-list');
+    
+    if (devices.length === 0) {
+        list.innerHTML = '<div class="bt-item"><div class="bt-icon">🔵</div><div class="bt-info"><div class="bt-name">No devices found</div></div></div>';
+        return;
+    }
+    
+    list.innerHTML = devices.map(d => `
+        <div class="bt-item" onclick="connectBluetooth('${d.address}')">
+            <div class="bt-icon">${d.type === 'phone' ? '📱' : d.type === 'audio' ? '🎧' : '🔵'}</div>
+            <div class="bt-info">
+                <div class="bt-name">${escapeHtml(d.name || 'Unknown')}</div>
+                <div class="bt-type">${d.type || 'Device'}</div>
+            </div>
+            <span class="bt-status ${d.paired ? 'paired' : 'available'}">${d.paired ? 'Paired' : 'Available'}</span>
+        </div>
+    `).join('');
+}
+
+async function connectBluetooth(address) {
+    try {
+        await fetch('/api/network/bluetooth/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address })
+        });
+        alert('Pairing...');
+        setTimeout(scanBluetooth, 2000);
+    } catch (error) {
+        alert('Pairing failed: ' + error.message);
+    }
+}
+
+function copyRuri() {
+    const ruri = document.getElementById('rcan-ruri').textContent;
+    navigator.clipboard.writeText(ruri).then(() => {
+        alert('RURI copied to clipboard!');
+    });
+}
+
+async function claimRobot() {
+    window.location.href = '/pair';
+}
+
+async function transferOwnership() {
+    const email = prompt('Enter email of new owner:');
+    if (!email) return;
+    
+    try {
+        await fetch('/api/ownership/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ new_owner_email: email })
+        });
+        alert('Transfer initiated. New owner will receive confirmation.');
+    } catch (error) {
+        alert('Transfer failed: ' + error.message);
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    fetchRCANStatus();
+    fetchOwnershipStatus();
+    fetchWifiStatus();
+    setInterval(fetchRCANStatus, 5000);
+});
+{% endblock %}
+

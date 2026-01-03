@@ -204,13 +204,15 @@ def _build_discovery_payload(handler) -> dict:
         except Exception:
             pass
     
-    # Load robot name from settings
+    # Load robot name and creator from settings
     robot_name = "ContinuonBot"
+    creator_name = "Craig Michael Merry"  # Immutable
     try:
         settings_store = SettingsStore(Path(brain_service.config_dir))
         settings = settings_store.load()
         identity = settings.get("identity", {}) or {}
-        robot_name = identity.get("creator_display_name") or identity.get("robot_name") or robot_name
+        robot_name = identity.get("robot_name") or robot_name
+        creator_name = identity.get("creator_display_name") or creator_name
     except Exception:
         pass
     
@@ -250,6 +252,7 @@ def _build_discovery_payload(handler) -> dict:
         "product": "continuon_brain_runtime",
         "device_id": device_id,
         "robot_name": robot_name,
+        "creator_name": creator_name,  # Immutable - Craig Michael Merry
         "version": "0.1.0",
         "capabilities": [
             "arm_control",
@@ -566,19 +569,18 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
         self.end_headers()
 
     def do_GET(self):
-        print(f"DEBUG: do_GET called for path: {self.path}")
         try:
             if self.path in ("/", "/ui", "/ui/"):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_home_html().encode("utf-8"))
+                self.wfile.write(ui_routes.get_v2_dashboard_html().encode("utf-8"))
 
             elif self.path in ("/safety", "/safety/"):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_safety_html().encode("utf-8"))
+                self.wfile.write(ui_routes.get_v2_safety_html().encode("utf-8"))
 
             elif self.path in ("/tasks", "/tasks/"):
                 self.send_response(200)
@@ -608,7 +610,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_training_html().encode("utf-8"))
+                self.wfile.write(ui_routes.get_v2_training_html().encode("utf-8"))
             
             elif self.path in ("/training_proof", "/training_proof/"):
                 self.send_response(200)
@@ -642,7 +644,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_dashboard_html().encode("utf-8"))
+                self.wfile.write(ui_routes.get_v2_dashboard_html().encode("utf-8"))
 
             elif self.path == "/ui/chat":
                 self.send_response(200)
@@ -666,7 +668,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_manual_html().encode("utf-8"))
+                self.wfile.write(ui_routes.get_v2_control_html().encode("utf-8"))
 
             elif self.path == "/ui/tasks":
                 self.send_response(200)
@@ -741,6 +743,51 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.end_headers()
                 with open(REPO_ROOT / "continuonbrain/server/templates/research.html", "rb") as f:
                     self.wfile.write(f.read())
+
+            # ============================================
+            # V2 UI - Command Center Style Routes
+            # ============================================
+            elif self.path in ("/v2", "/v2/", "/v2/dashboard"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_dashboard_html().encode("utf-8"))
+            
+            elif self.path == "/v2/control":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_control_html().encode("utf-8"))
+            
+            elif self.path == "/v2/training":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_training_html().encode("utf-8"))
+            
+            elif self.path == "/v2/safety":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_safety_html().encode("utf-8"))
+            
+            elif self.path == "/v2/network":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_network_html().encode("utf-8"))
+            
+            elif self.path == "/v2/agent":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_agent_html().encode("utf-8"))
+            
+            elif self.path == "/v2/settings":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_settings_html().encode("utf-8"))
 
             elif self.path in ("/api/events", "/api/chat/events"):
                 self.send_response(200)
@@ -1211,6 +1258,17 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 store = SettingsStore(Path(brain_service.config_dir))
                 self.send_json({"success": True, "settings": store.load()})
             
+            elif self.path == "/api/robot/name":
+                # Get current robot name and creator (creator is immutable)
+                store = SettingsStore(Path(brain_service.config_dir))
+                settings = store.load()
+                identity = settings.get("identity", {})
+                self.send_json({
+                    "robot_name": identity.get("robot_name", "ContinuonBot"),
+                    "creator_name": identity.get("creator_display_name", "Craig Michael Merry"),
+                    "creator_immutable": True,
+                })
+            
             elif self.path == "/api/resources":
                 if brain_service.resource_monitor:
                     self.send_json(brain_service.resource_monitor.get_status_summary())
@@ -1566,6 +1624,31 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             
             elif self.path == "/api/robot/joints":
                 self.handle_joints(body)
+            
+            elif self.path == "/api/robot/name":
+                # Update robot name (only owners can do this)
+                # Note: creator_display_name is IMMUTABLE
+                data = json.loads(body) if body else {}
+                new_name = data.get("robot_name", "").strip()
+                
+                if not new_name:
+                    self.send_json({"success": False, "error": "Robot name cannot be empty"}, status=400)
+                elif len(new_name) > 50:
+                    self.send_json({"success": False, "error": "Robot name must be <= 50 characters"}, status=400)
+                else:
+                    store = SettingsStore(Path(brain_service.config_dir))
+                    settings = store.load()
+                    settings["identity"]["robot_name"] = new_name
+                    # Ensure creator_display_name stays immutable
+                    settings["identity"]["creator_display_name"] = "Craig Michael Merry"
+                    settings["identity"]["_creator_immutable"] = True
+                    store.save(settings)
+                    self.send_json({
+                        "success": True,
+                        "robot_name": new_name,
+                        "creator_name": "Craig Michael Merry",
+                        "message": "Robot name updated"
+                    })
             
             elif self.path == "/api/settings":
                 data = json.loads(body) if body else {}
@@ -2236,9 +2319,56 @@ def launch_ui_if_desktop(port: int):
         logger.warning(f"Failed to launch UI browser: {exc}")
 
 def main():
+    """
+    Main entry point for the Brain API server.
+    
+    NOTE: This server should be started via the startup_manager, not directly.
+    The startup_manager handles:
+    - Proper service orchestration (safety kernel, API server, etc.)
+    - Process monitoring and restart on failure
+    - Unified logging and configuration
+    - systemd integration for production deployments
+    
+    To start services properly, use:
+        ./scripts/start_services.sh start --mode desktop|rpi
+    
+    Or via systemd:
+        systemctl --user start continuonbrain.service
+    """
     global brain_service, identity_service, event_logger, background_learner
     
-    parser = argparse.ArgumentParser()
+    # Check if started via startup_manager
+    parent_cmdline = ""
+    try:
+        import psutil
+        parent = psutil.Process().parent()
+        if parent:
+            parent_cmdline = " ".join(parent.cmdline())
+    except Exception:
+        pass
+    
+    is_via_startup_manager = "startup_manager" in parent_cmdline
+    
+    if not is_via_startup_manager and not os.environ.get("CONTINUON_ALLOW_DIRECT_SERVER"):
+        print("=" * 70)
+        print("⚠️  WARNING: Direct server invocation detected!")
+        print("=" * 70)
+        print("")
+        print("The Brain API server should be started via the startup_manager")
+        print("to ensure proper service orchestration and process management.")
+        print("")
+        print("Recommended ways to start:")
+        print("  1. ./scripts/start_services.sh start --mode desktop")
+        print("  2. systemctl --user start continuonbrain.service")
+        print("")
+        print("To bypass this warning, set CONTINUON_ALLOW_DIRECT_SERVER=1")
+        print("")
+        print("Continuing with direct startup...")
+        print("=" * 70)
+    
+    parser = argparse.ArgumentParser(
+        description="ContinuonBrain API Server (prefer startup via startup_manager)"
+    )
     parser.add_argument("--config-dir", default="/tmp/continuonbrain_demo")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--real-hardware", action="store_true", help="Prefer real hardware")
