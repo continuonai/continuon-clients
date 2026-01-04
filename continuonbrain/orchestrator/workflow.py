@@ -131,6 +131,8 @@ class Workflow:
         dependencies: List[str] = None,
         condition: Callable[[Dict[str, Any]], bool] = None,
         timeout_sec: int = None,
+        retry_on_failure: bool = True,
+        max_retries: int = 3,
     ) -> WorkflowStep:
         """Add a step to the workflow."""
         step = WorkflowStep(
@@ -140,6 +142,8 @@ class Workflow:
             dependencies=dependencies or [],
             condition=condition,
             timeout_sec=timeout_sec,
+            retry_on_failure=retry_on_failure,
+            max_retries=max_retries,
         )
         self.steps.append(step)
         return step
@@ -513,6 +517,83 @@ def create_inference_benchmark_workflow() -> Workflow:
         task_type=TaskType.INFERENCE_TEST,
         params={},
         dependencies=["benchmark"],
+    )
+
+    return workflow
+
+
+def create_full_development_pipeline() -> Workflow:
+    """Create a comprehensive development pipeline for brain training and deployment."""
+    workflow = Workflow(name="full_development_pipeline")
+
+    # Phase 1: System Preparation
+    workflow.add_step(
+        name="health_check",
+        task_type=TaskType.HEALTH_CHECK,
+        params={"check_gpu": True, "check_memory": True},
+    )
+
+    # Phase 2: Data Pipeline
+    workflow.add_step(
+        name="load_data",
+        task_type=TaskType.LOAD_DATA,
+        params={"source": "rlds_episodes"},
+        dependencies=["health_check"],
+    )
+
+    workflow.add_step(
+        name="preprocess",
+        task_type=TaskType.PREPROCESS,
+        params={"normalize": True, "augment": True},
+        dependencies=["load_data"],
+    )
+
+    # Phase 3: Training
+    workflow.add_step(
+        name="train",
+        task_type=TaskType.TRAIN,
+        params={"max_steps": 100, "batch_size": 4, "learning_rate": 1e-3},
+        dependencies=["preprocess"],
+        timeout_sec=3600,
+        retry_on_failure=True,
+    )
+
+    # Phase 4: Validation & Benchmarking
+    workflow.add_step(
+        name="validate",
+        task_type=TaskType.VALIDATE,
+        params={"metrics": ["loss", "accuracy", "latency"]},
+        dependencies=["train"],
+    )
+
+    workflow.add_step(
+        name="benchmark",
+        task_type=TaskType.BENCHMARK,
+        params={"iterations": 100, "warmup": 10},
+        dependencies=["validate"],
+    )
+
+    # Phase 5: Deployment Preparation
+    workflow.add_step(
+        name="checkpoint",
+        task_type=TaskType.CHECKPOINT,
+        params={"format": "safetensors", "include_optimizer": False},
+        dependencies=["benchmark"],
+    )
+
+    workflow.add_step(
+        name="export_model",
+        task_type=TaskType.EXPORT_MODEL,
+        params={"target": "inference", "optimize": True},
+        dependencies=["checkpoint"],
+    )
+
+    # Phase 6: Cleanup
+    workflow.add_step(
+        name="cleanup",
+        task_type=TaskType.CLEANUP,
+        params={"remove_temp_files": True, "keep_logs": True},
+        dependencies=["export_model"],
     )
 
     return workflow

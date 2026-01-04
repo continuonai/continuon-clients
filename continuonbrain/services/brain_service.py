@@ -581,11 +581,9 @@ class BrainService:
         if owner_id is not None:
             self.owner_id = owner_id
         self._persist_ownership()
-        self._persist_ownership()
 
-        # Cloud Relay (Internet Access)
-        self.cloud_relay = CloudRelay(config_dir, self.device_id)
-        self.cloud_relay.start(self)
+        # Ensure Cloud Relay is running (for remote internet access)
+        self._start_cloud_relay()
 
     def _persist_ownership(self):
         try:
@@ -642,9 +640,26 @@ class BrainService:
                 logger.info("Loaded personality from settings")
                 
             logger.info(f"Loaded agent settings: {self.agent_settings}")
+
+            # Start Cloud Relay if credentials exist (for remote internet access)
+            self._start_cloud_relay()
         except Exception as e:
             logger.error(f"Failed to load settings: {e}")
             self.agent_settings = {}
+            # Still try to start CloudRelay even if settings failed
+            self._start_cloud_relay()
+
+    def _start_cloud_relay(self):
+        """Start CloudRelay for remote internet access if credentials exist."""
+        try:
+            if not hasattr(self, 'cloud_relay') or self.cloud_relay is None:
+                self.cloud_relay = CloudRelay(self.config_dir, self.device_id)
+                self.cloud_relay.start(self)
+                if self.cloud_relay.enabled:
+                    logger.info("☁️ Cloud Relay started for remote internet access")
+        except Exception as e:
+            logger.warning(f"Cloud Relay failed to start: {e}")
+            self.cloud_relay = None
 
     def ChatWithGemma(self, message: str, history: list, session_id: str = None) -> dict:
         """

@@ -120,15 +120,22 @@ class CloudRelay:
         
         try:
             if cmd_type == "set_mode":
-                mode = payload.get("mode")
-                if mode and self.brain_service.mode_manager:
-                    # Map string to enum or call api
-                    # We'll use the API route equivalent in ModeManager if publicly exposed
-                    # or just set it. 
-                    # Assuming set_mode accepts string name
-                    self.brain_service.mode_manager.set_mode(mode)
-                    success = True
-                    response = f"Mode set to {mode}"
+                mode_str = payload.get("mode")
+                if mode_str and self.brain_service.mode_manager:
+                    # Convert string to RobotMode enum
+                    from continuonbrain.robot_modes import RobotMode
+                    mode_map = {m.value: m for m in RobotMode}
+                    # Also support short names like "autonomous" -> AUTONOMOUS
+                    for m in RobotMode:
+                        mode_map[m.name.lower()] = m
+
+                    mode = mode_map.get(mode_str.lower())
+                    if mode:
+                        self.brain_service.mode_manager.set_mode(mode)
+                        success = True
+                        response = f"Mode set to {mode.value}"
+                    else:
+                        response = f"Unknown mode: {mode_str}. Available: {list(mode_map.keys())}"
                     
             elif cmd_type == "say":
                 text = payload.get("text")
