@@ -22,6 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _timer;
   Map<String, dynamic> _status = {};
   bool _loading = false;
+  bool _refreshing = false;
   bool _openingSettings = false;
   bool _showControls = false;
 
@@ -30,7 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _refreshStatus();
     _timer =
-        Timer.periodic(const Duration(seconds: 2), (_) => _refreshStatus());
+        Timer.periodic(const Duration(seconds: 5), (_) => _refreshStatus());
   }
 
   @override
@@ -43,6 +44,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final status = await widget.brainClient.getRobotStatus();
     if (mounted) {
       setState(() => _status = status);
+    }
+  }
+
+  /// Full refresh - fetches comprehensive status including chat and training
+  Future<void> _fullRefresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      final data = await widget.brainClient.refresh();
+      if (mounted) {
+        setState(() => _status = data);
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
     }
   }
 
@@ -126,6 +141,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Container(color: Theme.of(context).dividerColor, height: 1),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Refresh status',
+            onPressed: _refreshing ? null : _fullRefresh,
+            icon: _refreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+          ),
           IconButton(
             tooltip: 'Startup & flags (GET/POST /api/settings)',
             onPressed: _openingSettings ? null : _openStartupAndFlags,

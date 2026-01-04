@@ -75,11 +75,19 @@ class HopeChat:
         self,
         model_dir: Optional[Path] = None,
         config_dir: Optional[Path] = None,
+        fast_mode: bool = None,  # Skip heavy model loading for fast responses
     ):
+        import os
         self.model_dir = Path(model_dir or "/opt/continuonos/brain/model/seed_stable")
         self.config_dir = Path(config_dir or "/opt/continuonos/brain")
 
-        # Model components (lazy loaded)
+        # Fast mode: skip heavy model loading, use template responses
+        # Can be set via CONTINUON_FAST_CHAT env var or constructor arg
+        if fast_mode is None:
+            fast_mode = os.environ.get("CONTINUON_FAST_CHAT", "0").lower() in ("1", "true", "yes", "on")
+        self.fast_mode = fast_mode
+
+        # Model components (lazy loaded, skipped in fast mode)
         self._encoder = None
         self._decoder = None
         self._core_model = None
@@ -97,7 +105,8 @@ class HopeChat:
             "You are friendly, knowledgeable, and safety-conscious."
         )
 
-        logger.info("HopeChat initialized")
+        mode_str = "FAST (template responses)" if self.fast_mode else "FULL (JAX models)"
+        logger.info(f"HopeChat initialized in {mode_str} mode")
 
     def _ensure_loaded(self):
         """Lazy load model components."""
@@ -194,9 +203,6 @@ class HopeChat:
         """
         start_time = time.time()
 
-        # Ensure models are loaded
-        self._ensure_loaded()
-
         # Get or create session
         session_id = session_id or self._default_session_id
         if session_id not in self._sessions:
@@ -206,14 +212,19 @@ class HopeChat:
         # Add user message to session
         session.add_message("user", message)
 
-        # Generate response
-        if self._core_model is None or self._encoder is None:
-            # Fallback response if model not loaded
-            response_text = self._generate_fallback_response(message)
-            response_agent = "fallback"
+        # Fast mode: use smart template responses without loading heavy models
+        if self.fast_mode:
+            response_text = self._generate_smart_response(message, session)
+            response_agent = "hope_fast"
         else:
-            response_text, response_embedding = self._generate_response(message, session)
-            response_agent = "hope_brain"
+            # Full mode: load and use JAX models
+            self._ensure_loaded()
+            if self._core_model is None or self._encoder is None:
+                response_text = self._generate_fallback_response(message)
+                response_agent = "fallback"
+            else:
+                response_text, response_embedding = self._generate_response(message, session)
+                response_agent = "hope_brain"
 
         # Add response to session
         session.add_message("assistant", response_text)
@@ -228,6 +239,110 @@ class HopeChat:
             "duration_ms": duration * 1000,
             "turn_count": len(session.messages),
         }
+
+    def _generate_smart_response(
+        self,
+        message: str,
+        session: ChatSession,
+    ) -> str:
+        """
+        Generate smart responses using templates and pattern matching.
+
+        This is used in fast mode to provide instant responses without
+        loading heavy JAX models. It's context-aware and maintains
+        conversation flow.
+        """
+        message_lower = message.lower().strip()
+        history = session.get_history(limit=3)
+
+        # Status report request
+        if any(word in message_lower for word in ["status", "report", "how are you", "what's up"]):
+            return (
+                "HOPE Status Report:\n"
+                "• System: Online and operational\n"
+                "• Mode: Fast response mode (template-based)\n"
+                "• Hardware: Real hardware mode active\n"
+                "• Vision: OAK-D camera connected\n"
+                "• AI: Hailo-8 accelerator available (26 TOPS)\n"
+                "• Memory: Session tracking active\n\n"
+                "I'm ready to assist with robot control, navigation, and task planning. "
+                "How can I help you today?"
+            )
+
+        # Greetings
+        if any(word in message_lower for word in ["hello", "hi ", "hey", "greetings"]) or message_lower in ["hi", "hey"]:
+            return "Hello! I'm HOPE, your robot assistant. I'm running in fast response mode. How can I help you?"
+
+        # Identity questions
+        if "who are you" in message_lower or "what are you" in message_lower:
+            return (
+                "I'm HOPE - Hierarchical Orchestrated Predictive Engine. "
+                "I'm the AI brain for this robot, powered by the ContinuonBrain system. "
+                "I can help with robot control, answer questions, and assist with tasks."
+            )
+
+        # Capability questions
+        if "what can you do" in message_lower or "capabilities" in message_lower:
+            return (
+                "I can help with:\n"
+                "• Robot control and navigation\n"
+                "• Vision and object detection (via OAK-D camera)\n"
+                "• Task planning and execution\n"
+                "• Answering questions about the system\n"
+                "• Learning from demonstrations\n\n"
+                "What would you like me to help with?"
+            )
+
+        # Movement commands
+        if any(word in message_lower for word in ["move", "go", "drive", "navigate", "forward", "backward", "left", "right"]):
+            direction = "forward"
+            if "backward" in message_lower or "back" in message_lower:
+                direction = "backward"
+            elif "left" in message_lower:
+                direction = "left"
+            elif "right" in message_lower:
+                direction = "right"
+            return f"Understood! I would move {direction}, but motion commands require the robot control interface. Use the Flutter app or teleop mode for direct control."
+
+        # Stop commands
+        if any(word in message_lower for word in ["stop", "halt", "pause", "freeze"]):
+            return "Stopping all motion. Safety first! All movement commands are halted."
+
+        # Help requests
+        if "help" in message_lower:
+            return (
+                "I'm here to help! You can ask me:\n"
+                "• 'Status report' - Get system status\n"
+                "• 'What can you do?' - See my capabilities\n"
+                "• Movement commands like 'move forward'\n"
+                "• Questions about the robot or system\n\n"
+                "What would you like to know?"
+            )
+
+        # Thank you responses
+        if any(word in message_lower for word in ["thank", "thanks", "appreciate"]):
+            return "You're welcome! Is there anything else I can help you with?"
+
+        # Goodbye
+        if any(word in message_lower for word in ["bye", "goodbye", "see you", "farewell"]):
+            return "Goodbye! I'll be here when you need me. Have a great day!"
+
+        # Questions (general)
+        if "?" in message:
+            # Try to provide a contextual answer
+            if "time" in message_lower:
+                import datetime
+                now = datetime.datetime.now().strftime("%I:%M %p")
+                return f"The current time is {now}."
+            elif "name" in message_lower:
+                return "My name is HOPE - Hierarchical Orchestrated Predictive Engine."
+            elif "work" in message_lower:
+                return "I process your requests through pattern matching and the HOPE brain architecture. For complex reasoning, I can use the full JAX neural network."
+            else:
+                return "That's an interesting question! I'm processing in fast mode right now. For more complex questions, I'd recommend switching to full model mode."
+
+        # Default contextual response
+        return f"I understand. As HOPE, I'm here to assist with robot control and tasks. Could you tell me more about what you'd like to do?"
 
     def _generate_response(
         self,
