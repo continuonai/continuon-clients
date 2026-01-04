@@ -66,7 +66,126 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isCreator();
     }
-    
+
+    // ============================================
+    // RCAN Registry - Robot Cloud Registration
+    // ============================================
+    // Enables remote robot discovery via RCAN URIs
+    // Schema: /rcan_registry/{device_id}
+    // {
+    //   ruri: "rcan://continuon.cloud/continuon/companion-v1/14d4b680",
+    //   device_id: "14d4b680",
+    //   robot_name: "ContinuonBot",
+    //   owner_uid: "user-firebase-uid",
+    //   owner_email: "craigm26@gmail.com",
+    //   manufacturer: "continuon",
+    //   model: "companion-v1",
+    //   endpoint: {
+    //     lan_ip: "192.168.68.81",
+    //     lan_port: 8080,
+    //     tunnel_url: null,  // e.g., ngrok URL for remote access
+    //     last_ip: "public-ip"
+    //   },
+    //   capabilities: ["arm", "vision", "chat", "teleop", "training"],
+    //   status: "online" | "offline" | "sleeping",
+    //   last_heartbeat: timestamp,
+    //   registered_at: timestamp,
+    //   firmware_version: "0.1.0"
+    // }
+
+    match /rcan_registry/{deviceId} {
+      // Anyone signed in can lookup robots (for discovery)
+      allow read: if isSignedIn();
+
+      // Robots can register/update themselves if:
+      // 1. Creator is registering (bootstrap)
+      // 2. Owner matches the authenticated user
+      // 3. New registration with valid owner claim
+      allow create: if isSignedIn() && (
+        isCraig() ||
+        request.resource.data.owner_uid == request.auth.uid
+      );
+
+      allow update: if isSignedIn() && (
+        isCraig() ||
+        resource.data.owner_uid == request.auth.uid ||
+        // Allow heartbeat updates from robot service account
+        (request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['last_heartbeat', 'status', 'endpoint']))
+      );
+
+      allow delete: if isCraig() || resource.data.owner_uid == request.auth.uid;
+    }
+
+    // RCAN Lookup by RURI (for quick lookups)
+    // Schema: /rcan_lookup/{encoded_ruri} -> { device_id: "..." }
+    match /rcan_lookup/{ruriHash} {
+      allow read: if isSignedIn();
+      allow write: if isCreator();
+    }
+
+    // ============================================
+    // RLDS Episodes - Robot Learning Data
+    // ============================================
+    match /rlds_episodes/{episodeId} {
+      // Anyone signed in can read episodes (for training/analysis)
+      allow read: if isSignedIn();
+
+      // Cloud Functions can write (service account)
+      // Creators can manage all episodes
+      allow create, update: if isCreator();
+
+      // Only creator can delete
+      allow delete: if isCraig();
+    }
+
+    // ============================================
+    // Training Jobs - Colab Integration
+    // ============================================
+    match /training_jobs/{jobId} {
+      // Anyone signed in can read training jobs
+      allow read: if isSignedIn();
+
+      // Cloud Functions create jobs, Colab updates them
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+
+      // Only creator can delete
+      allow delete: if isCraig();
+    }
+
+    // ============================================
+    // OTA Bundles - Model Distribution
+    // ============================================
+    match /ota_bundles/{bundleId} {
+      // Anyone signed in can read bundles (for OTA checks)
+      allow read: if isSignedIn();
+
+      // Only creator can manage bundles
+      allow write: if isCreator();
+    }
+
+    // ============================================
+    // Remote Sessions - Robot Remote Access
+    // ============================================
+    match /remote_sessions/{sessionId} {
+      // Users can read their own sessions
+      allow read: if isSignedIn() && (
+        resource.data.user_uid == request.auth.uid || isCreator()
+      );
+
+      // Cloud Functions create sessions
+      allow create: if isSignedIn();
+
+      // Users can update their own session status
+      allow update: if isSignedIn() && (
+        resource.data.user_uid == request.auth.uid || isCreator()
+      );
+
+      // Auto-cleanup or creator delete
+      allow delete: if isCreator();
+    }
+
     // Default: Deny all others
     match /{document=**} {
       allow read, write: if false;

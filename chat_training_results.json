@@ -1,0 +1,181 @@
+{
+  "started_at": "2026-01-04T07:19:10.006932",
+  "episode_generation": {
+    "episodes_saved": 72,
+    "total_steps": 216,
+    "output_dir": "/opt/continuonos/brain/rlds/episodes"
+  },
+  "training": {
+    "cycles": 5,
+    "results": [
+      {
+        "cycle": 1,
+        "fast_loss": 0.9752612113952637,
+        "mid_loss": 1.0673339366912842,
+        "slow_loss": 1.0028108358383179,
+        "elapsed_s": 148.82334733009338
+      },
+      {
+        "cycle": 2,
+        "fast_loss": 0.9752612113952637,
+        "mid_loss": 1.0673339366912842,
+        "slow_loss": 1.0028108358383179,
+        "elapsed_s": 109.59888792037964
+      },
+      {
+        "cycle": 3,
+        "fast_loss": 0.9752612113952637,
+        "mid_loss": 1.0673339366912842,
+        "slow_loss": 1.0028108358383179,
+        "elapsed_s": 100.85770535469055
+      },
+      {
+        "cycle": 4,
+        "fast_loss": 0.9752612113952637,
+        "mid_loss": 1.0673339366912842,
+        "slow_loss": 1.0028108358383179,
+        "elapsed_s": 105.03249430656433
+      },
+      {
+        "cycle": 5,
+        "fast_loss": 0.9752612113952637,
+        "mid_loss": 1.0673339366912842,
+        "slow_loss": 1.0028108358383179,
+        "elapsed_s": 102.83658647537231
+      }
+    ],
+    "final_fast_loss": 0.9752612113952637,
+    "final_mid_loss": 1.0673339366912842,
+    "final_slow_loss": 1.0028108358383179
+  },
+  "inference": {
+    "num_tests": 20,
+    "avg_inference_ms": 30.81035614013672,
+    "fps": 32.45661930850899,
+    "success_rate": 1.0,
+    "results": [
+      {
+        "test_id": 1,
+        "ok": true,
+        "inference_ms": 37.424325942993164,
+        "num_detections": 0
+      },
+      {
+        "test_id": 2,
+        "ok": true,
+        "inference_ms": 47.09148406982422,
+        "num_detections": 0
+      },
+      {
+        "test_id": 3,
+        "ok": true,
+        "inference_ms": 30.1363468170166,
+        "num_detections": 0
+      },
+      {
+        "test_id": 4,
+        "ok": true,
+        "inference_ms": 22.9034423828125,
+        "num_detections": 0
+      },
+      {
+        "test_id": 5,
+        "ok": true,
+        "inference_ms": 30.91263771057129,
+        "num_detections": 0
+      },
+      {
+        "test_id": 6,
+        "ok": true,
+        "inference_ms": 27.096271514892578,
+        "num_detections": 0
+      },
+      {
+        "test_id": 7,
+        "ok": true,
+        "inference_ms": 26.72553062438965,
+        "num_detections": 0
+      },
+      {
+        "test_id": 8,
+        "ok": true,
+        "inference_ms": 26.185989379882812,
+        "num_detections": 0
+      },
+      {
+        "test_id": 9,
+        "ok": true,
+        "inference_ms": 19.590139389038086,
+        "num_detections": 0
+      },
+      {
+        "test_id": 10,
+        "ok": true,
+        "inference_ms": 20.409584045410156,
+        "num_detections": 0
+      },
+      {
+        "test_id": 11,
+        "ok": true,
+        "inference_ms": 34.63339805603027,
+        "num_detections": 0
+      },
+      {
+        "test_id": 12,
+        "ok": true,
+        "inference_ms": 36.249399185180664,
+        "num_detections": 0
+      },
+      {
+        "test_id": 13,
+        "ok": true,
+        "inference_ms": 23.987770080566406,
+        "num_detections": 0
+      },
+      {
+        "test_id": 14,
+        "ok": true,
+        "inference_ms": 40.73786735534668,
+        "num_detections": 0
+      },
+      {
+        "test_id": 15,
+        "ok": true,
+        "inference_ms": 37.04977035522461,
+        "num_detections": 0
+      },
+      {
+        "test_id": 16,
+        "ok": true,
+        "inference_ms": 20.67255973815918,
+        "num_detections": 0
+      },
+      {
+        "test_id": 17,
+        "ok": true,
+        "inference_ms": 36.02004051208496,
+        "num_detections": 0
+      },
+      {
+        "test_id": 18,
+        "ok": true,
+        "inference_ms": 36.05961799621582,
+        "num_detections": 0
+      },
+      {
+        "test_id": 19,
+        "ok": true,
+        "inference_ms": 33.84518623352051,
+        "num_detections": 0
+      },
+      {
+        "test_id": 20,
+        "ok": true,
+        "inference_ms": 28.47576141357422,
+        "num_detections": 0
+      }
+    ]
+  },
+  "completed_at": "2026-01-04T07:28:54.438705",
+  "total_time_s": 584.4328627586365
+}

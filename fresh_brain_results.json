@@ -1,0 +1,76 @@
+{
+  "started_at": "2026-01-04T13:04:03.039368",
+  "hailo": {
+    "available": true,
+    "model": "Hailo-8",
+    "tops": 26.0,
+    "status": "active",
+    "firmware": "4.23.0 (release,app,extended context switch buffer)"
+  },
+  "training": [
+    {
+      "fast_loss": 0.03266141936182976,
+      "mid_loss": 0.024532649666070938,
+      "slow_loss": 0.021522553637623787
+    }
+  ],
+  "inference": {
+    "avg_ms": 0.2429962158203125,
+    "fps": 4115.290423861852,
+    "hailo_success": 0
+  },
+  "pipeline": {
+    "batch_ms": 0.7150173187255859,
+    "per_frame_ms": 0.0715017318725586,
+    "fps": 13985.675225075025,
+    "success_rate": 0.0
+  },
+  "benchmark": [
+    {
+      "iteration": 1,
+      "train_time_s": 194.49478721618652,
+      "train_result": {
+        "fast_loss": 0.03266141936182976,
+        "mid_loss": 0.024532649666070938,
+        "slow_loss": 0.021522553637623787
+      },
+      "infer_time_s": 0.31001949310302734,
+      "infer_result": {
+        "avg_ms": 0.22783279418945312,
+        "fps": 4389.183758894935,
+        "hailo_success": 0
+      }
+    },
+    {
+      "iteration": 2,
+      "train_time_s": 218.54018783569336,
+      "train_result": {
+        "fast_loss": 0.03266141936182976,
+        "mid_loss": 0.024532649666070938,
+        "slow_loss": 0.021522553637623787
+      },
+      "infer_time_s": 0.13740301132202148,
+      "infer_result": {
+        "avg_ms": 1.056051254272461,
+        "fps": 946.9237368492346,
+        "hailo_success": 0
+      }
+    },
+    {
+      "iteration": 3,
+      "train_time_s": 230.3952145576477,
+      "train_result": {
+        "fast_loss": 0.03266141936182976,
+        "mid_loss": 0.024532649666070938,
+        "slow_loss": 0.021522553637623787
+      },
+      "infer_time_s": 0.3102412223815918,
+      "infer_result": {
+        "avg_ms": 0.6835460662841797,
+        "fps": 1462.9591907917684,
+        "hailo_success": 0
+      }
+    }
+  ],
+  "completed_at": "2026-01-04T13:20:23.602342"
+}

@@ -19,7 +19,7 @@ logger = logging.getLogger('watchdog')
 class ContinuonWatchdog:
     def __init__(self, config_dir="/opt/continuonbrain/config"):
         self.config_dir = Path(config_dir)
-        self.health_url = "http://localhost:8080/api/status"
+        self.health_url = "http://localhost:8081/api/status"
         self.check_interval = 30  # seconds
         self.failure_threshold = 3
         self.consecutive_failures = 0

@@ -85,3 +85,10 @@ recordings/
 
 # Secrets
 .htoken
+
+# Node.js
+node_modules/
+**/node_modules/
+
+# Hailo runtime logs
+hailort*.log

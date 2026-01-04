@@ -159,7 +159,7 @@ class RCANService:
     - Multi-robot coordination
     """
     
-    def __init__(self, config_dir: str, port: int = 8080):
+    def __init__(self, config_dir: str, port: int = 8081):
         self.config_dir = Path(config_dir)
         self.port = port
         

@@ -87,7 +87,7 @@ class SimpleJSONServer:
         """
         Best-effort LAN IP selection for "device discoverability".
 
-        Motivation: when the UI is opened *on-device* (e.g. `http://localhost:8080/ui`),
+        Motivation: when the UI is opened *on-device* (e.g. `http://localhost:8081/ui`),
         QR codes and deep links must advertise a reachable LAN address (e.g. `192.168.x.y`)
         so phones / Continuon AI can connect.
         """
@@ -178,7 +178,7 @@ class SimpleJSONServer:
             except Exception:
                 port = None
         if port is None:
-            port = 8080
+            port = 8081
 
         # Scheme can be overridden by proxy headers.
         try:
@@ -991,7 +991,7 @@ class SimpleJSONServer:
             if not isinstance(payload, dict):
                 payload = {}
             # Ensure the QR advertises a LAN-reachable base_url even when the UI is opened
-            # as `http://localhost:8080/ui` on the robot itself.
+            # as `http://localhost:8081/ui` on the robot itself.
             payload["base_url"] = self._infer_advertise_base_url(
                 requested_base_url=str(payload.get("base_url") or ""),
                 headers=headers,
@@ -2093,7 +2093,7 @@ class SimpleJSONServer:
             print(f"Error handling client: {exc}")
             writer.close()
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8080):
+    async def start(self, host: str = "0.0.0.0", port: int = 8081):
         """Start the server."""
         self.server = await asyncio.start_server(
             self.handle_client,

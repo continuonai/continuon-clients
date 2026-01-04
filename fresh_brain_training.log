@@ -1,0 +1,88 @@
+[13:04:02] Checking server...
+[13:04:02]   Server OK
+[13:04:02] Checking Hailo accelerator...
+[13:04:03]   Model: Hailo-8
+[13:04:03]   TOPS: 26.0
+[13:04:03]   Status: active
+[13:04:03] 
+=== TRAINING (1 cycles) ===
+[13:04:03] 
+--- Training Cycle 1/1 ---
+[13:04:03] Running WaveCore training...
+[13:08:49]   Fast loss: 0.0327
+[13:08:49]   Mid loss: 0.0245
+[13:08:49]   Slow loss: 0.0215
+[13:08:49] Running CMS compaction...
+[13:08:52] 
+=== INFERENCE TESTS ===
+[13:08:52] Testing Hailo inference...
+[13:09:21]   Hailo available: True
+[13:09:21]   Pipeline available: True
+[13:09:21]   Avg inference: 0.2ms
+[13:09:21]   FPS: 4115.3
+[13:09:21]   Detections: [0, 0, 0, 0, 0]
+[13:09:21]   Hailo success: 0
+[13:09:21]   Fallback used: 0
+[13:09:21] 
+--- Async Pipeline Test ---
+[13:09:21] Testing async Hailo pipeline...
+[13:09:21]   Models: {'detection': '/opt/continuonos/brain/model/base_model/yolov8s.hef'}
+[13:09:21]   Batch of 10: 0.7ms total
+[13:09:21]   Per frame: 0.1ms
+[13:09:21]   FPS: 13985.7
+[13:09:21]   Success: 0/10
+[13:09:21]   Pipeline stats: {'total_inferences': 0, 'successful_inferences': 0, 'failed_inferences': 0, 'avg_inference_time_ms': 0.0, 'min_inference_time_ms': 0, 'max_inference_time_ms': 0.0, 'frames_per_second': 0.0, 'device_initialized': False, 'init_time_ms': 0.45}
+[13:09:21] 
+=== PROGRESSIVE BENCHMARK ===
+[13:09:21] Running progressive benchmark...
+[13:09:21] 
+--- Benchmark Iteration 1/3 ---
+[13:09:21] Running WaveCore training...
+[13:12:35]   Fast loss: 0.0327
+[13:12:35]   Mid loss: 0.0245
+[13:12:35]   Slow loss: 0.0215
+[13:12:35] Running CMS compaction...
+[13:12:36] Testing Hailo inference...
+[13:12:36]   Hailo available: True
+[13:12:37]   Pipeline available: True
+[13:12:37]   Avg inference: 0.2ms
+[13:12:37]   FPS: 4389.2
+[13:12:37]   Detections: [0, 0, 0, 0, 0]
+[13:12:37]   Hailo success: 0
+[13:12:37]   Fallback used: 0
+[13:12:37]   Train time: 194.5s
+[13:12:37]   Infer time: 0.3s
+[13:12:42] 
+--- Benchmark Iteration 2/3 ---
+[13:12:42] Running WaveCore training...
+[13:16:20]   Fast loss: 0.0327
+[13:16:20]   Mid loss: 0.0245
+[13:16:20]   Slow loss: 0.0215
+[13:16:20] Running CMS compaction...
+[13:16:21] Testing Hailo inference...
+[13:16:21]   Hailo available: True
+[13:16:21]   Pipeline available: True
+[13:16:21]   Avg inference: 1.1ms
+[13:16:21]   FPS: 946.9
+[13:16:21]   Detections: [0, 0, 0, 0, 0]
+[13:16:21]   Hailo success: 0
+[13:16:21]   Fallback used: 0
+[13:16:21]   Train time: 218.5s
+[13:16:21]   Infer time: 0.1s
+[13:16:26] 
+--- Benchmark Iteration 3/3 ---
+[13:16:26] Running WaveCore training...
+[13:20:17]   Fast loss: 0.0327
+[13:20:17]   Mid loss: 0.0245
+[13:20:17]   Slow loss: 0.0215
+[13:20:17] Running CMS compaction...
+[13:20:18] Testing Hailo inference...
+[13:20:18]   Hailo available: True
+[13:20:18]   Pipeline available: True
+[13:20:18]   Avg inference: 0.7ms
+[13:20:18]   FPS: 1463.0
+[13:20:18]   Detections: [0, 0, 0, 0, 0]
+[13:20:18]   Hailo success: 0
+[13:20:18]   Fallback used: 0
+[13:20:18]   Train time: 230.4s
+[13:20:18]   Infer time: 0.3s

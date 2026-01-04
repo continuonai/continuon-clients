@@ -19,7 +19,7 @@ class LANDiscoveryService:
     def __init__(
         self,
         robot_name: str = "ContinuonBot",
-        service_port: int = 8080,
+        service_port: int = 8081,
         discovery_port: int = 5353
     ):
         self.robot_name = robot_name
@@ -227,7 +227,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="ContinuonBrain LAN Discovery")
     parser.add_argument("--name", default="ContinuonBot", help="Robot name")
-    parser.add_argument("--port", type=int, default=8080, help="Service port")
+    parser.add_argument("--port", type=int, default=8081, help="Service port")
     
     args = parser.parse_args()
     

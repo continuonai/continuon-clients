@@ -55,6 +55,8 @@ from continuonbrain.api.controllers.robot_controller import RobotControllerMixin
 from continuonbrain.api.controllers.model_controller import ModelControllerMixin
 from continuonbrain.api.controllers.data_controller import DataControllerMixin
 from continuonbrain.api.controllers.learning_controller import LearningControllerMixin
+from continuonbrain.api.controllers.training_controller import TrainingControllerMixin
+from continuonbrain.api.controllers.chat_controller import ChatControllerMixin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
@@ -534,7 +536,7 @@ def bluetooth_connect(address: str):
     except subprocess.TimeoutExpired:
         return {"success": False, "message": "Bluetooth connect timed out"}
 
-class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin, LearningControllerMixin):
+class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin, LearningControllerMixin, TrainingControllerMixin, ChatControllerMixin):
     """Handles HTTP requests for the Brain API."""
     
     def _base_dir(self) -> Path:
@@ -999,7 +1001,23 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_json(status)
                 else:
                     self.send_json({"error": "RCAN service not available"}, status=503)
-            
+
+            elif self.path == "/rcan/v1/cloud/status":
+                # Get cloud registry status
+                if brain_service and hasattr(brain_service, 'cloud_registry') and brain_service.cloud_registry:
+                    self.send_json({
+                        "registered": True,
+                        "ruri": brain_service.cloud_registry.ruri,
+                        "device_id": brain_service.cloud_registry.device_id,
+                        "firebase_available": True,
+                    })
+                else:
+                    self.send_json({
+                        "registered": False,
+                        "firebase_available": False,
+                        "message": "Cloud registry not initialized",
+                    })
+
             elif self.path.startswith("/api/status"):
                 # Enriched robot status for UI
                 status_payload = _build_status_payload()
@@ -1406,6 +1424,35 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 except ImportError:
                     self.send_json({"error": "Learning service not available"}, status=503)
 
+            # Chat API GET Endpoints (HOPE Chat)
+            elif self.path == "/api/chat/status":
+                self.handle_chat_status()
+            elif self.path.startswith("/api/chat/session/"):
+                # GET /api/chat/session/<session_id>
+                session_id = self.path.replace("/api/chat/session/", "").strip("/")
+                if session_id:
+                    self.handle_chat_session(session_id)
+                else:
+                    self.send_json({"success": False, "error": "session_id required"}, status=400)
+
+            # Training API Endpoints (Autonomous Training Engine)
+            elif self.path == "/api/training/status":
+                self.handle_training_status()
+            elif self.path == "/api/training/benchmarks":
+                self.handle_training_benchmarks()
+            elif self.path == "/api/training/progress":
+                self.handle_training_progress()
+            elif self.path == "/api/training/decisions":
+                self.handle_training_decisions()
+            elif self.path == "/api/training/models":
+                self.handle_training_models()
+            elif self.path.startswith("/api/training/history"):
+                self.handle_training_history()
+            elif self.path == "/api/training/trends":
+                self.handle_training_trends()
+            elif self.path == "/api/training/config":
+                self.handle_training_config()
+
             else:
                 self.send_error(404)
         except Exception as e:
@@ -1417,19 +1464,17 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             content_len = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_len).decode('utf-8')
             
+            # Chat API - HOPE Chat (CoreModel + Text Encoder)
             if self.path == "/api/chat":
-                data = json.loads(body)
-                msg = data.get("message", "")
-                history = data.get("history", []) or []
-                session_id = data.get("session_id")
-                
-                # Match SimpleJSONServer payload semantics: accept history + session_id.
-                # Note: BrainService deprecates history in favor of session_id.
-                result = brain_service.ChatWithGemma(msg, history, session_id=session_id)
-                self.send_json(result)
-            
+                self.handle_chat(body)
+
+            elif self.path == "/api/chat/clear":
+                self.handle_chat_clear_session(body)
+
             elif self.path == "/api/chat/history/clear":
-                brain_service.clear_chat_history()
+                # Legacy endpoint - clear default session
+                if brain_service.hope_chat:
+                    brain_service.hope_chat.clear_session("default")
                 self.send_json({"success": True})
 
             elif self.path == "/api/training/wavecore_loops":
@@ -1871,6 +1916,14 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 except ImportError:
                     self.send_json({"error": "Learning service not available"}, status=503)
 
+            # Autonomous Training Engine POST endpoints
+            elif self.path == "/api/training/trigger":
+                self.handle_training_trigger(body)
+            elif self.path == "/api/training/config":
+                self.handle_training_config(body)
+            elif self.path == "/api/training/benchmark":
+                self.handle_run_benchmark(body)
+
             elif self.path == "/api/manual/symbolic_search":
                 data = json.loads(body) if body else {}
                 result = asyncio.run(brain_service.RunSymbolicSearch(data))
@@ -2037,7 +2090,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
 
             elif self.path == "/api/ownership/pair/start":
                 # Generate pairing session
-                host = self.headers.get("host") or "127.0.0.1:8080"
+                host = self.headers.get("host") or "127.0.0.1:8081"
                 if "://" not in host:
                     host = f"http://{host}"
                 session = brain_service.pairing.start(base_url=host)
@@ -2180,6 +2233,53 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_json(response.to_dict())
                 else:
                     self.send_json({"error": "RCAN service not available"}, status=503)
+
+            elif self.path == "/rcan/v1/cloud/register":
+                # Register robot with Firebase cloud registry
+                data = json.loads(body) if body else {}
+                if brain_service and hasattr(brain_service, 'cloud_registry') and brain_service.cloud_registry:
+                    capabilities = data.get("capabilities") or ["arm", "vision", "chat", "teleop", "training"]
+                    tunnel_url = data.get("tunnel_url")
+                    firmware_version = data.get("firmware_version", "0.1.0")
+                    port = data.get("port", 8081)
+                    result = asyncio.run(brain_service.cloud_registry.register(
+                        capabilities=capabilities,
+                        firmware_version=firmware_version,
+                        tunnel_url=tunnel_url,
+                        port=port,
+                    ))
+                    self.send_json(result)
+                else:
+                    self.send_json({
+                        "success": False,
+                        "error": "Cloud registry not initialized. Check service-account.json.",
+                    }, status=503)
+
+            elif self.path == "/rcan/v1/cloud/heartbeat":
+                # Send heartbeat to cloud registry
+                if brain_service and hasattr(brain_service, 'cloud_registry') and brain_service.cloud_registry:
+                    result = asyncio.run(brain_service.cloud_registry.heartbeat())
+                    self.send_json(result)
+                else:
+                    self.send_json({"success": False, "error": "Cloud registry not available"}, status=503)
+
+            elif self.path == "/rcan/v1/cloud/lookup":
+                # Lookup a robot by RURI
+                data = json.loads(body) if body else {}
+                ruri = data.get("ruri", "")
+                if not ruri:
+                    self.send_json({"success": False, "error": "ruri required"}, status=400)
+                else:
+                    try:
+                        from continuonbrain.services.rcan_cloud_registry import RCANCloudRegistry
+                        config_dir = brain_service.config_dir if brain_service else "/tmp"
+                        result = asyncio.run(RCANCloudRegistry.lookup(ruri, config_dir))
+                        if result:
+                            self.send_json({"success": True, "robot": result})
+                        else:
+                            self.send_json({"success": False, "error": "Robot not found"}, status=404)
+                    except Exception as e:
+                        self.send_json({"success": False, "error": str(e)}, status=500)
 
             else:
                 self.send_error(404)
@@ -2370,12 +2470,15 @@ def main():
         description="ContinuonBrain API Server (prefer startup via startup_manager)"
     )
     parser.add_argument("--config-dir", default="/tmp/continuonbrain_demo")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=8081)
     parser.add_argument("--real-hardware", action="store_true", help="Prefer real hardware")
     parser.add_argument("--mock-hardware", action="store_true", help="Force mock hardware")
     args = parser.parse_args()
-    
-    prefer_real = args.real_hardware and not args.mock_hardware
+
+    # Check environment variables as fallback for hardware mode
+    env_real_hw = os.environ.get("CONTINUON_FORCE_REAL_HARDWARE", "0").lower() in ("1", "true", "yes")
+    env_mock_hw = os.environ.get("CONTINUON_FORCE_MOCK_HARDWARE", "0").lower() in ("1", "true", "yes")
+    prefer_real = (args.real_hardware or env_real_hw) and not (args.mock_hardware or env_mock_hw)
     desired_port = args.port
     event_logger = SystemEventLogger(args.config_dir)
 

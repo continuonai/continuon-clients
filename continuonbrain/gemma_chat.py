@@ -230,31 +230,35 @@ class FunctionGemmaChat:
 class GemmaChat:
     """
     Manages Gemma 3 Nano model inference for chat interactions.
-    
+
     For production deployment, this uses HuggingFace transformers library
     with quantized models for efficient on-device inference.
-    
+
     Gemma 3n E2B is preferred (2B effective params, multimodal).
     Reference: https://huggingface.co/google/gemma-3n-E2B-it
     """
-    # Gemma 3n E2B: 2B effective params (6B total with selective activation)
-    # Supports text, image, audio, video inputs
-    DEFAULT_MODEL_ID = "google/gemma-3n-E2B-it"
-    
+    # Allow override via environment variable for faster models
+    # Default: Gemma 3n E2B (2B effective params, slower but more capable)
+    # Alternative: google/gemma-3-270m-it (270M params, faster)
+    DEFAULT_MODEL_ID = os.environ.get("CONTINUON_CHAT_MODEL", "google/gemma-3n-E2B-it")
+
     # Fallback for lower memory systems
     FALLBACK_MODEL_ID = "google/gemma-3-270m-it"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_ID, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
+    def __init__(self, model_name: str = None, device: str = "cpu", api_base: Optional[str] = None, api_key: Optional[str] = None, accelerator_device: Optional[str] = None):
         """
         Initialize Gemma chat interface.
-        
+
         Args:
-            model_name: HuggingFace model identifier
+            model_name: HuggingFace model identifier (default from CONTINUON_CHAT_MODEL env or DEFAULT_MODEL_ID)
             device: 'cpu', 'cuda', or 'mps' for Apple Silicon
-        api_base: Base URL for OpenAI-compatible API (e.g., vLLM)
+            api_base: Base URL for OpenAI-compatible API (e.g., vLLM)
             api_key: API key for OpenAI-compatible API
             accelerator_device: Optional detected AI accelerator (e.g., 'hailo8l', 'tpu')
         """
+        # Allow environment variable override at runtime
+        if model_name is None:
+            model_name = os.environ.get("CONTINUON_CHAT_MODEL", self.DEFAULT_MODEL_ID)
         self.model_name = model_name
         self.device = device
         self.api_base = api_base
@@ -941,6 +945,12 @@ def build_chat_service() -> Optional[Any]:
         memory_tier = "medium"
         recommended = None
     
+    # Force mock chat for fast testing (no model loading)
+    force_mock = os.environ.get("CONTINUON_FORCE_MOCK_CHAT", "0").lower() in ("1", "true", "yes", "on")
+    if force_mock:
+        logger.info("CONTINUON_FORCE_MOCK_CHAT=1: Using mock chat for fast testing")
+        return MockGemmaChat()
+
     prefer_jax = os.environ.get("CONTINUON_PREFER_JAX", "1").lower() in ("1", "true", "yes", "on")
     headless = os.environ.get("CONTINUON_HEADLESS", "0").lower() in ("1", "true", "yes", "on")
     allow_transformers = os.environ.get("CONTINUON_ALLOW_TRANSFORMERS_CHAT", "0").lower() in ("1", "true", "yes", "on")

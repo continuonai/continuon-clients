@@ -2,20 +2,70 @@
   "firestore": {
     "rules": "firestore.rules"
   },
-  "hosting": {
-    "public": "build/web",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": {
+    "source": "functions",
+    "codebase": "continuon-cloud",
+    "predeploy": [
+      "npm --prefix \"$RESOURCE_DIR\" run build"
     ]
   },
+  "hosting": [
+    {
+      "site": "continuonai",
+      "public": "build/web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "site": "continuon-cloud",
+      "public": "build/web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/api/rlds/**",
+          "function": "rlds"
+        },
+        {
+          "source": "/api/remote/**",
+          "function": "remote"
+        },
+        {
+          "source": "/api/training/**",
+          "function": "training"
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "/api/**",
+          "headers": [
+            { "key": "Access-Control-Allow-Origin", "value": "*" },
+            { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+            { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+          ]
+        }
+      ]
+    }
+  ],
   "flutter": {
     "platforms": {
       "android": {

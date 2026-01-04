@@ -51,10 +51,11 @@ from continuonbrain.core.decision_trace_logger import DecisionTraceLogger
 logger = logging.getLogger(__name__)
 
 try:
-    from continuonbrain.services.background_learner import BackgroundLearner
+    from continuonbrain.services.simple_brain_trainer import SimpleBrainTrainer, TrainingConfig
 except ImportError:
-    logger.warning("Could not import BackgroundLearner (likely missing dependencies like torch). Background learning will be disabled.")
-    BackgroundLearner = None
+    logger.warning("Could not import SimpleBrainTrainer. Training will be disabled.")
+    SimpleBrainTrainer = None
+    TrainingConfig = None
 
 # --- Task Dataclasses ---
 
@@ -288,10 +289,10 @@ class BrainService:
         self.resource_monitor = ResourceMonitor(config_dir=Path(config_dir))
         logger.info(f"📊 Resource Monitor initialized: {self.resource_monitor.get_status_summary()}")
         
-        # HOPE brain (optional)
-        self.hope_brain = None
-        self.background_learner = None
-        self.manual_trainer = None
+        # Brain training (JAX CoreModel only)
+        self.brain_trainer = None  # SimpleBrainTrainer for JAX CoreModel
+        self.jax_adapter = None  # JAX inference adapter
+        self.hope_chat = None  # HopeChat conversational interface
         
         # Experience logger for active learning
         from continuonbrain.services.experience_logger import ExperienceLogger
@@ -332,8 +333,22 @@ class BrainService:
         
         # RCAN Protocol Service
         from continuonbrain.services.rcan_service import RCANService
-        self.rcan = RCANService(config_dir=config_dir, port=8080)
+        self.rcan = RCANService(config_dir=config_dir, port=8081)
         logger.info(f"🌐 RCAN Service initialized: {self.rcan.identity.ruri}")
+
+        # RCAN Cloud Registry (Firebase)
+        self.cloud_registry = None
+        try:
+            from continuonbrain.services.rcan_cloud_registry import RCANCloudRegistry
+            self.cloud_registry = RCANCloudRegistry(
+                config_dir=config_dir,
+                device_id=self.rcan.identity.device_id,
+                robot_name=self.rcan.identity.robot_name or "ContinuonBot",
+                owner_email="craigm26@gmail.com",
+            )
+            logger.info("☁️ RCAN Cloud Registry initialized")
+        except Exception as e:
+            logger.warning(f"Cloud registry not available: {e}")
         
         self.training_runner = TrainingRunner(config_dir=config_dir)
         self.stream_helper = VideoStreamHelper(self)
@@ -360,6 +375,10 @@ class BrainService:
         self.tool_router_evaluator = None
         self._tool_router_bundle = None
         self.jax_adapter = None
+
+        # HOPE brain (initialized by BackgroundLearner or switch_model)
+        self.hope_brain = None
+
         self._prime_world_model_adapter()
 
         # Teacher Mode State (HITL)
@@ -783,7 +802,9 @@ class BrainService:
         status_lines.append(f"Vision: {'OK' if caps['has_vision'] else 'None'}")
         
         # Unified Perception (VisionCore Scene Awareness)
-        if self.vision_core:
+        # Skip in chat by default to avoid slow detection (enable with CONTINUON_CHAT_VISION=1)
+        chat_vision_enabled = os.environ.get("CONTINUON_CHAT_VISION", "0").lower() in ("1", "true", "yes")
+        if self.vision_core and chat_vision_enabled:
             try:
                 scene_desc = self.vision_core.describe_scene()
                 status_lines.append(f"\n--- SCENE AWARENESS ---")
@@ -793,8 +814,15 @@ class BrainService:
                 logger.warning(f"VisionCore description failed: {e}")
         
         system_context = "\n".join(status_lines)
-        context_subgraph = self.get_context_subgraph(session_id=session_id, depth=2)
-        context_summary = self._summarize_context_subgraph(context_subgraph)
+
+        # Fast chat mode: skip context graph retrieval for faster response
+        fast_chat_mode = os.environ.get("CONTINUON_FAST_CHAT", "0").lower() in ("1", "true", "yes")
+        if fast_chat_mode:
+            context_subgraph = {"nodes": [], "edges": [], "seeds": []}
+            context_summary = ""
+        else:
+            context_subgraph = self.get_context_subgraph(session_id=session_id, depth=2)
+            context_summary = self._summarize_context_subgraph(context_subgraph)
         
         # Tool Instructions
         system_context += "\\nTOOLS: You can use tools by outputting: [TOOL: ACTION args].\\n"
@@ -827,19 +855,20 @@ class BrainService:
         semantic_confidence = 0.0
         
         # Phase 1: Try HOPE brain if available (with integrated world model + semantic search)
-        if self.hope_brain:
+        # Skip in fast chat mode (HOPE uses semantic search which is slow)
+        if self.hope_brain and not fast_chat_mode:
             try:
                 from continuonbrain.services.agent_hope import HOPEAgent
-                
+
                 # Build integrated HOPE agent with world model and semantic search
                 hope_agent = HOPEAgent(
-                    self.hope_brain, 
+                    self.hope_brain,
                     confidence_threshold=0.6,
                     world_model=getattr(self, 'jax_adapter', None),  # World model for physics
                     semantic_search=self.experience_logger,  # Semantic memory
                     vision_service=getattr(self, 'vision_service', None),  # Vision
                 )
-                
+
                 can_answer, hope_confidence = hope_agent.can_answer(
                     message, context_subgraph=context_subgraph
                 )
@@ -857,7 +886,8 @@ class BrainService:
                 logger.warning(f"HOPE agent failed: {e}")
 
         # Phase 2: Try Semantic Memory Recall (if HOPE couldn't answer)
-        if response is None:
+        # Skip if CONTINUON_FAST_CHAT=1 for fast responses (semantic search is slow)
+        if response is None and not fast_chat_mode:
             try:
                 similar = self.experience_logger.get_similar_conversations(message, max_results=1)
                 if similar and similar[0].get('relevance', 0) > 0.9:
@@ -877,8 +907,9 @@ class BrainService:
         # Phase 3: Fallback to LLM (with HOPE memories if available)
         if response is None:
             # Add HOPE memories as context if brain is available
+            # Skip in fast chat mode (semantic search in get_relevant_memories is slow)
             hope_context = ""
-            if self.hope_brain:
+            if self.hope_brain and not fast_chat_mode:
                 try:
                     from continuonbrain.services.agent_hope import HOPEAgent
                     hope_agent = HOPEAgent(
@@ -944,8 +975,9 @@ class BrainService:
         confidence = self._calculate_confidence(response)
         
         # Log LLM responses for active learning (after confidence is calculated)
+        # Skip in fast chat mode (logging does embedding which is slow)
         conversation_id = None
-        if response_agent in ["llm_with_hope_context", "llm_only"]:
+        if response_agent in ["llm_with_hope_context", "llm_only"] and not fast_chat_mode:
             try:
                 conversation_id = self.experience_logger.log_conversation(
                     question=message,
@@ -1480,14 +1512,20 @@ class BrainService:
     def switch_model(self, model_id: str) -> Dict[str, Any]:
         """
         Switch the active chat model dynamically.
-        
+
         Args:
             model_id: Model identifier (e.g., "mock", "google/gemma-2b-it")
-            
+
         Returns:
             Dict with success status and model info
         """
         try:
+            # Force mock chat if environment variable is set
+            force_mock = os.environ.get("CONTINUON_FORCE_MOCK_CHAT", "0").lower() in ("1", "true", "yes", "on")
+            if force_mock and model_id != "mock":
+                logger.info(f"CONTINUON_FORCE_MOCK_CHAT=1: Forcing mock chat (ignoring {model_id})")
+                model_id = "mock"
+
             logger.info(f"Switching chat model to: {model_id}")
             
             # Clean up old model if it's not mock
@@ -1534,17 +1572,23 @@ class BrainService:
                 
                 # Create underlying LLM for fallback (default to Gemma / mock)
                 # Use existing if compatible, else create new
+                # HOPE-only mode: use mock chat for fast responses (no slow LLM loading)
+                hope_only = os.environ.get("CONTINUON_HOPE_ONLY", "0").lower() in ("1", "true", "yes", "on")
                 llm = None
                 if getattr(self.gemma_chat, 'model_name', '') == create_gemma_chat.DEFAULT_MODEL_ID:
                     llm = self.gemma_chat
                 if llm is None:
-                    try:
-                        llm = create_gemma_chat(use_mock=False)
-                        # best-effort eager load so we discover failures early
-                        llm.load_model()
-                    except Exception as exc:  # noqa: BLE001
-                        logger.warning(f"Gemma fallback unavailable ({exc}); using mock chat.")
-                        llm = create_gemma_chat(use_mock=True, error_msg="Gemma unavailable for HOPE fallback")
+                    if hope_only:
+                        logger.info("HOPE-only mode: Using mock chat for fast fallback")
+                        llm = create_gemma_chat(use_mock=True, error_msg="HOPE-only mode (fast fallback)")
+                    else:
+                        try:
+                            llm = create_gemma_chat(use_mock=False)
+                            # best-effort eager load so we discover failures early
+                            llm.load_model()
+                        except Exception as exc:  # noqa: BLE001
+                            logger.warning(f"Gemma fallback unavailable ({exc}); using mock chat.")
+                            llm = create_gemma_chat(use_mock=True, error_msg="Gemma unavailable for HOPE fallback")
                 
                 # Lazily init hope agent if needed
                 from continuonbrain.services.agent_hope import HOPEAgent
@@ -2259,107 +2303,78 @@ class BrainService:
         )
         print("Mode manager ready")
         
-        # Initialize HOPE brain (MANDATORY with resource awareness)
-        print("Initializing HOPE brain...")
+        # Initialize JAX CoreModel brain (single, simple brain)
+        print("Initializing JAX CoreModel brain...")
         try:
-            from continuonbrain.hope_impl.config import HOPEConfig
-            from continuonbrain.hope_impl.brain import HOPEBrain
-            from continuonbrain.hope_impl.pi5_optimizations import Pi5MemoryManager
-            
+            from continuonbrain.jax_models.core_model import make_core_model, CoreModelConfig
+            from continuonbrain.jax_models.config_presets import get_config_for_preset
+            import jax
+
             # Check available memory
             resource_status = self.resource_monitor.check_resources()
             available_mb = resource_status.available_memory_mb
-            
             print(f"  Available memory: {available_mb}MB")
-            
-            # Select config based on available memory
-            if available_mb < 3000:
-                # Low memory - use Pi5 optimized config
-                config = HOPEConfig.pi5_optimized()
-                print("  Using Pi5-optimized config (low memory mode)")
-            elif available_mb < 5000:
-                # Medium memory - use development config
-                config = HOPEConfig.development()
-                print("  Using development config (medium memory mode)")
-            else:
-                # High memory - use default config
-                config = HOPEConfig()
-                print("  Using default config (high memory mode)")
-            
-            # Check if safe to allocate
-            estimated_brain_mb = 2000  # Conservative estimate
-            if not self.resource_monitor.is_safe_to_allocate(estimated_brain_mb):
-                logger.warning(f"Memory constrained: {available_mb}MB available, need {estimated_brain_mb}MB + reserve")
-                # Force Pi5 optimized config
-                config = HOPEConfig.pi5_optimized()
-                print("    Forcing Pi5-optimized config due to memory constraints")
-            
-            self.hope_brain = HOPEBrain(
-                config=config,
-                obs_dim=10,  # Default dimensions
-                action_dim=4,
-                output_dim=4,
-            )
-            
-            # Initialize memory manager for HOPE brain
-            self.brain_memory_manager = Pi5MemoryManager(max_memory_mb=self.resource_monitor.limits.max_brain_mb)
-            
-            # Register cleanup callback
-            def cleanup_brain_memory():
-                logger.info("Resource cleanup triggered for HOPE brain")
-                if self.hope_brain:
-                    self.hope_brain.reset()
-                    self.brain_memory_manager.cleanup_if_needed(self.hope_brain)
-            
-            self.resource_monitor.register_cleanup_callback(ResourceLevel.CRITICAL, cleanup_brain_memory)
-            
-            # Register with monitoring API
+
+            # Select config based on available memory (Pi5 preset for device)
+            config = get_config_for_preset("pi5")
+            print(f"  Using Pi5 preset config")
+
+            # Create JAX model
+            rng_key = jax.random.PRNGKey(42)
+            obs_dim = 128
+            action_dim = 32
+            output_dim = 32
+
+            model, params = make_core_model(rng_key, obs_dim, action_dim, output_dim, config)
+            self.jax_adapter = {
+                "model": model,
+                "params": params,
+                "config": config,
+                "obs_dim": obs_dim,
+                "action_dim": action_dim,
+                "output_dim": output_dim,
+            }
+            print(f"    JAX CoreModel ready (d_s={config.d_s}, d_w={config.d_w})")
+
+            # Initialize SimpleBrainTrainer for autonomous training
+            if SimpleBrainTrainer is not None:
+                try:
+                    train_config = TrainingConfig(
+                        enabled=True,
+                        rlds_dir=Path(self.config_dir) / "rlds" / "episodes",
+                        checkpoint_dir=Path(self.config_dir) / "checkpoints",
+                        model_dir=Path(self.config_dir) / "model" / "seed_stable",
+                    )
+                    self.brain_trainer = SimpleBrainTrainer(
+                        config=train_config,
+                        resource_monitor=self.resource_monitor,
+                    )
+                    # Start training if autonomous mode enabled
+                    if self.mode_manager.current_mode == RobotMode.AUTONOMOUS:
+                        self.brain_trainer.start()
+                        print("    SimpleBrainTrainer started")
+                except Exception as train_err:
+                    logger.warning(f"Could not initialize brain trainer: {train_err}")
+
+            # Initialize HopeChat conversational interface
             try:
-                from continuonbrain.api.routes import hope_routes
-                hope_routes.set_hope_brain(self.hope_brain)
-                print("    Registered with web monitoring")
-            except ImportError:
-                print("    Web monitoring not available")
-            
-            # Report memory usage
-            memory_usage = self.hope_brain.get_memory_usage()
-            param_count = sum(p.numel() for p in self.hope_brain.parameters())
-            print(f"    HOPE brain ready ({param_count:,} parameters, {memory_usage['overall_total']:.1f}MB)")
-            
-            # Start autonomous learning if enabled in config
-            if config.enable_autonomous_learning:
-                print("Starting autonomous learning loop...")
-                self.background_learner = BackgroundLearner(
-                    brain=self.hope_brain,
-                    config={
-                        "checkpoint_dir": f"{self.config_dir}/checkpoints/autonomous",
-                    },
-                    resource_monitor=self.resource_monitor
+                from continuonbrain.services.hope_chat import HopeChat
+                self.hope_chat = HopeChat(
+                    model_dir=Path(self.config_dir) / "model" / "seed_stable",
+                    config_dir=Path(self.config_dir),
                 )
-                self.background_learner.start()
-                print("    Background learner started")
-            
+                print("    HopeChat initialized")
+            except Exception as chat_err:
+                logger.warning(f"Could not initialize HopeChat: {chat_err}")
+
         except ImportError as e:
-            error_msg = (
-                "CRITICAL: HOPE brain implementation not available!\n"
-                "  This system requires HOPE brain to operate.\n"
-                "  Please ensure hope_impl module is installed:\n"
-                "    pip install -e .\n"
-                f"  Error: {e}"
-            )
-            print(f"   {error_msg}")
-            print("WARNING: Skipping HOPE"); self.hope_brain = None
+            logger.warning(f"JAX CoreModel not available: {e}")
+            print(f"  JAX CoreModel not available: {e}")
+            self.jax_adapter = None
         except Exception as e:
-            error_msg = (
-                f"CRITICAL: HOPE brain initialization failed: {e}\n"
-                "  The system cannot operate without HOPE brain.\n"
-                "  Please check:\n"
-                "    - PyTorch is installed correctly\n"
-                "    - hope_impl dependencies are satisfied\n"
-                "    - System has sufficient memory ({resource_status.available_memory_mb}MB available)"
-            )
-            print(f"   {error_msg}")
-            print("WARNING: Skipping HOPE"); self.hope_brain = None
+            logger.error(f"JAX CoreModel initialization failed: {e}")
+            print(f"  JAX CoreModel initialization failed: {e}")
+            self.jax_adapter = None
         
         
         print("=" * 60)

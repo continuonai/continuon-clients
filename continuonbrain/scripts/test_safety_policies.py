@@ -142,22 +142,22 @@ def test_safety_integration():
     print("\n" + "=" * 70)
     print("TEST 4: Safety Integration Check")
     print("=" * 70)
-    
+
     # Check if safety validation is called in critical paths
-    robot_api_path = repo_root / "continuonbrain" / "robot_api_server.py"
+    api_server_path = repo_root / "continuonbrain" / "api" / "server.py"
     brain_service_path = repo_root / "continuonbrain" / "services" / "brain_service.py"
-    
+
     integration_points = []
-    
-    # Check robot_api_server.py for safety checks
-    if robot_api_path.exists():
-        content = robot_api_path.read_text()
+
+    # Check api/server.py for safety checks
+    if api_server_path.exists():
+        content = api_server_path.read_text()
         if "_check_safety_protocol" in content or "validate_action" in content:
-            integration_points.append("robot_api_server.py")
-            print("✅ Safety checks found in robot_api_server.py")
+            integration_points.append("api/server.py")
+            print("✅ Safety checks found in api/server.py")
         else:
-            print("⚠️  Safety checks NOT found in robot_api_server.py")
-    
+            print("⚠️  Safety checks NOT found in api/server.py")
+
     # Check brain_service.py for safety checks
     if brain_service_path.exists():
         content = brain_service_path.read_text()

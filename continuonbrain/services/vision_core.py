@@ -3,12 +3,20 @@ VisionCore: Unified Perception Backbone
 
 Fuses multiple vision sources into a coherent scene representation:
 - OAK-D RGB + Depth camera
-- Hailo-8 NPU object detection (26 TOPS)
+- Hailo-8 NPU object detection (26 TOPS) - PRIMARY
 - SAM3 semantic segmentation
 - VPU features from Myriad X
+- CPU fallback when Hailo unavailable
 
 This is the primary perception interface for the HOPE Agent.
+
+Hailo Integration:
+- Uses HailoPipeline for async, high-throughput inference
+- Supports YOLOv8 object detection with full COCO classes
+- Automatic fallback to CPU-based detection when Hailo unavailable
+- Model management via HailoModelManager
 """
+import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -111,15 +119,21 @@ class SceneRepresentation:
 class VisionCore:
     """
     Unified perception backbone for HOPE Agent.
-    
+
     Combines:
     - OAK-D camera (RGB + Depth + VPU)
-    - Hailo-8 NPU (object detection)
+    - Hailo-8 NPU (object detection) - PRIMARY via HailoPipeline
     - SAM3 (semantic segmentation)
-    
+    - CPU fallback detection when Hailo unavailable
+
     Gracefully degrades when components are missing.
+
+    Hailo Priority:
+    1. HailoPipeline with YOLOv8 (fastest, 26 TOPS)
+    2. Legacy HailoVision (subprocess-based)
+    3. CPU fallback (SAM3 or basic detection)
     """
-    
+
     def __init__(
         self,
         enable_hailo: bool = True,
@@ -128,10 +142,12 @@ class VisionCore:
         hailo_model: str = "yolov8s",
         sam3_prompt: str = "object",
         cache_dir: Optional[str] = None,
+        use_hailo_pipeline: bool = True,
+        enable_cpu_fallback: bool = True,
     ):
         """
         Initialize VisionCore with available components.
-        
+
         Args:
             enable_hailo: Attempt to use Hailo-8 NPU for detection
             enable_sam3: Attempt to use SAM3 for segmentation
@@ -139,6 +155,8 @@ class VisionCore:
             hailo_model: Hailo model name to load
             sam3_prompt: Default prompt for SAM3 segmentation
             cache_dir: Directory for caching models
+            use_hailo_pipeline: Use new HailoPipeline (recommended)
+            enable_cpu_fallback: Fall back to CPU detection if Hailo fails
         """
         self.enable_hailo = enable_hailo
         self.enable_sam3 = enable_sam3
@@ -147,20 +165,31 @@ class VisionCore:
         self.sam3_prompt = sam3_prompt
         self.cache_dir = Path(cache_dir) if cache_dir else Path("/tmp/visioncore")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+        self.use_hailo_pipeline = use_hailo_pipeline
+        self.enable_cpu_fallback = enable_cpu_fallback
+
         # Component references
         self._oak_camera = None
         self._hailo_vision = None
+        self._hailo_pipeline = None
         self._sam3_service = None
-        
+        self._cpu_detector = None
+
         # Status tracking
         self._hailo_available = False
+        self._hailo_pipeline_available = False
         self._sam3_available = False
         self._oak_available = False
-        
+        self._cpu_fallback_available = False
+
+        # Statistics
+        self._hailo_success_count = 0
+        self._hailo_fail_count = 0
+        self._fallback_count = 0
+
         # Object ID counter
         self._object_id = 0
-        
+
         # Initialize components
         self._init_components()
     
@@ -185,9 +214,26 @@ class VisionCore:
                     logger.warning("⚠️ VisionCore: OAK-D not available (depthai not installed)")
             except Exception as e:
                 logger.warning(f"⚠️ VisionCore: OAK-D not available: {e}")
-        
-        # Hailo NPU
-        if self.enable_hailo:
+
+        # Hailo NPU - Try HailoPipeline first (preferred)
+        if self.enable_hailo and self.use_hailo_pipeline:
+            try:
+                from continuonbrain.services.hailo_pipeline import HailoPipeline
+                self._hailo_pipeline = HailoPipeline()
+                if self._hailo_pipeline.is_available():
+                    self._hailo_pipeline_available = True
+                    self._hailo_available = True
+                    logger.info("✅ VisionCore: HailoPipeline initialized (YOLOv8)")
+                    logger.info(f"   Models: {self._hailo_pipeline.get_available_models()}")
+                else:
+                    logger.warning("⚠️ VisionCore: HailoPipeline has no models")
+            except ImportError as e:
+                logger.warning(f"⚠️ VisionCore: HailoPipeline not available: {e}")
+            except Exception as e:
+                logger.warning(f"⚠️ VisionCore: HailoPipeline failed: {e}")
+
+        # Fallback to legacy HailoVision if pipeline not available
+        if self.enable_hailo and not self._hailo_pipeline_available:
             try:
                 from continuonbrain.services.hailo_vision import HailoVision
                 self._hailo_vision = HailoVision()
@@ -196,18 +242,33 @@ class VisionCore:
                     self._hailo_available = self._hailo_vision.is_available()
                 elif hasattr(self._hailo_vision, 'available'):
                     self._hailo_available = self._hailo_vision.available
+                elif hasattr(self._hailo_vision, 'state'):
+                    self._hailo_available = self._hailo_vision.state.available
                 else:
                     # Assume available if object created successfully
                     self._hailo_available = True
-                
+
                 if self._hailo_available:
-                    logger.info("✅ VisionCore: Hailo-8 NPU initialized")
+                    logger.info("✅ VisionCore: Hailo-8 NPU initialized (legacy)")
                 else:
                     logger.warning("⚠️ VisionCore: Hailo-8 not available")
             except ImportError:
                 logger.warning("⚠️ VisionCore: Hailo module not available")
             except Exception as e:
                 logger.warning(f"⚠️ VisionCore: Hailo failed: {e}")
+
+        # CPU Fallback Detector (lightweight YOLO or OpenCV)
+        if self.enable_cpu_fallback and not self._hailo_available:
+            try:
+                # Try ultralytics YOLO as CPU fallback
+                from ultralytics import YOLO
+                self._cpu_detector = YOLO("yolov8n.pt")  # Nano model for CPU
+                self._cpu_fallback_available = True
+                logger.info("✅ VisionCore: CPU fallback detector initialized (YOLOv8n)")
+            except ImportError:
+                logger.warning("⚠️ VisionCore: ultralytics not available for CPU fallback")
+            except Exception as e:
+                logger.warning(f"⚠️ VisionCore: CPU fallback failed: {e}")
         
         # SAM3 Segmentation
         if self.enable_sam3:
@@ -243,16 +304,33 @@ class VisionCore:
     
     def is_ready(self) -> bool:
         """Check if at least one vision component is ready."""
-        return self._oak_available or self._hailo_available or self._sam3_available
-    
-    def get_capabilities(self) -> Dict[str, bool]:
-        """Return available capabilities."""
+        return (
+            self._oak_available
+            or self._hailo_available
+            or self._sam3_available
+            or self._cpu_fallback_available
+        )
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Return available capabilities and statistics."""
         return {
             "oak_camera": self._oak_available,
             "hailo_detection": self._hailo_available,
+            "hailo_pipeline": self._hailo_pipeline_available,
             "sam3_segmentation": self._sam3_available,
+            "cpu_fallback": self._cpu_fallback_available,
             "depth": self._oak_available,
             "rgb": self._oak_available,
+            "hailo_models": (
+                self._hailo_pipeline.get_available_models()
+                if self._hailo_pipeline_available
+                else {}
+            ),
+            "stats": {
+                "hailo_success": self._hailo_success_count,
+                "hailo_fail": self._hailo_fail_count,
+                "fallback_used": self._fallback_count,
+            },
         }
     
     def perceive(
@@ -306,31 +384,82 @@ class VisionCore:
             except Exception as e:
                 logger.debug(f"Depth stats failed: {e}")
         
-        # Step 3: Run Hailo object detection
+        # Step 3: Run object detection (Hailo primary, CPU fallback)
         hailo_objects = []
-        if run_detection and self._hailo_available and self._hailo_vision and rgb_frame is not None:
+        detection_source = "none"
+
+        if run_detection and rgb_frame is not None:
             hailo_start = time.time()
-            try:
-                detections = self._hailo_vision.detect(rgb_frame)
-                for det in detections:
-                    self._object_id += 1
-                    obj = DetectedObject(
-                        id=self._object_id,
-                        label=det.get("label", "unknown"),
-                        confidence=det.get("confidence", 0.0),
-                        bbox=tuple(det.get("bbox", [0, 0, 0, 0])),
-                        source="hailo",
-                    )
-                    # Add depth at object center
-                    if depth_frame is not None:
-                        cx = (obj.bbox[0] + obj.bbox[2]) // 2
-                        cy = (obj.bbox[1] + obj.bbox[3]) // 2
-                        if 0 <= cy < depth_frame.shape[0] and 0 <= cx < depth_frame.shape[1]:
-                            obj.depth_mm = float(depth_frame[cy, cx])
-                    hailo_objects.append(obj)
+            detections = []
+
+            # Try HailoPipeline first (fastest)
+            if self._hailo_pipeline_available and self._hailo_pipeline:
+                try:
+                    # Run sync detection (pipeline handles async internally)
+                    result = self._run_hailo_pipeline_detect(rgb_frame)
+                    if result.get("ok"):
+                        detections = result.get("detections", [])
+                        detection_source = "hailo_pipeline"
+                        self._hailo_success_count += 1
+                    else:
+                        logger.debug(f"HailoPipeline error: {result.get('error')}")
+                        self._hailo_fail_count += 1
+                except Exception as e:
+                    logger.warning(f"HailoPipeline detection failed: {e}")
+                    self._hailo_fail_count += 1
+
+            # Fallback to legacy HailoVision
+            if not detections and self._hailo_available and self._hailo_vision:
+                try:
+                    detections = self._hailo_vision.detect(rgb_frame)
+                    if detections:
+                        detection_source = "hailo_legacy"
+                        self._hailo_success_count += 1
+                except Exception as e:
+                    logger.warning(f"Hailo legacy detection failed: {e}")
+                    self._hailo_fail_count += 1
+
+            # Fallback to CPU detector
+            if not detections and self._cpu_fallback_available and self._cpu_detector:
+                try:
+                    cpu_results = self._cpu_detector(rgb_frame, verbose=False)
+                    for r in cpu_results:
+                        for box in r.boxes:
+                            cls_id = int(box.cls[0])
+                            conf = float(box.conf[0])
+                            x1, y1, x2, y2 = box.xyxy[0].tolist()
+                            label = r.names.get(cls_id, f"class_{cls_id}")
+                            detections.append({
+                                "label": label,
+                                "confidence": conf,
+                                "bbox": [x1, y1, x2, y2],
+                                "class_id": cls_id,
+                            })
+                    detection_source = "cpu_fallback"
+                    self._fallback_count += 1
+                except Exception as e:
+                    logger.warning(f"CPU fallback detection failed: {e}")
+
+            # Convert detections to DetectedObject instances
+            for det in detections:
+                self._object_id += 1
+                obj = DetectedObject(
+                    id=self._object_id,
+                    label=det.get("label", "unknown"),
+                    confidence=det.get("confidence", 0.0),
+                    bbox=tuple(int(v) for v in det.get("bbox", [0, 0, 0, 0])),
+                    source=detection_source,
+                )
+                # Add depth at object center
+                if depth_frame is not None:
+                    cx = (obj.bbox[0] + obj.bbox[2]) // 2
+                    cy = (obj.bbox[1] + obj.bbox[3]) // 2
+                    if 0 <= cy < depth_frame.shape[0] and 0 <= cx < depth_frame.shape[1]:
+                        obj.depth_mm = float(depth_frame[cy, cx])
+                hailo_objects.append(obj)
+
+            if hailo_objects:
                 scene.has_detection = True
-            except Exception as e:
-                logger.warning(f"Hailo detection failed: {e}")
             scene.hailo_inference_ms = (time.time() - hailo_start) * 1000
         
         # Step 4: Run SAM3 segmentation
@@ -581,6 +710,75 @@ class VisionCore:
             logger.error(f"Screenshot failed: {e}")
             return False
 
+    def _run_hailo_pipeline_detect(self, frame: np.ndarray) -> Dict[str, Any]:
+        """
+        Run Hailo pipeline detection (sync wrapper for async pipeline).
+
+        Args:
+            frame: RGB numpy array
+
+        Returns:
+            Detection result dict with 'ok', 'detections', etc.
+        """
+        if not self._hailo_pipeline:
+            return {"ok": False, "error": "Pipeline not available"}
+
+        try:
+            # Check if we're in an async context
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in async context - can't use run_until_complete
+                # Use the sync method directly
+                return self._hailo_pipeline._run_inference_sync(frame, "detection").__dict__
+            except RuntimeError:
+                # No running loop - create one
+                loop = asyncio.new_event_loop()
+                try:
+                    result = loop.run_until_complete(
+                        self._hailo_pipeline.detect(frame, timeout=5.0)
+                    )
+                    return {
+                        "ok": result.ok,
+                        "detections": result.data.get("detections", []),
+                        "inference_time_ms": result.inference_time_ms,
+                        "error": result.error,
+                    }
+                finally:
+                    loop.close()
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def detect_async(self, frame: np.ndarray) -> "asyncio.Future":
+        """
+        Async detection method for use in async contexts.
+
+        Args:
+            frame: RGB numpy array
+
+        Returns:
+            Future that resolves to SceneRepresentation
+        """
+        async def _detect():
+            return self.perceive(rgb_frame=frame, run_detection=True)
+
+        return asyncio.ensure_future(_detect())
+
+    def get_pipeline_stats(self) -> Dict[str, Any]:
+        """Get detailed pipeline statistics."""
+        stats = {
+            "hailo_success": self._hailo_success_count,
+            "hailo_fail": self._hailo_fail_count,
+            "fallback_used": self._fallback_count,
+            "hailo_available": self._hailo_available,
+            "hailo_pipeline_available": self._hailo_pipeline_available,
+            "cpu_fallback_available": self._cpu_fallback_available,
+        }
+
+        if self._hailo_pipeline_available and self._hailo_pipeline:
+            stats["pipeline_stats"] = self._hailo_pipeline.get_stats()
+
+        return stats
+
     def close(self):
         """Cleanup resources."""
         if self._oak_camera:
@@ -588,6 +786,20 @@ class VisionCore:
                 self._oak_camera.stop()
             except Exception:
                 pass
+
+        # Stop Hailo pipeline if running
+        if self._hailo_pipeline:
+            try:
+                # Check if pipeline has a stop method
+                if hasattr(self._hailo_pipeline, "_running") and self._hailo_pipeline._running:
+                    loop = asyncio.new_event_loop()
+                    try:
+                        loop.run_until_complete(self._hailo_pipeline.stop())
+                    finally:
+                        loop.close()
+            except Exception:
+                pass
+
         logger.info("VisionCore closed")
 
 

@@ -46,7 +46,7 @@ class PairingManager:
             confirm_code=confirm_code,
             created_unix_s=now,
             expires_unix_s=now + ttl_s,
-            base_url=str(base_url or "").strip() or "http://127.0.0.1:8080",
+            base_url=str(base_url or "").strip() or "http://127.0.0.1:8081",
         )
         self._pairing_dir.mkdir(parents=True, exist_ok=True)
         self._pending_path.write_text(json.dumps(session.__dict__, indent=2, default=str))

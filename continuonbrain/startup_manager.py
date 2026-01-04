@@ -210,7 +210,7 @@ class StartupManager:
         start_services: bool = True,
         robot_name: str = "ContinuonBot",
         headless: bool = False,
-        port: int = 8080,
+        port: int = 8081,
     ):
         self.config_dir = Path(config_dir or os.environ.get("CONTINUON_CONFIG_DIR", "/opt/continuonos/brain"))
         self.state_file = self.config_dir / ".startup_state"
@@ -483,10 +483,10 @@ class StartupManager:
         import sys
         from pathlib import Path
         
-        # Choose service port (fallback if 8080 is busy)
+        # Choose service port (fallback if 8081 is busy)
         port = self._find_available_port(preferred=self.service_port)
         if port is None:
-            print("❌ No available service port in range 8080-8085")
+            print("❌ No available service port in range 8081-8086")
             self._log_event("port_unavailable", "No free port for robot services", {"preferred": self.service_port})
             return
         self.service_port = port
@@ -855,7 +855,7 @@ class StartupManager:
         except Exception as exc:  # Best-effort; never block startup
             print(f"⚠️  Could not log event '{{event_type}}': {{exc}}")
 
-    def _find_available_port(self, preferred: int = 8080, max_tries: int = 6) -> Optional[int]:
+    def _find_available_port(self, preferred: int = 8081, max_tries: int = 6) -> Optional[int]:
         """Pick the first open TCP port starting at preferred."""
         for offset in range(max_tries):
             candidate = preferred + offset
@@ -976,8 +976,8 @@ def main():
     parser.add_argument(
         "--port",
         type=int,
-        default=8080,
-        help="Service port (default: 8080)"
+        default=8081,
+        help="Service port (default: 8081)"
     )
     
     args = parser.parse_args()
