@@ -1018,6 +1018,34 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                         "message": "Cloud registry not initialized",
                     })
 
+            elif self.path == "/api/refresh":
+                # Comprehensive refresh endpoint for UI - combines multiple data sources
+                refresh_payload = _build_status_payload()
+
+                # Add chat status
+                if brain_service and hasattr(brain_service, 'hope_chat') and brain_service.hope_chat:
+                    try:
+                        refresh_payload["chat"] = brain_service.hope_chat.get_status()
+                    except Exception:
+                        refresh_payload["chat"] = {"ready": False}
+                else:
+                    refresh_payload["chat"] = {"ready": False}
+
+                # Add training status
+                if brain_service and hasattr(brain_service, 'brain_trainer') and brain_service.brain_trainer:
+                    try:
+                        refresh_payload["training"] = brain_service.brain_trainer.get_status()
+                    except Exception:
+                        refresh_payload["training"] = {"enabled": False, "running": False}
+                else:
+                    refresh_payload["training"] = {"enabled": False, "running": False}
+
+                # Add timestamp for cache invalidation
+                refresh_payload["timestamp"] = time.time()
+                refresh_payload["refresh"] = True
+
+                self.send_json(refresh_payload)
+
             elif self.path.startswith("/api/status"):
                 # Enriched robot status for UI
                 status_payload = _build_status_payload()
@@ -1040,7 +1068,8 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     status_payload["discovery_url"] = f"http://{host}:{port}/api/discovery/info"
                 except Exception:
                     pass
-                self.send_json(status_payload)
+                # Wrap status in 'status' key for Flutter app compatibility
+                self.send_json({"status": status_payload, "success": True})
 
             elif self.path.startswith("/api/loops"):
                 gates = brain_service.mode_manager.get_gate_snapshot() if brain_service and brain_service.mode_manager else {}

@@ -78,14 +78,16 @@ class ScannerService {
 
   Future<void> _probeHosts(Set<String> hosts) async {
     for (final host in hosts) {
-      await _probeHost(host);
+      // Probe both common ports (8080 and 8081)
+      await _probeHost(host, port: 8081);
+      await _probeHost(host, port: 8080);
     }
   }
 
-  Future<void> _probeHost(String host) async {
+  Future<void> _probeHost(String host, {int port = 8080}) async {
     // Try RCAN status endpoint first (preferred, RCAN protocol)
     try {
-      final rcanUrl = Uri.http('$host:8080', '/rcan/v1/status');
+      final rcanUrl = Uri.http('$host:$port', '/rcan/v1/status');
       final rcanResponse = await html.HttpRequest.request(
         rcanUrl.toString(),
         method: 'GET',
@@ -95,10 +97,11 @@ class ScannerService {
       if (rcanResponse.status == 200 && rcanResponse.responseText != null) {
         final payload = jsonDecode(rcanResponse.responseText!);
         if (payload is Map<String, dynamic>) {
-          final robot = _parseRobotFromRcan(host, payload);
+          final robot = _parseRobotFromRcan(host, payload, defaultPort: port);
           if (robot != null) {
             _addRobot(robot);
             html.window.localStorage['continuon_last_host'] = robot.host;
+            html.window.localStorage['continuon_last_port'] = robot.httpPort.toString();
             // Store robot name and RURI for .local hostname support
             final discovery = payload['discovery'] as Map<String, dynamic>?;
             if (discovery != null && discovery['ruri'] != null) {
@@ -114,7 +117,7 @@ class ScannerService {
     
     // Try discovery endpoint (legacy, still preferred over status)
     try {
-      final discoveryUrl = Uri.http('$host:8080', '/api/discovery/info');
+      final discoveryUrl = Uri.http('$host:$port', '/api/discovery/info');
       final discoveryResponse = await html.HttpRequest.request(
         discoveryUrl.toString(),
         method: 'GET',
@@ -124,10 +127,11 @@ class ScannerService {
       if (discoveryResponse.status == 200 && discoveryResponse.responseText != null) {
         final payload = jsonDecode(discoveryResponse.responseText!);
         if (payload is Map<String, dynamic>) {
-          final robot = _parseRobotFromDiscovery(host, payload);
+          final robot = _parseRobotFromDiscovery(host, payload, defaultPort: port);
           if (robot != null) {
             _addRobot(robot);
             html.window.localStorage['continuon_last_host'] = robot.host;
+            html.window.localStorage['continuon_last_port'] = robot.httpPort.toString();
             // Store robot name for .local hostname support
             if (payload['robot_name'] != null) {
               final robotName = payload['robot_name'].toString().toLowerCase();
@@ -143,7 +147,7 @@ class ScannerService {
 
     // Fallback to /status endpoint for backwards compatibility
     try {
-      final statusUrl = Uri.http('$host:8080', '/api/status');
+      final statusUrl = Uri.http('$host:$port', '/api/status');
       final response = await html.HttpRequest.request(
         statusUrl.toString(),
         method: 'GET',
@@ -169,15 +173,15 @@ class ScannerService {
   }
 
   ScannedRobot? _parseRobotFromRcan(
-      String host, Map<String, dynamic> payload) {
+      String host, Map<String, dynamic> payload, {int defaultPort = 8080}) {
     // Parse RCAN /rcan/v1/status endpoint response format
     final discovery = payload['discovery'] as Map<String, dynamic>?;
     if (discovery == null) return null;
-    
-    final ruri = discovery['ruri']?.toString() ?? '';
+
+    // Note: ruri is available in discovery for future use
     final model = discovery['model']?.toString() ?? 'companion-v1';
     final hostname = discovery['hostname']?.toString() ?? host;
-    final port = discovery['port'] as int? ?? 8080;
+    final port = discovery['port'] as int? ?? defaultPort;
     
     // Extract friendly name from model or RURI
     final name = model.isNotEmpty ? model : 'ContinuonBrain';
@@ -191,18 +195,18 @@ class ScannerService {
   }
 
   ScannedRobot? _parseRobotFromDiscovery(
-      String host, Map<String, dynamic> payload) {
+      String host, Map<String, dynamic> payload, {int defaultPort = 8080}) {
     // Parse discovery endpoint response format
     if (payload['status'] != 'ok' || payload['product'] != 'continuon_brain_runtime') {
       return null;
     }
 
     final name = (payload['robot_name'] ?? 'ContinuonBrain').toString();
-    
+
     // Extract base_url and parse host/port from it
     String? baseUrl = payload['base_url']?.toString();
     String resolvedHost = host;
-    int httpPort = 8080;
+    int httpPort = defaultPort;
     
     if (baseUrl != null && baseUrl.isNotEmpty) {
       try {
@@ -269,6 +273,10 @@ class ScannerService {
     if (storedHost != null && storedHost.isNotEmpty) {
       hosts.add(storedHost);
     }
+
+    // Always probe localhost for local development
+    hosts.add('localhost');
+    hosts.add('127.0.0.1');
 
     // Add .local hostname from last known robot name (from discovery response)
     final storedRobotName = html.window.localStorage['continuon_last_robot_name'];

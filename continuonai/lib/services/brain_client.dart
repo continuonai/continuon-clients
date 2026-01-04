@@ -76,7 +76,7 @@ class BrainClient {
   grpc.CallOptions _callOptions = grpc.CallOptions();
   bool _usePlatformBridge = false;
   String? _host;
-  int _httpPort = 8080;
+  int _httpPort = 8081;  // Default to 8081 to match ContinuonBrain server
   // TODO: wire to persistent auth/subscription/ownership tokens when backend is ready.
   bool isOwned = false;
   bool hasSubscription = false;
@@ -302,6 +302,54 @@ class BrainClient {
       // ignore error
     }
     return {};
+  }
+
+  /// Comprehensive refresh - fetches all status data in one call.
+  /// Use this for pull-to-refresh or manual refresh actions.
+  Future<Map<String, dynamic>> refresh() async {
+    if (_host == null) return {'success': false, 'error': 'Not connected'};
+    final uri = Uri.http('$_host:$_httpPort', '/api/refresh');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Get chat service status
+  Future<Map<String, dynamic>> getChatStatus() async {
+    if (_host == null) return {'ready': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/chat/status');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] ?? {'ready': false};
+      }
+    } catch (e) {
+      debugPrint('Chat status failed: $e');
+    }
+    return {'ready': false};
+  }
+
+  /// Get training status
+  Future<Map<String, dynamic>> getTrainingStatus() async {
+    if (_host == null) return {'enabled': false, 'running': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/training/status');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] ?? {'enabled': false, 'running': false};
+      }
+    } catch (e) {
+      debugPrint('Training status failed: $e');
+    }
+    return {'enabled': false, 'running': false};
   }
 
   Future<Map<String, dynamic>> setRobotMode(String mode) async {

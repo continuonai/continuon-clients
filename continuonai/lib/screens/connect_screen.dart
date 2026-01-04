@@ -19,12 +19,14 @@ class ConnectScreen extends StatefulWidget {
 
 class _ConnectScreenState extends State<ConnectScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _hostController = TextEditingController(text: 'brain.continuonai.com');
-  final _portController = TextEditingController(text: '443');
+  // Default to localhost:8081 for local development (common case)
+  final _hostController = TextEditingController(text: 'localhost');
+  final _portController = TextEditingController(text: '8081');
   final _authTokenController = TextEditingController();
   final ScannerService _scanner = ScannerService();
 
-  bool _useTls = true;
+  // Default TLS off for local development
+  bool _useTls = false;
   bool _usePlatformBridge = false;
   bool _connecting = false;
   bool _scanning = false;
