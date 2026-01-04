@@ -23,6 +23,8 @@ from ..data.rlds_dataset import (
     _extract_action_vector,
     _extract_obs_vector,
     load_rlds_dataset,
+    validate_rlds_directory,
+    RLDSValidationError,
 )
 import csv
 import json
@@ -80,12 +82,13 @@ def create_initial_state(
     wave_state = jnp.zeros((batch_size, config.d_w))
     particle_state = jnp.zeros((batch_size, config.d_p))
     
-    # Initialize CMS memories and keys
+    # Initialize CMS memories and keys with batch dimension [1, N, D]
+    # This allows proper broadcasting/tiling to actual batch size during training
     cms_memories = [
-        jnp.zeros((size, dim)) for size, dim in zip(config.cms_sizes, config.cms_dims)
+        jnp.zeros((batch_size, size, dim)) for size, dim in zip(config.cms_sizes, config.cms_dims)
     ]
     cms_keys = [
-        jnp.zeros((size, config.d_k)) for size in config.cms_sizes
+        jnp.zeros((batch_size, size, config.d_k)) for size in config.cms_sizes
     ]
     
     return model, {
@@ -136,7 +139,14 @@ def compute_loss(
         s_prev = jnp.tile(s_prev[0:1], (batch_size, 1))
         w_prev = jnp.tile(w_prev[0:1], (batch_size, 1))
         p_prev = jnp.tile(p_prev[0:1], (batch_size, 1))
-    
+
+    # Expand CMS memories and keys to batch size if needed
+    cms_memories = state['cms_memories']
+    cms_keys = state['cms_keys']
+    if cms_memories[0].shape[0] != batch_size:
+        cms_memories = [jnp.tile(m[0:1], (batch_size, 1, 1)) for m in cms_memories]
+        cms_keys = [jnp.tile(k[0:1], (batch_size, 1, 1)) for k in cms_keys]
+
     # Forward pass (info contains next internal states)
     y_pred, info = apply_fn(
         params,
@@ -146,8 +156,8 @@ def compute_loss(
         s_prev,
         w_prev,
         p_prev,
-        state['cms_memories'],
-        state['cms_keys'],
+        cms_memories,
+        cms_keys,
     )
     
     # Proof metrics: separate "motor" vs "imagination" tail error.
@@ -302,7 +312,32 @@ def run_sanity_check(
                 yield batch
         data_iter = synthetic_batch_iterator()
     else:
-        if TF_AVAILABLE:
+        # Validate RLDS directory before loading
+        try:
+            validation_result = validate_rlds_directory(rlds_dir, verbose=True)
+            print(f"Validated {validation_result['trainable_files']} trainable episodes "
+                  f"with {validation_result['total_steps']} total steps")
+        except RLDSValidationError as e:
+            print(f"RLDS validation failed: {e}")
+            print("Falling back to synthetic data for sanity check")
+            use_synthetic_data = True
+
+        if use_synthetic_data:
+            # Fallback to synthetic data if validation failed
+            print("Using synthetic data for sanity check")
+            def synthetic_batch_iterator():
+                rng = jax.random.PRNGKey(42)
+                for _ in range(max_steps):
+                    rng, key = jax.random.split(rng)
+                    batch = {
+                        'obs': jax.random.normal(key, (batch_size, obs_dim)),
+                        'action': jax.random.normal(key, (batch_size, action_dim)),
+                        'reward': jax.random.uniform(key, (batch_size, 1), minval=-1.0, maxval=1.0),
+                        'done': jnp.zeros((batch_size,), dtype=jnp.bool_),
+                    }
+                    yield batch
+            data_iter = synthetic_batch_iterator()
+        elif TF_AVAILABLE:
             print(f"Loading RLDS dataset (TFRecord) from {rlds_dir}")
             data_iter = load_rlds_dataset(
                 tfrecord_paths=rlds_dir,

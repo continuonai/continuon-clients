@@ -1449,23 +1449,31 @@ class ProgressiveBenchmark:
 
 
 def run_progressive_benchmark(model_dir: str = "/opt/continuonos/brain/model/seed_stable",
-                               output_file: str = None):
-    """Run complete progressive benchmark."""
+                               output_file: str = None,
+                               use_lightweight_encoder: bool = False):
+    """Run complete progressive benchmark.
+
+    Args:
+        model_dir: Path to model directory
+        output_file: Optional output file for results
+        use_lightweight_encoder: Use fast hash-based encoder for quick tests
+    """
     import os
-    os.environ['HF_HOME'] = '/opt/continuonos/brain/hf_cache'
-    
-    from sentence_transformers import SentenceTransformer
-    
+    from .encoder_cache import get_cached_encoder, get_lightweight_encoder
+
     print("=" * 70)
     print("PROGRESSIVE SEED MODEL BENCHMARK")
     print("=" * 70)
-    
+
     print("\n📚 Loading encoder...")
-    encoder = SentenceTransformer(
-        'google/embeddinggemma-300m', 
-        trust_remote_code=True,
-        token=os.environ.get('HUGGINGFACE_TOKEN')
-    )
+    if use_lightweight_encoder:
+        encoder = get_lightweight_encoder(obs_dim=128)
+        print("   (Using lightweight encoder for fast testing)")
+    else:
+        encoder = get_cached_encoder(
+            model_name='google/embeddinggemma-300m',
+            token=os.environ.get('HUGGINGFACE_TOKEN'),
+        )
     
     print("\n🔧 Loading model...")
     benchmark = ProgressiveBenchmark(Path(model_dir), encoder)

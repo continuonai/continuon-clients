@@ -399,71 +399,55 @@ class CMSRead(nn.Module):
     
     def __call__(
         self,
-        cms_memories: List[jnp.ndarray],  # List of [N_ℓ, d_ℓ] memory matrices
-        cms_keys: List[jnp.ndarray],  # List of [N_ℓ, d_k] key matrices
+        cms_memories: List[jnp.ndarray],  # List of [B, N_ℓ, d_ℓ] memory matrices
+        cms_keys: List[jnp.ndarray],  # List of [B, N_ℓ, d_k] key matrices
         s_prev: jnp.ndarray,
         e_t: jnp.ndarray,
     ) -> Tuple[jnp.ndarray, jnp.ndarray, List[jnp.ndarray]]:
         """
         Read from CMS memory.
-        
+
+        Note: Inputs are always batched [B, ...] since CoreModel.__call__ normalizes them.
+
         Args:
-            cms_memories: List of memory matrices, one per level
-            cms_keys: List of key matrices, one per level
-            s_prev: Previous fast state [d_s] or [B, d_s]
-            e_t: Encoded input [d_e] or [B, d_e]
-        
+            cms_memories: List of memory matrices [B, N_ℓ, d_ℓ], one per level
+            cms_keys: List of key matrices [B, N_ℓ, d_k], one per level
+            s_prev: Previous fast state [B, d_s]
+            e_t: Encoded input [B, d_e]
+
         Returns:
-            q_t: Query vector [d_k] or [B, d_k]
-            c_t: Mixed context [d_c] or [B, d_c]
-            attention_weights: List of attention weights per level
+            q_t: Query vector [B, d_k]
+            c_t: Mixed context [B, d_c]
+            attention_weights: List of attention weights per level [B, N_ℓ]
         """
         # Generate query
-        q_t = self.query_net(s_prev, e_t)  # [d_k] or [B, d_k]
-        
+        q_t = self.query_net(s_prev, e_t)  # [B, d_k]
+
         # Per-level attention and retrieval
         level_contexts = []
         attention_weights = []
-        
+
         for level_idx, (M_level, K_level) in enumerate(zip(cms_memories, cms_keys)):
             # Compute attention: α = softmax(K q / √d_k)
-            # Handle batched: M_level [B, N, D], K_level [B, N, d_k], q_t [B, d_k]
-            # Or unbatched: M_level [N, D], K_level [N, d_k], q_t [d_k]
-            
-            if q_t.ndim == 1 and K_level.ndim == 2:
-                # Unbatched case
-                scores = jnp.dot(K_level, q_t) / jnp.sqrt(float(self.config.d_k))
-                attn = nn.softmax(scores, axis=-1)  # [N]
-                c_level = jnp.dot(attn, M_level)  # [D]
-            else:
-                # Batched case: K_level [B, N, d_k], q_t [B, d_k]
-                # scores = einsum('bnd,bd->bn', K_level, q_t)
-                scores = jnp.einsum('bnd,bd->bn', K_level, q_t) / jnp.sqrt(float(self.config.d_k))
-                attn = nn.softmax(scores, axis=-1)  # [B, N]
-                # c_level = einsum('bn,bnd->bd', attn, M_level)
-                c_level = jnp.einsum('bn,bnd->bd', attn, M_level)  # [B, D]
-            
+            # K_level [B, N, d_k], q_t [B, d_k] -> scores [B, N]
+            scores = jnp.einsum('bnd,bd->bn', K_level, q_t) / jnp.sqrt(float(self.config.d_k))
+            attn = nn.softmax(scores, axis=-1)  # [B, N]
+            # M_level [B, N, D], attn [B, N] -> c_level [B, D]
+            c_level = jnp.einsum('bn,bnd->bd', attn, M_level)
+
             # Project to d_c
-            # Flax modules in a list need to be called directly
             level_proj = self.level_projections[level_idx]
-            c_level_proj = level_proj(c_level)  # [d_c] or [B, d_c]
+            c_level_proj = level_proj(c_level)  # [B, d_c]
             level_contexts.append(c_level_proj)
             attention_weights.append(attn)
-        
+
         # Hierarchical mixing
-        if level_contexts[0].ndim == 1:
-            combined_contexts = jnp.concatenate(level_contexts, axis=0)  # [L * d_c]
-        else:
-            combined_contexts = jnp.concatenate(level_contexts, axis=-1)  # [B, L * d_c]
-        
-        mixing_weights = nn.softmax(self.mixing_net(combined_contexts), axis=-1)  # [L] or [B, L]
-        
-        # Weighted sum
-        if mixing_weights.ndim == 1:
-            c_t = sum(w * c for w, c in zip(mixing_weights, level_contexts))
-        else:
-            c_t = sum(w[:, None] * c for w, c in zip(mixing_weights.T, level_contexts))
-        
+        combined_contexts = jnp.concatenate(level_contexts, axis=-1)  # [B, L * d_c]
+        mixing_weights = nn.softmax(self.mixing_net(combined_contexts), axis=-1)  # [B, L]
+
+        # Weighted sum: mixing_weights [B, L], level_contexts list of [B, d_c]
+        c_t = sum(w[:, None] * c for w, c in zip(mixing_weights.T, level_contexts))
+
         return q_t, c_t, attention_weights
 
 
@@ -656,6 +640,29 @@ class CoreModel(nn.Module):
             y_t: Output [output_dim] or [B, output_dim]
             info: Dictionary with intermediate states and attention weights
         """
+        # Normalize inputs to have consistent batch dimensions
+        # Track if we need to squeeze output at the end
+        squeeze_output = False
+        if x_obs.ndim == 1:
+            squeeze_output = True
+            x_obs = x_obs[None, :]
+        if a_prev.ndim == 1:
+            a_prev = a_prev[None, :]
+        if r_t.ndim == 0:
+            r_t = r_t[None, None]
+        elif r_t.ndim == 1:
+            r_t = r_t[None, :]
+        if s_prev.ndim == 1:
+            s_prev = s_prev[None, :]
+        if w_prev.ndim == 1:
+            w_prev = w_prev[None, :]
+        if p_prev.ndim == 1:
+            p_prev = p_prev[None, :]
+        # Normalize CMS memories and keys to 3D [B, N, D]
+        if cms_memories[0].ndim == 2:
+            cms_memories = [m[None, :, :] for m in cms_memories]
+            cms_keys = [k[None, :, :] for k in cms_keys]
+
         # 1. Encode
         e_t = self.encoder(x_obs, a_prev, r_t, object_features=object_features)
         
@@ -683,7 +690,16 @@ class CoreModel(nn.Module):
             'cms_memories': new_cms_memories,  # Updated memories
             'cms_keys': new_cms_keys,  # Updated keys
         }
-        
+
+        # Squeeze output if input was unbatched
+        if squeeze_output:
+            y_t = y_t[0]
+            info = {
+                k: v[0] if isinstance(v, jnp.ndarray) else
+                   [x[0] for x in v] if isinstance(v, list) else v
+                for k, v in info.items()
+            }
+
         return y_t, info
 
 

@@ -50,6 +50,130 @@ def _tf_is_usable() -> bool:
 TF_AVAILABLE = _tf_is_usable()
 
 
+class RLDSValidationError(ValueError):
+    """Raised when RLDS episode validation fails."""
+    pass
+
+
+def validate_rlds_directory(
+    episodes_dir: Union[str, Path],
+    verbose: bool = True,
+) -> Dict[str, Any]:
+    """
+    Validate RLDS episodes directory and return summary statistics.
+
+    Args:
+        episodes_dir: Path to directory containing JSON episode files
+        verbose: Whether to print validation summary
+
+    Returns:
+        Dictionary with validation results:
+            - total_files: Number of JSON files found
+            - trainable_files: Number of files with valid training data
+            - total_steps: Total number of training steps
+            - issues: List of (filename, issue_description) tuples
+            - is_valid: True if at least one trainable episode exists
+
+    Raises:
+        RLDSValidationError: If directory doesn't exist or has no valid episodes
+    """
+    episodes_dir = Path(episodes_dir)
+
+    if not episodes_dir.exists():
+        raise RLDSValidationError(f"RLDS directory does not exist: {episodes_dir}")
+
+    if not episodes_dir.is_dir():
+        raise RLDSValidationError(f"Path is not a directory: {episodes_dir}")
+
+    json_files = sorted(episodes_dir.glob("*.json"))
+    if not json_files:
+        raise RLDSValidationError(f"No JSON files found in {episodes_dir}")
+
+    results = {
+        "total_files": len(json_files),
+        "trainable_files": 0,
+        "total_steps": 0,
+        "issues": [],
+        "is_valid": False,
+    }
+
+    for filepath in json_files:
+        try:
+            data = json.loads(filepath.read_text())
+        except json.JSONDecodeError as e:
+            results["issues"].append((filepath.name, f"Invalid JSON: {e}"))
+            continue
+        except Exception as e:
+            results["issues"].append((filepath.name, f"Read error: {e}"))
+            continue
+
+        if not isinstance(data, dict):
+            results["issues"].append((filepath.name, "Root is not a dict"))
+            continue
+
+        steps = data.get("steps", [])
+        if not isinstance(steps, list):
+            results["issues"].append((filepath.name, "'steps' is not a list"))
+            continue
+
+        if not steps:
+            results["issues"].append((filepath.name, "Empty steps list"))
+            continue
+
+        # Count trainable steps
+        trainable_steps = 0
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            obs = step.get("observation")
+            if not isinstance(obs, dict):
+                continue
+            action = step.get("action")
+            if not isinstance(action, dict):
+                continue
+            cmd = action.get("command")
+            if not isinstance(cmd, (list, tuple)):
+                continue
+            try:
+                _ = [float(v) for v in cmd]
+                trainable_steps += 1
+            except (TypeError, ValueError):
+                continue
+
+        if trainable_steps > 0:
+            results["trainable_files"] += 1
+            results["total_steps"] += trainable_steps
+        else:
+            results["issues"].append(
+                (filepath.name, "No trainable steps (missing observation dict or action.command vector)")
+            )
+
+    results["is_valid"] = results["trainable_files"] > 0
+
+    if verbose:
+        print(f"\n=== RLDS Validation: {episodes_dir} ===")
+        print(f"Total JSON files: {results['total_files']}")
+        print(f"Trainable episodes: {results['trainable_files']}")
+        print(f"Total training steps: {results['total_steps']}")
+        if results["issues"]:
+            print(f"Issues found: {len(results['issues'])}")
+            for fname, issue in results["issues"][:5]:
+                print(f"  - {fname}: {issue}")
+            if len(results["issues"]) > 5:
+                print(f"  ... and {len(results['issues']) - 5} more")
+        print(f"Valid for training: {'YES' if results['is_valid'] else 'NO'}")
+        print()
+
+    if not results["is_valid"]:
+        raise RLDSValidationError(
+            f"No trainable RLDS episodes in {episodes_dir}. "
+            f"Found {results['total_files']} JSON files but none have valid training data. "
+            "Expected steps with observation dict and action.command vector."
+        )
+
+    return results
+
+
 def _parse_tfrecord_example(example_proto: "tf.Tensor") -> Dict[str, "tf.Tensor"]:
     """
     Parse a TFRecord example.
