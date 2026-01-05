@@ -20,6 +20,11 @@ import numpy as np
 
 from .config import CoreModelConfig
 from .mamba_ssm import MambaLikeWave
+from .batch_utils import (
+    normalize_inputs,
+    denormalize_outputs,
+    validate_batch_consistency,
+)
 
 
 class InputEncoder(nn.Module):
@@ -610,6 +615,131 @@ class CoreModel(nn.Module):
         # Output decoder
         self.decoder = OutputDecoder(self.config, self.output_dim)
     
+    def forward_batch(
+        self,
+        x_obs: jnp.ndarray,
+        a_prev: jnp.ndarray,
+        r_t: jnp.ndarray,
+        s_prev: jnp.ndarray,
+        w_prev: jnp.ndarray,
+        p_prev: jnp.ndarray,
+        cms_memories: List[jnp.ndarray],
+        cms_keys: List[jnp.ndarray],
+        object_features: Optional[jnp.ndarray] = None,
+    ) -> Tuple[jnp.ndarray, Dict[str, Any]]:
+        """
+        Forward pass for batched inputs.
+
+        All inputs MUST have a leading batch dimension. This is the core
+        computation method - use this when you know inputs are batched.
+
+        Args:
+            x_obs: Observation [B, obs_dim]
+            a_prev: Previous action [B, action_dim]
+            r_t: Reward [B, 1]
+            s_prev: Previous fast state [B, d_s]
+            w_prev: Previous wave state [B, d_w]
+            p_prev: Previous particle state [B, d_p]
+            cms_memories: List of [B, N_l, d_l] memory matrices
+            cms_keys: List of [B, N_l, d_k] key matrices
+            object_features: Optional [B, max_objects, object_dim]
+
+        Returns:
+            y_t: Output [B, output_dim]
+            info: Dictionary with intermediate states (all batched)
+        """
+        # 1. Encode
+        e_t = self.encoder(x_obs, a_prev, r_t, object_features=object_features)
+
+        # 2. CMS Read (retrieve context from memory)
+        q_t, c_t, attn_weights = self.cms_read(cms_memories, cms_keys, s_prev, e_t)
+
+        # 3. Core Dynamics
+        s_t, w_t, p_t = self.hope_core(s_prev, w_prev, p_prev, e_t, c_t)
+
+        # 4. CMS Write (update memory with new experience)
+        new_cms_memories, new_cms_keys = self.cms_write(
+            cms_memories, cms_keys, s_t, e_t, r_t
+        )
+
+        # 5. Decode
+        y_t = self.decoder(s_t, c_t)
+
+        info = {
+            'query': q_t,
+            'context': c_t,
+            'attention_weights': attn_weights,
+            'fast_state': s_t,
+            'wave_state': w_t,
+            'particle_state': p_t,
+            'cms_memories': new_cms_memories,
+            'cms_keys': new_cms_keys,
+        }
+
+        return y_t, info
+
+    def forward_single(
+        self,
+        x_obs: jnp.ndarray,
+        a_prev: jnp.ndarray,
+        r_t: jnp.ndarray,
+        s_prev: jnp.ndarray,
+        w_prev: jnp.ndarray,
+        p_prev: jnp.ndarray,
+        cms_memories: List[jnp.ndarray],
+        cms_keys: List[jnp.ndarray],
+        object_features: Optional[jnp.ndarray] = None,
+    ) -> Tuple[jnp.ndarray, Dict[str, Any]]:
+        """
+        Forward pass for a single (unbatched) input.
+
+        Convenience method that handles batch dimension management.
+        All inputs should be unbatched tensors (no leading batch dimension).
+
+        Args:
+            x_obs: Observation [obs_dim]
+            a_prev: Previous action [action_dim]
+            r_t: Reward (scalar or [1])
+            s_prev: Previous fast state [d_s]
+            w_prev: Previous wave state [d_w]
+            p_prev: Previous particle state [d_p]
+            cms_memories: List of [N_l, d_l] memory matrices
+            cms_keys: List of [N_l, d_k] key matrices
+            object_features: Optional [max_objects, object_dim]
+
+        Returns:
+            y_t: Output [output_dim]
+            info: Dictionary with intermediate states (all unbatched)
+        """
+        # Add batch dimensions
+        x_obs_b = x_obs[None, :]
+        a_prev_b = a_prev[None, :]
+        r_t_b = r_t[None, None] if r_t.ndim == 0 else r_t[None, :]
+        s_prev_b = s_prev[None, :]
+        w_prev_b = w_prev[None, :]
+        p_prev_b = p_prev[None, :]
+        cms_memories_b = [m[None, :, :] for m in cms_memories]
+        cms_keys_b = [k[None, :, :] for k in cms_keys]
+        object_features_b = object_features[None, :, :] if object_features is not None else None
+
+        # Run batched forward
+        y_t, info = self.forward_batch(
+            x_obs_b, a_prev_b, r_t_b,
+            s_prev_b, w_prev_b, p_prev_b,
+            cms_memories_b, cms_keys_b,
+            object_features_b
+        )
+
+        # Remove batch dimensions
+        y_t = y_t[0]
+        info = {
+            k: v[0] if isinstance(v, jnp.ndarray) else
+               [x[0] for x in v] if isinstance(v, list) else v
+            for k, v in info.items()
+        }
+
+        return y_t, info
+
     def __call__(
         self,
         x_obs: jnp.ndarray,
@@ -623,82 +753,49 @@ class CoreModel(nn.Module):
         object_features: Optional[jnp.ndarray] = None,
     ) -> Tuple[jnp.ndarray, Dict[str, Any]]:
         """
-        Forward pass of CoreModel.
-        
+        Unified forward pass with automatic batch detection.
+
+        Accepts both batched and unbatched inputs. For explicit control
+        and better performance, use forward_single() or forward_batch() directly.
+
         Args:
             x_obs: Observation [obs_dim] or [B, obs_dim]
             a_prev: Previous action [action_dim] or [B, action_dim]
-            r_t: Reward [1] or [B, 1]
+            r_t: Reward (scalar, [1], or [B, 1])
             s_prev: Previous fast state [d_s] or [B, d_s]
             w_prev: Previous wave state [d_w] or [B, d_w]
             p_prev: Previous particle state [d_p] or [B, d_p]
             cms_memories: List of CMS memory matrices per level
             cms_keys: List of CMS key matrices per level
-            object_features: Optional [B, max_objects, object_dim]
-        
+            object_features: Optional object features
+
         Returns:
             y_t: Output [output_dim] or [B, output_dim]
             info: Dictionary with intermediate states and attention weights
         """
-        # Normalize inputs to have consistent batch dimensions
-        # Track if we need to squeeze output at the end
-        squeeze_output = False
-        if x_obs.ndim == 1:
-            squeeze_output = True
-            x_obs = x_obs[None, :]
-        if a_prev.ndim == 1:
-            a_prev = a_prev[None, :]
-        if r_t.ndim == 0:
-            r_t = r_t[None, None]
-        elif r_t.ndim == 1:
-            r_t = r_t[None, :]
-        if s_prev.ndim == 1:
-            s_prev = s_prev[None, :]
-        if w_prev.ndim == 1:
-            w_prev = w_prev[None, :]
-        if p_prev.ndim == 1:
-            p_prev = p_prev[None, :]
-        # Normalize CMS memories and keys to 3D [B, N, D]
-        if cms_memories[0].ndim == 2:
-            cms_memories = [m[None, :, :] for m in cms_memories]
-            cms_keys = [k[None, :, :] for k in cms_keys]
-
-        # 1. Encode
-        e_t = self.encoder(x_obs, a_prev, r_t, object_features=object_features)
-        
-        # 2. CMS Read (retrieve context from memory)
-        q_t, c_t, attn_weights = self.cms_read(cms_memories, cms_keys, s_prev, e_t)
-        
-        # 3. Core Dynamics
-        s_t, w_t, p_t = self.hope_core(s_prev, w_prev, p_prev, e_t, c_t)
-        
-        # 4. CMS Write (update memory with new experience)
-        new_cms_memories, new_cms_keys = self.cms_write(
-            cms_memories, cms_keys, s_t, e_t, r_t
+        # Use centralized normalization from batch_utils
+        (
+            x_obs, a_prev, r_t,
+            s_prev, w_prev, p_prev,
+            cms_memories, cms_keys,
+            object_features, was_unbatched
+        ) = normalize_inputs(
+            x_obs, a_prev, r_t,
+            s_prev, w_prev, p_prev,
+            cms_memories, cms_keys,
+            object_features
         )
-        
-        # 5. Decode
-        y_t = self.decoder(s_t, c_t)
-        
-        info = {
-            'query': q_t,
-            'context': c_t,
-            'attention_weights': attn_weights,
-            'fast_state': s_t,
-            'wave_state': w_t,
-            'particle_state': p_t,
-            'cms_memories': new_cms_memories,  # Updated memories
-            'cms_keys': new_cms_keys,  # Updated keys
-        }
 
-        # Squeeze output if input was unbatched
-        if squeeze_output:
-            y_t = y_t[0]
-            info = {
-                k: v[0] if isinstance(v, jnp.ndarray) else
-                   [x[0] for x in v] if isinstance(v, list) else v
-                for k, v in info.items()
-            }
+        # Run batched forward
+        y_t, info = self.forward_batch(
+            x_obs, a_prev, r_t,
+            s_prev, w_prev, p_prev,
+            cms_memories, cms_keys,
+            object_features
+        )
+
+        # Denormalize outputs if needed
+        y_t, info = denormalize_outputs(y_t, info, was_unbatched)
 
         return y_t, info
 

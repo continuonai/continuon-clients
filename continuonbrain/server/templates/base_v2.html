@@ -761,6 +761,9 @@
         </footer>
     </div>
 
+    <!-- Real-time WebSocket/SSE client for live data -->
+    <script src="/static/realtime.js"></script>
+
     <script>
         // ============================================
         // CORE APP LOGIC
@@ -986,8 +989,54 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             fetchDiscovery();
-            fetchStatus();
-            setInterval(fetchStatus, 2000);
+
+            // Use realtime client for live updates if available
+            if (typeof realtimeClient !== 'undefined') {
+                // Subscribe to channels
+                realtimeClient.subscribe(['status', 'loops', 'cognitive']);
+
+                // Handle real-time status updates
+                realtimeClient.on('status', (data) => {
+                    robotState = data;
+                    updateStatusUI(data);
+                });
+
+                // Handle loop metrics
+                realtimeClient.on('loops', (data) => {
+                    if (data && data.loops) {
+                        // Update loop health indicators if present
+                        const loopData = data.loops;
+                        if (document.getElementById('inference-rate') && loopData.mid_loop) {
+                            document.getElementById('inference-rate').textContent =
+                                `Inference: ${(loopData.mid_loop.hz || 0).toFixed(1)} Hz`;
+                        }
+                    }
+                });
+
+                // Handle cognitive events (thoughts, tool use, etc.)
+                realtimeClient.on('cognitive', (data) => {
+                    console.log('Cognitive event:', data);
+                    // Could update UI with reasoning traces here
+                });
+
+                // Connection status indicator
+                realtimeClient.on('connected', (info) => {
+                    console.log('Real-time connected via', info.type);
+                    document.querySelector('.footer-dot')?.classList.add('bg-success');
+                });
+
+                realtimeClient.on('disconnected', () => {
+                    console.log('Real-time disconnected');
+                    document.querySelector('.footer-dot')?.classList.remove('bg-success');
+                });
+
+                // Fallback: still do initial fetch
+                fetchStatus();
+            } else {
+                // Fallback to polling if realtime client not available
+                fetchStatus();
+                setInterval(fetchStatus, 2000);
+            }
         });
         
         {% block extra_scripts %}{% endblock %}

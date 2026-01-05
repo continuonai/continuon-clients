@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import '../services/brain_client.dart';
@@ -26,17 +27,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _openingSettings = false;
   bool _showControls = false;
 
+  // Real-time events
+  late StreamSubscription<Map<String, dynamic>>? _eventSub;
+  final List<String> _eventLog = [];
+  final ScrollController _logScroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _refreshStatus();
+    // Poll less frequently if we have SSE, but keep it as backup
     _timer =
-        Timer.periodic(const Duration(seconds: 5), (_) => _refreshStatus());
+        Timer.periodic(const Duration(seconds: 10), (_) => _refreshStatus());
+    _initSse();
+  }
+
+  void _initSse() {
+    _eventSub = widget.brainClient.subscribeToEvents().listen((event) {
+      if (!mounted) return;
+
+      // Update status if event contains it
+      if (event.containsKey('status')) {
+        setState(() => _status = event);
+      }
+
+      // Log event
+      final type = event['event_type'] ?? 'info';
+      final msg = event['message'] ?? event.toString();
+      _addLog("[$type] $msg");
+
+      // Show significant events as snackbars
+      if (type == 'error' || type == 'limit_reached' || type == 'mode_change') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(msg),
+              backgroundColor: type == 'error' ? Colors.red : null),
+        );
+      }
+    }, onError: (e) {
+      debugPrint("SSE Error: $e");
+    });
+  }
+
+  void _addLog(String msg) {
+    setState(() {
+      _eventLog.insert(0,
+          "${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second} $msg");
+      if (_eventLog.length > 50) _eventLog.removeLast();
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _eventSub?.cancel();
+    _logScroll.dispose();
     super.dispose();
   }
 
@@ -67,9 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (mounted) {
       setState(() => _loading = false);
       if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Mode changed to $mode')),
-        );
+        // SSE will likely pick this up, but manual refresh ensures UI sync immediately
         _refreshStatus();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,17 +171,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         (statusData['detected_hardware'] as Map?)?.cast<String, dynamic>() ??
             {};
 
+    // Premium Background Gradient
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('ContinuonAI Robotic Control',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        title: const Text('ContinuonAI',
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+        backgroundColor: Colors.transparent, // Glass effect below
         elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: Theme.of(context).dividerColor, height: 1),
+        flexibleSpace: ClipRRect(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.5)),
+          ),
         ),
         actions: [
           IconButton(
@@ -153,7 +199,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : const Icon(Icons.refresh),
           ),
           IconButton(
-            tooltip: 'Startup & flags (GET/POST /api/settings)',
+            tooltip: 'Settings',
             onPressed: _openingSettings ? null : _openStartupAndFlags,
             icon: const Icon(Icons.tune),
           ),
@@ -168,74 +214,139 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Health Signals Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Theme.of(context).colorScheme.surface,
-            child: Row(
-              children: [
-                _buildHealthBadge(
-                  label: mode.toUpperCase(),
-                  color: _getModeColor(mode),
-                  icon: Icons.psychology,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient:
+              ContinuonGradients.deepSpace, // Or subtle gradient for light mode
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+                height: MediaQuery.of(context).padding.top + kToolbarHeight),
+            // Health & Status Header (Glass)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: _GlassCard(
+                child: Row(
+                  children: [
+                    _buildHealthBadge(
+                      label: mode.toUpperCase(),
+                      color: _getModeColor(mode),
+                      icon: Icons.psychology,
+                    ),
+                    const SizedBox(width: 8),
+                    if (isRecording)
+                      _buildHealthBadge(
+                          label: 'REC',
+                          color: Colors.red,
+                          icon: Icons.fiber_manual_record),
+                    const Spacer(),
+                    if (allowMotion)
+                      Tooltip(
+                        message: 'Motion Allowed',
+                        child: Icon(Icons.check_circle,
+                            color: Colors.greenAccent, size: 20),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                if (isRecording)
-                  _buildHealthBadge(
-                      label: 'REC',
-                      color: Colors.red,
-                      icon: Icons.fiber_manual_record),
-                const Spacer(),
-                if (allowMotion)
-                  Tooltip(
-                    message: 'Motion Allowed',
-                    child: Icon(Icons.check_circle,
-                        color: Colors.orange, size: 20),
-                  ),
-              ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          // Creator Dashboard (Hidden behind expander or just removed for basic users?
-          // Requirements said "main interaction" is chat. Let's keep it clean.)
 
-          // Main Chat Area
-          Expanded(
-            child: ChatInteractionWidget(brainClient: widget.brainClient),
-          ),
+            // Main Content Area
+            Expanded(
+              child: Stack(
+                children: [
+                  // Chat Layer
+                  ChatInteractionWidget(brainClient: widget.brainClient),
 
-          // Bottom Controls Expander
-          ExpansionTile(
-            title:
-                const Text('Advanced Controls', style: TextStyle(fontSize: 14)),
-            dense: true,
-            initiallyExpanded: _showControls,
-            onExpansionChanged: (val) => setState(() => _showControls = val),
-            children: [
-              Container(
-                height: 300,
-                padding: const EdgeInsets.all(16),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const CreatorDashboard(),
-                      const SizedBox(height: 12),
-                      Text('Hardware Sensors',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      const SizedBox(height: 8),
-                      _buildSensorsCard(hardware),
-                      const SizedBox(height: 12),
-                      _buildActionButtons(context),
-                    ],
+                  // Live Event Log Overlay (Bottom Left, faded)
+                  Positioned(
+                    left: 16,
+                    bottom:
+                        _showControls ? 320 : 80, // Adjust based on expander
+                    child: IgnorePointer(
+                      ignoring:
+                          true, // Let clicks pass through to chat unless we make it interactive
+                      child: Opacity(
+                        opacity: 0.6,
+                        child: SizedBox(
+                          width: 200,
+                          height: 100,
+                          child: ListView.builder(
+                            reverse: true, // Newest at bottom visually? Or top?
+                            itemCount: _eventLog.length,
+                            itemBuilder: (context, i) => Text(
+                              _eventLog[i],
+                              style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                  shadows: [
+                                    Shadow(blurRadius: 2, color: Colors.black)
+                                  ]),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Bottom Controls Expander (Glass)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(ContinuonTokens.r16),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? ContinuonGlass.darkParams.color
+                          : ContinuonGlass.lightParams.color,
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      borderRadius: BorderRadius.circular(ContinuonTokens.r16),
+                    ),
+                    child: ExpansionTile(
+                      title: const Text('Command Center',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.bold)),
+                      dense: true,
+                      initiallyExpanded: _showControls,
+                      onExpansionChanged: (val) =>
+                          setState(() => _showControls = val),
+                      shape: const Border(), // Remove separator lines
+                      collapsedShape: const Border(),
+                      children: [
+                        Container(
+                          height: 300,
+                          padding: const EdgeInsets.all(16),
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const CreatorDashboard(),
+                                const SizedBox(height: 12),
+                                Text('Sensors',
+                                    style:
+                                        Theme.of(context).textTheme.labelSmall),
+                                const SizedBox(height: 8),
+                                _buildSensorsCard(hardware),
+                                const SizedBox(height: 12),
+                                _buildActionButtons(context),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -243,11 +354,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHealthBadge(
       {required String label, required Color color, required IconData icon}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+              color: color.withValues(alpha: 0.2),
+              blurRadius: 4,
+              spreadRadius: 1),
+        ],
       ),
       child: Row(
         children: [
@@ -269,7 +386,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color _getModeColor(String mode) {
     switch (mode) {
       case 'idle':
-        return ContinuonColors.gray700;
+        return ContinuonColors.gray500;
       case 'manual_training':
         return ContinuonColors.primaryBlue;
       case 'autonomous':
@@ -277,21 +394,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'sleep_learning':
         return ContinuonColors.particleOrange;
       default:
-        return ContinuonColors.gray700;
+        return ContinuonColors.gray500;
     }
   }
 
   Widget _buildSensorsCard(Map<String, dynamic> hardware) {
     if (hardware.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-            borderRadius: BorderRadius.circular(8)),
-        width: double.infinity,
-        child: const Text('No hardware detected',
-            style: TextStyle(fontSize: 12, color: Colors.grey)),
-      );
+      return const Text('No hardware detected',
+          style: TextStyle(fontSize: 12, color: Colors.grey));
     }
     return Column(
       children: [
@@ -321,34 +431,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
       spacing: 8,
       runSpacing: 8,
       children: [
-        _buildMiniActionButton('Manual', ContinuonColors.primaryBlue, () async {
+        _buildGlassBtn('Manual', ContinuonColors.primaryBlue, () async {
           await _setMode('manual_control');
           if (context.mounted) {
             Navigator.pushNamed(context, ControlScreen.routeName);
           }
         }),
-        _buildMiniActionButton('Train', ContinuonColors.primaryBlue,
+        _buildGlassBtn('Train', ContinuonColors.primaryBlue,
             () => _setMode('manual_training')),
-        _buildMiniActionButton(
+        _buildGlassBtn(
             'Auto', ContinuonColors.cmsViolet, () => _setMode('autonomous')),
-        _buildMiniActionButton(
-            'Idle', ContinuonColors.gray700, () => _setMode('idle')),
-        _buildMiniActionButton('STOP', Theme.of(context).colorScheme.error,
-            () => _setMode('emergency_stop')),
+        _buildGlassBtn('Idle', ContinuonColors.gray700, () => _setMode('idle')),
+        _buildGlassBtn('STOP', Colors.red, () => _setMode('emergency_stop')),
       ],
     );
   }
 
-  Widget _buildMiniActionButton(String label, Color color, VoidCallback onTap) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        minimumSize: const Size(0, 36),
+  Widget _buildGlassBtn(String label, Color color, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(ContinuonTokens.r8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            border: Border.all(color: color.withOpacity(0.5)),
+            borderRadius: BorderRadius.circular(ContinuonTokens.r8),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+        ),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 12)),
+    );
+  }
+}
+
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  const _GlassCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(ContinuonTokens.r16),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration:
+              isDark ? ContinuonGlass.darkParams : ContinuonGlass.lightParams,
+          child: child,
+        ),
+      ),
     );
   }
 }

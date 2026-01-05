@@ -23,6 +23,7 @@ import jinja2
 
 from continuonbrain.settings_manager import SettingsStore, SettingsValidationError
 from continuonbrain.server.tasks import TaskLibraryEntry, TaskSummary
+from continuonbrain.server.websocket_handler import WebSocketHandler
 
 
 class SimpleJSONServer:
@@ -54,6 +55,12 @@ class SimpleJSONServer:
             loader=jinja2.FileSystemLoader(str(template_dir)),
             autoescape=jinja2.select_autoescape(['html', 'xml'])
         )
+
+        # Initialize WebSocket handler for real-time bi-directional communication
+        self.websocket_handler = WebSocketHandler(service=service)
+
+        # SSE client connections for fallback
+        self._sse_clients: list = []
 
     def _base_dir(self) -> Path:
         """
@@ -218,9 +225,14 @@ class SimpleJSONServer:
                 key, value = header_line.split(":", 1)
                 headers[key.strip().lower()] = value.strip()
 
-        # SSE endpoint
+        # WebSocket upgrade for real-time bi-directional communication
+        if path in {"/ws", "/ws/events"} and WebSocketHandler.is_websocket_upgrade(headers):
+            await self.websocket_handler.handle_upgrade(headers, reader, writer)
+            return
+
+        # SSE endpoint (fallback for clients that don't support WebSocket)
         if path == "/api/events":
-            await self._handle_sse(writer)
+            await self._handle_sse(writer, headers)
             return
 
         # Static assets
@@ -348,6 +360,30 @@ class SimpleJSONServer:
                 base_url = self._infer_advertise_base_url(headers=headers, writer=writer)
                 status["discovery_url"] = f"{base_url}/api/discovery/info"
             response_body = json.dumps(status)
+            return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
+        elif path == "/api/realtime" and method == "GET":
+            # Real-time connection info endpoint
+            base_url = self._infer_advertise_base_url(headers=headers, writer=writer)
+            ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://")
+            payload = {
+                "status": "ok",
+                "websocket": {
+                    "available": True,
+                    "url": f"{ws_url}/ws/events",
+                    "channels": ["status", "training", "cognitive", "chat", "loops", "camera"],
+                    "protocol": "continuonbrain-v1",
+                },
+                "sse": {
+                    "available": True,
+                    "url": f"{base_url}/api/events",
+                    "channels": ["status", "training", "cognitive", "chat", "loops"],
+                },
+                "connections": {
+                    "websocket": self.websocket_handler.get_connection_count(),
+                    "sse": len(self._sse_clients),
+                },
+            }
+            response_body = json.dumps(payload)
             return f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(response_body)}\r\n\r\n{response_body}"
         elif path in {"/api/discovery", "/api/discovery/info"} and method == "GET":
             base_url = self._infer_advertise_base_url(headers=headers, writer=writer)
@@ -2078,6 +2114,120 @@ class SimpleJSONServer:
             f"Content-Length: {len(body)}\r\n\r\n"
             f"{body}"
         ).encode("utf-8")
+
+    async def _handle_sse(self, writer: asyncio.StreamWriter, headers: Dict[str, Any] = None):
+        """
+        Handle Server-Sent Events (SSE) connection.
+
+        Provides real-time event streaming for clients that don't support WebSocket.
+        Events include: status updates, training progress, cognitive events, chat messages.
+        """
+        # Send SSE headers
+        sse_headers = (
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/event-stream\r\n"
+            "Cache-Control: no-cache\r\n"
+            "Connection: keep-alive\r\n"
+            "Access-Control-Allow-Origin: *\r\n"
+            "\r\n"
+        )
+        writer.write(sse_headers.encode())
+        await writer.drain()
+
+        # Add to SSE clients list
+        self._sse_clients.append(writer)
+
+        # Send initial connected event
+        await self._send_sse_event(writer, "connected", {
+            "message": "SSE connection established",
+            "channels": ["status", "training", "cognitive", "chat", "loops"],
+            "websocket_available": True,
+            "websocket_url": "/ws/events",
+        })
+
+        try:
+            last_status_time = 0
+            last_loop_time = 0
+            while not writer.is_closing():
+                now = time.time()
+
+                # Send status update every 2 seconds
+                if now - last_status_time >= 2:
+                    try:
+                        status = await self.service.GetRobotStatus()
+                        await self._send_sse_event(writer, "status", status)
+                        last_status_time = now
+                    except Exception as e:
+                        await self._send_sse_event(writer, "error", {"message": str(e)})
+
+                # Send loop metrics every 1 second
+                if now - last_loop_time >= 1:
+                    try:
+                        loops = await self.service.GetLoopHealth()
+                        await self._send_sse_event(writer, "loops", loops)
+                        last_loop_time = now
+                    except Exception:
+                        pass
+
+                # Check cognitive event queue
+                try:
+                    event = self.cognitive_event_queue.get_nowait()
+                    await self._send_sse_event(writer, "cognitive", event)
+                except asyncio.QueueEmpty:
+                    pass
+
+                # Check chat event queue if available
+                if hasattr(self.service, 'chat_event_queue'):
+                    try:
+                        chat_event = self.service.chat_event_queue.get_nowait()
+                        await self._send_sse_event(writer, "chat", chat_event)
+                    except asyncio.QueueEmpty:
+                        pass
+
+                # Send heartbeat every 15 seconds
+                if now % 15 < 0.1:
+                    await self._send_sse_event(writer, "heartbeat", {"timestamp": now})
+
+                await asyncio.sleep(0.1)  # 10 Hz poll rate
+
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            print(f"SSE error: {e}")
+        finally:
+            if writer in self._sse_clients:
+                self._sse_clients.remove(writer)
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+    async def _send_sse_event(self, writer: asyncio.StreamWriter, event_type: str, data: Any):
+        """Send a single SSE event."""
+        try:
+            payload = json.dumps(data, default=str)
+            message = f"event: {event_type}\ndata: {payload}\n\n"
+            writer.write(message.encode())
+            await writer.drain()
+        except Exception:
+            pass
+
+    async def broadcast_sse_event(self, event_type: str, data: Any):
+        """Broadcast an SSE event to all connected SSE clients."""
+        dead_clients = []
+        for writer in self._sse_clients:
+            try:
+                if writer.is_closing():
+                    dead_clients.append(writer)
+                else:
+                    await self._send_sse_event(writer, event_type, data)
+            except Exception:
+                dead_clients.append(writer)
+
+        for client in dead_clients:
+            if client in self._sse_clients:
+                self._sse_clients.remove(client)
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle incoming client connections."""

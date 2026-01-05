@@ -44,6 +44,7 @@ class ContinuonTokens {
   static const r8 = 8.0;
   static const r12 = 12.0;
   static const r16 = 16.0;
+  static const r24 = 24.0;
   static const rFull = 999.0;
 
   // Shadows
@@ -62,6 +63,64 @@ class ContinuonTokens {
       offset: Offset(0, 8),
     ),
   ];
+
+  static const glowShadow = [
+    BoxShadow(
+      color: Color(0x660A84FF), // Primary blue glow
+      blurRadius: 24,
+      spreadRadius: -4,
+      offset: Offset(0, 8),
+    ),
+  ];
+}
+
+/// Glassmorphism styles
+class ContinuonGlass {
+  static BoxDecoration lightParams = BoxDecoration(
+    color: Colors.white.withValues(alpha: 0.7),
+    borderRadius: BorderRadius.circular(ContinuonTokens.r16),
+    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+  );
+
+  static BoxDecoration darkParams = BoxDecoration(
+    color: const Color(0xFF1A1A1E).withValues(alpha: 0.6),
+    borderRadius: BorderRadius.circular(ContinuonTokens.r16),
+    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+  );
+
+  static BoxDecoration darkSearch = BoxDecoration(
+    color: Colors.black.withValues(alpha: 0.3),
+    borderRadius: BorderRadius.circular(ContinuonTokens.rFull),
+    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+  );
+}
+
+/// Premium Gradients
+class ContinuonGradients {
+  static const LinearGradient warmFlow = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFF8C42), // Particle Orange
+      Color(0xFFFF5252), // Red accent
+    ],
+  );
+
+  static const LinearGradient deepSpace = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF0A0A0C), // Brand black
+      Color(0xFF18181B), // Slightly lighter
+    ],
+  );
+
+  static const LinearGradient magicText = LinearGradient(
+    colors: [
+      ContinuonColors.waveBlueStart,
+      ContinuonColors.cmsViolet,
+    ],
+  );
 }
 
 /// Gradient + product accents as a ThemeExtension

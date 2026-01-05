@@ -2570,6 +2570,16 @@ def main():
     asyncio.set_event_loop(loop)
     loop.run_until_complete(brain_service.initialize())
 
+    # Hook SystemEventLogger to SSE stream
+    if event_logger and hasattr(brain_service, "chat_event_queue"):
+        def _bridge_system_event(event_dict):
+            # Pass system events to the SSE queue for UI consumption
+            try:
+                brain_service.chat_event_queue.put(event_dict)
+            except Exception:
+                pass
+        event_logger.add_listener(_bridge_system_event)
+
     # Bind the autonomous learner to API routes so live training metrics
     # surface through the learning + HOPE monitoring endpoints.
     try:

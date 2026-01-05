@@ -34,6 +34,12 @@ class SystemEventLogger:
         self.log_path = self.config_dir / "logs" / "system_events.jsonl"
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        self._listeners = []
+
+    def add_listener(self, callback):
+        """Add a callback(dict) to be notified on new events."""
+        with self._lock:
+            self._listeners.append(callback)
 
     def log(self, event_type: str, message: str, data: Optional[Dict[str, Any]] = None) -> None:
         event = SystemEvent(
@@ -42,10 +48,18 @@ class SystemEventLogger:
             message=message,
             data=data or {},
         )
-        line = json.dumps(event.to_dict())
+        payload = event.to_dict()
+        line = json.dumps(payload)
+        
         with self._lock:
             with open(self.log_path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
+            # Notify listeners safely
+            for cb in self._listeners:
+                try:
+                    cb(payload)
+                except Exception:
+                    pass
 
     def load_recent(self, limit: int = 50) -> List[Dict[str, Any]]:
         if limit <= 0:
