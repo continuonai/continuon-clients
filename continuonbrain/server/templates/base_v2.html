@@ -685,6 +685,99 @@
         .mb-4 { margin-bottom: 16px; }
         .mb-6 { margin-bottom: 24px; }
 
+        /* ============================================
+           TOOLTIPS & HELP
+           ============================================ */
+
+        /* Custom tooltip for nav items */
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-item::after {
+            content: attr(title);
+            position: absolute;
+            left: calc(100% + 12px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--duration-fast);
+            z-index: 1000;
+            box-shadow: var(--shadow-md);
+            pointer-events: none;
+        }
+
+        .nav-item:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Info badges for help */
+        .info-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            border-radius: 50%;
+            font-size: 10px;
+            color: var(--text-muted);
+            cursor: help;
+            margin-left: 6px;
+        }
+
+        .info-badge:hover {
+            background: var(--accent-primary-dim);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        /* Help text under sections */
+        .help-text {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        /* Status indicator badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.online {
+            background: var(--accent-success-dim);
+            color: var(--accent-success);
+        }
+
+        .status-badge.offline {
+            background: var(--accent-danger-dim);
+            color: var(--accent-danger);
+        }
+
+        .status-badge.pending {
+            background: var(--accent-warning-dim);
+            color: var(--accent-warning);
+        }
+
         {% block extra_styles %}{% endblock %}
     </style>
 </head>
@@ -727,17 +820,17 @@
         </header>
 
         <!-- NAV RAIL -->
-        <nav class="nav-rail">
-            <button class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')" title="Dashboard">🏠</button>
-            <button class="nav-item" data-page="control" onclick="navigateTo('control')" title="Control">🎮</button>
-            <button class="nav-item" data-page="training" onclick="navigateTo('training')" title="Training">🧠</button>
-            <button class="nav-item" data-page="safety" onclick="navigateTo('safety')" title="Safety">🛡️</button>
-            <div class="nav-divider"></div>
-            <button class="nav-item" data-page="network" onclick="navigateTo('network')" title="Network">📡</button>
-            <button class="nav-item" data-page="agent" onclick="navigateTo('agent')" title="Agent">💬</button>
+        <nav class="nav-rail" role="navigation" aria-label="Main navigation">
+            <button class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')" title="Dashboard - System overview and status" aria-label="Dashboard">🏠</button>
+            <button class="nav-item" data-page="control" onclick="navigateTo('control')" title="Control - Manual robot control & camera" aria-label="Control Center">🎮</button>
+            <button class="nav-item" data-page="training" onclick="navigateTo('training')" title="Training - ML pipeline & teacher mode" aria-label="Training Hub">🧠</button>
+            <button class="nav-item" data-page="safety" onclick="navigateTo('safety')" title="Safety - Ring 0 kernel & work authorization" aria-label="Safety Center">🛡️</button>
+            <div class="nav-divider" role="separator"></div>
+            <button class="nav-item" data-page="network" onclick="navigateTo('network')" title="Network - RCAN, WiFi & Bluetooth" aria-label="Network Settings">📡</button>
+            <button class="nav-item" data-page="agent" onclick="navigateTo('agent')" title="Agent - Chat with HOPE AI assistant" aria-label="Agent Chat">💬</button>
             <div class="nav-spacer"></div>
-            <div class="nav-divider"></div>
-            <button class="nav-item" data-page="settings" onclick="navigateTo('settings')" title="Settings">⚙️</button>
+            <div class="nav-divider" role="separator"></div>
+            <button class="nav-item" data-page="settings" onclick="navigateTo('settings')" title="Settings - System configuration" aria-label="Settings">⚙️</button>
         </nav>
 
         <!-- MAIN WORKSPACE -->
@@ -802,14 +895,15 @@
         let currentPage = 'dashboard';
         let robotState = {};
         
-        // Navigation
+        // Navigation - use clean routes
         function navigateTo(page) {
             currentPage = page;
             document.querySelectorAll('.nav-item').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.page === page);
             });
-            // In a full implementation, this would load page content
-            window.location.href = '/v2/' + page;
+            // Navigate to clean routes (server supports both / and /v2/ prefixes)
+            const route = page === 'dashboard' ? '/' : '/' + page;
+            window.location.href = route;
         }
         
         // Mode switching

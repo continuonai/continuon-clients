@@ -92,3 +92,6 @@ node_modules/
 
 # Hailo runtime logs
 hailort*.log
+
+# MkDocs build output (prevent accidental builds)
+site/

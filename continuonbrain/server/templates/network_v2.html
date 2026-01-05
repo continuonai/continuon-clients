@@ -486,13 +486,14 @@
 <div class="page-header">
     <h1 class="page-title">Network & RCAN</h1>
     <p class="page-subtitle">Robot identity, connectivity, and session management</p>
+    <p class="help-text">Manage your robot's network identity (RCAN), active user sessions, WiFi/Bluetooth connectivity, and ownership. Pair your mobile app by scanning the QR code.</p>
 </div>
 
 <!-- RCAN Identity -->
-<div class="rcan-identity-panel network-full">
+<div class="rcan-identity-panel network-full" title="Robot Communication and Naming - unique identifier for this robot on the network.">
     <div class="rcan-identity-header">
         <div class="rcan-identity-title">
-            <h2>📡 RCAN Identity</h2>
+            <h2>📡 RCAN Identity<span class="info-badge" title="RCAN (Robot Communication and Naming) provides a unique identifier (RURI) for network discovery and communication.">?</span></h2>
             <span class="rcan-protocol-badge">Protocol v1.0</span>
         </div>
     </div>
@@ -522,9 +523,9 @@
 
 <div class="network-layout">
     <!-- Active Sessions -->
-    <div class="sessions-panel">
+    <div class="sessions-panel" title="Connected users and their permission levels.">
         <div class="sessions-header">
-            <span class="sessions-title">👥 Active Sessions</span>
+            <span class="sessions-title">👥 Active Sessions<span class="info-badge" title="Shows all users currently connected to this robot. Roles: Creator (highest), Owner, User, Guest (limited).">?</span></span>
             <span class="section-badge" id="session-count">0 active</span>
         </div>
         <div class="sessions-list" id="sessions-list">
@@ -539,8 +540,8 @@
     </div>
     
     <!-- Ownership -->
-    <div class="ownership-panel">
-        <div class="ownership-header">👑 Ownership</div>
+    <div class="ownership-panel" title="Current owner of this robot and ownership transfer options.">
+        <div class="ownership-header">👑 Ownership<span class="info-badge" title="The owner has full control over the robot. Claim to become owner, or transfer ownership to another user.">?</span></div>
         <div class="owner-card" id="owner-card">
             <div class="owner-avatar">👤</div>
             <div class="owner-info">
@@ -555,9 +556,9 @@
     </div>
     
     <!-- WiFi -->
-    <div class="wifi-panel">
+    <div class="wifi-panel" title="Connect the robot to WiFi networks for internet access.">
         <div class="wifi-header">
-            <span class="sessions-title">📶 WiFi Networks</span>
+            <span class="sessions-title">📶 WiFi Networks<span class="info-badge" title="Scan for available networks and connect. Signal strength is shown with bars. Secure networks require a password.">?</span></span>
             <div style="display: flex; gap: 12px; align-items: center;">
                 <div class="wifi-status">
                     <span class="wifi-status-dot" id="wifi-dot"></span>
@@ -578,9 +579,9 @@
     </div>
     
     <!-- Bluetooth -->
-    <div class="bt-panel">
+    <div class="bt-panel" title="Pair Bluetooth devices like controllers, headphones, or speakers.">
         <div class="wifi-header">
-            <span class="sessions-title">🔵 Bluetooth Devices</span>
+            <span class="sessions-title">🔵 Bluetooth Devices<span class="info-badge" title="Scan for nearby Bluetooth devices and pair them. Use for controllers, audio devices, or other accessories.">?</span></span>
             <button class="scan-btn" onclick="scanBluetooth()">🔄 Scan</button>
         </div>
         <div id="bt-list">
@@ -595,8 +596,8 @@
     </div>
     
     <!-- Pairing QR -->
-    <div class="pairing-panel">
-        <div class="ownership-header" style="justify-content: center;">📱 Pair ContinuonAI App</div>
+    <div class="pairing-panel" title="Use your smartphone to control the robot via the ContinuonAI app.">
+        <div class="ownership-header" style="justify-content: center;">📱 Pair ContinuonAI App<span class="info-badge" title="Scan this QR code with the ContinuonAI mobile app to pair your phone. Alternatively, enter the 6-digit code manually.">?</span></div>
         <div class="pairing-qr" id="pairing-qr">
             <img src="/api/ownership/pair/qr" alt="Pairing QR Code" onerror="this.parentElement.innerHTML='QR Loading...'">
         </div>

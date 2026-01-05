@@ -798,6 +798,10 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 "frame_size": [frame.shape[1], frame.shape[0]],
             }
 
+            # Also cache in brain_service for world model integration
+            if brain_service:
+                brain_service.last_segmentation = last_segmentation
+
             return overlay
 
         except Exception as e:
@@ -1119,7 +1123,20 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_v2_training_html().encode("utf-8"))
-            
+
+            elif self.path in ("/network", "/network/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_network_html().encode("utf-8"))
+
+            elif self.path in ("/agent", "/agent/"):
+                # Agent page - shows HOPE agent chat expanded view
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_dashboard_html().encode("utf-8"))
+
             elif self.path in ("/training_proof", "/training_proof/"):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
@@ -1524,6 +1541,24 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 data = brain_service.get_brain_structure()
                 self.send_json(data)
 
+            elif self.path == "/api/world-model/state":
+                # Get current world model state (object tracking, scene understanding)
+                data = brain_service.get_world_model_state()
+                self.send_json(data)
+
+            elif self.path == "/api/teacher/status":
+                # Get teacher interface status and pending questions
+                teacher = brain_service.get_teacher_interface()
+                if teacher:
+                    self.send_json({
+                        "available": True,
+                        "pending_questions": teacher.get_pending_questions(),
+                        "teaching_summary": teacher.get_teaching_summary(),
+                        "suggestions": teacher.suggest_teaching_focus(),
+                    })
+                else:
+                    self.send_json({"available": False, "error": "Teacher interface not initialized"})
+
             elif self.path.startswith("/api/context/graph/decisions"):
                 try:
                     parsed = urlparse(self.path)
@@ -1667,7 +1702,51 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path in {"/api/discovery", "/api/discovery/info"}:
                 # Discovery endpoint for LAN device discovery
                 self.send_json(_build_discovery_payload(self))
-            
+
+            elif self.path in {"/api/rcan/info", "/api/rcan/status"}:
+                # RCAN (Robot Communication & Addressing Network) info endpoint
+                if brain_service and hasattr(brain_service, 'rcan'):
+                    rcan_status = brain_service.rcan.get_status()
+                    rcan_status["discovery"] = brain_service.rcan.get_discovery_info()
+                    self.send_json(rcan_status)
+                else:
+                    # Return basic RCAN info even without full service
+                    discovery = _build_discovery_payload(self)
+                    self.send_json({
+                        "available": True,
+                        "version": "1.0",
+                        "protocol": "RCAN/1.0",
+                        "ruri": discovery.get("ruri", ""),
+                        "robot_name": discovery.get("robot_name", "ContinuonBrain"),
+                        "capabilities": discovery.get("capabilities", []),
+                    })
+
+            elif self.path in {"/api/hardware/list", "/api/hardware"}:
+                # Hardware list endpoint - returns detected devices
+                status_payload = _build_status_payload()
+                detected = status_payload.get("detected_hardware", {})
+                devices = detected.get("devices", {})
+
+                hardware_list = []
+                for device_type, device_list in devices.items():
+                    for device in device_list:
+                        hardware_list.append({
+                            "type": device_type,
+                            "name": device.get("name", "Unknown"),
+                            "vendor": device.get("vendor", "Unknown"),
+                            "interface": device.get("interface", ""),
+                            "is_mock": device.get("is_mock", False),
+                            "capabilities": device.get("capabilities", []),
+                            "status": "online" if not device.get("is_mock", False) else "mock",
+                        })
+
+                self.send_json({
+                    "hardware": hardware_list,
+                    "count": len(hardware_list),
+                    "profile": detected.get("hardware_profile", "unknown"),
+                    "timestamp": detected.get("detected_timestamp", ""),
+                })
+
             # ===================================================================
             # RCAN Protocol Endpoints (Robot Communication & Addressing Network)
             # ===================================================================
@@ -2628,7 +2707,71 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_json(result)
                 except Exception as e:
                     self.send_json({"error": str(e)}, status=500)
-            
+
+            elif self.path == "/api/world-model/query":
+                # Query the world model about the current scene
+                try:
+                    data = json.loads(body) if body else {}
+                    question = data.get("question", "What do you see?")
+                    answer = brain_service.query_world_model(question)
+                    self.send_json({"success": True, "answer": answer, "question": question})
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
+
+            elif self.path == "/api/teacher/answer":
+                # Provide an answer to one of HOPE's questions
+                try:
+                    teacher = brain_service.get_teacher_interface()
+                    if not teacher:
+                        self.send_json({"error": "Teacher interface not available"}, status=503)
+                        return
+
+                    data = json.loads(body) if body else {}
+                    question_id = data.get("question_id", 0)
+                    answer = data.get("answer", "")
+                    confidence = data.get("confidence", 0.9)
+
+                    result = teacher.provide_answer(question_id, answer, confidence)
+                    self.send_json(result)
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
+
+            elif self.path == "/api/teacher/correct":
+                # Provide a correction to HOPE
+                try:
+                    teacher = brain_service.get_teacher_interface()
+                    if not teacher:
+                        self.send_json({"error": "Teacher interface not available"}, status=503)
+                        return
+
+                    data = json.loads(body) if body else {}
+                    original = data.get("original_response", "")
+                    correction = data.get("correction", "")
+                    context = data.get("context", {})
+
+                    result = teacher.provide_correction(original, correction, context)
+                    self.send_json(result)
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
+
+            elif self.path == "/api/teacher/demonstrate":
+                # Provide a demonstration to HOPE
+                try:
+                    teacher = brain_service.get_teacher_interface()
+                    if not teacher:
+                        self.send_json({"error": "Teacher interface not available"}, status=503)
+                        return
+
+                    data = json.loads(body) if body else {}
+                    action_name = data.get("action", "")
+                    steps = data.get("steps", [])
+                    context = data.get("context", {})
+
+                    result = teacher.demonstrate_action(action_name, steps, context)
+                    self.send_json(result)
+                except Exception as e:
+                    self.send_json({"error": str(e)}, status=500)
+
             elif self.path == "/api/brain/toggle_hybrid":
                 # Toggle hybrid mode (1 vs 4 columns)
                 try:

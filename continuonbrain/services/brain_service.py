@@ -380,6 +380,14 @@ class BrainService:
         self.hope_brain = None
         self._hope_agent_cache = None  # Cached HOPEAgent instance
 
+        # World model integration (connects sensors to HOPE brain)
+        self._world_model_integration = None
+        self._teacher_interface = None
+
+        # Cached segmentation/pose results for HOPE agent
+        self.last_segmentation = None
+        self.last_pose_result = None
+
         self._prime_world_model_adapter()
 
         # Teacher Mode State (HITL)
@@ -1360,11 +1368,50 @@ class BrainService:
             self._hope_agent_cache = None
 
             logger.info("HOPE brain initialized successfully for active learning")
+
+            # Start world model integration for continuous sensory input
+            self._start_world_model_integration()
+
             return True
 
         except Exception as e:
             logger.error(f"Failed to initialize HOPE brain: {e}")
             return False
+
+    def _start_world_model_integration(self):
+        """Start the world model integration for sensor-to-brain data flow."""
+        if self._world_model_integration is not None:
+            return  # Already running
+
+        try:
+            from continuonbrain.services.world_model_integration import create_world_model_integration
+
+            self._world_model_integration, self._teacher_interface = create_world_model_integration(
+                brain_service=self
+            )
+            self._world_model_integration.start()
+            logger.info("World model integration started - sensors connected to HOPE brain")
+
+        except Exception as e:
+            logger.warning(f"Could not start world model integration: {e}")
+
+    def get_world_model_state(self) -> Dict[str, Any]:
+        """Get current world model state for debugging/display."""
+        if self._world_model_integration is None:
+            return {"error": "World model integration not running"}
+
+        return self._world_model_integration.get_world_state()
+
+    def get_teacher_interface(self):
+        """Get the teacher interface for Claude Code guided learning."""
+        return self._teacher_interface
+
+    def query_world_model(self, question: str) -> str:
+        """Query the world model about the current scene."""
+        if self._world_model_integration is None:
+            return "World model not available"
+
+        return self._world_model_integration.query_scene(question)
 
     def get_brain_structure(self) -> Dict[str, Any]:
         """

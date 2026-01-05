@@ -393,8 +393,9 @@
     <div>
         <h1 class="page-title">Dashboard</h1>
         <p class="page-subtitle">Real-time robot status and control center</p>
+        <p class="help-text">Monitor system health, control modes, and view live metrics. Use the mode buttons above to switch between Autonomous, Manual, Training, and Idle modes.</p>
     </div>
-    <button class="quick-action-btn" onclick="fullRefresh()" id="refresh-btn" title="Refresh all data">
+    <button class="quick-action-btn" onclick="fullRefresh()" id="refresh-btn" title="Refresh all data from server" aria-label="Refresh dashboard data">
         <span id="refresh-icon">🔄</span> Refresh
     </button>
 </div>
@@ -459,29 +460,30 @@
     <span class="section-title">Key Metrics</span>
     <span class="section-badge">Live</span>
 </div>
+<p class="help-text" style="margin-bottom: 12px;">Core performance indicators for the robot's cognitive systems. Green indicates healthy, yellow indicates attention needed.</p>
 <div class="dashboard-grid">
-    <div class="metric-card">
+    <div class="metric-card" title="Cognitive Memory System - Working memory usage across fast (reflex), mid (deliberate), and slow (long-term) tiers">
         <div class="metric-icon success">🧠</div>
         <div class="metric-value" id="cms-memory">--</div>
-        <div class="metric-label">CMS Memory Usage</div>
+        <div class="metric-label">CMS Memory Usage<span class="info-badge" title="Cognitive Memory System: 3-tier memory architecture for robot cognition">?</span></div>
         <div class="metric-trend" id="cms-trend">Fast: -- | Mid: -- | Slow: --</div>
     </div>
-    <div class="metric-card">
+    <div class="metric-card" title="Neural network inference time - Lower is better. Target is under 20ms for real-time control">
         <div class="metric-icon primary">⚡</div>
         <div class="metric-value" id="inference-latency">--ms</div>
-        <div class="metric-label">Inference Latency</div>
-        <div class="metric-trend" id="inference-trend">Target: <20ms</div>
+        <div class="metric-label">Inference Latency<span class="info-badge" title="Time to run neural network forward pass. Under 20ms enables real-time operation">?</span></div>
+        <div class="metric-trend" id="inference-trend">Target: &lt;20ms</div>
     </div>
-    <div class="metric-card">
+    <div class="metric-card" title="Recorded Learning from Demonstrations episodes - Training data for imitation learning">
         <div class="metric-icon warning">📊</div>
         <div class="metric-value" id="rlds-count">--</div>
-        <div class="metric-label">RLDS Episodes</div>
+        <div class="metric-label">RLDS Episodes<span class="info-badge" title="Robot Learning from Demonstrations: recorded episodes used for training">?</span></div>
         <div class="metric-trend" id="rlds-trend">Local storage</div>
     </div>
-    <div class="metric-card">
+    <div class="metric-card" title="Overall capability benchmark score - Higher is better. Measures task completion ability">
         <div class="metric-icon info">🎯</div>
         <div class="metric-value" id="benchmark-score">--</div>
-        <div class="metric-label">Benchmark Score</div>
+        <div class="metric-label">Benchmark Score<span class="info-badge" title="Composite score measuring robot capability across multiple tasks">?</span></div>
         <div class="metric-trend" id="benchmark-level">Level: --</div>
     </div>
 </div>

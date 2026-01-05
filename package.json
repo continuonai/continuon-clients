@@ -1,0 +1,15 @@
+{
+  "name": "continuonxr-tests",
+  "version": "1.0.0",
+  "description": "Playwright tests for ContinuonXR web interface",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:headed": "npx playwright test --headed",
+    "test:benchmark": "npx playwright test tests/benchmark.spec.ts",
+    "test:report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}

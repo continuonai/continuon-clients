@@ -8,6 +8,8 @@ This package contains the core services for ContinuonBrain:
 - cloud_training: Cloud training job management
 - ota_updater: OTA update system
 - update_scheduler: Background update checking
+- world_model_integration: Unified sensory fusion and world state tracking
+- multimodal_input_hub: Multi-modal input processing (vision, audio, text)
 """
 
 from continuonbrain.services.autonomous_training_scheduler import (
@@ -44,6 +46,24 @@ from continuonbrain.services.model_distribution import (
     upload_seed_model,
 )
 
+from continuonbrain.services.world_model_integration import (
+    WorldModelIntegration,
+    TeacherInterface,
+    SensoryFrame,
+    WorldState,
+    create_world_model_integration,
+)
+
+from continuonbrain.services.multimodal_input_hub import (
+    MultiModalInputHub,
+    InputEvent,
+    ProcessedInput,
+    VisionInputProcessor,
+    AudioInputProcessor,
+    TextInputProcessor,
+    create_multimodal_hub,
+)
+
 __all__ = [
     # Autonomous Training
     "AutonomousTrainingScheduler",
@@ -73,4 +93,18 @@ __all__ = [
     "RegisteredRobot",
     "UpdateNotification",
     "upload_seed_model",
+    # World Model Integration
+    "WorldModelIntegration",
+    "TeacherInterface",
+    "SensoryFrame",
+    "WorldState",
+    "create_world_model_integration",
+    # Multi-Modal Input Hub
+    "MultiModalInputHub",
+    "InputEvent",
+    "ProcessedInput",
+    "VisionInputProcessor",
+    "AudioInputProcessor",
+    "TextInputProcessor",
+    "create_multimodal_hub",
 ]

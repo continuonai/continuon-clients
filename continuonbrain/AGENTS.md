@@ -78,3 +78,45 @@ Recent updates:
 - Pi install + boot helpers: `scripts/pi/install_pi5_venv.sh` and `scripts/pi/install_pi5_systemd.sh` set up a repo-local `.venv` and enable `continuonbrain-startup.service` reliably on boot.
 
 Context: Conversation on 2025-12-10 about Pi5 startup/training is logged at `../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
+
+---
+
+## Agent Harness Architecture (January 2026)
+
+The ContinuonBrain architecture follows the **Agent Harness (OS)** pattern:
+
+| Component | Role | Implementation |
+|-----------|------|----------------|
+| **Brain Runtime (OS)** | Agent Harness | `services/brain_service.py` + CMS |
+| **HOPE Agent (App)** | Application | `services/agent_hope.py` |
+| **Claude Code (Teacher)** | Secondary Interface | `services/world_model_integration.py:TeacherInterface` |
+| **Multi-Modal Hub** | Unified Input | `services/multimodal_input_hub.py` |
+
+### Key Files
+
+- **Agent Harness Architecture Doc**: `docs/agent_harness_architecture.md`
+- **World Model Integration**: `services/world_model_integration.py`
+- **Teacher Interface**: `services/world_model_integration.py:TeacherInterface`
+- **Multi-Modal Input Hub**: `services/multimodal_input_hub.py`
+- **Teacher API Routes**: `api/routes/teacher_routes.py`
+
+### Teacher API Endpoints
+
+```
+GET  /api/teacher/questions      - Get HOPE's pending questions
+POST /api/teacher/answer         - Provide answer to question
+POST /api/teacher/correct        - Correct a HOPE response
+POST /api/teacher/demonstrate    - Demonstrate an action sequence
+GET  /api/teacher/summary        - Get teaching interaction summary
+GET  /api/teacher/suggestions    - Get suggested teaching focus areas
+POST /api/teacher/validate       - Validate HOPE's knowledge on topic
+```
+
+### Multi-Modal Inputs
+
+The `MultiModalInputHub` unifies all sensory inputs:
+- **Vision**: OAK-D RGB+Depth, SAM3 segmentation, Hailo pose estimation
+- **Audio**: Speech-to-text (Whisper), voice activity detection
+- **Text**: Chat interface, command parsing
+
+All inputs are fused via `WorldModelIntegration` and injected into the HOPE Brain CMS.

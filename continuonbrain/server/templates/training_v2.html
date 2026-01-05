@@ -477,14 +477,15 @@
 <div class="page-header">
     <h1 class="page-title">Training Hub</h1>
     <p class="page-subtitle">WaveCore training, RLDS episodes, and HOPE evaluation</p>
+    <p class="help-text">Monitor and manage the robot's training pipeline. View WaveCore loop metrics, manage RLDS episodes, enable Teacher Mode for interactive learning, and run HOPE evaluations.</p>
 </div>
 
 <div class="training-layout">
     <div class="training-main">
         <!-- Pipeline Visualization -->
-        <div class="pipeline-panel">
+        <div class="pipeline-panel" title="Visual representation of the training data flow from RLDS episodes through the neural network to evaluation.">
             <div class="pipeline-header">
-                <span class="pipeline-title">🔄 Training Pipeline</span>
+                <span class="pipeline-title">🔄 Training Pipeline<span class="info-badge" title="Data flows from left to right: RLDS episodes are encoded, processed by WaveCore, stored in CMS memory, and evaluated by HOPE.">?</span></span>
                 <span class="pipeline-status" id="pipeline-status">IDLE</span>
             </div>
             <div class="pipeline-flow">
@@ -522,8 +523,9 @@
         
         <!-- WaveCore Loops -->
         <div class="section-header">
-            <span class="section-title">WaveCore Training Loops</span>
+            <span class="section-title">WaveCore Training Loops<span class="info-badge" title="Three concurrent learning loops: Fast (100Hz reflexes), Mid (2Hz local adaptation), Slow (0.1Hz consolidation/sleep learning).">?</span></span>
         </div>
+        <p class="help-text" style="margin-bottom: 12px;">The WaveCore architecture uses three hierarchical loops for different learning timescales. Fast loop handles reflexes, Mid loop adapts to local context, Slow loop consolidates long-term memory.</p>
         <div class="loops-grid">
             <div class="loop-card">
                 <div class="loop-header">
@@ -567,9 +569,9 @@
         </div>
         
         <!-- Teacher Mode -->
-        <div class="teacher-panel">
+        <div class="teacher-panel" title="Interactive learning mode where humans provide answers to robot queries.">
             <div class="teacher-header">
-                <span class="pipeline-title">👨‍🏫 Teacher Mode</span>
+                <span class="pipeline-title">👨‍🏫 Teacher Mode<span class="info-badge" title="When enabled, the robot will ask clarifying questions during operation. Your answers become training data for improved behavior.">?</span></span>
                 <div class="teacher-toggle">
                     <span style="font-size: 12px; color: var(--text-muted);">Enable</span>
                     <div class="toggle-switch" id="teacher-toggle" onclick="toggleTeacher()"></div>
@@ -586,9 +588,9 @@
         </div>
         
         <!-- RLDS Episodes -->
-        <div class="rlds-panel">
+        <div class="rlds-panel" title="Recorded demonstration episodes in RLDS format for imitation learning.">
             <div class="rlds-header">
-                <span class="pipeline-title">📁 RLDS Episodes</span>
+                <span class="pipeline-title">📁 RLDS Episodes<span class="info-badge" title="Robot Learning from Demonstrations: Each episode contains timestamped observations, actions, and rewards. Used for training via imitation learning.">?</span></span>
                 <button class="action-btn" style="width: auto; margin: 0; padding: 8px 16px;" onclick="refreshEpisodes()">Refresh</button>
             </div>
             <div class="rlds-list" id="rlds-list">
@@ -606,8 +608,8 @@
     <!-- Sidebar -->
     <div class="training-sidebar">
         <!-- HOPE Eval -->
-        <div class="eval-panel">
-            <div class="action-card-title">📈 HOPE Evaluation</div>
+        <div class="eval-panel" title="HOPE (Hierarchical Open-ended Progression Evaluation) measures robot capability across different skill levels.">
+            <div class="action-card-title">📈 HOPE Evaluation<span class="info-badge" title="Benchmark score from 0-1 measuring robot capability. Levels range from Basic (simple pick) to Swarm (multi-robot coordination).">?</span></div>
             <div class="eval-score">
                 <div class="eval-score-value" id="eval-score">0.84</div>
                 <div class="eval-score-meta">

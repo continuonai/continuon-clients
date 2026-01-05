@@ -431,15 +431,16 @@
 <div class="page-header">
     <h1 class="page-title">Safety Center</h1>
     <p class="page-subtitle">Ring 0 safety kernel, protocols, and work authorization</p>
+    <p class="help-text">Monitor the robot's safety systems including the immutable Ring 0 kernel, Protocol 66 safety rules, and work authorization requests. Use emergency controls to halt motion if needed.</p>
 </div>
 
 <div class="safety-layout">
     <div class="safety-main">
         <!-- Ring 0 Status -->
-        <div class="ring0-panel">
+        <div class="ring0-panel" title="The immutable safety kernel that cannot be overridden by AI or software.">
             <div class="ring0-header">
                 <div class="ring0-title">
-                    <h2>🛡️ Ring 0 Safety Kernel</h2>
+                    <h2>🛡️ Ring 0 Safety Kernel<span class="info-badge" title="Hardware-enforced safety layer that runs independently of AI systems. Cannot be disabled or bypassed, even by the robot itself.">?</span></h2>
                     <span class="ring0-badge" id="kernel-status">ACTIVE</span>
                 </div>
             </div>
@@ -468,9 +469,9 @@
         </div>
         
         <!-- Protocol 66 -->
-        <div class="protocol-panel">
+        <div class="protocol-panel" title="Comprehensive safety ruleset governing robot behavior in all situations.">
             <div class="protocol-header">
-                <span class="protocol-title">📜 Protocol 66 - Safety Rules</span>
+                <span class="protocol-title">📜 Protocol 66 - Safety Rules<span class="info-badge" title="Core safety guidelines covering motion limits, force constraints, human interaction, property protection, and privacy. Rules are enforced by Ring 0.">?</span></span>
                 <span class="section-badge" id="rule-count">-- rules</span>
             </div>
             <div class="protocol-categories">
@@ -511,9 +512,9 @@
         </div>
         
         <!-- Work Authorizations -->
-        <div class="auth-panel">
+        <div class="auth-panel" title="Queue of robot actions requiring human approval before execution.">
             <div class="auth-header">
-                <span class="protocol-title">🔐 Work Authorizations</span>
+                <span class="protocol-title">🔐 Work Authorizations<span class="info-badge" title="Potentially risky actions are queued here for human review. Approve or reject to control what the robot can do.">?</span></span>
                 <div class="auth-tabs">
                     <button class="auth-tab active" onclick="filterAuth('pending')">Pending</button>
                     <button class="auth-tab" onclick="filterAuth('approved')">Approved</button>
@@ -535,16 +536,16 @@
     <!-- Sidebar -->
     <div class="safety-sidebar">
         <!-- Emergency Actions -->
-        <div class="emergency-panel">
-            <div class="emergency-title">🚨 Emergency Actions</div>
-            <button class="emergency-btn" onclick="emergencyStop()">⏹️ EMERGENCY STOP</button>
-            <button class="emergency-btn secondary" onclick="safetyHold()">⚠️ Safety Hold</button>
-            <button class="emergency-btn secondary" onclick="resetGates()">🔓 Reset Safety Gates</button>
+        <div class="emergency-panel" title="Immediate safety controls to halt robot motion.">
+            <div class="emergency-title">🚨 Emergency Actions<span class="info-badge" title="Emergency Stop: Immediately halts all motion (use for urgent situations). Safety Hold: Pauses operation safely. Reset: Clears held states.">?</span></div>
+            <button class="emergency-btn" onclick="emergencyStop()" title="Immediately stop all robot motion - use in emergencies">⏹️ EMERGENCY STOP</button>
+            <button class="emergency-btn secondary" onclick="safetyHold()" title="Pause robot operation safely, maintaining current position">⚠️ Safety Hold</button>
+            <button class="emergency-btn secondary" onclick="resetGates()" title="Clear safety holds and resume normal operation">🔓 Reset Safety Gates</button>
         </div>
         
         <!-- Anti-Subversion -->
-        <div class="subversion-panel">
-            <div class="audit-title">🔒 Anti-Subversion Layer</div>
+        <div class="subversion-panel" title="Security measures preventing unauthorized modification of robot behavior.">
+            <div class="audit-title">🔒 Anti-Subversion Layer<span class="info-badge" title="Multiple defense layers prevent prompt injection, tampering, and unauthorized control. All checks must pass for safe operation.">?</span></div>
             <div class="subversion-item">
                 <span class="subversion-name">Immutable Core</span>
                 <span class="subversion-status">✅</span>

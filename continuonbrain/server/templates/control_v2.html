@@ -387,6 +387,7 @@
 <div class="page-header">
     <h1 class="page-title">Control Center</h1>
     <p class="page-subtitle">Manual robot control and teleoperation</p>
+    <p class="help-text">Control the robot manually using the camera feed, drive pad, and arm joints. Use the RLDS recording feature to capture training demonstrations.</p>
 </div>
 
 <div class="control-grid">
@@ -435,8 +436,8 @@
     <!-- Controls Panel -->
     <div class="controls-panel">
         <!-- Drive Pad -->
-        <div class="control-card">
-            <div class="control-card-header">🚗 Drive Controls</div>
+        <div class="control-card" title="Use arrow buttons to drive the robot base. Press and hold to move, release to stop.">
+            <div class="control-card-header">🚗 Drive Controls<span class="info-badge" title="Press and hold directional buttons to move. Center button is emergency stop.">?</span></div>
             <div class="drive-pad">
                 <div class="drive-btn empty"></div>
                 <button class="drive-btn" onmousedown="drive('forward')" onmouseup="drive('stop')">⬆️</button>
@@ -451,8 +452,8 @@
         </div>
         
         <!-- Left Arm Joints -->
-        <div class="control-card">
-            <div class="control-card-header">🦾 Left Arm</div>
+        <div class="control-card" title="Control individual joint angles for the left arm. L1-L6 represent shoulder to wrist joints.">
+            <div class="control-card-header">🦾 Left Arm<span class="info-badge" title="Drag sliders to set joint angles (degrees). Values update in real-time.">?</span></div>
             <div class="joint-sliders">
                 <div class="joint-row">
                     <span class="joint-label">L1</span>
@@ -504,8 +505,8 @@
         </div>
 
         <!-- Right Arm Joints -->
-        <div class="control-card">
-            <div class="control-card-header">🦾 Right Arm</div>
+        <div class="control-card" title="Control individual joint angles for the right arm. R1-R6 represent shoulder to wrist joints.">
+            <div class="control-card-header">🦾 Right Arm<span class="info-badge" title="Drag sliders to set joint angles (degrees). Values update in real-time.">?</span></div>
             <div class="joint-sliders">
                 <div class="joint-row">
                     <span class="joint-label">R1</span>
@@ -557,8 +558,8 @@
         </div>
 
         <!-- Gripper (Head/Common) -->
-        <div class="control-card">
-            <div class="control-card-header">✊ Gripper</div>
+        <div class="control-card" title="Control the gripper end effector to grasp or release objects.">
+            <div class="control-card-header">✊ Gripper<span class="info-badge" title="Open to release, Close to grasp objects.">?</span></div>
             <div class="gripper-controls">
                 <button class="gripper-btn" onclick="gripper('open')">
                     <span class="icon">🖐️</span>
@@ -572,8 +573,8 @@
         </div>
         
         <!-- Quick Poses -->
-        <div class="control-card">
-            <div class="control-card-header">📐 Quick Poses</div>
+        <div class="control-card" title="Pre-defined arm positions for common tasks.">
+            <div class="control-card-header">📐 Quick Poses<span class="info-badge" title="Click to move both arms to predefined positions: Home (neutral), Ready (prepared), Reach (extended), Rest (folded).">?</span></div>
             <div class="pose-grid">
                 <button class="pose-btn" onclick="setPose('home')">🏠 Home</button>
                 <button class="pose-btn" onclick="setPose('ready')">✋ Ready</button>
@@ -583,8 +584,8 @@
         </div>
         
         <!-- Recording -->
-        <div class="control-card">
-            <div class="control-card-header">🔴 RLDS Recording</div>
+        <div class="control-card" title="Record robot demonstrations for training data (RLDS format).">
+            <div class="control-card-header">🔴 RLDS Recording<span class="info-badge" title="Robot Learning from Demonstrations: Record your manual control as training data. Episodes are stored locally and can be used for imitation learning.">?</span></div>
             <div class="recording-section">
                 <button class="record-btn" id="record-btn" onclick="toggleRecording()">
                     <span>⏺️</span>
