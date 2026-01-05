@@ -71,6 +71,12 @@ except ImportError:
     SAMVisionService = None
     SAMConfig = None
 
+# Vision Manager for pose estimation
+try:
+    from continuonbrain.services.vision import VisionManager
+except ImportError:
+    VisionManager = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
 
@@ -86,6 +92,8 @@ oak_camera = None  # OAK-D depth camera instance
 sam_service = None  # SAM segmentation service
 sam_enabled = False  # Toggle for SAM overlay
 last_segmentation = None  # Cache last segmentation result for HOPE
+vision_manager = None  # VisionManager for pose estimation
+last_pose_result = None  # Cache last pose result for AINA
 
 
 def _detect_model_stack():
@@ -908,6 +916,81 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             logger.error(f"SAM segmentation error: {e}")
             return None
 
+    def _apply_pose_overlay(self, frame, frame_data):
+        """Apply pose estimation overlay using Hailo YOLOv8-pose.
+
+        Draws skeleton with keypoints for detected humans.
+        Caches wrist positions for AINA hand tracking.
+        """
+        global vision_manager, last_pose_result
+
+        try:
+            # Initialize VisionManager on first use
+            if vision_manager is None and VisionManager is not None:
+                logger.info("Initializing VisionManager for pose estimation...")
+                vision_manager = VisionManager(
+                    enable_hailo=True,
+                    enable_sam=False,  # SAM handled separately
+                    enable_cpu_fallback=False,
+                    lazy_init=True,
+                )
+
+            if vision_manager is None:
+                logger.debug("VisionManager not available for pose")
+                return frame
+
+            rgb_frame = frame_data.get("rgb", frame)
+            if rgb_frame is None:
+                return frame
+
+            # Run pose estimation
+            poses = vision_manager.detect_poses(rgb_frame, conf_threshold=0.3)
+
+            if not poses:
+                return frame
+
+            # Draw poses on frame
+            overlay = vision_manager.draw_poses(rgb_frame, poses)
+
+            # Cache pose result for AINA
+            wrists = []
+            for pose in poses:
+                if hasattr(pose, 'left_wrist') and pose.left_wrist:
+                    if pose.left_wrist.confidence >= 0.3:
+                        wrists.append({
+                            "hand": "left",
+                            "x": pose.left_wrist.x,
+                            "y": pose.left_wrist.y,
+                            "conf": pose.left_wrist.confidence,
+                            "person_id": pose.person_id,
+                        })
+                if hasattr(pose, 'right_wrist') and pose.right_wrist:
+                    if pose.right_wrist.confidence >= 0.3:
+                        wrists.append({
+                            "hand": "right",
+                            "x": pose.right_wrist.x,
+                            "y": pose.right_wrist.y,
+                            "conf": pose.right_wrist.confidence,
+                            "person_id": pose.person_id,
+                        })
+
+            last_pose_result = {
+                "timestamp": time.time(),
+                "num_poses": len(poses),
+                "poses": [p.to_dict() if hasattr(p, 'to_dict') else {} for p in poses],
+                "wrists": wrists,
+                "frame_size": [frame.shape[1], frame.shape[0]],
+            }
+
+            logger.debug(f"Pose detection found {len(poses)} people, {len(wrists)} wrists")
+            return overlay
+
+        except Exception as e:
+            logger.error(f"Pose overlay error: {e}")
+            import traceback
+            traceback.print_exc()
+            return frame
+
     def do_GET(self):
         try:
             if self.path in ("/", "/ui", "/ui/"):
@@ -987,11 +1070,13 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_error(404, "File not found")
 
             elif self.path.startswith("/api/camera/stream"):
-                # Camera stream endpoint - uses OAK-D depth camera with optional segmentation
+                # Camera stream endpoint - uses OAK-D depth camera with optional overlays
+                # Modes: rgb, depth, seg_rgb, seg_depth, pose, pose_depth
                 # Segmentation priority: Hailo YOLOv5-seg (fastest) > SAM3 (best quality)
-                global oak_camera, sam_service, sam_enabled, last_segmentation
+                # Pose: Hailo YOLOv8-pose (~15ms)
+                global oak_camera, sam_service, sam_enabled, last_segmentation, vision_manager, last_pose_result
                 try:
-                    # Parse mode from query string (rgb, depth, seg_rgb, seg_depth)
+                    # Parse mode from query string (rgb, depth, seg_rgb, seg_depth, pose, pose_depth)
                     parsed = urlparse(self.path)
                     query = parse_qs(parsed.query)
                     mode = (query.get("mode") or ["rgb"])[0]
@@ -1012,7 +1097,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                         frame_data = oak_camera.capture_frame()
                         if frame_data is not None and cv2 is not None:
                             # Select base frame based on mode
-                            if mode in ("depth", "seg_depth") and "depth" in frame_data:
+                            if mode in ("depth", "seg_depth", "pose_depth") and "depth" in frame_data:
                                 depth = frame_data["depth"]
                                 depth_norm = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
                                 frame = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
@@ -1023,6 +1108,11 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                             # Priority: Hailo (fast) > SAM3 (accurate but slow)
                             if mode in ("segmentation", "seg_rgb", "seg_depth") and frame is not None:
                                 frame = self._apply_segmentation_overlay(frame, frame_data)
+
+                            # Apply pose estimation overlay if requested
+                            # Uses Hailo YOLOv8-pose for skeleton tracking
+                            if mode in ("pose", "pose_depth") and frame is not None:
+                                frame = self._apply_pose_overlay(frame, frame_data)
 
                             if frame is not None:
                                 _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
@@ -1044,6 +1134,39 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                     self.send_header("Content-type", "application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+            elif self.path == "/api/vision/pose":
+                # Return cached pose detection results
+                global last_pose_result
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self._send_cors_headers()
+                self.end_headers()
+                if last_pose_result:
+                    self.wfile.write(json.dumps(last_pose_result).encode())
+                else:
+                    self.wfile.write(json.dumps({
+                        "poses": [],
+                        "wrists": [],
+                        "num_poses": 0,
+                        "timestamp": 0
+                    }).encode())
+
+            elif self.path == "/api/vision/segmentation":
+                # Return cached segmentation results
+                global last_segmentation
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self._send_cors_headers()
+                self.end_headers()
+                if last_segmentation:
+                    self.wfile.write(json.dumps(last_segmentation).encode())
+                else:
+                    self.wfile.write(json.dumps({
+                        "objects": [],
+                        "num_objects": 0,
+                        "timestamp": 0
+                    }).encode())
 
             elif self.path == "/favicon.ico":
                 # Return empty favicon to avoid 404 spam

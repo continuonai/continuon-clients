@@ -28,6 +28,12 @@ except ImportError:
     PCA9685ArmController = None
     HardwareDetector = None
 
+# Vision Manager for pose estimation (AINA integration)
+try:
+    from continuonbrain.services.vision import VisionManager
+except ImportError:
+    VisionManager = None
+
 
 def _load_sounddevice():
     """Load optional sounddevice dependency without hard failing."""
@@ -218,24 +224,38 @@ class StepData:
     glove_sample_rate_hz: Optional[float] = None
     glove_drop_count: Optional[int] = None
 
+    # AINA pose data for hand tracking
+    pose_keypoints: Optional[List[Dict[str, Any]]] = None
+    wrist_positions: Optional[List[Dict[str, Any]]] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for JSON serialization."""
         step_metadata = self.step_metadata or {}
-        return {
+
+        # Build observation dict
+        observation = {
+            "frame_timestamp_ns": self.frame_timestamp_ns,
+            "video_frame_id": self.video_frame_id,
+            "depth_frame_id": self.depth_frame_id,
+            "rgb_shape": list(self.rgb_image.shape),
+            "depth_shape": list(self.depth_image.shape),
+            "robot_state": {
+                "joint_positions": self.robot_state,
+                "frame_id": self.robot_state_frame_id,
+                "timestamp_nanos": self.robot_state_timestamp_ns,
+            },
+        }
+
+        # Add AINA pose data if available
+        if self.pose_keypoints is not None:
+            observation["pose_keypoints"] = self.pose_keypoints
+        if self.wrist_positions is not None:
+            observation["wrist_positions"] = self.wrist_positions
+
+        data = {
             "step_index": self.step_index,
             "timestamp_ns": self.timestamp_ns,
-            "observation": {
-                "frame_timestamp_ns": self.frame_timestamp_ns,
-                "video_frame_id": self.video_frame_id,
-                "depth_frame_id": self.depth_frame_id,
-                "rgb_shape": self.rgb_image.shape,
-                "depth_shape": self.depth_image.shape,
-                "robot_state": {
-                    "joint_positions": self.robot_state,
-                    "frame_id": self.robot_state_frame_id,
-                    "timestamp_nanos": self.robot_state_timestamp_ns,
-                },
-            },
+            "observation": observation,
             "action": {
                 "command": self.action,
                 "source": self.action_source,
@@ -403,6 +423,7 @@ class ArmEpisodeRecorder:
         self.camera: Optional[OAKDepthCapture] = None
         self.arm: Optional[PCA9685ArmController] = None
         self.microphone: Optional["MicrophoneCapture"] = None
+        self.vision_manager = None  # VisionManager for AINA pose tracking
 
         # Current episode state
         self.current_episode: Optional[str] = None
@@ -510,6 +531,20 @@ class ArmEpisodeRecorder:
         else:
             print("  Microphone capture unavailable (audio disabled)")
             self.microphone = None
+
+        # Initialize VisionManager for AINA pose tracking
+        if VisionManager is not None and not use_mock:
+            try:
+                self.vision_manager = VisionManager(
+                    enable_hailo=True,
+                    enable_sam=False,
+                    enable_cpu_fallback=False,
+                    lazy_init=True,
+                )
+                print("VisionManager initialized for pose tracking")
+            except Exception as e:
+                print(f"  VisionManager init failed (pose tracking disabled): {e}")
+                self.vision_manager = None
 
         return success
     
@@ -690,6 +725,22 @@ class ArmEpisodeRecorder:
 
                 robot_state_timestamp_ns = time.time_ns()
 
+            # Capture pose keypoints for AINA hand tracking
+            pose_keypoints = None
+            wrist_positions = None
+            if self.vision_manager and rgb_image is not None:
+                try:
+                    poses = self.vision_manager.detect_poses(rgb_image, conf_threshold=0.3)
+                    if poses:
+                        pose_keypoints = [p.to_dict() for p in poses]
+                        # Extract wrist positions for AINA
+                        wrists = self.vision_manager.get_wrist_positions(rgb_image, min_confidence=0.3)
+                        if wrists:
+                            wrist_positions = wrists
+                except Exception as e:
+                    # Don't fail recording if pose fails
+                    pass
+
             # Execute action on arm
             if self.arm and not is_terminal:
                 self.arm.set_normalized_action(action)
@@ -742,6 +793,9 @@ class ArmEpisodeRecorder:
                 glove_valid=False,
                 glove_sample_rate_hz=None,
                 glove_drop_count=None,
+                # AINA pose data
+                pose_keypoints=pose_keypoints,
+                wrist_positions=wrist_positions,
             )
 
             self.steps.append(step)

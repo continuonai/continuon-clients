@@ -14,9 +14,11 @@ class BackendType(Enum):
     """Vision backend types."""
     HAILO_PIPELINE = "hailo_pipeline"
     HAILO_SUBPROCESS = "hailo_subprocess"
+    HAILO_POSE = "hailo_pose"
     SAM = "sam"
     CPU_YOLO = "cpu_yolo"
     CPU_OPENCV = "cpu_opencv"
+    DEPTH_ENHANCED = "depth_enhanced"
 
 
 class BackendCapability(Enum):
@@ -25,6 +27,50 @@ class BackendCapability(Enum):
     SEGMENTATION = "segmentation"
     DEPTH = "depth"
     POSE = "pose"
+
+
+@dataclass
+class KeypointResult:
+    """Single keypoint from pose estimation."""
+    name: str
+    x: float
+    y: float
+    confidence: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"name": self.name, "x": self.x, "y": self.y, "conf": self.confidence}
+
+
+@dataclass
+class PoseResult:
+    """Human pose estimation result."""
+    person_id: int
+    confidence: float
+    bbox: Tuple[int, int, int, int]  # x1, y1, x2, y2
+    keypoints: List[KeypointResult] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "person_id": self.person_id,
+            "confidence": self.confidence,
+            "bbox": list(self.bbox),
+            "keypoints": [kp.to_dict() for kp in self.keypoints],
+        }
+
+    def get_keypoint(self, name: str) -> Optional[KeypointResult]:
+        """Get keypoint by name."""
+        for kp in self.keypoints:
+            if kp.name == name:
+                return kp
+        return None
+
+    @property
+    def left_wrist(self) -> Optional[KeypointResult]:
+        return self.get_keypoint("left_wrist")
+
+    @property
+    def right_wrist(self) -> Optional[KeypointResult]:
+        return self.get_keypoint("right_wrist")
 
 
 @dataclass

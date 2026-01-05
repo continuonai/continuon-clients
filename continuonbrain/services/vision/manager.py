@@ -82,12 +82,16 @@ class VisionManager:
         """Initialize all enabled backends."""
         if self._enable_hailo:
             self._init_hailo()
+            self._init_pose()  # Also init pose backend if Hailo enabled
 
         if self._enable_sam:
             self._init_sam()
 
         if self._enable_cpu_fallback:
             self._init_cpu_fallback()
+
+        # Always try to init depth backend for AINA
+        self._init_depth()
 
         logger.info(f"VisionManager initialized with backends: {list(self._backends.keys())}")
 
@@ -144,6 +148,40 @@ class VisionManager:
             logger.debug("CPU fallback not available (missing dependencies)")
         except Exception as e:
             logger.debug(f"CPU fallback not available: {e}")
+
+    def _init_pose(self) -> None:
+        """Initialize Hailo pose backend."""
+        try:
+            from .pose_backend import PoseBackend
+
+            backend = PoseBackend()
+            if backend.is_available():
+                self._backends[BackendType.HAILO_POSE] = backend
+                self._stats["backend_usage"][BackendType.HAILO_POSE.value] = 0
+                logger.info("Pose backend available")
+            else:
+                logger.info("Pose backend not available (HEF or worker missing)")
+        except ImportError as e:
+            logger.debug(f"Pose backend not available (import error): {e}")
+        except Exception as e:
+            logger.warning(f"Failed to init pose backend: {e}")
+
+    def _init_depth(self) -> None:
+        """Initialize depth enhancement backend."""
+        try:
+            from .depth_backend import DepthBackend
+
+            backend = DepthBackend()
+            if backend.is_available():
+                self._backends[BackendType.DEPTH_ENHANCED] = backend
+                self._stats["backend_usage"][BackendType.DEPTH_ENHANCED.value] = 0
+                logger.info("Depth enhancement backend available")
+            else:
+                logger.info("Depth enhancement backend not available")
+        except ImportError as e:
+            logger.debug(f"Depth backend not available (import error): {e}")
+        except Exception as e:
+            logger.debug(f"Depth backend not available: {e}")
 
     def detect(
         self,
@@ -240,6 +278,140 @@ class VisionManager:
             )
 
         return self._backends[BackendType.SAM].segment(frame, prompt, points)
+
+    def detect_poses(
+        self,
+        frame: np.ndarray,
+        conf_threshold: float = 0.25,
+    ) -> List[Any]:
+        """
+        Run pose estimation using Hailo pose backend.
+
+        Args:
+            frame: RGB numpy array
+            conf_threshold: Confidence threshold
+
+        Returns:
+            List of PoseResult objects with keypoints
+        """
+        self._ensure_initialized()
+
+        if BackendType.HAILO_POSE not in self._backends:
+            return []
+
+        backend = self._backends[BackendType.HAILO_POSE]
+        if hasattr(backend, 'detect_poses'):
+            return backend.detect_poses(frame, conf_threshold)
+        return []
+
+    def get_wrist_positions(
+        self,
+        frame: np.ndarray,
+        min_confidence: float = 0.3,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get wrist positions for AINA hand tracking.
+
+        Args:
+            frame: RGB numpy array
+            min_confidence: Minimum keypoint confidence
+
+        Returns:
+            List of wrist positions with metadata
+        """
+        self._ensure_initialized()
+
+        if BackendType.HAILO_POSE not in self._backends:
+            return []
+
+        backend = self._backends[BackendType.HAILO_POSE]
+        if hasattr(backend, 'get_wrist_positions'):
+            return backend.get_wrist_positions(frame, min_confidence)
+        return []
+
+    def draw_poses(
+        self,
+        frame: np.ndarray,
+        poses: Optional[List[Any]] = None,
+    ) -> np.ndarray:
+        """
+        Draw poses on frame for visualization.
+
+        Args:
+            frame: RGB numpy array
+            poses: Poses to draw (uses last detection if None)
+
+        Returns:
+            Frame with poses drawn
+        """
+        self._ensure_initialized()
+
+        if BackendType.HAILO_POSE not in self._backends:
+            return frame
+
+        backend = self._backends[BackendType.HAILO_POSE]
+        if hasattr(backend, 'draw_poses'):
+            return backend.draw_poses(frame, poses)
+        return frame
+
+    def estimate_depth(
+        self,
+        rgb_frame: np.ndarray,
+        stereo_depth: Optional[np.ndarray] = None,
+    ) -> Dict[str, Any]:
+        """
+        Estimate enhanced depth using MiDaS/OAK fusion.
+
+        For AINA integration, this provides:
+        - Enhanced depth in occluded regions
+        - Confidence-weighted fusion of stereo + learned depth
+        - Consistent depth for object point cloud extraction
+
+        Args:
+            rgb_frame: RGB numpy array (H, W, 3)
+            stereo_depth: Optional OAK-D stereo depth in mm (H, W) uint16
+
+        Returns:
+            Dict with:
+            - enhanced_depth: Fused depth map in mm
+            - confidence: Per-pixel confidence (0-1)
+            - fill_mask: Boolean mask of filled regions
+            - inference_time_ms: Processing time
+        """
+        self._ensure_initialized()
+
+        if BackendType.DEPTH_ENHANCED not in self._backends:
+            # Fallback: return stereo depth as-is
+            h, w = rgb_frame.shape[:2]
+            if stereo_depth is not None:
+                return {
+                    "enhanced_depth": stereo_depth,
+                    "confidence": (stereo_depth > 0).astype(np.float32),
+                    "fill_mask": np.zeros((h, w), dtype=bool),
+                    "inference_time_ms": 0.0,
+                    "method": "stereo_only",
+                }
+            else:
+                return {
+                    "enhanced_depth": np.zeros((h, w), dtype=np.uint16),
+                    "confidence": np.zeros((h, w), dtype=np.float32),
+                    "fill_mask": np.ones((h, w), dtype=bool),
+                    "inference_time_ms": 0.0,
+                    "method": "no_depth",
+                }
+
+        backend = self._backends[BackendType.DEPTH_ENHANCED]
+        if hasattr(backend, 'estimate_depth'):
+            return backend.estimate_depth(rgb_frame, stereo_depth)
+
+        # Fallback if method missing
+        return {
+            "enhanced_depth": stereo_depth if stereo_depth is not None else np.zeros_like(rgb_frame[:, :, 0], dtype=np.uint16),
+            "confidence": np.ones_like(rgb_frame[:, :, 0], dtype=np.float32),
+            "fill_mask": np.zeros_like(rgb_frame[:, :, 0], dtype=bool),
+            "inference_time_ms": 0.0,
+            "method": "fallback",
+        }
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get available capabilities across all backends."""

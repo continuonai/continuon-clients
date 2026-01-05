@@ -399,6 +399,8 @@
                 <button class="camera-btn" data-mode="depth" onclick="setCamera('depth')">Depth</button>
                 <button class="camera-btn" data-mode="seg_rgb" onclick="setCamera('seg_rgb')">Seg+RGB</button>
                 <button class="camera-btn" data-mode="seg_depth" onclick="setCamera('seg_depth')">Seg+D</button>
+                <button class="camera-btn" data-mode="pose" onclick="setCamera('pose')">Pose</button>
+                <button class="camera-btn" data-mode="pose_depth" onclick="setCamera('pose_depth')">Pose+D</button>
             </div>
         </div>
         <div class="camera-feed" id="camera-feed">
@@ -419,6 +421,14 @@
                 <span id="object-count">0 objects</span>
             </div>
             <div class="object-list" id="object-list"></div>
+        </div>
+        <!-- Pose Detection Panel -->
+        <div class="object-panel" id="pose-panel" style="display: none;">
+            <div class="object-panel-header">
+                <span>🏃 Detected Poses</span>
+                <span id="pose-count">0 people</span>
+            </div>
+            <div class="object-list" id="pose-list"></div>
         </div>
     </div>
     
@@ -595,6 +605,7 @@ let cameraMode = 'rgb';
 
 // Camera
 let segmentationInterval = null;
+let poseInterval = null;
 
 function setCamera(mode) {
     cameraMode = mode;
@@ -611,6 +622,16 @@ function setCamera(mode) {
     } else {
         objectPanel.style.display = 'none';
         stopSegmentationPolling();
+    }
+
+    // Show/hide pose panel and start/stop polling for pose modes
+    const posePanel = document.getElementById('pose-panel');
+    if (mode.includes('pose')) {
+        posePanel.style.display = 'block';
+        startPosePolling();
+    } else {
+        posePanel.style.display = 'none';
+        stopPosePolling();
     }
 }
 
@@ -691,6 +712,56 @@ function updateObjectPanel(data) {
             <span class="score">${(obj.score * 100).toFixed(0)}%</span>
         </span>
     `).join('');
+}
+
+// Pose Detection Polling
+function startPosePolling() {
+    if (poseInterval) return;
+    poseInterval = setInterval(fetchPoseData, 500);
+    fetchPoseData();  // Immediate first fetch
+}
+
+function stopPosePolling() {
+    if (poseInterval) {
+        clearInterval(poseInterval);
+        poseInterval = null;
+    }
+}
+
+async function fetchPoseData() {
+    try {
+        const response = await fetch('/api/vision/pose');
+        const data = await response.json();
+        updatePosePanel(data);
+    } catch (error) {
+        console.error('Failed to fetch pose:', error);
+    }
+}
+
+function updatePosePanel(data) {
+    const countEl = document.getElementById('pose-count');
+    const listEl = document.getElementById('pose-list');
+
+    if (!data.poses || data.poses.length === 0) {
+        countEl.textContent = '0 people';
+        listEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">No poses detected</span>';
+        return;
+    }
+
+    countEl.textContent = `${data.poses.length} ${data.poses.length === 1 ? 'person' : 'people'}`;
+
+    const colors = ['#4ecdc4', '#ff6b6b', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd'];
+
+    listEl.innerHTML = data.poses.map((pose, i) => `
+        <span class="object-tag" style="border-color: ${colors[i % colors.length]}; color: ${colors[i % colors.length]}">
+            <span>Person ${pose.person_id}</span>
+            <span class="score">${(pose.confidence * 100).toFixed(0)}%</span>
+        </span>
+    `).join('') + (data.wrists && data.wrists.length > 0 ? `
+        <span class="object-tag" style="border-color: #ffd93d; color: #ffd93d; margin-left: 8px;">
+            <span>🖐️ ${data.wrists.length} wrist${data.wrists.length > 1 ? 's' : ''}</span>
+        </span>
+    ` : '');
 }
 
 // Drive controls
