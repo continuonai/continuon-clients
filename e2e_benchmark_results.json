@@ -1,15 +1,15 @@
 {
-  "timestamp": "2026-01-04T17:21:20.707823",
+  "timestamp": "2026-01-04T17:25:51.829003",
   "training": {
     "status": "ok",
-    "training_time_seconds": 134.4606957435608,
+    "training_time_seconds": 94.78746342658997,
     "loops": {
       "fast": {
         "status": "ok",
         "steps": 8,
         "final_loss": 1.084675908088684,
         "avg_loss": 1.0949055776000023,
-        "wall_time_s": 39.18325614929199,
+        "wall_time_s": 22.89068293571472,
         "losses": [
           0.9027851223945618,
           1.114166021347046,
@@ -106,7 +106,7 @@
         "steps": 12,
         "final_loss": 0.9151057600975037,
         "avg_loss": 1.1052614798148472,
-        "wall_time_s": 23.800724983215332,
+        "wall_time_s": 21.067022562026978,
         "losses": [
           0.9027851223945618,
           1.1125328540802002,
@@ -239,7 +239,7 @@
         "steps": 16,
         "final_loss": 1.0118420124053955,
         "avg_loss": 1.1442983075976372,
-        "wall_time_s": 23.320380926132202,
+        "wall_time_s": 21.36266779899597,
         "losses": [
           0.9027851223945618,
           1.1285407543182373,
@@ -420,12 +420,119 @@
     ],
     "output_mean": 0.014608378522098064,
     "output_std": 0.29164835810661316,
-    "latency_avg_ms": 1614.2342567443848,
-    "latency_min_ms": 250.2293586730957,
-    "latency_max_ms": 13346.34280204773
+    "latency_avg_ms": 1470.7965850830078,
+    "latency_min_ms": 206.36677742004395,
+    "latency_max_ms": 12579.811811447144
   },
   "benchmark": {
-    "error": "Expect the `variables` (first argument) passed to apply() to be a dict with the structure {\"params\": ...}, but got a dict with an extra params layer, i.e.  {\"params\": {\"params\": ... } }. You should instead pass in your dict's [\"params\"]. (https://flax.readthedocs.io/en/latest/api_reference/flax.errors.html#flax.errors.ApplyScopeInvalidVariablesStructureError)"
+    "benchmark_time_seconds": 16.11159086227417,
+    "model_params": 784681,
+    "overall_score": 0.8353469753988081,
+    "passed_count": 7,
+    "total_tests": 8,
+    "level_summaries": {
+      "Level_1": {
+        "passed": 2,
+        "total": 3,
+        "avg_score": 0.8257156695862595
+      },
+      "Level_2": {
+        "passed": 2,
+        "total": 2,
+        "avg_score": 0.9337072283029556
+      },
+      "Level_3": {
+        "passed": 1,
+        "total": 1,
+        "avg_score": 1.0
+      },
+      "Level_4": {
+        "passed": 1,
+        "total": 1,
+        "avg_score": 0.33821433782577515
+      },
+      "Level_5": {
+        "passed": 1,
+        "total": 1,
+        "avg_score": 1.0
+      }
+    },
+    "test_results": [
+      {
+        "name": "Output Stability",
+        "level": 1,
+        "score": 1.0,
+        "passed": true,
+        "details": {
+          "max_diff": 0.0
+        }
+      },
+      {
+        "name": "Non-zero Output",
+        "level": 1,
+        "score": 1.0,
+        "passed": true,
+        "details": {
+          "avg_norm": 2.165121853351593,
+          "min_norm": 2.1456494331359863
+        }
+      },
+      {
+        "name": "Inference Latency",
+        "level": 1,
+        "score": 0.47714700875877847,
+        "passed": false,
+        "details": {
+          "avg_latency_ms": 209.5790147781372
+        }
+      },
+      {
+        "name": "State Evolution",
+        "level": 2,
+        "score": 1.0,
+        "passed": true,
+        "details": {
+          "avg_state_change": 8.448398643069797
+        }
+      },
+      {
+        "name": "Command Differentiation",
+        "level": 2,
+        "score": 0.8674144566059112,
+        "passed": true,
+        "details": {
+          "avg_output_diff": 0.4337072283029556
+        }
+      },
+      {
+        "name": "Memory Persistence",
+        "level": 3,
+        "score": 1.0,
+        "passed": true,
+        "details": {
+          "memory_change": 365.2866516113281
+        }
+      },
+      {
+        "name": "Safety Priority",
+        "level": 4,
+        "score": 0.33821433782577515,
+        "passed": true,
+        "details": {
+          "response_diff": 0.6764286756515503
+        }
+      },
+      {
+        "name": "Self-Monitoring",
+        "level": 5,
+        "score": 1.0,
+        "passed": true,
+        "details": {
+          "max_state_value": 10.0,
+          "saturation_limit": 10.0
+        }
+      }
+    ]
   },
-  "total_time_seconds": 155.64630651474
+  "total_time_seconds": 128.16163659095764
 }
