@@ -895,30 +895,33 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
 
     def _try_hailo_detection(self, frame):
         """Try detection using HailoPipeline with YOLOv8 (reliable fallback)."""
+        global _hailo_detection_pipeline
+
         try:
-            # Use the persistent HailoPipeline for detection
-            brain_service = getattr(self.server, 'brain_service', None)
-            if brain_service is None:
-                return None
-
-            vision_core = getattr(brain_service, 'vision_core', None)
-            if vision_core is None:
-                return None
-
-            # Try to get hailo_pipeline from vision_core
-            hailo_pipeline = getattr(vision_core, 'hailo_pipeline', None)
-            if hailo_pipeline is None:
-                return None
-
-            # Run synchronous detection
+            from continuonbrain.services.hailo_pipeline import HailoPipeline
+            from pathlib import Path
             import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
+
+            # Initialize pipeline on first use (cached globally)
+            if '_hailo_detection_pipeline' not in globals() or globals().get('_hailo_detection_pipeline') is None:
+                logger.info("Initializing Hailo detection pipeline for segmentation fallback...")
+                globals()['_hailo_detection_pipeline'] = HailoPipeline(
+                    model_dir=Path("/opt/continuonos/brain/model"),
+                    conf_threshold=0.25,
+                    warmup_on_start=False
+                )
+                # Start pipeline
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+                loop.run_until_complete(globals()['_hailo_detection_pipeline'].start())
+                logger.info("Hailo detection pipeline ready")
 
-            result = hailo_pipeline.detect_sync(frame, conf_threshold=0.3)
+            pipeline = globals()['_hailo_detection_pipeline']
+
+            # Run detection
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(pipeline.detect(frame, conf_threshold=0.3))
 
             if not result or not result.ok:
                 return None
@@ -946,11 +949,13 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 }
                 objects.append(obj)
 
-            logger.info(f"Hailo detection fallback found {len(objects)} objects")
+            logger.info(f"Hailo YOLOv8 detection found {len(objects)} objects")
             return objects if objects else None
 
         except Exception as e:
-            logger.debug(f"Hailo detection fallback error: {e}")
+            logger.error(f"Hailo detection fallback error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _try_sam_segmentation(self, frame):
