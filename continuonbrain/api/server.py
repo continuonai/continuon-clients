@@ -3091,6 +3091,34 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/training/install_bundle":
                 # Install model bundle
                 self.handle_install_model(body)
+
+            elif self.path == "/api/training/record/start":
+                # Start RLDS recording
+                try:
+                    if hasattr(brain_service, 'start_rlds_recording'):
+                        result = brain_service.start_rlds_recording()
+                    else:
+                        # Fallback: set recording gate
+                        brain_service.recording_active = True
+                        result = {"success": True, "message": "Recording started", "recording": True}
+                    self.send_json(result)
+                except Exception as e:
+                    logger.error(f"Failed to start recording: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
+
+            elif self.path == "/api/training/record/stop":
+                # Stop RLDS recording
+                try:
+                    if hasattr(brain_service, 'stop_rlds_recording'):
+                        result = brain_service.stop_rlds_recording()
+                    else:
+                        # Fallback: clear recording gate
+                        brain_service.recording_active = False
+                        result = {"success": True, "message": "Recording stopped", "recording": False}
+                    self.send_json(result)
+                except Exception as e:
+                    logger.error(f"Failed to stop recording: {e}")
+                    self.send_json({"success": False, "error": str(e)}, status=500)
             
             elif self.path == "/api/training/control/mode":
                 # Set training control mode
