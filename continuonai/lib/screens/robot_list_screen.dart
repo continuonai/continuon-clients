@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 
@@ -12,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'dashboard_screen.dart';
 import 'robot_portal_screen.dart';
+import 'unified_qr_scanner_screen.dart';
 import '../services/brain_client.dart';
 import '../widgets/layout/continuon_layout.dart';
 import '../widgets/layout/continuon_card.dart';
@@ -329,7 +331,28 @@ class _RobotListScreenState extends State<RobotListScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Quick Connect', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Quick Connect', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                onPressed: _openQrScanner,
+                icon: const Icon(Icons.qr_code_scanner, size: 20),
+                label: const Text('Scan QR Code'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Scan the QR code on your robot or enter IP manually',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -375,6 +398,45 @@ class _RobotListScreenState extends State<RobotListScreen> {
         ],
       ),
     );
+  }
+
+  void _openQrScanner() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const UnifiedQRScannerScreen(),
+      ),
+    );
+
+    if (result != null && mounted) {
+      // Handle the scanned result - could be pairing data or connection info
+      final host = result['host'] as String?;
+      final httpPort = result['httpPort'] as int? ?? 8080;
+      final port = result['port'] as int? ?? 50051;
+      final name = result['name'] as String? ?? 'Scanned Robot';
+
+      if (host != null && host.isNotEmpty) {
+        // Add to guest list if not already there
+        final exists = _guestRobots.any((r) => r['host'] == host);
+        final robotData = {
+          'name': name,
+          'host': host,
+          'port': port,
+          'httpPort': httpPort,
+        };
+
+        if (!exists) {
+          setState(() {
+            _guestRobots.add(robotData);
+          });
+        }
+
+        // Attempt to connect
+        await _connectToRobot(robotData);
+      } else {
+        _showSnack('QR scan completed. Check result for pairing info.');
+      }
+    }
   }
 
   Widget _buildDiscoveryStatusHeader() {
@@ -700,227 +762,582 @@ class _RobotListScreenState extends State<RobotListScreen> {
 
     return ContinuonCard(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      onTap: isGuest ? null : () => _connectOrGateRemote(data),
-      child: Row(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: ContinuonColors.primaryBlue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.smart_toy,
-                color: ContinuonColors.primaryBlue, size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Header section with robot info
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                Text(
-                  name,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                Row(
+                // Robot icon with online indicator
+                Stack(
                   children: [
                     Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.green, // Success green
-                        shape: BoxShape.circle,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: ContinuonColors.primaryBlue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.smart_toy,
+                          color: ContinuonColors.primaryBlue, size: 28),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: owned ? Colors.green : Colors.orange,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(host, style: Theme.of(context).textTheme.bodyMedium),
-                    if (deviceId.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Text('id:$deviceId',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey)),
-                    ],
                   ],
                 ),
+                const SizedBox(width: 16),
+                // Robot name and host
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(host, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
+                          if (deviceId.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text('ID: $deviceId',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(color: Colors.grey.shade700, fontSize: 10)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Loading indicator or refresh button
+                if (isBusy)
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    tooltip: 'Refresh status',
+                    onPressed: isGuest ? null : () => _refreshStatus(data),
+                  ),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Refresh status',
-                    onPressed:
-                        (isBusy || isGuest) ? null : () => _refreshStatus(data),
+
+          // Status badges row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildStatusBadge(
+                  icon: Icons.verified_user,
+                  label: owned ? 'Owned' : 'Not Claimed',
+                  color: owned ? Colors.green : Colors.orange,
+                  filled: owned,
+                ),
+                _buildStatusBadge(
+                  icon: Icons.memory,
+                  label: hasSeed ? 'Seed Installed' : 'No Seed',
+                  color: hasSeed ? Colors.blue : Colors.grey,
+                  filled: hasSeed,
+                ),
+                _buildStatusBadge(
+                  icon: Icons.cloud_done,
+                  label: hasSubscription ? 'Subscribed' : 'No Subscription',
+                  color: hasSubscription ? Colors.purple : Colors.grey,
+                  filled: hasSubscription,
+                ),
+                if (mismatch)
+                  _buildStatusBadge(
+                    icon: Icons.warning,
+                    label: 'Account Mismatch',
+                    color: Colors.red,
+                    filled: true,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.open_in_browser),
-                    tooltip: 'Open robot web UI',
-                    onPressed: isBusy ? null : () => _openRobotWebUI(data),
-                    color: ContinuonColors.primaryBlue,
-                  ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    tooltip: 'Manage robot',
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'rename':
-                          _showRenameDialog(data);
-                          break;
-                        case 'delete':
-                          _showDeleteDialog(data);
-                          break;
-                        case 'transfer':
-                          _showTransferOwnershipDialog(data);
-                          break;
-                        case 'lease':
-                          _showLeasingDialog(data);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'rename',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 8),
-                            Text('Rename'),
-                          ],
-                        ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Error message if any
+          if (_errorByHost[host] != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorByHost[host]!,
+                        style: TextStyle(color: Colors.red.shade700, fontSize: 12),
                       ),
-                      if (isGuest) ...[
-                        const PopupMenuItem(
-                          enabled: false,
-                          child: Text('Sign in to manage robots'),
-                        ),
-                      ] else ...[
-                        const PopupMenuItem(
-                          value: 'transfer',
-                          child: Row(
-                            children: [
-                              Icon(Icons.swap_horiz, size: 20),
-                              SizedBox(width: 8),
-                              Text('Transfer Ownership'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'lease',
-                          child: Row(
-                            children: [
-                              Icon(Icons.business_center, size: 20),
-                              SizedBox(width: 8),
-                              Text('Leasing & Rental'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 20, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Delete',
-                                  style: TextStyle(color: Colors.red)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (isBusy)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  if (isBusy) const SizedBox(width: 12),
-                  if (!owned)
-                    ElevatedButton.icon(
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 12),
+
+          // Primary action buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                if (!owned)
+                  Expanded(
+                    child: ElevatedButton.icon(
                       onPressed: (isGuest || isBusy || mismatch)
                           ? null
                           : () => _claimRobot(data),
-                      icon: const Icon(Icons.how_to_reg),
-                      label: const Text('Claim (local)'),
+                      icon: const Icon(Icons.how_to_reg, size: 18),
+                      label: const Text('Claim Ownership'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
-                  if (owned && !hasSeed) const SizedBox(width: 8),
-                  if (owned && !hasSeed)
-                    ElevatedButton.icon(
-                      onPressed: (isGuest || isBusy || mismatch)
-                          ? null
-                          : () => _installSeed(data),
-                      icon: const Icon(Icons.system_update),
-                      label: const Text('Seed install'),
-                    ),
-                  if (owned && hasSeed) const SizedBox(width: 8),
-                  if (owned && hasSeed)
-                    ElevatedButton.icon(
-                      onPressed: (isGuest ||
-                              !hasSubscription ||
-                              isBusy ||
-                              mismatch)
+                  ),
+                if (owned) ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: (isGuest || isBusy || mismatch || !hasSeed || !hasSubscription)
                           ? null
                           : () => _connectOrGateRemote(data),
-                      icon: const Icon(Icons.power_settings_new),
+                      icon: const Icon(Icons.play_arrow, size: 18),
                       label: const Text('Connect'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ContinuonColors.primaryBlue,
                         foregroundColor: Colors.white,
-                        elevation: 2,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: isBusy ? null : () => _openRobotWebUI(data),
+                    icon: const Icon(Icons.open_in_browser, size: 18),
+                    label: const Text('Web UI'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // Guest mode notice
+          if (isGuest)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Sign in to claim ownership and manage this robot.',
+                        style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 8),
+
+          // Expandable Management Section (only for owned robots)
+          if (owned && !isGuest)
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                title: Text(
+                  'Robot Management',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                leading: Icon(Icons.settings, size: 20, color: Colors.grey.shade600),
+                children: [
+                  _buildManagementSection(data, isBusy, mismatch, hasSeed),
                 ],
               ),
-              if (isGuest)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    'Guest preview: sign in to enable control, recording, and OTA.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.orange.shade700),
-                  ),
-                ),
-              if (mismatch && !isBusy)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8.0),
-                  child: Text(
-                    'Account mismatch',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.red),
-                  ),
-                ),
-              if (_errorByHost[host] != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    _errorByHost[host]!,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.red),
-                  ),
-                ),
-            ],
+            ),
+
+          if (!owned || isGuest)
+            const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool filled,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: filled ? color.withValues(alpha: 0.15) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: filled ? color.withValues(alpha: 0.5) : Colors.grey.shade300,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: filled ? color : Colors.grey),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: filled ? color : Colors.grey.shade600,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildManagementSection(Map<String, dynamic> data, bool isBusy, bool mismatch, bool hasSeed) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // AI Model Management
+        Text(
+          'AI Model',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.download,
+                label: hasSeed ? 'Update Seed Model' : 'Install Seed Model',
+                color: Colors.blue,
+                onPressed: (isBusy || mismatch) ? null : () => _installSeed(data),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.model_training,
+                label: 'Manage Models',
+                color: Colors.indigo,
+                onPressed: isBusy ? null : () => _showModelManagerDialog(data),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // OTA Updates
+        Text(
+          'Software Updates (OTA)',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.system_update,
+                label: 'Update Slow Loop',
+                color: Colors.teal,
+                onPressed: (isBusy || mismatch) ? null : () => _updateSlowLoop(data),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.update,
+                label: 'Check for Updates',
+                color: Colors.green,
+                onPressed: isBusy ? null : () => _checkForUpdates(data),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // Robot Settings
+        Text(
+          'Settings & Ownership',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.edit,
+                label: 'Rename Robot',
+                color: Colors.grey.shade700,
+                onPressed: () => _showRenameDialog(data),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.swap_horiz,
+                label: 'Transfer Ownership',
+                color: Colors.orange,
+                onPressed: isBusy ? null : () => _showTransferOwnershipDialog(data),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.business_center,
+                label: 'Leasing & Rental',
+                color: Colors.purple,
+                onPressed: () => _showLeasingDialog(data),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildManagementButton(
+                icon: Icons.delete_outline,
+                label: 'Remove Robot',
+                color: Colors.red,
+                onPressed: () => _showDeleteDialog(data),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildManagementButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onPressed,
+  }) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.5)),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showModelManagerDialog(Map<String, dynamic> data) {
+    final host = data['host'] as String;
+    final httpPort = data['httpPort'] as int? ?? 8080;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Manage AI Models'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Available actions:'),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.list),
+                title: const Text('List Installed Models'),
+                subtitle: const Text('View all models on the robot'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _brainClient.connect(host: host, port: 50051, httpPort: httpPort, useTls: false);
+                  final models = await _brainClient.listModels();
+                  if (mounted) {
+                    _showSnack('Models: ${models['models']?.length ?? 0} found');
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_download),
+                title: const Text('Download New Model'),
+                subtitle: const Text('Fetch latest models from cloud'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSnack('Model download feature coming soon');
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateSlowLoop(Map<String, dynamic> data) async {
+    final host = data['host'] as String;
+    final httpPort = data['httpPort'] as int? ?? 8080;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Slow Loop'),
+        content: const Text(
+          'This will update the slow loop (training/inference) component on your robot. '
+          'The robot may restart during this process.\n\n'
+          'Do you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _busyHosts.add(host));
+
+    try {
+      // Call the OTA update endpoint
+      final uri = Uri.http('$host:$httpPort', '/api/ota/update_slow_loop');
+      final response = await http.post(uri, headers: _authToken != null ? {'authorization': 'Bearer $_authToken'} : {});
+
+      if (response.statusCode == 200) {
+        _showSnack('Slow loop update initiated successfully');
+      } else {
+        _showSnack('Update failed: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      _showSnack('Update failed: $e');
+    } finally {
+      if (mounted) setState(() => _busyHosts.remove(host));
+    }
+  }
+
+  Future<void> _checkForUpdates(Map<String, dynamic> data) async {
+    final host = data['host'] as String;
+    final httpPort = data['httpPort'] as int? ?? 8080;
+
+    setState(() => _busyHosts.add(host));
+
+    try {
+      final uri = Uri.http('$host:$httpPort', '/api/ota/check');
+      final response = await http.get(uri, headers: _authToken != null ? {'authorization': 'Bearer $_authToken'} : {});
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final hasUpdates = data['updates_available'] == true;
+        if (hasUpdates) {
+          _showSnack('Updates available! Check Robot Management to install.');
+        } else {
+          _showSnack('Robot is up to date');
+        }
+      } else {
+        _showSnack('Could not check for updates: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      _showSnack('Could not check for updates: $e');
+    } finally {
+      if (mounted) setState(() => _busyHosts.remove(host));
+    }
   }
 
   Future<void> _refreshStatus(Map<String, dynamic> data) async {
