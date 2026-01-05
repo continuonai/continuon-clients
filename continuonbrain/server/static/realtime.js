@@ -404,6 +404,105 @@
         }
 
         /**
+         * Send a streaming chat message
+         *
+         * @param {string} message - The message to send
+         * @param {Object} options - Optional settings
+         * @param {string} options.sessionId - Session ID for conversation continuity
+         * @param {Array} options.history - Conversation history
+         * @param {function} options.onToken - Callback for each token received
+         * @param {function} options.onDone - Callback when streaming completes
+         * @param {function} options.onError - Callback for errors
+         * @returns {Promise} Resolves when streaming is complete
+         *
+         * @example
+         * realtimeClient.chatStream("Hello!", {
+         *     onToken: (token) => appendToChat(token),
+         *     onDone: (result) => finishChat(result.full_response)
+         * });
+         */
+        chatStream(message, options = {}) {
+            return new Promise((resolve, reject) => {
+                const requestId = `chat_${++this._requestId}`;
+                let fullResponse = '';
+
+                // Set up temporary handler for this request
+                const handleStreamMessage = (data) => {
+                    if (data.request_id !== requestId) return;
+
+                    if (data.chunk_type === 'token') {
+                        fullResponse += data.content || '';
+                        if (options.onToken) {
+                            options.onToken(data.content);
+                        }
+                    } else if (data.chunk_type === 'done') {
+                        // Clean up handler
+                        this.off('chat_stream', handleStreamMessage);
+
+                        const result = {
+                            full_response: data.full_response || fullResponse,
+                            confidence: data.confidence,
+                            model: data.model,
+                            session_id: data.session_id,
+                            metadata: data.metadata
+                        };
+
+                        if (options.onDone) {
+                            options.onDone(result);
+                        }
+                        resolve(result);
+                    } else if (data.chunk_type === 'error') {
+                        // Clean up handler
+                        this.off('chat_stream', handleStreamMessage);
+
+                        const error = new Error(data.error || 'Chat stream error');
+                        if (options.onError) {
+                            options.onError(error);
+                        }
+                        reject(error);
+                    }
+                };
+
+                // Register the handler
+                this.on('chat_stream', handleStreamMessage);
+
+                // Send the streaming chat request
+                const sent = this.send({
+                    type: 'chat_stream',
+                    message: message,
+                    history: options.history || [],
+                    session_id: options.sessionId,
+                    request_id: requestId
+                });
+
+                if (!sent) {
+                    this.off('chat_stream', handleStreamMessage);
+                    const error = new Error('Failed to send chat stream request');
+                    if (options.onError) {
+                        options.onError(error);
+                    }
+                    reject(error);
+                }
+
+                // Timeout after 60 seconds
+                setTimeout(() => {
+                    if (this._handlers.has('chat_stream')) {
+                        const handlers = this._handlers.get('chat_stream');
+                        const idx = handlers.indexOf(handleStreamMessage);
+                        if (idx !== -1) {
+                            handlers.splice(idx, 1);
+                            const error = new Error('Chat stream timeout');
+                            if (options.onError) {
+                                options.onError(error);
+                            }
+                            reject(error);
+                        }
+                    }
+                }, 60000);
+            });
+        }
+
+        /**
          * Register event handler
          */
         on(event, handler) {

@@ -31,6 +31,17 @@ class WavecoreLoopConfig:
     arch_preset: Optional[str] = None
     sparsity_lambda: float = 0.0
 
+    # Multimodal training options
+    use_multimodal: bool = False
+    use_audio_features: bool = False
+    use_vision_features: bool = False
+    audio_dim: int = 80  # Mel spectrogram bands
+    audio_max_frames: int = 100
+
+    # Teacher model for distillation (e.g., Gemma 3n 2B)
+    teacher_model: Optional[str] = None  # "google/gemma-3n-2b"
+    distillation_alpha: float = 0.5  # Weight between hard labels and soft teacher logits
+
 
 class WavecoreTrainer:
     """
@@ -244,7 +255,52 @@ class WavecoreTrainer:
             # Default to pi5 preset for on-device runs.
             arch_preset=data.get("arch_preset", "pi5"),
             sparsity_lambda=float(data.get("sparsity_lambda", 0.0)),
+            # Multimodal training options
+            use_multimodal=bool(data.get("use_multimodal", False)),
+            use_audio_features=bool(data.get("use_audio_features", False)),
+            use_vision_features=bool(data.get("use_vision_features", False)),
+            audio_dim=int(data.get("audio_dim", 80)),
+            audio_max_frames=int(data.get("audio_max_frames", 100)),
+            # Teacher model for distillation (Gemma 3n 2B recommended)
+            teacher_model=data.get("teacher_model"),
+            distillation_alpha=float(data.get("distillation_alpha", 0.5)),
         )
+
+    def get_recommended_teacher_model(self) -> Dict[str, Any]:
+        """Get the recommended multimodal teacher model for distillation."""
+        from continuonbrain.services.model_detector import ModelDetector
+
+        detector = ModelDetector()
+        models = detector.get_available_models()
+
+        # Prefer Gemma 3n 2B multimodal
+        for model in models:
+            if model.get("id") == "google/gemma-3n-2b" and model.get("multimodal"):
+                return {
+                    "id": model["id"],
+                    "name": model["name"],
+                    "available": True,
+                    "supports_audio": model.get("supports_audio", False),
+                    "supports_vision": model.get("supports_vision", False),
+                }
+
+        # Fallback to any multimodal model
+        for model in models:
+            if model.get("type") == "multimodal":
+                return {
+                    "id": model["id"],
+                    "name": model["name"],
+                    "available": True,
+                    "supports_audio": model.get("supports_audio", False),
+                    "supports_vision": model.get("supports_vision", False),
+                }
+
+        return {
+            "id": None,
+            "name": "No multimodal teacher model found",
+            "available": False,
+            "hint": "Download google/gemma-3n-2b from HuggingFace for multimodal distillation",
+        }
 
     def _write_status(self, payload: Dict[str, Any]) -> None:
         try:

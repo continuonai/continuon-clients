@@ -29,53 +29,59 @@ from .batch_utils import (
 
 class InputEncoder(nn.Module):
     """
-    Input encoder combining observation, action, and reward.
-    
+    Input encoder combining observation, action, reward, and optional modalities.
+
     Encodes:
         x_obs: Observation (can be vector, image, etc.)
         a_prev: Previous action
         r_t: Scalar reward
-    
+        object_features: Optional detected object features
+        audio_features: Optional audio mel spectrogram features
+
     Output:
         e_t ∈ ℝ^{d_e}: Unified encoded feature
     """
     config: CoreModelConfig
     obs_dim: int
     action_dim: int
-    
+
     @nn.compact
     def __call__(
-        self, 
-        x_obs: jnp.ndarray, 
-        a_prev: jnp.ndarray, 
+        self,
+        x_obs: jnp.ndarray,
+        a_prev: jnp.ndarray,
         r_t: jnp.ndarray,
-        object_features: Optional[jnp.ndarray] = None
+        object_features: Optional[jnp.ndarray] = None,
+        audio_features: Optional[jnp.ndarray] = None,
     ) -> jnp.ndarray:
         """
         Encode inputs into unified feature.
-        
+
         Args:
             x_obs: Observation (pixels or tokens)
             a_prev: Previous action
             r_t: Scalar reward
             object_features: Optional [B, max_objects, object_dim]
+            audio_features: Optional [B, num_frames, audio_dim] mel spectrogram
         """
         d_e = self.config.d_e
         hidden_dim = 2 * d_e
-        
+
         # Ensure batch dimension
         if x_obs.ndim == 1 and self.config.obs_type != "vqvae":
             x_obs = x_obs[None, :]
         if self.config.obs_type == "vqvae" and x_obs.ndim == 1:
             # tokens: [L] -> [1, L]
             x_obs = x_obs[None, :]
-            
+
         if a_prev.ndim == 1:
             a_prev = a_prev[None, :]
         if r_t.ndim == 0:
             r_t = r_t[None, None]
         elif r_t.ndim == 1:
             r_t = r_t[None, :]
+
+        batch_size = x_obs.shape[0]
 
         # Observation encoder
         if self.config.obs_type == "vector":
@@ -98,16 +104,16 @@ class InputEncoder(nn.Module):
             # x_obs is [B, L] integers
             vocab_size = self.config.num_vq_vocab
             embed_dim = 64
-            
+
             x = nn.Embed(vocab_size, embed_dim)(x_obs) # [B, L, 64]
             # Simple Flatten + Dense (fastest for Pi)
             x = x.reshape((x.shape[0], -1)) # [B, L*64]
             obs_feat = nn.Dense(d_e)(x)
         else:
             raise ValueError(f"Unknown obs_type: {self.config.obs_type}")
-            
+
         # Object Feature Encoder (Permutation Invariant)
-        obj_feat = jnp.zeros((x_obs.shape[0], d_e))
+        obj_feat = jnp.zeros((batch_size, d_e))
         if self.config.use_object_features and object_features is not None:
              # object_features: [B, N, D]
              # Encode each object: MLP(obj) -> [B, N, d_e]
@@ -115,28 +121,57 @@ class InputEncoder(nn.Module):
              x_obj = nn.relu(x_obj)
              # Max pool over objects (permutation invariant)
              obj_feat = jnp.max(x_obj, axis=1) # [B, d_e]
-        
+
+        # Audio Feature Encoder
+        audio_feat = jnp.zeros((batch_size, d_e))
+        if self.config.use_audio_features and audio_features is not None:
+            # audio_features: [B, T, F] where T=frames, F=mel_bands
+            if self.config.audio_encoder_type == "cnn":
+                # 1D CNN over time dimension
+                # Reshape to [B, T, F, 1] for Conv
+                x_audio = audio_features[:, :, :, None]
+                x_audio = nn.Conv(features=32, kernel_size=(3, 3), strides=(2, 1), padding='SAME')(x_audio)
+                x_audio = nn.relu(x_audio)
+                x_audio = nn.Conv(features=64, kernel_size=(3, 3), strides=(2, 1), padding='SAME')(x_audio)
+                x_audio = nn.relu(x_audio)
+                x_audio = nn.Conv(features=64, kernel_size=(3, 3), strides=(2, 1), padding='SAME')(x_audio)
+                x_audio = nn.relu(x_audio)
+                # Global average pool over time and frequency
+                x_audio = jnp.mean(x_audio, axis=(1, 2))  # [B, 64]
+                audio_feat = nn.Dense(d_e)(x_audio)
+            else:
+                # Simple transformer-style encoding
+                # Flatten and project: [B, T, F] -> [B, T*F] -> [B, d_e]
+                x_audio = audio_features.reshape((batch_size, -1))
+                audio_feat = nn.Dense(hidden_dim)(x_audio)
+                audio_feat = nn.LayerNorm()(audio_feat)
+                audio_feat = nn.relu(audio_feat)
+                audio_feat = nn.Dense(d_e)(audio_feat)
+
         # Action encoder
         action_feat = nn.Dense(d_e // 2)(a_prev)
         action_feat = nn.relu(action_feat)
-        
+
         # Reward encoder
         reward_feat = nn.Dense(d_e // 4)(r_t)
         reward_feat = nn.relu(reward_feat)
-        
+
         # Fusion layer
-        # Concat: [obs, action, reward] + [objects] if enabled
+        # Concat: [obs, action, reward] + [objects] + [audio] if enabled
+        features_to_combine = [obs_feat, action_feat, reward_feat]
         if self.config.use_object_features:
-            combined = jnp.concatenate([obs_feat, action_feat, reward_feat, obj_feat], axis=-1)
-        else:
-            combined = jnp.concatenate([obs_feat, action_feat, reward_feat], axis=-1)
-        
+            features_to_combine.append(obj_feat)
+        if self.config.use_audio_features:
+            features_to_combine.append(audio_feat)
+
+        combined = jnp.concatenate(features_to_combine, axis=-1)
+
         e_t = nn.Dense(hidden_dim)(combined)
         e_t = nn.LayerNorm()(e_t)
         e_t = nn.relu(e_t)
         e_t = nn.Dense(d_e)(e_t)
         e_t = nn.LayerNorm()(e_t)
-        
+
         return e_t
 
 
@@ -626,6 +661,7 @@ class CoreModel(nn.Module):
         cms_memories: List[jnp.ndarray],
         cms_keys: List[jnp.ndarray],
         object_features: Optional[jnp.ndarray] = None,
+        audio_features: Optional[jnp.ndarray] = None,
     ) -> Tuple[jnp.ndarray, Dict[str, Any]]:
         """
         Forward pass for batched inputs.
@@ -643,13 +679,14 @@ class CoreModel(nn.Module):
             cms_memories: List of [B, N_l, d_l] memory matrices
             cms_keys: List of [B, N_l, d_k] key matrices
             object_features: Optional [B, max_objects, object_dim]
+            audio_features: Optional [B, num_frames, audio_dim] mel spectrogram
 
         Returns:
             y_t: Output [B, output_dim]
             info: Dictionary with intermediate states (all batched)
         """
         # 1. Encode
-        e_t = self.encoder(x_obs, a_prev, r_t, object_features=object_features)
+        e_t = self.encoder(x_obs, a_prev, r_t, object_features=object_features, audio_features=audio_features)
 
         # 2. CMS Read (retrieve context from memory)
         q_t, c_t, attn_weights = self.cms_read(cms_memories, cms_keys, s_prev, e_t)
@@ -689,6 +726,7 @@ class CoreModel(nn.Module):
         cms_memories: List[jnp.ndarray],
         cms_keys: List[jnp.ndarray],
         object_features: Optional[jnp.ndarray] = None,
+        audio_features: Optional[jnp.ndarray] = None,
     ) -> Tuple[jnp.ndarray, Dict[str, Any]]:
         """
         Forward pass for a single (unbatched) input.
@@ -706,6 +744,7 @@ class CoreModel(nn.Module):
             cms_memories: List of [N_l, d_l] memory matrices
             cms_keys: List of [N_l, d_k] key matrices
             object_features: Optional [max_objects, object_dim]
+            audio_features: Optional [num_frames, audio_dim] mel spectrogram
 
         Returns:
             y_t: Output [output_dim]
@@ -721,13 +760,15 @@ class CoreModel(nn.Module):
         cms_memories_b = [m[None, :, :] for m in cms_memories]
         cms_keys_b = [k[None, :, :] for k in cms_keys]
         object_features_b = object_features[None, :, :] if object_features is not None else None
+        audio_features_b = audio_features[None, :, :] if audio_features is not None else None
 
         # Run batched forward
         y_t, info = self.forward_batch(
             x_obs_b, a_prev_b, r_t_b,
             s_prev_b, w_prev_b, p_prev_b,
             cms_memories_b, cms_keys_b,
-            object_features_b
+            object_features_b,
+            audio_features_b
         )
 
         # Remove batch dimensions
@@ -751,6 +792,7 @@ class CoreModel(nn.Module):
         cms_memories: List[jnp.ndarray],
         cms_keys: List[jnp.ndarray],
         object_features: Optional[jnp.ndarray] = None,
+        audio_features: Optional[jnp.ndarray] = None,
     ) -> Tuple[jnp.ndarray, Dict[str, Any]]:
         """
         Unified forward pass with automatic batch detection.
@@ -768,6 +810,7 @@ class CoreModel(nn.Module):
             cms_memories: List of CMS memory matrices per level
             cms_keys: List of CMS key matrices per level
             object_features: Optional object features
+            audio_features: Optional audio features [num_frames, audio_dim] or [B, num_frames, audio_dim]
 
         Returns:
             y_t: Output [output_dim] or [B, output_dim]
@@ -786,12 +829,17 @@ class CoreModel(nn.Module):
             object_features
         )
 
+        # Normalize audio features if provided
+        if audio_features is not None and audio_features.ndim == 2:
+            audio_features = audio_features[None, :, :]
+
         # Run batched forward
         y_t, info = self.forward_batch(
             x_obs, a_prev, r_t,
             s_prev, w_prev, p_prev,
             cms_memories, cms_keys,
-            object_features
+            object_features,
+            audio_features
         )
 
         # Denormalize outputs if needed
@@ -809,23 +857,23 @@ def make_core_model(
 ) -> Tuple[CoreModel, Dict[str, Any]]:
     """
     Create and initialize a CoreModel.
-    
+
     Args:
         rng_key: JAX random key for initialization
         obs_dim: Observation dimension
         action_dim: Action dimension
         output_dim: Output dimension
         config: Model configuration (defaults to pi5_optimized)
-    
+
     Returns:
         model: CoreModel instance
         params: Initialized parameters
     """
     if config is None:
         config = CoreModelConfig.pi5_optimized()
-    
+
     model = CoreModel(config, obs_dim, action_dim, output_dim)
-    
+
     # Create dummy inputs for initialization
     batch_size = 1
     dummy_obs = jnp.zeros((batch_size, obs_dim))
@@ -840,7 +888,17 @@ def make_core_model(
     dummy_cms_keys = [
         jnp.zeros((batch_size, size, config.d_k)) for size in config.cms_sizes
     ]
-    
+
+    # Optional features
+    dummy_object_features = (
+        jnp.zeros((batch_size, config.max_objects, config.object_dim))
+        if config.use_object_features else None
+    )
+    dummy_audio_features = (
+        jnp.zeros((batch_size, config.audio_max_frames, config.audio_dim))
+        if config.use_audio_features else None
+    )
+
     # Initialize parameters
     params = model.init(
         rng_key,
@@ -852,8 +910,9 @@ def make_core_model(
         dummy_p,
         dummy_cms_memories,
         dummy_cms_keys,
-        object_features=jnp.zeros((batch_size, config.max_objects, config.object_dim)) if config.use_object_features else None,
+        object_features=dummy_object_features,
+        audio_features=dummy_audio_features,
     )
-    
+
     return model, params
 

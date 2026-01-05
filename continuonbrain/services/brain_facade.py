@@ -27,6 +27,7 @@ from typing import Any, Dict, Optional
 
 from .container import ServiceContainer, ContainerConfig, get_container
 from .interfaces import (
+    IAudioService,
     IChatService,
     IHardwareService,
     IPerceptionService,
@@ -69,6 +70,11 @@ class BrainFacade:
 
         self._initialized = False
         logger.info("BrainFacade created")
+
+    @property
+    def audio(self) -> IAudioService:
+        """Get the audio service."""
+        return self._container.audio
 
     @property
     def chat(self) -> IChatService:
@@ -120,6 +126,10 @@ class BrainFacade:
             # Chat (standalone)
             _ = self.chat.get_model_info()
             logger.debug("Chat service initialized")
+
+            # Audio (microphone, speaker, TTS, STT)
+            _ = self.audio.get_capabilities()
+            logger.debug("Audio service initialized")
 
             # Learning (can be lazy)
             # Reasoning (can be lazy)
@@ -215,6 +225,15 @@ class BrainFacade:
         except Exception as e:
             status["services"]["reasoning"] = {"error": str(e)}
 
+        # Audio status
+        try:
+            status["services"]["audio"] = {
+                "available": self.audio.is_available(),
+                "capabilities": self.audio.get_capabilities(),
+            }
+        except Exception as e:
+            status["services"]["audio"] = {"error": str(e)}
+
         return status
 
     def get_capabilities(self) -> Dict[str, Any]:
@@ -236,6 +255,10 @@ class BrainFacade:
             },
             "reasoning": {
                 "available": self.reasoning.is_available(),
+            },
+            "audio": {
+                "available": self.audio.is_available(),
+                "capabilities": self.audio.get_capabilities(),
             },
         }
 
@@ -269,7 +292,53 @@ class BrainFacade:
             self.learning.stop_training()
             results["stopped"].append("training")
 
+        # Stop speaking
+        if self.audio.is_speaking():
+            self.audio.stop_speaking()
+            results["stopped"].append("audio")
+
         return results
+
+    def listen_and_respond(self, duration_ms: int = 5000) -> Dict[str, Any]:
+        """
+        Listen for speech, transcribe, and generate a spoken response.
+
+        Cross-domain: uses audio (capture, STT, TTS) + chat (response generation).
+
+        Args:
+            duration_ms: Duration to listen for in milliseconds
+
+        Returns:
+            Dictionary with input text, response, and success status
+        """
+        result = {
+            "success": False,
+            "input_text": "",
+            "response": "",
+        }
+
+        # Capture and transcribe
+        transcript = self.audio.transcribe(duration_ms=duration_ms)
+        input_text = transcript.get("text", "")
+
+        if not input_text:
+            result["error"] = "No speech detected"
+            return result
+
+        result["input_text"] = input_text
+
+        # Generate response via chat
+        chat_result = self.chat.chat(input_text, [])
+        response = chat_result.get("response", "")
+
+        result["response"] = response
+
+        # Speak the response
+        if response:
+            self.audio.speak(response, blocking=False)
+
+        result["success"] = True
+        return result
 
 
 # Factory function for easy creation

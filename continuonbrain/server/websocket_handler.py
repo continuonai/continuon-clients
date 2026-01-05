@@ -91,6 +91,7 @@ class WebSocketHandler:
         self._message_handlers["unsubscribe"] = self._handle_unsubscribe
         self._message_handlers["ping"] = self._handle_client_ping
         self._message_handlers["command"] = self._handle_command
+        self._message_handlers["chat_stream"] = self._handle_chat_stream
 
     def register_handler(self, message_type: str, handler: Callable):
         """Register a custom message handler."""
@@ -396,6 +397,122 @@ class WebSocketHandler:
             raise ValueError(f"Unknown command: {command}")
 
         return await handler()
+
+    async def _handle_chat_stream(self, conn: WebSocketConnection, data: Dict[str, Any]):
+        """
+        Handle streaming chat via WebSocket.
+
+        Streams tokens back to the client as they're generated.
+
+        Expected request format:
+        {
+            "type": "chat_stream",
+            "message": "Hello",
+            "history": [...],
+            "session_id": "optional-session-id",
+            "request_id": "req_1"
+        }
+
+        Response format (multiple messages):
+        {"type": "chat_stream", "request_id": "req_1", "chunk_type": "token", "content": "Hello"}
+        {"type": "chat_stream", "request_id": "req_1", "chunk_type": "token", "content": " world"}
+        {"type": "chat_stream", "request_id": "req_1", "chunk_type": "done", "full_response": "...", ...}
+        """
+        if not self.service:
+            await self._send_json(conn, {
+                "type": "chat_stream",
+                "chunk_type": "error",
+                "error": "No service available",
+                "request_id": data.get("request_id"),
+            })
+            return
+
+        message = data.get("message", "")
+        history = data.get("history", [])
+        session_id = data.get("session_id")
+        request_id = data.get("request_id")
+
+        if not message:
+            await self._send_json(conn, {
+                "type": "chat_stream",
+                "chunk_type": "error",
+                "error": "Message is required",
+                "request_id": request_id,
+            })
+            return
+
+        try:
+            # Get the chat service
+            chat_service = None
+
+            # Try container first
+            if hasattr(self.service, "container") and self.service.container:
+                chat_service = self.service.container.chat
+
+            # Fallback to direct service attribute
+            if not chat_service and hasattr(self.service, "chat_service"):
+                chat_service = self.service.chat_service
+
+            # Final fallback - use ChatWithGemma wrapper
+            if not chat_service:
+                # No streaming available, fall back to regular chat
+                result = await self.service.ChatWithGemma(message, history, session_id=session_id)
+                response_text = result.get("response", str(result)) if isinstance(result, dict) else str(result)
+
+                # Simulate streaming
+                words = response_text.split(" ")
+                for i, word in enumerate(words):
+                    token = word if i == 0 else " " + word
+                    await self._send_json(conn, {
+                        "type": "chat_stream",
+                        "chunk_type": "token",
+                        "content": token,
+                        "request_id": request_id,
+                    })
+                    await asyncio.sleep(0.02)
+
+                await self._send_json(conn, {
+                    "type": "chat_stream",
+                    "chunk_type": "done",
+                    "full_response": response_text,
+                    "confidence": result.get("confidence", 0.5) if isinstance(result, dict) else 0.5,
+                    "model": result.get("model", "unknown") if isinstance(result, dict) else "unknown",
+                    "session_id": result.get("session_id", session_id) if isinstance(result, dict) else session_id,
+                    "request_id": request_id,
+                })
+                return
+
+            # Use streaming method
+            async for chunk in chat_service.chat_stream(message, history, session_id):
+                chunk_type = chunk.get("type", "token")
+
+                response = {
+                    "type": "chat_stream",
+                    "chunk_type": chunk_type,
+                    "request_id": request_id,
+                }
+
+                if chunk_type == "token":
+                    response["content"] = chunk.get("content", "")
+                elif chunk_type == "done":
+                    response.update({
+                        "full_response": chunk.get("full_response", ""),
+                        "confidence": chunk.get("confidence", 0.5),
+                        "model": chunk.get("model", "unknown"),
+                        "session_id": chunk.get("session_id", session_id),
+                        "metadata": chunk.get("metadata", {}),
+                    })
+
+                await self._send_json(conn, response)
+
+        except Exception as e:
+            logger.error(f"Chat stream error: {e}")
+            await self._send_json(conn, {
+                "type": "chat_stream",
+                "chunk_type": "error",
+                "error": str(e),
+                "request_id": request_id,
+            })
 
     async def _close_connection(self, conn: WebSocketConnection):
         """Close and cleanup a connection."""

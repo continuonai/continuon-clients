@@ -27,14 +27,31 @@ from .backend import (
     AudioBackend,
     AudioBackendType,
     AudioCapability,
+    AudioDevice,
     AudioResult,
 )
 from .manager import AudioManager
+from .microphone_backend import PyAudioBackend, SoundDeviceBackend
+from .tts_backend import PiperBackend, ESpeakBackend, Pyttsx3Backend
+from .stt_backend import WhisperBackend, VoskBackend
 
 __all__ = [
+    # Base classes
     'AudioBackend',
     'AudioBackendType',
     'AudioCapability',
+    'AudioDevice',
     'AudioResult',
+    # Manager
     'AudioManager',
+    # Capture backends
+    'PyAudioBackend',
+    'SoundDeviceBackend',
+    # TTS backends
+    'PiperBackend',
+    'ESpeakBackend',
+    'Pyttsx3Backend',
+    # STT backends
+    'WhisperBackend',
+    'VoskBackend',
 ]

@@ -1,6 +1,6 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=/home/craigm26/Downloads/ContinuonXR/flutter_sdk"
+export "FLUTTER_ROOT=/home/craigm26/flutter"
 export "FLUTTER_APPLICATION_PATH=/home/craigm26/Downloads/ContinuonXR/continuonai"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib/main.dart"

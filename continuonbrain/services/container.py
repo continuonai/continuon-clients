@@ -29,6 +29,7 @@ import logging
 import threading
 
 from .interfaces import (
+    IAudioService,
     IChatService,
     IHardwareService,
     IPerceptionService,
@@ -59,6 +60,7 @@ class ContainerConfig:
     lazy_load: bool = True  # Defer initialization until first access
 
     # Service-specific configs
+    audio_config: Dict[str, Any] = field(default_factory=dict)
     chat_config: Dict[str, Any] = field(default_factory=dict)
     hardware_config: Dict[str, Any] = field(default_factory=dict)
     perception_config: Dict[str, Any] = field(default_factory=dict)
@@ -89,6 +91,7 @@ class ServiceContainer:
 
     def _register_default_factories(self) -> None:
         """Register default service factories."""
+        self._factories['audio'] = self._create_audio_service
         self._factories['chat'] = self._create_chat_service
         self._factories['hardware'] = self._create_hardware_service
         self._factories['perception'] = self._create_perception_service
@@ -148,6 +151,11 @@ class ServiceContainer:
     def is_instantiated(self, name: str) -> bool:
         """Check if a service has been instantiated."""
         return name in self._instances
+
+    @property
+    def audio(self) -> IAudioService:
+        """Get the audio service."""
+        return self.get('audio')
 
     @property
     def chat(self) -> IChatService:
@@ -228,6 +236,17 @@ class ServiceContainer:
         return status
 
     # Factory methods
+    def _create_audio_service(self) -> IAudioService:
+        """Create the audio service."""
+        try:
+            from .domains.audio.audio_service import AudioService
+            return AudioService(**self.config.audio_config)
+        except ImportError as e:
+            logger.warning(f"AudioService not available: {e}")
+            if self.config.allow_mock_fallback:
+                return _create_mock_audio_service()
+            raise
+
     def _create_chat_service(self) -> IChatService:
         """Create the chat service."""
         try:
@@ -307,6 +326,38 @@ class ServiceContainer:
 
 
 # Mock service implementations for fallback/testing
+def _create_mock_audio_service() -> IAudioService:
+    """Create a mock audio service."""
+    import numpy as np
+
+    class MockAudioService:
+        def capture_audio(self, duration_ms=1000, sample_rate=16000):
+            return np.zeros(int(duration_ms * sample_rate / 1000), dtype=np.float32)
+        def play_audio(self, audio, sample_rate=16000, blocking=True):
+            return True
+        def speak(self, text, voice=None, speed=1.0, blocking=True):
+            return True
+        def transcribe(self, audio=None, duration_ms=5000):
+            return {'text': '[Mock transcription]', 'confidence': 0.0, 'language': 'en', 'segments': []}
+        def listen_for_wake_word(self, wake_words=None, timeout_ms=10000):
+            return None
+        def extract_features(self, audio, sample_rate=16000):
+            return np.zeros((100, 80), dtype=np.float32)
+        def get_audio_level(self):
+            return 0.0
+        def is_speaking(self):
+            return False
+        def stop_speaking(self):
+            pass
+        def get_capabilities(self):
+            return {'has_microphone': False, 'has_speaker': False, 'has_tts': False, 'has_stt': False, 'has_wake_word': False}
+        def get_devices(self):
+            return {'input_devices': [], 'output_devices': []}
+        def is_available(self):
+            return True
+    return MockAudioService()
+
+
 def _create_mock_chat_service() -> IChatService:
     """Create a mock chat service."""
     class MockChatService:

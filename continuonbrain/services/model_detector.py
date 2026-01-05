@@ -41,18 +41,33 @@ class ModelDetector:
                 "description": "JAX/Flax CoreModel (HOPE-inspired) for CPU/TPU/Hailo inference"
             })
 
-        # Detect Gemma 3n (JAX/Flax weights) if present in HF cache
-        if self.jax_available and self.hf_cache.exists():
+        # Detect Gemma 3n 2B multimodal (JAX/Flax weights) if present in HF cache
+        if self.hf_cache.exists():
             for model_dir in self.hf_cache.iterdir():
                 if not model_dir.is_dir():
                     continue
-                dir_name = model_dir.name
-                if "gemma-3" in dir_name.lower():
+                dir_name = model_dir.name.lower()
+                # Gemma 3n 2B multimodal (preferred for training)
+                if "gemma-3n" in dir_name and "2b" in dir_name:
+                    models.append({
+                        "id": "google/gemma-3n-2b",
+                        "name": "Gemma 3n 2B Multimodal",
+                        "type": "multimodal",
+                        "size_mb": self._estimate_model_size(model_dir),
+                        "source": "huggingface",
+                        "multimodal": True,
+                        "supports_audio": True,
+                        "supports_vision": True,
+                        "description": "Gemma 3n 2B multimodal for vision+audio+text (ideal for HOPE training)",
+                        "recommended_for": ["training", "multimodal_inference", "distillation"]
+                    })
+                # Other Gemma 3n variants
+                elif "gemma-3" in dir_name:
                     models.append({
                         "id": "google/gemma-3n",
                         "name": "Gemma 3n (JAX/Flax)",
                         "type": "jax-gemma",
-                        "size_mb": 0,
+                        "size_mb": self._estimate_model_size(model_dir),
                         "source": "huggingface",
                         "description": "Gemma 3n JAX/Flax weights detected in HF cache"
                     })

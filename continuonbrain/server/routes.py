@@ -1130,11 +1130,42 @@ class SimpleJSONServer:
         elif path == "/rcan/v1/handoff" and method == "POST":
             # Transfer control between users
             payload = await self._read_json_body(reader, headers)
-            # TODO: Implement handoff logic
-            return self._json_response({
-                "status": "not_implemented",
-                "message": "Handoff not yet implemented"
-            }, status_code=501)
+            if not isinstance(payload, dict):
+                return self._json_response({"error": "Invalid payload"}, status_code=400)
+
+            from_session_id = payload.get("session_id", "")
+            to_user_id = payload.get("target_user_id", "")
+            to_role_str = payload.get("target_role", "USER").upper()
+            reason = payload.get("reason", "")
+
+            if not from_session_id:
+                return self._json_response({"error": "session_id required"}, status_code=400)
+            if not to_user_id:
+                return self._json_response({"error": "target_user_id required"}, status_code=400)
+
+            # Parse role string to enum
+            from continuonbrain.services.rcan_service import UserRole
+            try:
+                to_role = UserRole[to_role_str]
+            except KeyError:
+                valid_roles = [r.name for r in UserRole if r != UserRole.UNKNOWN]
+                return self._json_response({
+                    "error": f"Invalid target_role: {to_role_str}",
+                    "valid_roles": valid_roles
+                }, status_code=400)
+
+            # Execute handoff
+            success, result = self.service.rcan.handle_handoff(
+                from_session_id=from_session_id,
+                to_user_id=to_user_id,
+                to_role=to_role,
+                reason=reason,
+            )
+
+            if not success:
+                return self._json_response(result, status_code=403)
+
+            return self._json_response(result)
 
         elif path == "/api/planning/arm_search" and method == "POST":
             payload = await self._read_json_body(reader, headers)
@@ -1165,6 +1196,414 @@ class SimpleJSONServer:
         elif path == "/api/camera/stream":
             await self._serve_mjpeg(writer)
             return b""
+
+        # =====================================================================
+        # Feedback API - User feedback on robot responses
+        # =====================================================================
+
+        elif path == "/api/feedback" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                return self._json_response({"error": "Invalid payload"}, status_code=400)
+
+            conversation_id = payload.get("conversation_id")
+            if not conversation_id:
+                return self._json_response({"error": "conversation_id is required"}, status_code=400)
+
+            is_validated = payload.get("is_validated", False)
+            correction = payload.get("correction")
+            rating = payload.get("rating")
+            tags = payload.get("tags")
+
+            try:
+                from continuonbrain.core.feedback_store import SQLiteFeedbackStore
+                store = SQLiteFeedbackStore(str(self._base_dir() / "feedback.db"))
+                store.initialize_db()
+                store.add_feedback(
+                    conversation_id=conversation_id,
+                    is_validated=is_validated,
+                    correction=correction,
+                    rating=rating,
+                    tags=tags,
+                )
+                return self._json_response({
+                    "status": "ok",
+                    "conversation_id": conversation_id,
+                    "message": "Feedback recorded",
+                })
+            except ValueError as e:
+                return self._json_response({"error": str(e)}, status_code=400)
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/feedback/summary" and method == "GET":
+            try:
+                from continuonbrain.core.feedback_store import SQLiteFeedbackStore
+                store = SQLiteFeedbackStore(str(self._base_dir() / "feedback.db"))
+                store.initialize_db()
+                summary = store.get_summary()
+                return self._json_response({"status": "ok", **summary})
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/feedback/list" and method == "GET":
+            limit = int((query_params.get("limit", ["50"]) or ["50"])[0])
+            validated_only = (query_params.get("validated_only", ["false"]) or ["false"])[0].lower() == "true"
+            try:
+                from continuonbrain.core.feedback_store import SQLiteFeedbackStore
+                store = SQLiteFeedbackStore(str(self._base_dir() / "feedback.db"))
+                store.initialize_db()
+                items = store.list_recent(limit=limit, validated_only=validated_only)
+                return self._json_response({"status": "ok", "count": len(items), "items": items})
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path.startswith("/api/feedback/") and method == "GET":
+            # GET /api/feedback/{conversation_id}
+            conv_id = path.split("/")[-1]
+            if not conv_id or conv_id == "feedback":
+                return self._json_response({"error": "conversation_id required"}, status_code=400)
+            try:
+                from continuonbrain.core.feedback_store import SQLiteFeedbackStore
+                store = SQLiteFeedbackStore(str(self._base_dir() / "feedback.db"))
+                store.initialize_db()
+                feedback = store.get_feedback(conv_id)
+                if not feedback:
+                    return self._json_response({"error": "Feedback not found"}, status_code=404)
+                return self._json_response({"status": "ok", "feedback": feedback})
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        # =====================================================================
+        # Context Graph API - Knowledge graph queries
+        # =====================================================================
+
+        elif path == "/api/graph/nodes" and method == "GET":
+            types_raw = query_params.get("types", [""])
+            types = [t for t in types_raw[0].split(",") if t] if types_raw[0] else None
+            tags_raw = query_params.get("tags", [""])
+            tags = [t for t in tags_raw[0].split(",") if t] if tags_raw[0] else None
+            limit = int((query_params.get("limit", ["100"]) or ["100"])[0])
+            try:
+                nodes = self.service.context_store.list_nodes(types=types, limit=limit, tags=tags)
+                return self._json_response({
+                    "status": "ok",
+                    "count": len(nodes),
+                    "nodes": [n.__dict__ if hasattr(n, "__dict__") else n for n in nodes],
+                })
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path.startswith("/api/graph/nodes/") and method == "GET":
+            node_id = path.replace("/api/graph/nodes/", "")
+            if not node_id:
+                return self._json_response({"error": "node_id required"}, status_code=400)
+            try:
+                node = self.service.context_store.get_node(node_id)
+                if not node:
+                    return self._json_response({"error": "Node not found"}, status_code=404)
+                return self._json_response({
+                    "status": "ok",
+                    "node": node.__dict__ if hasattr(node, "__dict__") else node,
+                })
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/graph/edges" and method == "GET":
+            types_raw = query_params.get("types", [""])
+            types = [t for t in types_raw[0].split(",") if t] if types_raw[0] else None
+            source_id = (query_params.get("source_id", [""])[0]) or None
+            target_id = (query_params.get("target_id", [""])[0]) or None
+            min_conf = float((query_params.get("min_confidence", ["0.0"]) or ["0.0"])[0])
+            limit = int((query_params.get("limit", ["100"]) or ["100"])[0])
+            try:
+                edges = self.service.context_store.list_edges(
+                    source_ids=[source_id] if source_id else None,
+                    target_ids=[target_id] if target_id else None,
+                    limit=limit,
+                    min_confidence=min_conf,
+                    types=types,
+                )
+                return self._json_response({
+                    "status": "ok",
+                    "count": len(edges),
+                    "edges": [e.__dict__ if hasattr(e, "__dict__") else e for e in edges],
+                })
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/graph/subgraph" and method == "GET":
+            seeds_raw = query_params.get("seeds", [""])
+            seeds = [s for s in seeds_raw[0].split(",") if s] if seeds_raw[0] else []
+            session_id = (query_params.get("session_id", [""])[0]) or None
+            depth = int((query_params.get("depth", ["2"]) or ["2"])[0])
+            min_conf = float((query_params.get("min_confidence", ["0.0"]) or ["0.0"])[0])
+            limit = int((query_params.get("limit", ["50"]) or ["50"])[0])
+            try:
+                result = self.service.get_context_subgraph(
+                    session_id=session_id,
+                    tags=None,
+                    depth=depth,
+                    limit=limit,
+                    min_confidence=min_conf,
+                )
+                return self._json_response({"status": "ok", **result})
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/graph/decisions" and method == "GET":
+            depth = int((query_params.get("depth", ["2"]) or ["2"])[0])
+            limit = int((query_params.get("limit", ["20"]) or ["20"])[0])
+            min_conf = float((query_params.get("min_confidence", ["0.0"]) or ["0.0"])[0])
+            try:
+                result = self.service.get_decision_trace_subgraph(
+                    depth=depth,
+                    limit=limit,
+                    min_confidence=min_conf,
+                )
+                return self._json_response({"status": "ok", **result})
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/graph/search" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                return self._json_response({"error": "Invalid payload"}, status_code=400)
+            query_text = payload.get("query", "")
+            limit = payload.get("limit", 10)
+            try:
+                # Generate embedding for query
+                embedding = None
+                if hasattr(self.service, "gemma_chat") and self.service.gemma_chat:
+                    # Try to get embedding from chat service
+                    try:
+                        from continuonbrain.services.embedding_gemma import GemmaEmbedding
+                        embedder = GemmaEmbedding()
+                        embedding = embedder.embed(query_text)
+                    except Exception:
+                        embedding = None
+
+                if embedding:
+                    nodes = self.service.context_store.get_nearest_nodes(embedding, limit=limit)
+                    return self._json_response({
+                        "status": "ok",
+                        "query": query_text,
+                        "count": len(nodes),
+                        "nodes": [n.__dict__ if hasattr(n, "__dict__") else n for n in nodes],
+                    })
+                else:
+                    return self._json_response({
+                        "status": "ok",
+                        "query": query_text,
+                        "count": 0,
+                        "nodes": [],
+                        "message": "Semantic search unavailable (no embedding model)",
+                    })
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        # =====================================================================
+        # Vision API - Detection, segmentation, depth
+        # =====================================================================
+
+        elif path == "/api/vision/detect" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                payload = {}
+            conf_threshold = payload.get("conf_threshold", 0.25)
+            backend = payload.get("backend", "auto")
+
+            try:
+                # Get frame from payload or camera
+                frame = None
+                if payload.get("image_jpeg"):
+                    import base64
+                    import numpy as np
+                    import cv2
+                    img_bytes = base64.b64decode(payload["image_jpeg"])
+                    nparr = np.frombuffer(img_bytes, np.uint8)
+                    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                else:
+                    # Capture from camera
+                    if hasattr(self.service, "vision_core") and self.service.vision_core:
+                        frame = self.service.vision_core._capture_rgb()
+
+                if frame is None:
+                    return self._json_response({"error": "No frame available"}, status_code=503)
+
+                # Run detection
+                if hasattr(self.service, "vision_core") and self.service.vision_core:
+                    scene = self.service.vision_core.perceive(
+                        rgb_frame=frame,
+                        run_detection=True,
+                        run_segmentation=False,
+                    )
+                    detections = [
+                        {
+                            "label": obj.label,
+                            "confidence": obj.confidence,
+                            "bbox": list(obj.bbox) if hasattr(obj, "bbox") else None,
+                            "depth_mm": obj.depth_mm if hasattr(obj, "depth_mm") else None,
+                        }
+                        for obj in (scene.objects if scene else [])
+                    ]
+                    return self._json_response({
+                        "status": "ok",
+                        "detections": detections,
+                        "count": len(detections),
+                        "inference_time_ms": scene.inference_time_ms if hasattr(scene, "inference_time_ms") else None,
+                        "backend": backend,
+                    })
+                else:
+                    return self._json_response({"error": "Vision core not available"}, status_code=503)
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/vision/segment" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                payload = {}
+            prompt = payload.get("prompt")
+            points = payload.get("points")
+            box = payload.get("box")
+
+            try:
+                # Get frame from payload or camera
+                frame = None
+                if payload.get("image_jpeg"):
+                    import base64
+                    import numpy as np
+                    import cv2
+                    img_bytes = base64.b64decode(payload["image_jpeg"])
+                    nparr = np.frombuffer(img_bytes, np.uint8)
+                    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                else:
+                    if hasattr(self.service, "vision_core") and self.service.vision_core:
+                        frame = self.service.vision_core._capture_rgb()
+
+                if frame is None:
+                    return self._json_response({"error": "No frame available"}, status_code=503)
+
+                # Run segmentation
+                if hasattr(self.service, "vision_core") and self.service.vision_core:
+                    scene = self.service.vision_core.perceive(
+                        rgb_frame=frame,
+                        run_detection=False,
+                        run_segmentation=True,
+                        segmentation_prompt=prompt,
+                    )
+                    segments = [
+                        {
+                            "label": obj.label,
+                            "confidence": obj.confidence,
+                            "bbox": list(obj.bbox) if hasattr(obj, "bbox") else None,
+                            "mask_shape": list(obj.mask.shape) if hasattr(obj, "mask") and obj.mask is not None else None,
+                        }
+                        for obj in (scene.objects if scene else [])
+                    ]
+                    return self._json_response({
+                        "status": "ok",
+                        "segments": segments,
+                        "count": len(segments),
+                        "prompt": prompt,
+                    })
+                else:
+                    return self._json_response({"error": "Vision core not available"}, status_code=503)
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/vision/perceive" and method == "POST":
+            payload = await self._read_json_body(reader, headers)
+            if not isinstance(payload, dict):
+                payload = {}
+            run_detection = payload.get("run_detection", True)
+            run_segmentation = payload.get("run_segmentation", False)
+            segmentation_prompt = payload.get("segmentation_prompt")
+
+            try:
+                frame = None
+                if payload.get("image_jpeg"):
+                    import base64
+                    import numpy as np
+                    import cv2
+                    img_bytes = base64.b64decode(payload["image_jpeg"])
+                    nparr = np.frombuffer(img_bytes, np.uint8)
+                    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                if hasattr(self.service, "vision_core") and self.service.vision_core:
+                    scene = self.service.vision_core.perceive(
+                        rgb_frame=frame,
+                        run_detection=run_detection,
+                        run_segmentation=run_segmentation,
+                        segmentation_prompt=segmentation_prompt,
+                    )
+                    return self._json_response({
+                        "status": "ok",
+                        "object_count": scene.object_count if scene else 0,
+                        "nearest_object_mm": scene.nearest_object_mm if scene else None,
+                        "objects": [
+                            {
+                                "label": obj.label,
+                                "confidence": obj.confidence,
+                                "bbox": list(obj.bbox) if hasattr(obj, "bbox") else None,
+                                "depth_mm": obj.depth_mm if hasattr(obj, "depth_mm") else None,
+                            }
+                            for obj in (scene.objects if scene else [])
+                        ],
+                    })
+                else:
+                    return self._json_response({"error": "Vision core not available"}, status_code=503)
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/vision/depth" and method == "GET":
+            try:
+                if hasattr(self.service, "vision_core") and self.service.vision_core:
+                    frame_data = self.service.vision_core._capture_rgbd()
+                    if frame_data and "depth" in frame_data:
+                        import numpy as np
+                        depth = frame_data["depth"]
+                        return self._json_response({
+                            "status": "ok",
+                            "shape": list(depth.shape) if isinstance(depth, np.ndarray) else None,
+                            "min_mm": float(np.min(depth)) if isinstance(depth, np.ndarray) else None,
+                            "max_mm": float(np.max(depth)) if isinstance(depth, np.ndarray) else None,
+                            "mean_mm": float(np.mean(depth)) if isinstance(depth, np.ndarray) else None,
+                        })
+                    else:
+                        return self._json_response({"error": "No depth data available"}, status_code=503)
+                else:
+                    return self._json_response({"error": "Vision core not available"}, status_code=503)
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/vision/capabilities" and method == "GET":
+            try:
+                if hasattr(self.service, "vision_core") and self.service.vision_core:
+                    caps = self.service.vision_core.get_capabilities()
+                    return self._json_response({"status": "ok", "capabilities": caps})
+                else:
+                    return self._json_response({
+                        "status": "ok",
+                        "capabilities": {
+                            "detection": False,
+                            "segmentation": False,
+                            "depth": False,
+                            "message": "Vision core not initialized",
+                        }
+                    })
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
+
+        elif path == "/api/vision/stats" and method == "GET":
+            try:
+                if hasattr(self.service, "vision_core") and self.service.vision_core:
+                    stats = self.service.vision_core.get_pipeline_stats()
+                    return self._json_response({"status": "ok", "stats": stats})
+                else:
+                    return self._json_response({"status": "ok", "stats": {}})
+            except Exception as e:
+                return self._json_response({"error": str(e)}, status_code=500)
 
         # Fallback
         return "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"

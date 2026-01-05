@@ -77,6 +77,12 @@ class CoreModelConfig:
     use_object_features: bool = False
     object_dim: int = 32          # Dimension of each object feature (label + bbox + conf + depth)
     max_objects: int = 10         # Connects to VisionCore output
+
+    # Audio Features (multimodal input)
+    use_audio_features: bool = False
+    audio_dim: int = 80           # Mel spectrogram bands (default 80)
+    audio_max_frames: int = 100   # Maximum audio frames to process
+    audio_encoder_type: str = "cnn"  # "cnn" or "transformer"
     
     def __post_init__(self):
         """Validate configuration."""

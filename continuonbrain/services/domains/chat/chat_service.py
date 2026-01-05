@@ -281,6 +281,108 @@ class ChatService:
         """Check if chat service is available."""
         return True  # Always available with at least fallback responses
 
+    async def chat_stream(
+        self,
+        message: str,
+        history: List[Dict[str, str]],
+        session_id: Optional[str] = None,
+    ):
+        """
+        Stream chat response token by token.
+
+        Args:
+            message: User message
+            history: Conversation history
+            session_id: Session ID (created if None)
+
+        Yields:
+            {"type": "token", "content": "Hello"}
+            {"type": "token", "content": " world"}
+            {"type": "done", "full_response": "Hello world", "confidence": 0.8}
+        """
+        import asyncio
+
+        start_time = time.time()
+
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
+        self._ensure_initialized()
+
+        full_response = ""
+        confidence = 0.5
+
+        try:
+            # Check if chat engine supports streaming
+            if self._chat_engine and hasattr(self._chat_engine, "chat_stream"):
+                # Use native streaming if available
+                async for chunk in self._chat_engine.chat_stream(message, history, session_id):
+                    if isinstance(chunk, dict):
+                        token = chunk.get("token", "")
+                        full_response += token
+                        yield {"type": "token", "content": token}
+                    else:
+                        full_response += str(chunk)
+                        yield {"type": "token", "content": str(chunk)}
+                confidence = 0.7
+
+            elif self._chat_engine and self._model_type == "gemma":
+                # Gemma without native streaming - simulate with full response
+                response, confidence = self._chat_with_gemma(message, history, session_id)
+                # Simulate streaming by yielding word by word
+                words = response.split(" ")
+                for i, word in enumerate(words):
+                    token = word if i == 0 else " " + word
+                    full_response += token
+                    yield {"type": "token", "content": token}
+                    await asyncio.sleep(0.02)  # Small delay for streaming effect
+
+            elif self._chat_engine and self._model_type == "hope":
+                # HOPE without native streaming
+                response, confidence = self._chat_with_hope(message, history, session_id)
+                words = response.split(" ")
+                for i, word in enumerate(words):
+                    token = word if i == 0 else " " + word
+                    full_response += token
+                    yield {"type": "token", "content": token}
+                    await asyncio.sleep(0.02)
+
+            else:
+                # Template/fallback response - stream it
+                response = self._fallback_response(message)
+                confidence = 0.3
+                words = response.split(" ")
+                for i, word in enumerate(words):
+                    token = word if i == 0 else " " + word
+                    full_response += token
+                    yield {"type": "token", "content": token}
+                    await asyncio.sleep(0.03)  # Slightly slower for fallback
+
+        except Exception as e:
+            logger.error(f"Streaming chat error: {e}")
+            full_response = self._fallback_response(message)
+            confidence = 0.2
+            # Stream the error fallback
+            for word in full_response.split(" "):
+                yield {"type": "token", "content": word + " "}
+                await asyncio.sleep(0.02)
+
+        # Update session
+        self._update_session(session_id, message, full_response)
+
+        # Final message with complete response
+        yield {
+            "type": "done",
+            "full_response": full_response.strip(),
+            "confidence": confidence,
+            "model": self._model_type,
+            "session_id": session_id,
+            "metadata": {
+                "latency_ms": (time.time() - start_time) * 1000,
+                "history_length": len(self._sessions.get(session_id, [])),
+            },
+        }
+
     def shutdown(self) -> None:
         """Shutdown chat service."""
         self._sessions.clear()

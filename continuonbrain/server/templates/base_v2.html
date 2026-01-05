@@ -571,6 +571,35 @@
             filter: brightness(1.1);
         }
 
+        .chat-mic {
+            padding: 10px 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--duration-fast);
+            font-size: 16px;
+        }
+
+        .chat-mic:hover {
+            background: var(--bg-glass-hover);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .chat-mic.recording {
+            background: var(--accent-danger-dim);
+            border-color: var(--accent-danger);
+            color: var(--accent-danger);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
         /* ============================================
            FOOTER
            ============================================ */
@@ -728,8 +757,9 @@
                 </div>
                 <div class="chat-input-area">
                     <div class="chat-input-wrapper">
-                        <input type="text" class="chat-input" id="chat-input" placeholder="Message HOPE..." 
+                        <input type="text" class="chat-input" id="chat-input" placeholder="Message HOPE..."
                                onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button class="chat-mic" id="chat-mic" title="Voice input (hold to talk)">🎤</button>
                         <button class="chat-send" onclick="sendMessage()">Send</button>
                     </div>
                 </div>

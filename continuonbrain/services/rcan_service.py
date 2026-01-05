@@ -305,15 +305,101 @@ class RCANService:
     def handle_release(self, session_id: str) -> RCANMessage:
         """Handle control release."""
         session = self.sessions.pop(session_id, None)
-        
+
         if session and self._on_release:
             self._on_release(session)
-        
+
         return RCANMessage(
             source_ruri=self.identity.ruri,
             message_type="RELEASED",
             payload={"session_id": session_id},
         )
+
+    def handle_handoff(
+        self,
+        from_session_id: str,
+        to_user_id: str,
+        to_role: UserRole,
+        reason: str = "",
+    ) -> tuple[bool, dict]:
+        """
+        Transfer control from one session to another.
+
+        Args:
+            from_session_id: Current session initiating the handoff
+            to_user_id: User ID to transfer control to
+            to_role: Role to grant to the new user
+            reason: Optional reason for the handoff
+
+        Returns:
+            Tuple of (success, result_dict)
+        """
+        # Validate source session exists
+        from_session = self.sessions.get(from_session_id)
+        if not from_session:
+            return False, {"error": "Source session not found"}
+
+        if from_session.is_expired():
+            del self.sessions[from_session_id]
+            return False, {"error": "Source session has expired"}
+
+        # Check if source session has sufficient privilege to handoff
+        # Only LEASEE or higher can initiate handoff
+        if from_session.role < UserRole.LEASEE:
+            return False, {
+                "error": "Insufficient privilege to initiate handoff",
+                "required_role": "LEASEE or higher",
+                "current_role": from_session.role.name,
+            }
+
+        # Target role cannot exceed source role (can't escalate privileges)
+        if to_role > from_session.role:
+            return False, {
+                "error": "Cannot grant higher privileges than current session",
+                "current_role": from_session.role.name,
+                "requested_role": to_role.name,
+            }
+
+        # Create new session for target user
+        new_session = AuthSession(
+            session_id=str(uuid.uuid4()),
+            user_id=to_user_id,
+            role=to_role,
+            source_ruri=from_session.source_ruri,  # Inherit source RURI
+            target_ruri=self.identity.ruri,
+            expires_at=datetime.now() + timedelta(hours=1) if to_role <= UserRole.LEASEE else None,
+        )
+
+        # Terminate old session
+        old_session = self.sessions.pop(from_session_id, None)
+
+        # Register new session
+        self.sessions[new_session.session_id] = new_session
+
+        # Fire callbacks
+        if old_session and self._on_release:
+            self._on_release(old_session)
+        if self._on_claim:
+            self._on_claim(new_session)
+
+        logger.info(
+            f"RCAN Handoff: {old_session.user_id[:8] if old_session else 'unknown'} "
+            f"({old_session.role.name if old_session else 'N/A'}) -> "
+            f"{to_user_id[:8]} ({to_role.name}), reason: {reason or 'none'}"
+        )
+
+        return True, {
+            "status": "ok",
+            "old_session_id": from_session_id,
+            "old_user_id": old_session.user_id if old_session else None,
+            "old_role": old_session.role.name if old_session else None,
+            "new_session_id": new_session.session_id,
+            "new_user_id": to_user_id,
+            "new_role": to_role.name,
+            "capabilities": [cap.name for cap in CAPABILITY_MATRIX.get(to_role, set())],
+            "expires_at": new_session.expires_at.isoformat() if new_session.expires_at else None,
+            "reason": reason,
+        }
     
     def validate_session(self, session_id: str, capability: RobotCapability) -> tuple[bool, Optional[str]]:
         """Validate session and capability."""

@@ -3,6 +3,7 @@ ContinuonBrain Domain Services
 
 Domain-specific service implementations extracted from BrainService.
 Each domain handles a specific area of responsibility:
+- Audio: Microphone input, speaker output, TTS, STT
 - Chat: Conversation and language model interactions
 - Hardware: Actuator and sensor control
 - Perception: Vision and scene understanding
