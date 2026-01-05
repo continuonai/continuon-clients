@@ -1,0 +1,12 @@
+{
+  "optimized_model": "/home/craigm26/Downloads/ContinuonXR/models/production/optimized/optimized_params.pkl",
+  "lite_model": "/home/craigm26/Downloads/ContinuonXR/models/production/optimized/lite_params.pkl",
+  "optimizations_applied": [
+    "JIT Compilation Cache",
+    "Dtype Conversion (bfloat16)",
+    "Model Size Reduction (Lite)",
+    "Batch Inference (4x)",
+    "Memory Layout (Contiguous)"
+  ],
+  "final_latency_ms": 176.13342831991758
+}

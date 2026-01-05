@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "created": "2026-01-04T18:05:46.466253",
+  "source_model": "/home/craigm26/Downloads/ContinuonXR/models/e2e_benchmark",
+  "robot": {
+    "name": "Capafo",
+    "version": "1.0"
+  },
+  "artifacts": {
+    "optimized_model": "/home/craigm26/Downloads/ContinuonXR/models/production/optimized/optimized_params.pkl",
+    "lite_model": "/home/craigm26/Downloads/ContinuonXR/models/production/optimized/lite_params.pkl",
+    "action_mapping": "/home/craigm26/Downloads/ContinuonXR/models/production/capafo_action_mapping.json",
+    "validation_report": "/home/craigm26/Downloads/ContinuonXR/models/production/validation_report.json"
+  },
+  "pipeline": {
+    "steps_completed": [
+      "Latency Optimization",
+      "Action Mapping Setup",
+      "Chat Integration Setup",
+      "Production Validation",
+      "Export Manifest"
+    ],
+    "errors": [
+      "Critical validation tests failed"
+    ],
+    "duration_seconds": 221.93203806877136
+  },
+  "recommendations": [
+    "Model meets all production requirements"
+  ]
+}

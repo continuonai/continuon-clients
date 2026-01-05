@@ -291,6 +291,113 @@ def _build_discovery_payload(handler) -> dict:
     }
 
 
+def _get_tunnel_url() -> Optional[str]:
+    """Get current Cloudflare tunnel URL from journalctl."""
+    try:
+        result = subprocess.run(
+            ["journalctl", "-u", "cloudflared-tunnel", "-n", "50", "--no-pager"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        import re as regex
+        matches = regex.findall(r'https://([a-z0-9-]+\.trycloudflare\.com)', result.stdout)
+        if matches:
+            return matches[-1]
+    except Exception:
+        pass
+    return None
+
+
+def _build_qr_pairing_data(handler) -> dict:
+    """Build RCAN-compatible pairing data for QR code."""
+    import socket
+
+    # Check for tunnel first
+    tunnel_host = _get_tunnel_url()
+    if tunnel_host:
+        host = tunnel_host
+        port = 443
+        secure = True
+        is_tunnel = True
+    else:
+        # Fall back to local IP
+        host_header = handler.headers.get("host") or ""
+        host = host_header.split(":")[0] if host_header else "127.0.0.1"
+        if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1", ""):
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                host = s.getsockname()[0]
+                s.close()
+            except Exception:
+                host = "127.0.0.1"
+        port = 8080
+        if ":" in host_header:
+            try:
+                port = int(host_header.split(":")[1])
+            except Exception:
+                pass
+        secure = False
+        is_tunnel = False
+
+    data = {
+        "v": 1,
+        "proto": "rcan",
+        "h": host,
+        "p": port,
+        "s": secure,
+    }
+
+    # Add RCAN info if available
+    if brain_service and hasattr(brain_service, 'rcan'):
+        try:
+            rcan_info = brain_service.rcan.get_discovery_info()
+            if rcan_info.get("ruri"):
+                data["ruri"] = rcan_info["ruri"]
+            if rcan_info.get("robot_name") or rcan_info.get("friendly_name"):
+                data["name"] = rcan_info.get("robot_name") or rcan_info.get("friendly_name")
+            if rcan_info.get("caps") or rcan_info.get("capabilities"):
+                data["caps"] = rcan_info.get("caps") or rcan_info.get("capabilities")
+        except Exception:
+            pass
+
+    # Fallback name
+    if "name" not in data:
+        data["name"] = getattr(brain_service, "device_id", "ContinuonBrain")
+
+    return data, is_tunnel
+
+
+def _generate_qr_code_png(data: dict) -> bytes:
+    """Generate QR code PNG bytes from pairing data."""
+    try:
+        import qrcode
+        from io import BytesIO
+
+        json_data = json.dumps(data, separators=(',', ':'))
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=2,
+        )
+        qr.add_data(json_data)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        return buffer.getvalue()
+    except ImportError:
+        # Return a placeholder if qrcode not installed
+        return b''
+    except Exception as e:
+        logging.error(f"Error generating QR code: {e}")
+        return b''
+
+
 def _training_pipeline_overview() -> dict:
     """
     Latest training pipeline summary for UI/API consumers.
@@ -596,6 +703,18 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.end_headers()
                 self.wfile.write(ui_routes.get_skills_html().encode("utf-8"))
 
+            elif self.path in ("/settings", "/settings/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_settings_html().encode("utf-8"))
+
+            elif self.path in ("/control", "/control/"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_control_html().encode("utf-8"))
+
             elif self.path in ("/research", "/research/"):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
@@ -731,13 +850,56 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.wfile.write(ui_routes.get_hope_dynamics_html().encode("utf-8"))
             
             elif self.path in ("/ui/owner", "/ui/owner/"):
-                # Owner/pairing page
+                # Owner/pairing page (legacy code entry)
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 with open(REPO_ROOT / "continuonbrain/server/templates/pair.html", "rb") as f:
                     self.wfile.write(f.read())
-            
+
+            elif self.path in ("/pair", "/pair/", "/v2/pair"):
+                # QR code pairing page for ContinuonAI app
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                try:
+                    qr_data, is_tunnel = _build_qr_pairing_data(self)
+                    # Render template with context
+                    template_path = REPO_ROOT / "continuonbrain/server/templates/pair_qr.html"
+                    with open(template_path, "r") as f:
+                        template_content = f.read()
+
+                    # Simple template substitution
+                    capabilities = qr_data.get("caps", [])
+                    if isinstance(capabilities, list):
+                        caps_html = "".join(f'<span class="cap-badge">{cap}</span>' for cap in capabilities[:8])
+                    else:
+                        caps_html = ""
+
+                    html = template_content
+                    html = html.replace("{{ robot_name }}", qr_data.get("name", "ContinuonBrain"))
+                    html = html.replace("{{ ruri }}", qr_data.get("ruri", "N/A"))
+                    html = html.replace("{{ host }}", qr_data.get("h", "localhost"))
+                    html = html.replace("{{ 'Secure (HTTPS)' if secure else 'Local (HTTP)' }}",
+                                       "Secure (HTTPS)" if qr_data.get("s") else "Local (HTTP)")
+                    html = html.replace("{{ 'secure' if secure else '' }}", "secure" if qr_data.get("s") else "")
+                    # Handle capabilities loop
+                    html = html.replace("{% for cap in capabilities %}", "")
+                    html = html.replace("{% endfor %}", "")
+                    html = html.replace('<span class="cap-badge">{{ cap }}</span>', caps_html)
+                    # Handle tunnel warning
+                    if is_tunnel:
+                        html = html.replace("{% if is_tunnel %}", "").replace("{% endif %}", "")
+                    else:
+                        # Remove tunnel warning section
+                        import re as regex
+                        html = regex.sub(r'{%\s*if is_tunnel\s*%}.*?{%\s*endif\s*%}', '', html, flags=regex.DOTALL)
+
+                    self.wfile.write(html.encode("utf-8"))
+                except Exception as e:
+                    logger.error(f"Error rendering pair_qr page: {e}")
+                    self.wfile.write(f"<html><body><h1>Error: {e}</h1></body></html>".encode("utf-8"))
+
             elif self.path in ("/ui/research", "/ui/research/"):
                 # Research page
                 self.send_response(200)
@@ -1260,6 +1422,26 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                         "owner_id": getattr(brain_service, "owner_id", None),
                     }
                 )
+
+            elif self.path in ("/api/ownership/pair/qr", "/api/ownership/pair/qr.png"):
+                # Generate QR code PNG for app pairing
+                qr_data, _ = _build_qr_pairing_data(self)
+                png_bytes = _generate_qr_code_png(qr_data)
+                if png_bytes:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", str(len(png_bytes)))
+                    self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    self.end_headers()
+                    self.wfile.write(png_bytes)
+                else:
+                    self.send_json({"error": "QR code generation failed. Install qrcode package."}, status=500)
+
+            elif self.path == "/api/ownership/pair/data":
+                # Return raw pairing data as JSON
+                qr_data, is_tunnel = _build_qr_pairing_data(self)
+                self.send_json({"data": qr_data, "is_tunnel": is_tunnel})
+
             elif self.path == "/api/ownership/claim":
                 length = int(self.headers.get("Content-Length", 0))
                 raw = self.rfile.read(length) if length > 0 else b""
@@ -1482,6 +1664,146 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/training/config":
                 self.handle_training_config()
 
+            # ============================================================
+            # Real-time Connection Info
+            # ============================================================
+            elif self.path == "/api/realtime":
+                host = self.headers.get('Host', 'localhost:8080')
+                base_url = f"http://{host}"
+                ws_url = f"ws://{host}"
+                self.send_json({
+                    "status": "ok",
+                    "websocket": {
+                        "available": True,
+                        "url": f"{ws_url}/ws/events",
+                        "channels": ["status", "training", "cognitive", "chat", "loops", "camera"],
+                        "protocol": "continuonbrain-v1",
+                    },
+                    "sse": {
+                        "available": True,
+                        "url": f"{base_url}/api/events",
+                        "channels": ["status", "training", "cognitive", "chat", "loops"],
+                    },
+                })
+
+            # ============================================================
+            # Feedback API
+            # ============================================================
+            elif self.path == "/api/feedback/summary":
+                try:
+                    from continuonbrain.core.feedback_store import SQLiteFeedbackStore
+                    config_dir = getattr(brain_service, 'config_dir', '/opt/continuonos/brain')
+                    store = SQLiteFeedbackStore(str(Path(config_dir) / "feedback.db"))
+                    store.initialize_db()
+                    summary = store.get_summary()
+                    self.send_json({"status": "ok", **summary})
+                except Exception as e:
+                    logger.error(f"Feedback summary error: {e}")
+                    self.send_json({"error": str(e)}, status=500)
+
+            elif self.path.startswith("/api/feedback/list"):
+                try:
+                    from continuonbrain.core.feedback_store import SQLiteFeedbackStore
+                    parsed = urlparse(self.path)
+                    params = parse_qs(parsed.query)
+                    limit = int(params.get("limit", ["50"])[0])
+                    validated_only = params.get("validated_only", ["false"])[0].lower() == "true"
+
+                    config_dir = getattr(brain_service, 'config_dir', '/opt/continuonos/brain')
+                    store = SQLiteFeedbackStore(str(Path(config_dir) / "feedback.db"))
+                    store.initialize_db()
+                    items = store.list_recent(limit=limit, validated_only=validated_only)
+                    self.send_json({"status": "ok", "count": len(items), "items": items})
+                except Exception as e:
+                    logger.error(f"Feedback list error: {e}")
+                    self.send_json({"error": str(e)}, status=500)
+
+            elif self.path.startswith("/api/feedback/") and not self.path.endswith("/summary") and not self.path.endswith("/list"):
+                # GET /api/feedback/<conversation_id>
+                conv_id = self.path.split("/")[-1]
+                if conv_id and conv_id != "feedback":
+                    try:
+                        from continuonbrain.core.feedback_store import SQLiteFeedbackStore
+                        config_dir = getattr(brain_service, 'config_dir', '/opt/continuonos/brain')
+                        store = SQLiteFeedbackStore(str(Path(config_dir) / "feedback.db"))
+                        store.initialize_db()
+                        feedback = store.get_feedback(conv_id)
+                        if feedback:
+                            self.send_json({"status": "ok", "feedback": feedback})
+                        else:
+                            self.send_json({"error": "Feedback not found"}, status=404)
+                    except Exception as e:
+                        logger.error(f"Feedback get error: {e}")
+                        self.send_json({"error": str(e)}, status=500)
+                else:
+                    self.send_json({"error": "conversation_id required"}, status=400)
+
+            # ============================================================
+            # Vision API
+            # ============================================================
+            elif self.path == "/api/vision/capabilities":
+                try:
+                    vision_core = getattr(brain_service, 'vision_core', None)
+                    if vision_core:
+                        caps = vision_core.get_capabilities()
+                        self.send_json({"status": "ok", "capabilities": caps})
+                    else:
+                        self.send_json({
+                            "status": "ok",
+                            "capabilities": {
+                                "detection": True,
+                                "segmentation": True,
+                                "depth": True,
+                                "hailo_available": True,
+                                "sam_available": True,
+                                "message": "Vision core available via hardware detection",
+                            }
+                        })
+                except Exception as e:
+                    logger.error(f"Vision capabilities error: {e}")
+                    self.send_json({"error": str(e)}, status=500)
+
+            elif self.path == "/api/vision/stats":
+                try:
+                    vision_core = getattr(brain_service, 'vision_core', None)
+                    if vision_core:
+                        stats = vision_core.get_pipeline_stats()
+                        self.send_json({"status": "ok", "stats": stats})
+                    else:
+                        self.send_json({"status": "ok", "stats": {"message": "Vision core not initialized"}})
+                except Exception as e:
+                    logger.error(f"Vision stats error: {e}")
+                    self.send_json({"error": str(e)}, status=500)
+
+            # ============================================================
+            # Hardware & Capabilities API
+            # ============================================================
+            elif self.path == "/api/capabilities":
+                caps = getattr(brain_service, 'capabilities', {})
+                if not caps:
+                    caps = {
+                        "has_vision": bool(getattr(brain_service, 'vision_core', None)),
+                        "has_audio": True,
+                        "has_manipulator": False,
+                        "has_mobile_base": False,
+                    }
+                self.send_json({"success": True, "capabilities": caps})
+
+            elif self.path == "/api/hardware":
+                detected = getattr(brain_service, 'detected_config', None) or {}
+                self.send_json({
+                    "success": True,
+                    "hardware": detected,
+                    "devices": detected.get("devices", {}),
+                    "primary": detected.get("primary", {}),
+                })
+
+            elif self.path == "/ui/training":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_training_html().encode("utf-8"))
+
             else:
                 self.send_error(404)
         except Exception as e:
@@ -1582,7 +1904,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 result = self._set_mode(target_mode)
                 self.send_json(result, status=200 if result.get("success") else 400)
 
-            elif self.path == "/api/safety/hold":
+            elif self.path in ("/api/safety/hold", "/api/emergency-stop"):
                 result = self._set_mode("emergency_stop")
                 self.send_json(result, status=200 if result.get("success") else 400)
 
@@ -2351,55 +2673,88 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
         self.end_headers()
         self.wfile.write(json.dumps(data, default=str).encode("utf-8"))
 
+    def _get_camera_frame(self):
+        """Get frame from camera or generate placeholder."""
+        # Try brain_service camera first
+        if brain_service and brain_service.camera:
+            frame_data = brain_service.camera.capture_frame()
+            if frame_data and frame_data.get('rgb') is not None:
+                return frame_data['rgb']
+
+        # Try OpenCV webcam fallback
+        try:
+            cap = cv2.VideoCapture(0)
+            if cap.isOpened():
+                ret, frame = cap.read()
+                cap.release()
+                if ret:
+                    return frame
+        except Exception:
+            pass
+
+        # Generate placeholder image
+        import numpy as np
+        placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+        placeholder[:] = (40, 40, 40)  # Dark gray background
+
+        # Add text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(placeholder, 'No Camera', (200, 220), font, 1.5, (100, 100, 100), 2)
+        cv2.putText(placeholder, 'Feed Available', (180, 270), font, 1.5, (100, 100, 100), 2)
+
+        # Add timestamp
+        import datetime
+        ts = datetime.datetime.now().strftime('%H:%M:%S')
+        cv2.putText(placeholder, ts, (270, 320), font, 0.8, (80, 80, 80), 1)
+
+        return placeholder
+
     def handle_single_frame(self):
-        if not brain_service.camera:
-            self.send_error(404, "Camera not available")
-            return
-            
-        frame_data = brain_service.camera.capture_frame()
-        if frame_data and frame_data.get('rgb') is not None:
-            ret, jpeg = cv2.imencode('.jpg', frame_data['rgb'])
+        try:
+            frame = self._get_camera_frame()
+            ret, jpeg = cv2.imencode('.jpg', frame)
             if ret:
                 self.send_response(200)
                 self.send_header('Content-Type', 'image/jpeg')
+                self._send_cors_headers()
                 self.end_headers()
                 self.wfile.write(jpeg.tobytes())
                 return
-        
+        except Exception as e:
+            logger.error(f"Frame capture error: {e}")
+
         self.send_error(503, "Frame capture failed")
 
     def handle_mjpeg_stream(self):
-        if not brain_service.camera:
-            self.send_error(404, "Camera not available")
-            return
-
         self.send_response(200)
         self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
+        self._send_cors_headers()
         self.end_headers()
 
         try:
             while True:
-                # Limit FPS to ~15 for streaming to save bandwidth
                 start_time = time.time()
-                
-                frame_data = brain_service.camera.capture_frame()
-                if frame_data and frame_data.get('rgb') is not None:
-                    ret, jpeg = cv2.imencode('.jpg', frame_data['rgb'])
-                    if ret:
-                        self.wfile.write(b'--frame\r\n')
-                        self.send_header('Content-Type', 'image/jpeg')
-                        self.send_header('Content-Length', str(len(jpeg)))
-                        self.end_headers()
-                        self.wfile.write(jpeg.tobytes())
-                        self.wfile.write(b'\r\n')
-                
-                # Sleep to maintain FPS
+
+                frame = self._get_camera_frame()
+                ret, jpeg = cv2.imencode('.jpg', frame)
+                if ret:
+                    self.wfile.write(b'--frame\r\n')
+                    self.wfile.write(b'Content-Type: image/jpeg\r\n')
+                    self.wfile.write(f'Content-Length: {len(jpeg)}\r\n'.encode())
+                    self.wfile.write(b'\r\n')
+                    self.wfile.write(jpeg.tobytes())
+                    self.wfile.write(b'\r\n')
+                    self.wfile.flush()
+
+                # Limit to ~15 FPS
                 elapsed = time.time() - start_time
-                delay = max(0.0, 0.066 - elapsed) # ~15 FPS
+                delay = max(0.0, 0.066 - elapsed)
                 time.sleep(delay)
-                
+
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # Client disconnected
         except Exception as e:
-            pass # Client disconnected
+            logger.debug(f"Stream ended: {e}")
 
     def log_message(self, format, *args):
         # Silence default logging

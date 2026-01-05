@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pair with ContinuonAI App</title>
+  <style>
+    :root {
+      --bg-primary: #0a0f1a;
+      --bg-secondary: rgba(255,255,255,0.04);
+      --border-color: rgba(255,255,255,0.10);
+      --text-primary: #e8f0ff;
+      --text-muted: rgba(255,255,255,0.65);
+      --accent: #4f9dff;
+      --accent-gradient: linear-gradient(135deg, #4f9dff, #7ad7ff);
+      --success: #22c55e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      max-width: 420px;
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    .robot-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .qr-container {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      margin: 0 auto 24px;
+      width: fit-content;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    .qr-container img {
+      display: block;
+      width: 200px;
+      height: 200px;
+    }
+
+    .info-grid {
+      display: grid;
+      gap: 12px;
+      text-align: left;
+      margin-bottom: 24px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    .info-label {
+      color: var(--text-muted);
+    }
+
+    .info-value {
+      font-weight: 600;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 12px;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .info-value.secure {
+      color: var(--success);
+    }
+
+    .caps-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .cap-badge {
+      padding: 4px 10px;
+      background: rgba(79, 157, 255, 0.15);
+      border: 1px solid rgba(79, 157, 255, 0.3);
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+    }
+
+    .instructions {
+      background: rgba(79, 157, 255, 0.08);
+      border: 1px solid rgba(79, 157, 255, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .instructions h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--accent);
+    }
+
+    .instructions ol {
+      text-align: left;
+      padding-left: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    .app-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: var(--accent-gradient);
+      color: var(--bg-primary);
+      text-decoration: none;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 14px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .app-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(79, 157, 255, 0.3);
+    }
+
+    .refresh-btn {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tunnel-warning {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 10px;
+      font-size: 11px;
+      color: #fbbf24;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 24px 16px; }
+      .qr-container img { width: 180px; height: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="robot-icon">🤖</div>
+    <h1 id="robot-name">{{ robot_name }}</h1>
+    <p class="subtitle">Scan this QR code with the ContinuonAI app to connect</p>
+
+    <div class="qr-container">
+      <img id="qr-image" src="/api/ownership/pair/qr.png" alt="Pairing QR Code" />
+    </div>
+
+    <div class="info-grid">
+      <div class="info-row">
+        <span class="info-label">RURI</span>
+        <span class="info-value" id="ruri">{{ ruri }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Host</span>
+        <span class="info-value" id="host">{{ host }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Connection</span>
+        <span class="info-value {{ 'secure' if secure else '' }}" id="secure">{{ 'Secure (HTTPS)' if secure else 'Local (HTTP)' }}</span>
+      </div>
+    </div>
+
+    <div class="caps-list" id="caps-list">
+      {% for cap in capabilities %}
+      <span class="cap-badge">{{ cap }}</span>
+      {% endfor %}
+    </div>
+
+    <div class="instructions">
+      <h3>How to pair</h3>
+      <ol>
+        <li>Open <strong>ContinuonAI</strong> app</li>
+        <li>Go to <strong>Connect</strong> screen</li>
+        <li>Tap <strong>Scan Robot QR Code</strong></li>
+        <li>Point camera at this QR code</li>
+      </ol>
+    </div>
+
+    <a href="https://continuonai.web.app" target="_blank" class="app-link">
+      <span>📱</span> Open ContinuonAI App
+    </a>
+
+    <button class="refresh-btn" onclick="location.reload()">🔄 Refresh QR Code</button>
+
+    {% if is_tunnel %}
+    <div class="tunnel-warning">
+      ⚠️ Tunnel URL may change when the robot restarts. Refresh to get the latest QR code.
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    // Auto-refresh QR code every 5 minutes (tunnel URLs can change)
+    setTimeout(() => location.reload(), 5 * 60 * 1000);
+  </script>
+</body>
+</html>

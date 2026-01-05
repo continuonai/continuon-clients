@@ -77,6 +77,7 @@ class BrainClient {
   bool _usePlatformBridge = false;
   String? _host;
   int _httpPort = 8081;  // Default to 8081 to match ContinuonBrain server
+  bool _useHttps = false;  // Use HTTPS for tunnel connections
   // TODO: wire to persistent auth/subscription/ownership tokens when backend is ready.
   bool isOwned = false;
   bool hasSubscription = false;
@@ -115,10 +116,12 @@ class BrainClient {
     if (host == null || host.isEmpty) {
       throw StateError('BrainClient not connected');
     }
+    // For HTTPS (tunnel) connections, omit port if it's the default 443
+    final includePort = !_useHttps || _httpPort != 443;
     return Uri(
-      scheme: 'http',
+      scheme: _useHttps ? 'https' : 'http',
       host: host,
-      port: _httpPort,
+      port: includePort ? _httpPort : null,
       path: path,
       queryParameters: queryParameters,
     );
@@ -220,19 +223,21 @@ class BrainClient {
     required int port,
     int httpPort = 8080,
     bool useTls = true,
+    bool useHttps = false,
     String? authToken,
     List<int>? trustedRootCertificates,
     bool preferPlatformBridge = false,
   }) async {
     _host = host;
     _httpPort = httpPort;
+    _useHttps = useHttps;
     _usePlatformBridge = preferPlatformBridge;
     _callOptions = authToken != null
         ? grpc.CallOptions(metadata: {'authorization': 'Bearer $authToken'})
         : grpc.CallOptions();
     
     // Connect RCAN client
-    await rcan.connect(host: host, port: httpPort);
+    await rcan.connect(host: host, port: httpPort, useHttps: useHttps);
     await rcan.loadSession();
 
     if (_usePlatformBridge) {

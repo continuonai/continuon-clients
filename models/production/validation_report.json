@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-01-04T18:05:46.465109",
+  "model_path": "/home/craigm26/Downloads/ContinuonXR/models/production/optimized/optimized_params.pkl",
+  "overall_status": "failed",
+  "summary": {
+    "total": 9,
+    "passed": 6,
+    "failed": 2,
+    "warning": 1,
+    "skipped": 0
+  },
+  "critical_passed": false,
+  "results": [
+    {
+      "name": "Latency",
+      "level": "critical",
+      "status": "failed",
+      "message": "Avg: 166.90ms, P95: 206.41ms (target: <100.0ms)",
+      "metric_value": 166.90039949986385,
+      "metric_target": 100.0,
+      "duration_ms": 9140.03038406372
+    },
+    {
+      "name": "Throughput",
+      "level": "critical",
+      "status": "failed",
+      "message": "6.0 Hz (target: >=10.0 Hz)",
+      "metric_value": 6,
+      "metric_target": 10.0,
+      "duration_ms": 1839.6601676940918
+    },
+    {
+      "name": "Output Stability",
+      "level": "critical",
+      "status": "passed",
+      "message": "Max diff: 0.00e+00 (deterministic: True)",
+      "metric_value": 0.0,
+      "metric_target": 1e-05,
+      "duration_ms": 1656.893014907837
+    },
+    {
+      "name": "NaN-Free",
+      "level": "critical",
+      "status": "passed",
+      "message": "NaN occurrences: 0 (target: 0)",
+      "metric_value": 0,
+      "metric_target": 0,
+      "duration_ms": 17221.18854522705
+    },
+    {
+      "name": "State Bounds",
+      "level": "critical",
+      "status": "passed",
+      "message": "Max state: 10.00 (limit: 15.0)",
+      "metric_value": 10.0,
+      "metric_target": 15.0,
+      "duration_ms": 17006.58917427063
+    },
+    {
+      "name": "Differentiation",
+      "level": "important",
+      "status": "passed",
+      "message": "Avg output diff: 0.4989 (min expected: 0.1)",
+      "metric_value": 0.49891021847724915,
+      "metric_target": 0.1,
+      "duration_ms": 1622.5812435150146
+    },
+    {
+      "name": "Memory Evolution",
+      "level": "important",
+      "status": "passed",
+      "message": "Memory change: 1254.9885 (min expected: 0.01)",
+      "metric_value": 1254.9884948730469,
+      "metric_target": 0.01,
+      "duration_ms": 3730.729818344116
+    },
+    {
+      "name": "Action Mapping",
+      "level": "important",
+      "status": "passed",
+      "message": "Command success rate: 96.4%",
+      "metric_value": 0.9642857142857143,
+      "metric_target": 0.8,
+      "duration_ms": 0.2827644348144531
+    },
+    {
+      "name": "Chat Integration",
+      "level": "important",
+      "status": "warning",
+      "message": "Avg latency: 910.8ms, Intent recognition: True",
+      "metric_value": 910.7708136240641,
+      "metric_target": 500,
+      "duration_ms": 2732.4962615966797
+    }
+  ]
+}

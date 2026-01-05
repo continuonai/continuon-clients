@@ -402,12 +402,14 @@ class HOPECore(nn.Module):
         
         # Mix wave and particle
         s_t = s_prev + g_t * particle_contrib + (1 - g_t) * wave_contrib
-        
-        # Apply saturation limit
+
+        # Apply saturation limit to ALL states for stability
         if self.config.state_saturation_limit > 0:
-            s_t = jnp.clip(s_t, -self.config.state_saturation_limit, 
-                          self.config.state_saturation_limit)
-        
+            limit = self.config.state_saturation_limit
+            s_t = jnp.clip(s_t, -limit, limit)
+            w_t = jnp.clip(w_t, -limit, limit)
+            p_t = jnp.clip(p_t, -limit, limit)
+
         return s_t, w_t, p_t
 
 

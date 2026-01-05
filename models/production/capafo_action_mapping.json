@@ -1,0 +1,585 @@
+{
+  "config": {
+    "name": "Capafo",
+    "version": "1.0",
+    "control_frequency_hz": 20
+  },
+  "channels": [
+    {
+      "index": 0,
+      "name": "left_wheel_velocity",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        -255,
+        255
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.3,
+      "deadzone": 0.05,
+      "description": "Left wheel motor velocity"
+    },
+    {
+      "index": 1,
+      "name": "right_wheel_velocity",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        -255,
+        255
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.3,
+      "deadzone": 0.05,
+      "description": "Right wheel motor velocity"
+    },
+    {
+      "index": 2,
+      "name": "forward_velocity",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        -255,
+        255
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.2,
+      "deadzone": 0.05,
+      "description": "Forward/backward velocity (differential drive helper)"
+    },
+    {
+      "index": 3,
+      "name": "turn_rate",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        -180,
+        180
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.2,
+      "deadzone": 0.05,
+      "description": "Turn rate (degrees/sec)"
+    },
+    {
+      "index": 4,
+      "name": "reserved_mobility_1",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Reserved for future mobility"
+    },
+    {
+      "index": 5,
+      "name": "reserved_mobility_2",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Reserved for future mobility"
+    },
+    {
+      "index": 6,
+      "name": "arm_base_rotation",
+      "type": "servo",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        180
+      ],
+      "default": 0.0,
+      "safety": "CAUTION",
+      "smoothing": 0.5,
+      "deadzone": 0.05,
+      "description": "Arm base rotation servo"
+    },
+    {
+      "index": 7,
+      "name": "arm_shoulder",
+      "type": "servo",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        30,
+        150
+      ],
+      "default": 0.0,
+      "safety": "CAUTION",
+      "smoothing": 0.5,
+      "deadzone": 0.05,
+      "description": "Arm shoulder joint"
+    },
+    {
+      "index": 8,
+      "name": "arm_elbow",
+      "type": "servo",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        180
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.5,
+      "deadzone": 0.05,
+      "description": "Arm elbow joint"
+    },
+    {
+      "index": 9,
+      "name": "arm_wrist_pitch",
+      "type": "servo",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        180
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.5,
+      "deadzone": 0.05,
+      "description": "Wrist pitch rotation"
+    },
+    {
+      "index": 10,
+      "name": "arm_wrist_roll",
+      "type": "servo",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        180
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.5,
+      "deadzone": 0.05,
+      "description": "Wrist roll rotation"
+    },
+    {
+      "index": 11,
+      "name": "gripper_open",
+      "type": "servo",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        10,
+        90
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.3,
+      "deadzone": 0.05,
+      "description": "Gripper open/close"
+    },
+    {
+      "index": 12,
+      "name": "gripper_force",
+      "type": "motor",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        100
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Gripper force limit (%)"
+    },
+    {
+      "index": 13,
+      "name": "arm_speed_factor",
+      "type": "motor",
+      "range": [
+        0.1,
+        1.0
+      ],
+      "hardware_range": [
+        10,
+        100
+      ],
+      "default": 0.5,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Arm movement speed factor"
+    },
+    {
+      "index": 14,
+      "name": "head_pan",
+      "type": "servo",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        180
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.4,
+      "deadzone": 0.05,
+      "description": "Head pan (left/right)"
+    },
+    {
+      "index": 15,
+      "name": "head_tilt",
+      "type": "servo",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        45,
+        135
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.4,
+      "deadzone": 0.05,
+      "description": "Head tilt (up/down)"
+    },
+    {
+      "index": 16,
+      "name": "camera_zoom",
+      "type": "motor",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        1.0,
+        4.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Camera zoom level"
+    },
+    {
+      "index": 17,
+      "name": "camera_focus",
+      "type": "motor",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        100
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Camera focus (0=auto)"
+    },
+    {
+      "index": 18,
+      "name": "led_mode",
+      "type": "discrete",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        7
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "LED mode (0=off, 1-7=patterns)"
+    },
+    {
+      "index": 19,
+      "name": "speaker_volume",
+      "type": "motor",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        100
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Speaker volume %"
+    },
+    {
+      "index": 20,
+      "name": "speak_intent",
+      "type": "discrete",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Intent to speak (triggers TTS)"
+    },
+    {
+      "index": 21,
+      "name": "emotion_display",
+      "type": "discrete",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0,
+        10
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Emotion to display (0-10)"
+    },
+    {
+      "index": 22,
+      "name": "attention_target_x",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Attention target X coordinate"
+    },
+    {
+      "index": 23,
+      "name": "attention_target_y",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Attention target Y coordinate"
+    },
+    {
+      "index": 24,
+      "name": "emergency_stop",
+      "type": "safety",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "CRITICAL",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Emergency stop trigger (>0.5 = stop)"
+    },
+    {
+      "index": 25,
+      "name": "speed_limit",
+      "type": "safety",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 1.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Global speed limit factor"
+    },
+    {
+      "index": 26,
+      "name": "collision_override",
+      "type": "safety",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "CRITICAL",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Override collision detection (dangerous)"
+    },
+    {
+      "index": 27,
+      "name": "human_proximity_response",
+      "type": "safety",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "CAUTION",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Response mode when human detected"
+    },
+    {
+      "index": 28,
+      "name": "reserved_1",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Reserved for expansion"
+    },
+    {
+      "index": 29,
+      "name": "reserved_2",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Reserved for expansion"
+    },
+    {
+      "index": 30,
+      "name": "reserved_3",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Reserved for expansion"
+    },
+    {
+      "index": 31,
+      "name": "reserved_4",
+      "type": "motor",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "hardware_range": [
+        0.0,
+        180.0
+      ],
+      "default": 0.0,
+      "safety": "SAFE",
+      "smoothing": 0.0,
+      "deadzone": 0.05,
+      "description": "Reserved for expansion"
+    }
+  ]
+}

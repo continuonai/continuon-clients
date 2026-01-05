@@ -181,12 +181,23 @@ def require_role(role: UserRole):
     """
     def decorator(func):
         def wrapper(self, *args, **kwargs):
+            # Allow local/cloudflare tunnel access without auth for development
+            client_host = self.client_address[0] if self.client_address else ""
+            is_local = client_host in ("127.0.0.1", "localhost", "::1", "")
+            is_cloudflare = self.headers.get("CF-Connecting-IP") is not None
+            allow_local = os.getenv("CONTINUON_ALLOW_LOCAL_AUTH", "1") == "1"
+
+            if (is_local or is_cloudflare) and allow_local:
+                # Local or cloudflare tunnel access - bypass auth
+                logger.debug(f"Local/tunnel access granted for {func.__name__}")
+                return func(self, *args, **kwargs)
+
             # Extract token
             auth_header = self.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
                 self.send_error(401, "Missing or invalid Authorization header")
                 return
-            
+
             token = auth_header.split(" ")[1]
             
             # Verify

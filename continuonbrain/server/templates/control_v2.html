@@ -389,50 +389,113 @@
             </div>
         </div>
         
-        <!-- Arm Joints -->
+        <!-- Left Arm Joints -->
         <div class="control-card">
-            <div class="control-card-header">🦾 Arm Joints</div>
+            <div class="control-card-header">🦾 Left Arm</div>
             <div class="joint-sliders">
                 <div class="joint-row">
-                    <span class="joint-label">J1</span>
-                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
-                           oninput="updateJoint(0, this.value)">
-                    <span class="joint-value" id="joint-0">0°</span>
+                    <span class="joint-label">L1</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('left', 0, this.value)">
+                    <span class="joint-value" id="left-joint-0">0°</span>
                 </div>
                 <div class="joint-row">
-                    <span class="joint-label">J2</span>
-                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
-                           oninput="updateJoint(1, this.value)">
-                    <span class="joint-value" id="joint-1">0°</span>
+                    <span class="joint-label">L2</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('left', 1, this.value)">
+                    <span class="joint-value" id="left-joint-1">0°</span>
                 </div>
                 <div class="joint-row">
-                    <span class="joint-label">J3</span>
-                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
-                           oninput="updateJoint(2, this.value)">
-                    <span class="joint-value" id="joint-2">0°</span>
+                    <span class="joint-label">L3</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('left', 2, this.value)">
+                    <span class="joint-value" id="left-joint-2">0°</span>
                 </div>
                 <div class="joint-row">
-                    <span class="joint-label">J4</span>
-                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
-                           oninput="updateJoint(3, this.value)">
-                    <span class="joint-value" id="joint-3">0°</span>
+                    <span class="joint-label">L4</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('left', 3, this.value)">
+                    <span class="joint-value" id="left-joint-3">0°</span>
                 </div>
                 <div class="joint-row">
-                    <span class="joint-label">J5</span>
-                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
-                           oninput="updateJoint(4, this.value)">
-                    <span class="joint-value" id="joint-4">0°</span>
+                    <span class="joint-label">L5</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('left', 4, this.value)">
+                    <span class="joint-value" id="left-joint-4">0°</span>
                 </div>
                 <div class="joint-row">
-                    <span class="joint-label">J6</span>
-                    <input type="range" class="joint-slider" min="-180" max="180" value="0" 
-                           oninput="updateJoint(5, this.value)">
-                    <span class="joint-value" id="joint-5">0°</span>
+                    <span class="joint-label">L6</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('left', 5, this.value)">
+                    <span class="joint-value" id="left-joint-5">0°</span>
                 </div>
             </div>
+            <div class="gripper-controls" style="margin-top: 12px;">
+                <button class="gripper-btn" onclick="gripper('left', 'open')">
+                    <span class="icon">🖐️</span>
+                    <span class="label">Open</span>
+                </button>
+                <button class="gripper-btn" onclick="gripper('left', 'close')">
+                    <span class="icon">✊</span>
+                    <span class="label">Close</span>
+                </button>
+            </div>
         </div>
-        
-        <!-- Gripper -->
+
+        <!-- Right Arm Joints -->
+        <div class="control-card">
+            <div class="control-card-header">🦾 Right Arm</div>
+            <div class="joint-sliders">
+                <div class="joint-row">
+                    <span class="joint-label">R1</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('right', 0, this.value)">
+                    <span class="joint-value" id="right-joint-0">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">R2</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('right', 1, this.value)">
+                    <span class="joint-value" id="right-joint-1">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">R3</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('right', 2, this.value)">
+                    <span class="joint-value" id="right-joint-2">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">R4</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('right', 3, this.value)">
+                    <span class="joint-value" id="right-joint-3">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">R5</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('right', 4, this.value)">
+                    <span class="joint-value" id="right-joint-4">0°</span>
+                </div>
+                <div class="joint-row">
+                    <span class="joint-label">R6</span>
+                    <input type="range" class="joint-slider" min="-180" max="180" value="0"
+                           oninput="updateJoint('right', 5, this.value)">
+                    <span class="joint-value" id="right-joint-5">0°</span>
+                </div>
+            </div>
+            <div class="gripper-controls" style="margin-top: 12px;">
+                <button class="gripper-btn" onclick="gripper('right', 'open')">
+                    <span class="icon">🖐️</span>
+                    <span class="label">Open</span>
+                </button>
+                <button class="gripper-btn" onclick="gripper('right', 'close')">
+                    <span class="icon">✊</span>
+                    <span class="label">Close</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Gripper (Head/Common) -->
         <div class="control-card">
             <div class="control-card-header">✊ Gripper</div>
             <div class="gripper-controls">
@@ -533,39 +596,45 @@ async function drive(direction) {
     }
 }
 
-// Joint controls
-let jointDebounce = null;
-function updateJoint(index, value) {
-    document.getElementById(`joint-${index}`).textContent = `${value}°`;
-    
-    // Debounce API calls
-    clearTimeout(jointDebounce);
-    jointDebounce = setTimeout(async () => {
+// Joint controls for dual arms
+let jointDebounce = {};
+function updateJoint(arm, index, value) {
+    document.getElementById(`${arm}-joint-${index}`).textContent = `${value}°`;
+
+    // Debounce API calls per arm
+    clearTimeout(jointDebounce[arm]);
+    jointDebounce[arm] = setTimeout(async () => {
         const joints = [];
         for (let i = 0; i < 6; i++) {
-            const slider = document.querySelectorAll('.joint-slider')[i];
+            const el = document.getElementById(`${arm}-joint-${i}`);
+            const slider = el.parentElement.querySelector('.joint-slider');
             joints.push(parseFloat(slider.value));
         }
-        
+
         try {
             await fetch('/api/robot/joints', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ positions: joints })
+                body: JSON.stringify({ arm: arm, positions: joints })
             });
         } catch (error) {
-            console.error('Joint update failed:', error);
+            console.error(`${arm} arm joint update failed:`, error);
         }
     }, 100);
 }
 
-// Gripper
-async function gripper(action) {
+// Gripper control for dual arms
+async function gripper(arm, action) {
+    // Handle both single gripper (action only) and dual arm gripper
+    const payload = typeof action === 'undefined'
+        ? { action: arm }  // Old single-gripper call: gripper('open')
+        : { arm: arm, action: action };  // Dual-arm call: gripper('left', 'open')
+
     try {
         await fetch('/api/robot/gripper', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action })
+            body: JSON.stringify(payload)
         });
     } catch (error) {
         console.error('Gripper command failed:', error);

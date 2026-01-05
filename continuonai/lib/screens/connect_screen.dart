@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../services/brain_client.dart';
 import '../services/scanner_service.dart';
@@ -27,6 +30,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
   // Default TLS off for local development
   bool _useTls = false;
+  bool _useHttps = false;  // For tunnel connections (e.g., Cloudflare)
   bool _usePlatformBridge = false;
   bool _connecting = false;
   bool _scanning = false;
@@ -70,7 +74,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
       await widget.brainClient.connect(
         host: host,
         port: port,
+        httpPort: _useHttps ? 443 : port,
         useTls: _useTls,
+        useHttps: _useHttps,
         authToken: authToken,
         preferPlatformBridge: _usePlatformBridge,
       );
@@ -98,6 +104,60 @@ class _ConnectScreenState extends State<ConnectScreen> {
     setState(() => _scanning = false);
   }
 
+  /// Scan QR code for RCAN pairing
+  Future<void> _scanQrCode() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const _QrScannerSheet(),
+    );
+
+    if (result != null && mounted) {
+      // Extract connection info
+      final host = result['h'] ?? '';
+      final port = result['p'] ?? 8080;
+      final secure = result['s'] == true;
+
+      setState(() {
+        _hostController.text = host;
+        _portController.text = port.toString();
+        _useHttps = secure;
+        _useTls = secure;
+        _error = null;
+      });
+
+      // Build feedback message with RCAN info
+      final robotName = result['name'] ?? result['ruri'] ?? host;
+      final isRcan = result['proto'] == 'rcan';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Paired with $robotName'),
+              if (isRcan && result['caps'] != null)
+                Text(
+                  'Capabilities: ${result['caps'] is List ? (result['caps'] as List).join(', ') : result['caps']}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // If RCAN with pairing token, auto-connect
+      if (isRcan && result['token'] != null) {
+        _authTokenController.text = result['token'];
+        // Auto-trigger connect
+        _connect();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -109,6 +169,17 @@ class _ConnectScreenState extends State<ConnectScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // QR Code Pairing - works on all platforms
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.qr_code_scanner, size: 32),
+                  title: const Text('Scan Robot QR Code'),
+                  subtitle: const Text('Quick pairing with your robot'),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: _scanQrCode,
+                ),
+              ),
+              const SizedBox(height: 16),
               if (kIsWeb) ...[
                 Row(
                   children: [
@@ -205,6 +276,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 onChanged: (value) => setState(() => _useTls = value),
               ),
               SwitchListTile(
+                title: const Text('Use HTTPS (tunnel mode)'),
+                subtitle: const Text('Enable for Cloudflare/ngrok tunnels'),
+                value: _useHttps,
+                onChanged: (value) => setState(() => _useHttps = value),
+              ),
+              SwitchListTile(
                 title: const Text('Use platform WebRTC bridge'),
                 value: _usePlatformBridge,
                 onChanged: (value) =>
@@ -243,6 +320,247 @@ class _ConnectScreenState extends State<ConnectScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// QR Scanner bottom sheet for pairing
+class _QrScannerSheet extends StatefulWidget {
+  const _QrScannerSheet();
+
+  @override
+  State<_QrScannerSheet> createState() => _QrScannerSheetState();
+}
+
+class _QrScannerSheetState extends State<_QrScannerSheet> {
+  final MobileScannerController _controller = MobileScannerController();
+  bool _hasScanned = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleBarcode(BarcodeCapture capture) {
+    if (_hasScanned) return;
+
+    final barcode = capture.barcodes.firstOrNull;
+    if (barcode == null || barcode.rawValue == null) return;
+
+    final rawValue = barcode.rawValue!;
+    debugPrint('Scanned QR: $rawValue');
+
+    try {
+      // Parse the JSON data from QR code
+      final data = jsonDecode(rawValue) as Map<String, dynamic>;
+
+      // Validate required fields
+      if (data['h'] == null) {
+        setState(() => _error = 'Invalid QR code: missing host');
+        return;
+      }
+
+      // Check version compatibility
+      final version = data['v'] ?? 1;
+      if (version > 1) {
+        setState(() => _error = 'QR code version not supported. Please update the app.');
+        return;
+      }
+
+      _hasScanned = true;
+
+      // Show confirmation for RCAN protocol
+      if (data['proto'] == 'rcan') {
+        _showRcanConfirmation(data);
+      } else {
+        Navigator.pop(context, data);
+      }
+    } catch (e) {
+      setState(() => _error = 'Invalid QR code format. Please scan a robot pairing code.');
+    }
+  }
+
+  void _showRcanConfirmation(Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.smart_toy, color: Colors.green),
+            const SizedBox(width: 8),
+            Text(data['name'] ?? 'Robot Found'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (data['model'] != null)
+              _buildInfoRow('Model', data['model']),
+            if (data['ruri'] != null)
+              _buildInfoRow('RURI', data['ruri'], isSmall: true),
+            _buildInfoRow('Host', data['h']),
+            _buildInfoRow('Secure', data['s'] == true ? 'Yes (HTTPS)' : 'No'),
+            if (data['caps'] != null)
+              _buildInfoRow(
+                'Capabilities',
+                data['caps'] is List
+                    ? (data['caps'] as List).join(', ')
+                    : data['caps'].toString(),
+              ),
+            if (data['token'] != null)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.key, size: 16, color: Colors.amber),
+                    SizedBox(width: 4),
+                    Text('Pairing token included', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _hasScanned = false; // Allow re-scan
+            },
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context, data);
+            },
+            icon: const Icon(Icons.link),
+            label: const Text('Connect'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {bool isSmall = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: isSmall ? 11 : 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: isSmall ? 11 : 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Icon(Icons.qr_code_scanner),
+                const SizedBox(width: 8),
+                Text(
+                  'Scan Robot QR Code',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Instructions
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Point your camera at the QR code displayed on your robot or run: show_pairing_qr.py',
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Scanner
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: MobileScanner(
+                  controller: _controller,
+                  onDetect: _handleBarcode,
+                ),
+              ),
+            ),
+          ),
+          // Error message
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          // Manual entry hint
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Or enter connection details manually below',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
       ),
     );
   }

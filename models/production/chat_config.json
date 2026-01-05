@@ -1,0 +1,17 @@
+{
+  "encoder_model": "all-MiniLM-L6-v2",
+  "obs_dim": 128,
+  "action_dim": 32,
+  "output_dim": 32,
+  "max_history": 20,
+  "model_path": "/home/craigm26/Downloads/ContinuonXR/models/production/optimized/optimized_params.pkl",
+  "intent_templates": [
+    "move",
+    "look",
+    "grab",
+    "stop",
+    "greet",
+    "status",
+    "unknown"
+  ]
+}

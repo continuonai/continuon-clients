@@ -294,6 +294,7 @@ class RCANClient {
   
   String? _currentHost;
   int _currentPort = 8080;
+  bool _useHttps = false;
   RCANSession? _session;
   
   // Discovered robots cache
@@ -321,15 +322,17 @@ class RCANClient {
   /// Current connected port
   int get currentPort => _currentPort;
 
-  /// Build HTTP URI for RCAN endpoints
+  /// Build HTTP/HTTPS URI for RCAN endpoints
   Uri _rcanUri(String path, {Map<String, String>? queryParameters}) {
     if (_currentHost == null) {
       throw StateError('RCANClient not connected');
     }
+    // For HTTPS (tunnel) connections, omit port if it's the default 443
+    final includePort = !_useHttps || _currentPort != 443;
     return Uri(
-      scheme: 'http',
+      scheme: _useHttps ? 'https' : 'http',
       host: _currentHost,
-      port: _currentPort,
+      port: includePort ? _currentPort : null,
       path: path,
       queryParameters: queryParameters,
     );
@@ -347,9 +350,10 @@ class RCANClient {
   }
 
   /// Connect to a robot at the specified host
-  Future<void> connect({required String host, int port = 8080}) async {
+  Future<void> connect({required String host, int port = 8080, bool useHttps = false}) async {
     _currentHost = host;
     _currentPort = port;
+    _useHttps = useHttps;
   }
 
   /// Disconnect from current robot

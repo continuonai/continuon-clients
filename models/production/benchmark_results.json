@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-01-04 19:03:54",
+  "hardware_mode": "real",
+  "results": {
+    "latency": {
+      "avg_ms": 3.4498764000090887,
+      "p95_ms": 7.520466799451242,
+      "target_met": 
