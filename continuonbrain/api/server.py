@@ -58,6 +58,7 @@ from continuonbrain.api.controllers.learning_controller import LearningControlle
 from continuonbrain.api.controllers.training_controller import TrainingControllerMixin
 from continuonbrain.api.controllers.chat_controller import ChatControllerMixin
 from continuonbrain.api.controllers.update_controller import UpdateControllerMixin
+from continuonbrain.api.controllers.autonomous_training_controller import AutonomousTrainingControllerMixin
 
 # OAK-D camera support
 try:
@@ -669,7 +670,7 @@ def bluetooth_connect(address: str):
     except subprocess.TimeoutExpired:
         return {"success": False, "message": "Bluetooth connect timed out"}
 
-class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin, LearningControllerMixin, TrainingControllerMixin, ChatControllerMixin, UpdateControllerMixin):
+class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin, LearningControllerMixin, TrainingControllerMixin, ChatControllerMixin, UpdateControllerMixin, AutonomousTrainingControllerMixin):
     """Handles HTTP requests for the Brain API."""
     
     def _base_dir(self) -> Path:
@@ -726,15 +727,21 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 model_used = "hailo_yolov5seg"
                 logger.debug(f"Hailo segmentation found {len(objects)} objects")
             else:
-                logger.debug("Hailo returned None, checking SAM fallback...")
-                # Fall back to SAM3 only if explicitly enabled (slow on CPU)
-                # Skip SAM by default to avoid hanging on model downloads
-                if sam_enabled and SAMVisionService is not None:
-                    sam_result = self._try_sam_segmentation(rgb_frame)
-                    if sam_result is not None:
-                        objects = sam_result
-                        model_used = "sam3"
-                        logger.debug(f"SAM segmentation found {len(objects)} objects")
+                logger.debug("Hailo seg returned None, trying detection fallback...")
+                # Fall back to YOLOv8 detection (works reliably)
+                detection_result = self._try_hailo_detection(rgb_frame)
+                if detection_result is not None:
+                    objects = detection_result
+                    model_used = "hailo_yolov8_detect"
+                    logger.debug(f"Hailo detection found {len(objects)} objects")
+                else:
+                    # Fall back to SAM3 only if explicitly enabled (slow on CPU)
+                    if sam_enabled and SAMVisionService is not None:
+                        sam_result = self._try_sam_segmentation(rgb_frame)
+                        if sam_result is not None:
+                            objects = sam_result
+                            model_used = "sam3"
+                            logger.debug(f"SAM segmentation found {len(objects)} objects")
 
             if not objects:
                 return frame
@@ -884,6 +891,66 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             return None
         except Exception as e:
             logger.debug(f"Hailo segmentation not available: {e}")
+            return None
+
+    def _try_hailo_detection(self, frame):
+        """Try detection using HailoPipeline with YOLOv8 (reliable fallback)."""
+        try:
+            # Use the persistent HailoPipeline for detection
+            brain_service = getattr(self.server, 'brain_service', None)
+            if brain_service is None:
+                return None
+
+            vision_core = getattr(brain_service, 'vision_core', None)
+            if vision_core is None:
+                return None
+
+            # Try to get hailo_pipeline from vision_core
+            hailo_pipeline = getattr(vision_core, 'hailo_pipeline', None)
+            if hailo_pipeline is None:
+                return None
+
+            # Run synchronous detection
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            result = hailo_pipeline.detect_sync(frame, conf_threshold=0.3)
+
+            if not result or not result.ok:
+                return None
+
+            detections = result.data.get('detections', [])
+            if not detections:
+                return None
+
+            # Convert to the format expected by overlay code
+            objects = []
+            for det in detections:
+                bbox = det.get('bbox', [0, 0, 0, 0])
+                # Convert numpy floats to Python floats
+                bbox = [float(b) for b in bbox]
+                x1, y1, x2, y2 = bbox
+
+                obj = {
+                    "box_xyxy": bbox,
+                    "box": bbox,
+                    "label": det.get('label', 'object'),
+                    "score": float(det.get('confidence', 0.0)),
+                    "center": [(x1 + x2) / 2, (y1 + y2) / 2],
+                    "area": (x2 - x1) * (y2 - y1),
+                    "mask": None,  # No mask from detection model
+                }
+                objects.append(obj)
+
+            logger.info(f"Hailo detection fallback found {len(objects)} objects")
+            return objects if objects else None
+
+        except Exception as e:
+            logger.debug(f"Hailo detection fallback error: {e}")
             return None
 
     def _try_sam_segmentation(self, frame):
@@ -1371,14 +1438,6 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_v2_settings_html().encode("utf-8"))
-
-            elif self.path == "/api/vision/segmentation":
-                # Return latest segmentation data for HOPE agent
-                global last_segmentation
-                if last_segmentation is not None:
-                    self.send_json(last_segmentation)
-                else:
-                    self.send_json({"num_objects": 0, "objects": [], "message": "No segmentation data available"})
 
             elif self.path == "/api/vision/status":
                 # Return vision subsystem status
@@ -2117,6 +2176,45 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.handle_training_config()
 
             # ============================================================
+            # Autonomous Training API (GET)
+            # ============================================================
+            elif self.path == "/api/autonomous/status":
+                self.handle_autonomous_status()
+            elif self.path == "/api/autonomous/config":
+                self.handle_autonomous_config()
+            elif self.path == "/api/autonomous/episodes":
+                self.handle_autonomous_episodes()
+            elif self.path == "/api/autonomous/episodes/ready":
+                self.handle_autonomous_episodes_ready()
+            elif self.path == "/api/autonomous/gaps":
+                self.handle_autonomous_gaps()
+            elif self.path == "/api/autonomous/distribution/status":
+                self.handle_distribution_status()
+            elif self.path == "/api/autonomous/robots":
+                self.handle_robots_list()
+            elif self.path.startswith("/api/autonomous/robots/") and not self.path.endswith("/register") and not self.path.endswith("/heartbeat") and not self.path.endswith("/ack-update"):
+                device_id = self.path.split("/")[-1]
+                if device_id and device_id != "robots":
+                    self.handle_robots_get(device_id)
+                else:
+                    self.send_json({"error": "device_id required"}, status=400)
+            elif self.path.startswith("/api/autonomous/registry/latest"):
+                parts = self.path.split("/")
+                model_id = parts[-1] if len(parts) > 4 and parts[-1] != "latest" else "seed"
+                self.handle_registry_latest(model_id)
+            elif self.path.startswith("/api/autonomous/registry/info/"):
+                parts = self.path.split("/")
+                if len(parts) >= 6:
+                    model_id = parts[-2]
+                    version = parts[-1]
+                    self.handle_registry_info(model_id, version)
+                elif len(parts) >= 5:
+                    model_id = parts[-1]
+                    self.handle_registry_info(model_id)
+                else:
+                    self.send_json({"error": "model_id required"}, status=400)
+
+            # ============================================================
             # Real-time Connection Info
             # ============================================================
             elif self.path == "/api/realtime":
@@ -2380,6 +2478,43 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
 
             elif self.path == "/api/updates/cleanup/rollback":
                 self.handle_cleanup_rollback(body)
+                return
+
+            # ============================================
+            # Autonomous Training API Endpoints (POST)
+            # ============================================
+            elif self.path == "/api/autonomous/start":
+                self.handle_autonomous_start(body)
+                return
+            elif self.path == "/api/autonomous/stop":
+                self.handle_autonomous_stop(body)
+                return
+            elif self.path == "/api/autonomous/trigger":
+                self.handle_autonomous_trigger(body)
+                return
+            elif self.path == "/api/autonomous/config":
+                self.handle_autonomous_config(body)
+                return
+            elif self.path == "/api/autonomous/gaps/record":
+                self.handle_autonomous_gaps_record(body)
+                return
+            elif self.path == "/api/autonomous/validate":
+                self.handle_autonomous_validate(body)
+                return
+            elif self.path == "/api/autonomous/distribution/upload":
+                self.handle_distribution_upload(body)
+                return
+            elif self.path == "/api/autonomous/distribution/distribute":
+                self.handle_distribution_distribute(body)
+                return
+            elif self.path == "/api/autonomous/robots/register":
+                self.handle_robots_register(body)
+                return
+            elif self.path == "/api/autonomous/robots/heartbeat":
+                self.handle_robots_heartbeat(body)
+                return
+            elif self.path == "/api/autonomous/robots/ack-update":
+                self.handle_robots_ack_update(body)
                 return
 
             elif self.path == "/api/v1/data/tag":

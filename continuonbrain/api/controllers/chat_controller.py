@@ -240,3 +240,341 @@ class ChatControllerMixin:
         if brain_service is None:
             return None
         return getattr(brain_service, 'hope_chat', None)
+
+    def _get_hope_agent(self):
+        """Get the HOPEAgent instance from brain_service, auto-initializing if needed."""
+        brain_service = getattr(self.server, 'brain_service', None)
+        if brain_service is None:
+            return None
+
+        # Try to get existing hope_agent
+        agent = getattr(brain_service, 'hope_agent', None)
+        if agent is not None:
+            return agent
+
+        # Auto-initialize HOPE brain if not ready
+        if hasattr(brain_service, 'initialize_hope_brain'):
+            if brain_service.initialize_hope_brain():
+                return getattr(brain_service, 'hope_agent', None)
+
+        return None
+
+    # =========================================================================
+    # HOPE Active Learning Endpoints
+    # =========================================================================
+
+    @require_role(UserRole.CONSUMER)
+    def handle_hope_analyze_scene(self, body: str):
+        """
+        POST /api/hope/analyze-scene
+        Analyze the current scene and generate learning questions.
+
+        This allows HOPE to proactively learn about what it sees by
+        asking the user questions about unfamiliar objects or situations.
+
+        Request body:
+        {
+            "include_visual": true  // optional, include segmentation data
+        }
+
+        Response:
+        {
+            "success": true,
+            "scene_description": "I can see 3 objects...",
+            "objects_detected": 3,
+            "learning_opportunities": [...],
+            "questions": [
+                {
+                    "question": "What is this object?",
+                    "type": "object_identification",
+                    "priority": "high"
+                }
+            ]
+        }
+        """
+        try:
+            hope_agent = self._get_hope_agent()
+            if hope_agent is None:
+                self.send_json({
+                    "success": False,
+                    "error": "HOPE Agent not available",
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+
+            # Get current segmentation data if vision is available
+            segmentation_data = None
+            if data.get("include_visual", True):
+                brain_service = getattr(self.server, 'brain_service', None)
+                if brain_service and hasattr(brain_service, 'last_segmentation'):
+                    segmentation_data = brain_service.last_segmentation
+
+            result = hope_agent.analyze_scene_for_learning(segmentation_data)
+            result["success"] = True
+            self.send_json(result)
+
+        except Exception as e:
+            logger.error(f"Analyze scene error: {e}", exc_info=True)
+            self.send_json({
+                "success": False,
+                "error": str(e),
+            }, status=500)
+
+    @require_role(UserRole.CONSUMER)
+    def handle_hope_should_ask(self, body: str):
+        """
+        POST /api/hope/should-ask
+        Check if HOPE should ask a clarifying question before responding.
+
+        This is used by the chat interface to determine if HOPE needs
+        more information before it can confidently respond.
+
+        Request body:
+        {
+            "message": "Pick up that thing over there",
+            "context": {
+                "visual_perception": {...}  // optional
+            }
+        }
+
+        Response:
+        {
+            "success": true,
+            "should_ask": true,
+            "question": {
+                "reason": "needs_clarification",
+                "confidence": 0.4,
+                "question": "When you say 'that thing', which object do you mean?",
+                "options": [...]
+            }
+        }
+        """
+        try:
+            hope_agent = self._get_hope_agent()
+            if hope_agent is None:
+                self.send_json({
+                    "success": False,
+                    "error": "HOPE Agent not available",
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+            message = data.get("message", "")
+            context = data.get("context", {})
+
+            # Enrich context with current visual perception if available
+            if "visual_perception" not in context:
+                brain_service = getattr(self.server, 'brain_service', None)
+                if brain_service and hasattr(brain_service, 'last_segmentation'):
+                    context["visual_perception"] = hope_agent.get_visual_perception(
+                        brain_service.last_segmentation
+                    )
+
+            should_ask, question_info = hope_agent.should_ask_question(message, context)
+
+            self.send_json({
+                "success": True,
+                "should_ask": should_ask,
+                "question": question_info,
+            })
+
+        except Exception as e:
+            logger.error(f"Should ask error: {e}", exc_info=True)
+            self.send_json({
+                "success": False,
+                "error": str(e),
+            }, status=500)
+
+    @require_role(UserRole.CONSUMER)
+    def handle_hope_learn_correction(self, body: str):
+        """
+        POST /api/hope/learn-correction
+        Submit a correction to help HOPE learn.
+
+        This allows users to correct HOPE's responses, enabling
+        the agent to improve over time from human feedback.
+
+        Request body:
+        {
+            "original_response": "I think that's a cup",
+            "correction": "That's actually a mug",
+            "context": {...}  // optional
+        }
+
+        Response:
+        {
+            "success": true,
+            "learned": true,
+            "memory_stored": true,
+            "message": "Thank you for the correction..."
+        }
+        """
+        try:
+            hope_agent = self._get_hope_agent()
+            if hope_agent is None:
+                self.send_json({
+                    "success": False,
+                    "error": "HOPE Agent not available",
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+            original = data.get("original_response", "")
+            correction = data.get("correction", "")
+            context = data.get("context", {})
+
+            if not original or not correction:
+                self.send_json({
+                    "success": False,
+                    "error": "Both original_response and correction are required",
+                }, status=400)
+                return
+
+            # Get experience logger if available
+            brain_service = getattr(self.server, 'brain_service', None)
+            experience_logger = None
+            if brain_service:
+                experience_logger = getattr(brain_service, 'experience_logger', None)
+
+            result = hope_agent.learn_from_correction(
+                original_response=original,
+                correction=correction,
+                context=context,
+                experience_logger=experience_logger,
+            )
+            result["success"] = True
+            self.send_json(result)
+
+        except Exception as e:
+            logger.error(f"Learn correction error: {e}", exc_info=True)
+            self.send_json({
+                "success": False,
+                "error": str(e),
+            }, status=500)
+
+    @require_role(UserRole.CONSUMER)
+    def handle_hope_knowledge_gaps(self, body: str):
+        """
+        POST /api/hope/knowledge-gaps
+        Get HOPE's current knowledge gaps.
+
+        This returns areas where HOPE is uncertain or lacks knowledge,
+        which can be used to guide training or user assistance.
+
+        Request body:
+        {
+            "context": {...}  // optional current context
+        }
+
+        Response:
+        {
+            "success": true,
+            "gaps": [
+                {
+                    "type": "unknown_objects",
+                    "description": "I see 2 objects I can't identify",
+                    "priority": "high",
+                    "suggested_question": "What are these objects?"
+                }
+            ]
+        }
+        """
+        try:
+            hope_agent = self._get_hope_agent()
+            if hope_agent is None:
+                self.send_json({
+                    "success": False,
+                    "error": "HOPE Agent not available",
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+            context = data.get("context", {})
+
+            # Enrich context with visual perception
+            if "visual_perception" not in context:
+                brain_service = getattr(self.server, 'brain_service', None)
+                if brain_service and hasattr(brain_service, 'last_segmentation'):
+                    context["visual_perception"] = hope_agent.get_visual_perception(
+                        brain_service.last_segmentation
+                    )
+
+            gaps = hope_agent.identify_knowledge_gaps(context)
+
+            self.send_json({
+                "success": True,
+                "gaps": gaps,
+                "total_gaps": len(gaps),
+                "high_priority": len([g for g in gaps if g.get("priority") == "high"]),
+            })
+
+        except Exception as e:
+            logger.error(f"Knowledge gaps error: {e}", exc_info=True)
+            self.send_json({
+                "success": False,
+                "error": str(e),
+            }, status=500)
+
+    @require_role(UserRole.CONSUMER)
+    def handle_hope_clarify(self, body: str):
+        """
+        POST /api/hope/clarify
+        Get clarifying questions for a message.
+
+        This can be used by the chat interface to proactively
+        show clarification options before sending to HOPE.
+
+        Request body:
+        {
+            "message": "Move it over there",
+            "context": {...}  // optional
+        }
+
+        Response:
+        {
+            "success": true,
+            "questions": [
+                {
+                    "type": "object_reference",
+                    "question": "When you say 'it', which object do you mean?",
+                    "options": [...]
+                }
+            ]
+        }
+        """
+        try:
+            hope_agent = self._get_hope_agent()
+            if hope_agent is None:
+                self.send_json({
+                    "success": False,
+                    "error": "HOPE Agent not available",
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+            message = data.get("message", "")
+            context = data.get("context", {})
+
+            # Enrich context with visual perception
+            if "visual_perception" not in context:
+                brain_service = getattr(self.server, 'brain_service', None)
+                if brain_service and hasattr(brain_service, 'last_segmentation'):
+                    context["visual_perception"] = hope_agent.get_visual_perception(
+                        brain_service.last_segmentation
+                    )
+
+            questions = hope_agent.generate_clarifying_questions(message, context)
+
+            self.send_json({
+                "success": True,
+                "questions": questions,
+                "needs_clarification": len(questions) > 0,
+            })
+
+        except Exception as e:
+            logger.error(f"Clarify error: {e}", exc_info=True)
+            self.send_json({
+                "success": False,
+                "error": str(e),
+            }, status=500)

@@ -195,16 +195,33 @@ class OAKDepthCapture:
             return None
             
         try:
-            # Get latest frames (non-blocking)
-            rgb_frame = self.rgb_queue.get() if self.rgb_queue.has() else None
-            depth_frame = self.depth_queue.get() if self.depth_queue.has() else None
-            
-            if rgb_frame is None or depth_frame is None:
+            # Get latest frames with blocking timeout for reliability
+            # Non-blocking has() can miss frames; use tryGet() or blocking get()
+            try:
+                rgb_frame = self.rgb_queue.tryGet()
+                if rgb_frame is None:
+                    # Try blocking with short timeout if non-blocking fails
+                    rgb_frame = self.rgb_queue.get()
+            except Exception:
+                rgb_frame = None
+
+            try:
+                depth_frame = self.depth_queue.tryGet()
+                if depth_frame is None:
+                    depth_frame = self.depth_queue.get()
+            except Exception:
+                depth_frame = None
+
+            if rgb_frame is None:
                 return None
+
+            # Depth is optional - allow RGB-only capture
+            if depth_frame is None:
+                depth_frame = None
             
             # Extract frame data
-            rgb_data = rgb_frame.getCvFrame()  # Already RGB order
-            depth_data = depth_frame.getFrame()  # uint16 millimeters
+            rgb_data = rgb_frame.getCvFrame()  # Already BGR order from getCvFrame
+            depth_data = depth_frame.getFrame() if depth_frame is not None else None  # uint16 millimeters
             
             # Timestamp alignment (use depth timestamp as reference)
             timestamp_ns = int(time.time_ns())

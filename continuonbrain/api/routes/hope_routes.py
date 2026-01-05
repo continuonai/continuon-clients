@@ -368,10 +368,32 @@ def handle_hope_post(handler, body=None):
         if body is None:
             content_len = int(handler.headers.get('Content-Length', 0))
             body = handler.rfile.read(content_len).decode('utf-8')
-            
+
         data = json.loads(body) if body else {}
         path = handler.path
 
+        # Active Learning Endpoints (delegate to ChatControllerMixin methods)
+        if path == "/api/hope/analyze-scene":
+            handler.handle_hope_analyze_scene(body)
+            return
+
+        elif path == "/api/hope/should-ask":
+            handler.handle_hope_should_ask(body)
+            return
+
+        elif path == "/api/hope/learn-correction":
+            handler.handle_hope_learn_correction(body)
+            return
+
+        elif path == "/api/hope/knowledge-gaps":
+            handler.handle_hope_knowledge_gaps(body)
+            return
+
+        elif path == "/api/hope/clarify":
+            handler.handle_hope_clarify(body)
+            return
+
+        # Legacy HOPE brain endpoints
         if _hope_brain is None:
             handler.send_json({"error": "HOPE brain not initialized"}, status=503)
             return

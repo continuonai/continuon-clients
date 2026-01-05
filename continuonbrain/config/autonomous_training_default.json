@@ -1,0 +1,27 @@
+{
+  "_comment": "Default configuration for autonomous training scheduler",
+  "_description": "Seed model brain autonomous training for RLDS episodes",
+
+  "min_episodes_for_local": 4,
+  "min_episodes_for_cloud": 20,
+  "min_quality_score": 0.5,
+
+  "max_hours_without_training": 24.0,
+  "training_cooldown_minutes": 30.0,
+
+  "enable_cloud_training": true,
+  "cloud_training_interval_hours": 168.0,
+  "max_cloud_training_cost_usd": 10.0,
+
+  "auto_deploy": true,
+  "require_validation": true,
+  "min_improvement_threshold": 0.05,
+
+  "max_memory_percent": 70.0,
+  "max_temperature_c": 75.0,
+  "min_battery_percent": 20.0,
+
+  "episodes_dir": "/opt/continuonos/brain/rlds/episodes",
+  "checkpoint_dir": "/opt/continuonos/brain/checkpoints",
+  "export_dir": "/opt/continuonos/brain/model/adapters/candidate"
+}

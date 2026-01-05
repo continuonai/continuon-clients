@@ -378,6 +378,7 @@ class BrainService:
 
         # HOPE brain (initialized by BackgroundLearner or switch_model)
         self.hope_brain = None
+        self._hope_agent_cache = None  # Cached HOPEAgent instance
 
         self._prime_world_model_adapter()
 
@@ -410,6 +411,38 @@ class BrainService:
     @property
     def uptime_seconds(self) -> float:
         return time.time() - self._start_time
+
+    @property
+    def hope_agent(self):
+        """
+        Get the HOPEAgent instance, creating it lazily if needed.
+
+        The HOPEAgent provides:
+        - Question-asking capability (identify_knowledge_gaps, should_ask_question)
+        - Scene analysis for learning (analyze_scene_for_learning)
+        - Learning from corrections (learn_from_correction)
+        - Clarifying question generation (generate_clarifying_questions)
+        """
+        if self._hope_agent_cache is not None:
+            return self._hope_agent_cache
+
+        if self.hope_brain is None:
+            return None
+
+        try:
+            from continuonbrain.services.agent_hope import HOPEAgent
+
+            self._hope_agent_cache = HOPEAgent(
+                self.hope_brain,
+                confidence_threshold=0.6,
+                world_model=getattr(self, 'jax_adapter', None),
+                semantic_search=self.experience_logger,
+                vision_service=getattr(self, 'vision_service', None),
+            )
+            return self._hope_agent_cache
+        except Exception as e:
+            logger.warning(f"Failed to create HOPEAgent: {e}")
+            return None
 
     def _ensure_session_node(self, session_id: str) -> str:
         """
@@ -1275,7 +1308,64 @@ class BrainService:
             "Gemma is unavailable, so I'm answering from the HOPE seed model. "
             f"Context: {context}. Ask about my sensors, motion, or training state while I restore the LLM."
         )
-    
+
+    def initialize_hope_brain(self) -> bool:
+        """
+        Initialize the HOPE brain if not already initialized.
+
+        This creates a minimal HOPE brain for question-asking and learning capabilities,
+        even without the full BackgroundLearner running.
+
+        Returns:
+            True if brain is now available, False otherwise
+        """
+        if self.hope_brain is not None:
+            return True
+
+        try:
+            from continuonbrain.hope_impl.brain import HOPEBrain
+            from continuonbrain.hope_impl.config import HOPEConfig
+
+            logger.info("Initializing HOPE brain for active learning...")
+
+            # Create a minimal config for the brain
+            config = HOPEConfig(
+                d_s=256,  # State dimension
+                d_w=128,  # Wave dimension
+                d_p=128,  # Particle dimension
+                d_e=128,  # Embedding dimension
+                d_k=64,   # Key dimension
+                d_c=64,   # Context dimension
+                num_levels=3,  # CMS levels
+                quantization="none",  # No quantization for development
+                learning_rate=0.001,
+            )
+
+            # HOPEBrain requires observation, action, and output dimensions
+            obs_dim = 128   # Matches d_e for embedded observations
+            action_dim = 10  # Minimal action space for conversational context
+            output_dim = 256  # Matches d_s for state-based output
+
+            self.hope_brain = HOPEBrain(
+                config,
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                output_dim=output_dim,
+                obs_type="vector",
+                output_type="continuous"
+            )
+            self.hope_brain.initialize(num_columns=1)  # Single column mode
+
+            # Clear the hope_agent cache so it gets recreated with the new brain
+            self._hope_agent_cache = None
+
+            logger.info("HOPE brain initialized successfully for active learning")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to initialize HOPE brain: {e}")
+            return False
+
     def get_brain_structure(self) -> Dict[str, Any]:
         """
         Get the topological structure and current state of the HOPE brain for 3D visualization.
