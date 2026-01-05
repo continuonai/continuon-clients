@@ -1,0 +1,57 @@
+{
+  "model_type": "jax_core_model",
+  "checkpoint_path": "/home/craigm26/Downloads/ContinuonXR/models/e2e_benchmark/params_step_16.pkl",
+  "config": {
+    "d_s": 128,
+    "d_w": 128,
+    "d_p": 64,
+    "d_e": 128,
+    "d_k": 32,
+    "d_c": 128,
+    "num_levels": 3,
+    "cms_sizes": [
+      32,
+      64,
+      128
+    ],
+    "cms_dims": [
+      64,
+      128,
+      256
+    ],
+    "cms_decays": [
+      0.05,
+      0.03,
+      0.01
+    ],
+    "learning_rate": 0.001,
+    "gradient_clip": 5.0,
+    "use_layer_norm": true,
+    "state_saturation_limit": 10.0,
+    "obs_type": "vector",
+    "output_type": "continuous",
+    "use_mamba_wave": true,
+    "mamba_state_dim": 1,
+    "mamba_dt_min": 0.0001,
+    "mamba_dt_scale": 1.0,
+    "num_vq_vocab": 512,
+    "obs_token_len": 64,
+    "use_object_features": false,
+    "object_dim": 32,
+    "max_objects": 10,
+    "use_audio_features": false,
+    "audio_dim": 80,
+    "audio_max_frames": 100,
+    "audio_encoder_type": "cnn"
+  },
+  "input_dims": {
+    "obs_dim": 128,
+    "action_dim": 32
+  },
+  "output_dim": 32,
+  "quantization": null,
+  "format": "pickle",
+  "arch_preset": "pi5",
+  "sparsity_lambda": 0.0,
+  "compact": false
+}
