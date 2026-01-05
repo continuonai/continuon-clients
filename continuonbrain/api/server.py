@@ -58,6 +58,19 @@ from continuonbrain.api.controllers.learning_controller import LearningControlle
 from continuonbrain.api.controllers.training_controller import TrainingControllerMixin
 from continuonbrain.api.controllers.chat_controller import ChatControllerMixin
 
+# OAK-D camera support
+try:
+    from continuonbrain.sensors.oak_depth import OAKDepthCapture
+except ImportError:
+    OAKDepthCapture = None
+
+# SAM Vision support
+try:
+    from continuonbrain.services.sam3_vision import SAMVisionService, SAMConfig
+except ImportError:
+    SAMVisionService = None
+    SAMConfig = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BrainServer")
 
@@ -69,6 +82,10 @@ background_learner = None  # Autonomous learning service
 skill_library = SkillLibrary()
 selected_task_id: Optional[str] = None
 selected_skill_id: Optional[str] = None
+oak_camera = None  # OAK-D depth camera instance
+sam_service = None  # SAM segmentation service
+sam_enabled = False  # Toggle for SAM overlay
+last_segmentation = None  # Cache last segmentation result for HOPE
 
 
 def _detect_model_stack():
@@ -677,6 +694,220 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
         self._send_cors_headers()
         self.end_headers()
 
+    def _apply_segmentation_overlay(self, frame, frame_data):
+        """Apply segmentation overlay using best available model (Hailo > SAM3).
+
+        Priority:
+        1. Hailo YOLOv5-seg (fast, ~15ms, real-time capable)
+        2. SAM3 (accurate but slow on CPU, ~1-3s per frame)
+        """
+        global sam_service, last_segmentation
+        import numpy as np
+
+        try:
+            rgb_frame = frame_data.get("rgb", frame)
+            objects = None
+            model_used = "none"
+
+            # Try Hailo YOLOv5-seg first (fastest)
+            logger.debug("Attempting Hailo segmentation...")
+            hailo_result = self._try_hailo_segmentation(rgb_frame)
+            if hailo_result is not None:
+                objects = hailo_result
+                model_used = "hailo_yolov5seg"
+                logger.debug(f"Hailo segmentation found {len(objects)} objects")
+            else:
+                logger.debug("Hailo returned None, checking SAM fallback...")
+                # Fall back to SAM3 only if explicitly enabled (slow on CPU)
+                # Skip SAM by default to avoid hanging on model downloads
+                if sam_enabled and SAMVisionService is not None:
+                    sam_result = self._try_sam_segmentation(rgb_frame)
+                    if sam_result is not None:
+                        objects = sam_result
+                        model_used = "sam3"
+                        logger.debug(f"SAM segmentation found {len(objects)} objects")
+
+            if not objects:
+                return frame
+
+            # Create overlay with colored masks and labels
+            overlay = frame.copy()
+            colors = [
+                (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),
+                (255, 0, 255), (0, 255, 255), (128, 128, 0), (128, 0, 128),
+                (0, 128, 128), (255, 128, 0)
+            ]
+
+            labels = []
+            for i, obj in enumerate(objects):
+                color = colors[i % len(colors)]
+                box = obj.get("box_xyxy") or obj.get("box", [0, 0, 0, 0])
+                score = obj.get("score", 0)
+                label = obj.get("label", f"Obj{i+1}")
+                center = obj.get("center", [(box[0]+box[2])/2, (box[1]+box[3])/2])
+
+                # Apply mask if available
+                mask = obj.get("mask")
+                if mask is not None:
+                    mask_bool = mask.astype(bool)
+                    overlay[mask_bool] = (
+                        overlay[mask_bool] * 0.5 + np.array(color) * 0.5
+                    ).astype(np.uint8)
+
+                # Draw bounding box
+                x1, y1, x2, y2 = [int(v) for v in box]
+                cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
+
+                # Draw label
+                label_text = f"{label} ({score:.0%})" if isinstance(label, str) else f"Obj{i+1} ({score:.0%})"
+                cv2.putText(overlay, label_text, (x1, y1 - 5),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+                # Collect label info for HOPE
+                labels.append({
+                    "id": i + 1,
+                    "label": label,
+                    "score": float(score),
+                    "box": list(box),
+                    "center": list(center),
+                    "area": float(obj.get("area", (box[2]-box[0])*(box[3]-box[1]))),
+                })
+
+            # Cache segmentation result for HOPE agent
+            last_segmentation = {
+                "timestamp": time.time(),
+                "model": model_used,
+                "num_objects": len(objects),
+                "objects": labels,
+                "frame_size": [frame.shape[1], frame.shape[0]],
+            }
+
+            return overlay
+
+        except Exception as e:
+            logger.error(f"Segmentation overlay error: {e}")
+            import traceback
+            traceback.print_exc()
+            return frame
+
+    def _try_hailo_segmentation(self, frame):
+        """Try segmentation using Hailo YOLOv5-seg (fast ~15ms)."""
+        try:
+            import subprocess
+
+            # Check if Hailo seg model exists
+            hef_path = Path("/usr/share/hailo-models/yolov5n_seg_h8.hef")
+            if not hef_path.exists():
+                logger.debug("Hailo seg model not found")
+                return None
+
+            # Encode frame as JPEG
+            if cv2 is None:
+                return None
+            success, jpeg_bytes = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if not success:
+                return None
+
+            # Call the Hailo YOLOv5-seg worker
+            worker_path = REPO_ROOT / "continuonbrain" / "services" / "hailo_yolov5_seg_worker.py"
+            if not worker_path.exists():
+                logger.debug("Hailo seg worker not found")
+                return None
+
+            result = subprocess.run(
+                [sys.executable, str(worker_path),
+                 "--hef", str(hef_path),
+                 "--conf", "0.35",
+                 "--iou", "0.5"],
+                input=jpeg_bytes.tobytes(),
+                capture_output=True,
+                timeout=10.0  # Allow more time for first cold run
+            )
+
+            if result.returncode != 0:
+                stderr_msg = result.stderr.decode('utf-8', errors='ignore')[:200]
+                logger.debug(f"Hailo seg worker failed: {stderr_msg}")
+                return None
+
+            # Parse JSON output
+            output = result.stdout.decode('utf-8')
+            data = json.loads(output)
+
+            if not data.get("ok") or not data.get("detections"):
+                return None
+
+            # Convert worker output to expected format
+            objects = []
+            h, w = frame.shape[:2]
+
+            for det in data["detections"]:
+                bbox = det.get("bbox", [0, 0, 0, 0])
+                x1, y1, x2, y2 = bbox
+
+                # Create mask from polygon if available
+                mask = None
+                polygon = det.get("mask")  # polygon points [[x,y], ...]
+                if polygon and len(polygon) > 2 and np is not None:
+                    # Convert polygon to binary mask
+                    poly_points = np.array(polygon, dtype=np.int32)
+                    mask = np.zeros((h, w), dtype=np.uint8)
+                    cv2.fillPoly(mask, [poly_points], 1)
+
+                obj = {
+                    "box_xyxy": bbox,
+                    "box": bbox,
+                    "label": det.get("label", "object"),
+                    "score": det.get("confidence", 0.0),
+                    "center": [(x1 + x2) / 2, (y1 + y2) / 2],
+                    "area": det.get("mask_area", (x2 - x1) * (y2 - y1)),
+                    "mask": mask,
+                }
+                objects.append(obj)
+
+            logger.info(f"Hailo seg detected {len(objects)} objects in {data.get('inference_time_ms', 0):.1f}ms")
+            return objects if objects else None
+
+        except subprocess.TimeoutExpired:
+            logger.warning("Hailo seg worker timed out")
+            return None
+        except json.JSONDecodeError as e:
+            logger.debug(f"Hailo seg worker output parse error: {e}")
+            return None
+        except Exception as e:
+            logger.debug(f"Hailo segmentation not available: {e}")
+            return None
+
+    def _try_sam_segmentation(self, frame):
+        """Try segmentation using SAM3 (accurate but slower)."""
+        global sam_service
+
+        try:
+            # Initialize SAM service on first use
+            if sam_service is None and SAMVisionService is not None:
+                logger.info("Initializing SAM Vision Service...")
+                sam_service = SAMVisionService()
+                if not sam_service.is_available():
+                    logger.warning(f"SAM not available: {sam_service.get_status()}")
+                    sam_service = None
+                    return None
+
+            if sam_service is None:
+                return None
+
+            # Initialize model if needed (lazy load)
+            if not sam_service._initialized:
+                if not sam_service.initialize():
+                    logger.warning("Failed to initialize SAM model")
+                    return None
+
+            # Find objects in the frame
+            objects = sam_service.find_objects(frame, min_area=500, max_objects=10)
+            return objects if objects else None
+
+        except Exception as e:
+            logger.error(f"SAM segmentation error: {e}")
+            return None
+
     def do_GET(self):
         try:
             if self.path in ("/", "/ui", "/ui/"):
@@ -743,7 +974,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 # Basic static file serving
                 rel_path = self.path.replace("/static/", "", 1)
                 file_path = (STATIC_DIR / rel_path).resolve()
-                
+
                 # Security check: ensure we stay within STATIC_DIR
                 if str(file_path).startswith(str(STATIC_DIR.resolve())) and file_path.exists() and file_path.is_file():
                     mime_type, _ = mimetypes.guess_type(file_path)
@@ -754,7 +985,71 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                         self.wfile.write(f.read())
                 else:
                     self.send_error(404, "File not found")
-            
+
+            elif self.path.startswith("/api/camera/stream"):
+                # Camera stream endpoint - uses OAK-D depth camera with optional segmentation
+                # Segmentation priority: Hailo YOLOv5-seg (fastest) > SAM3 (best quality)
+                global oak_camera, sam_service, sam_enabled, last_segmentation
+                try:
+                    # Parse mode from query string (rgb, depth, seg_rgb, seg_depth)
+                    parsed = urlparse(self.path)
+                    query = parse_qs(parsed.query)
+                    mode = (query.get("mode") or ["rgb"])[0]
+
+                    # Initialize camera on first request
+                    if oak_camera is None and OAKDepthCapture is not None:
+                        logger.info("Initializing OAK-D camera...")
+                        oak_camera = OAKDepthCapture()
+                        if oak_camera.initialize():
+                            oak_camera.start()
+                            logger.info("OAK-D camera started successfully")
+                        else:
+                            logger.warning("Failed to initialize OAK-D camera")
+                            oak_camera = None
+
+                    # Try to capture frame
+                    if oak_camera is not None:
+                        frame_data = oak_camera.capture_frame()
+                        if frame_data is not None and cv2 is not None:
+                            # Select base frame based on mode
+                            if mode in ("depth", "seg_depth") and "depth" in frame_data:
+                                depth = frame_data["depth"]
+                                depth_norm = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+                                frame = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
+                            else:
+                                frame = frame_data.get("rgb")
+
+                            # Apply segmentation overlay if requested
+                            # Priority: Hailo (fast) > SAM3 (accurate but slow)
+                            if mode in ("segmentation", "seg_rgb", "seg_depth") and frame is not None:
+                                frame = self._apply_segmentation_overlay(frame, frame_data)
+
+                            if frame is not None:
+                                _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                                self.send_response(200)
+                                self.send_header("Content-type", "image/jpeg")
+                                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                                self.end_headers()
+                                self.wfile.write(jpeg.tobytes())
+                                return
+
+                    # No camera/frame available - return 503 Service Unavailable
+                    self.send_response(503)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "Camera not available or no frame captured"}).encode())
+                except Exception as e:
+                    logger.error(f"Camera stream error: {e}")
+                    self.send_response(500)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+            elif self.path == "/favicon.ico":
+                # Return empty favicon to avoid 404 spam
+                self.send_response(204)
+                self.end_headers()
+
             elif self.path == "/ui/status":
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
@@ -952,6 +1247,24 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_v2_settings_html().encode("utf-8"))
+
+            elif self.path == "/api/vision/segmentation":
+                # Return latest segmentation data for HOPE agent
+                global last_segmentation
+                if last_segmentation is not None:
+                    self.send_json(last_segmentation)
+                else:
+                    self.send_json({"num_objects": 0, "objects": [], "message": "No segmentation data available"})
+
+            elif self.path == "/api/vision/status":
+                # Return vision subsystem status
+                sam_status = sam_service.get_status() if sam_service else {"available": False, "error": "SAM not initialized"}
+                camera_status = {"connected": oak_camera is not None, "type": "OAK-D-LITE" if oak_camera else None}
+                self.send_json({
+                    "camera": camera_status,
+                    "sam": sam_status,
+                    "last_segmentation": last_segmentation,
+                })
 
             elif self.path in ("/api/events", "/api/chat/events"):
                 self.send_response(200)

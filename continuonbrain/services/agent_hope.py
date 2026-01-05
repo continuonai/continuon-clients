@@ -229,7 +229,135 @@ class HOPEAgent:
                 "and manipulation (robotic arm). I use the HOPE brain architecture to learn "
                 "from experience and improve over time. I'm currently operating in autonomous "
                 "mode with safety protocols active.")
-    
+
+    # =========================================================================
+    # Vision Integration - SAM3 Segmentation and Object Recognition
+    # =========================================================================
+
+    def get_visual_perception(self, segmentation_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Get current visual perception from SAM segmentation.
+
+        This provides the HOPE agent with grounded visual understanding
+        of the environment for reasoning and planning.
+
+        Args:
+            segmentation_data: Optional pre-fetched segmentation data.
+                               If None, will try to fetch from vision_service.
+
+        Returns:
+            Dict with visual perception including detected objects,
+            their positions, and scene description.
+        """
+        perception = {
+            "has_vision": False,
+            "num_objects": 0,
+            "objects": [],
+            "scene_description": "No visual data available",
+            "timestamp": None,
+        }
+
+        try:
+            # Use provided data or fetch from vision service
+            data = segmentation_data
+
+            if data is None and self.vision_service:
+                # Try to get latest segmentation from vision service
+                if hasattr(self.vision_service, 'last_segmentation'):
+                    data = self.vision_service.last_segmentation
+
+            if data and data.get("num_objects", 0) > 0:
+                perception["has_vision"] = True
+                perception["num_objects"] = data["num_objects"]
+                perception["timestamp"] = data.get("timestamp")
+                perception["frame_size"] = data.get("frame_size", [640, 400])
+
+                # Process detected objects into semantic descriptions
+                objects = []
+                for obj in data.get("objects", []):
+                    obj_desc = {
+                        "id": obj["id"],
+                        "score": obj["score"],
+                        "position": {
+                            "center": obj["center"],
+                            "box": obj["box"],
+                        },
+                        "size": obj.get("area", 0),
+                        "description": self._describe_object(obj),
+                    }
+                    objects.append(obj_desc)
+
+                perception["objects"] = objects
+                perception["scene_description"] = self._generate_scene_description(objects)
+
+        except Exception as e:
+            logger.error(f"Error getting visual perception: {e}")
+
+        return perception
+
+    def _describe_object(self, obj: Dict[str, Any]) -> str:
+        """Generate a natural language description of a detected object."""
+        center = obj.get("center", [0, 0])
+        score = obj.get("score", 0)
+        area = obj.get("area", 0)
+
+        # Determine position in frame
+        frame_w, frame_h = 640, 400  # Default frame size
+        x_pos = "center" if 0.3 < center[0]/frame_w < 0.7 else ("left" if center[0]/frame_w < 0.3 else "right")
+        y_pos = "middle" if 0.3 < center[1]/frame_h < 0.7 else ("top" if center[1]/frame_h < 0.3 else "bottom")
+
+        # Estimate size category
+        size_cat = "small" if area < 5000 else ("medium" if area < 20000 else "large")
+
+        return f"{size_cat} object at {x_pos}-{y_pos} (confidence: {score:.0%})"
+
+    def _generate_scene_description(self, objects: List[Dict[str, Any]]) -> str:
+        """Generate a natural language description of the scene."""
+        if not objects:
+            return "The scene appears empty or no objects were detected."
+
+        n = len(objects)
+        if n == 1:
+            return f"I can see 1 object: {objects[0]['description']}"
+
+        desc_list = [obj['description'] for obj in objects[:3]]  # Top 3
+        remaining = n - 3 if n > 3 else 0
+
+        scene = f"I can see {n} objects: " + ", ".join(desc_list)
+        if remaining > 0:
+            scene += f", and {remaining} more"
+
+        return scene
+
+    def inject_visual_context(self, segmentation_data: Dict[str, Any]) -> None:
+        """
+        Inject visual perception into the HOPE brain's context.
+
+        This updates the brain's internal state with current visual observations,
+        allowing it to reason about what it sees.
+
+        Args:
+            segmentation_data: Segmentation data from SAM vision service
+        """
+        perception = self.get_visual_perception(segmentation_data)
+
+        if not perception["has_vision"]:
+            return
+
+        # Create visual context for HOPE brain
+        visual_context = {
+            "type": "visual_observation",
+            "timestamp": perception["timestamp"],
+            "scene": perception["scene_description"],
+            "objects": perception["objects"],
+        }
+
+        # Inject into brain if it supports context injection
+        if hasattr(self.brain, 'inject_context'):
+            self.brain.inject_context(visual_context)
+
+        logger.debug(f"Injected visual context: {perception['num_objects']} objects")
+
     # =========================================================================
     # World Model Integration - Physics Prediction and Planning
     # =========================================================================

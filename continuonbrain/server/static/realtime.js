@@ -99,7 +99,7 @@
 
                     // Timeout for connection
                     setTimeout(() => {
-                        if (!this._connected && this._ws.readyState !== WebSocket.OPEN) {
+                        if (!this._connected && this._ws && this._ws.readyState !== WebSocket.OPEN) {
                             this._ws.close();
                             reject(new Error('WebSocket connection timeout'));
                         }
@@ -151,7 +151,7 @@
 
                     // Timeout for connection
                     setTimeout(() => {
-                        if (!this._connected) {
+                        if (!this._connected && this._sse) {
                             this._sse.close();
                             reject(new Error('SSE connection timeout'));
                         }

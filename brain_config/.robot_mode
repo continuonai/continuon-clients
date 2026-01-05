@@ -1,15 +1,18 @@
 {
   "mode": "autonomous",
-  "timestamp": 1767372226.058729,
+  "timestamp": 1767593075.5523152,
   "config": {
     "mode": "autonomous",
-    "timestamp": 1767372226.058729,
+    "timestamp": 1767593075.5523152,
     "allow_motion": true,
     "record_episodes": true,
     "run_inference": true,
     "self_train": false,
     "metadata": {
-      "control_source": "vla_policy"
+      "control_source": "vla_policy",
+      "startup_time": "2026-01-04 22:04:35",
+      "auto_activated": true,
+      "self_training_enabled": true
     }
   }
 }

@@ -104,6 +104,48 @@
     color: var(--text-secondary);
 }
 
+/* Object Detection Panel */
+.object-panel {
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border-subtle);
+    padding: 12px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.object-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.object-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.object-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--accent-primary-dim);
+    border: 1px solid var(--accent-primary);
+    border-radius: 12px;
+    font-size: 11px;
+    color: var(--accent-primary);
+}
+
+.object-tag .score {
+    opacity: 0.7;
+    font-size: 10px;
+}
+
 /* Controls Panel */
 .controls-panel {
     display: flex;
@@ -353,9 +395,10 @@
         <div class="camera-header">
             <span class="camera-title">📷 Live Camera Feed</span>
             <div class="camera-controls">
-                <button class="camera-btn active" onclick="setCamera('rgb')">RGB</button>
-                <button class="camera-btn" onclick="setCamera('depth')">Depth</button>
-                <button class="camera-btn" onclick="setCamera('segmentation')">SAM</button>
+                <button class="camera-btn active" data-mode="rgb" onclick="setCamera('rgb')">RGB</button>
+                <button class="camera-btn" data-mode="depth" onclick="setCamera('depth')">Depth</button>
+                <button class="camera-btn" data-mode="seg_rgb" onclick="setCamera('seg_rgb')">Seg+RGB</button>
+                <button class="camera-btn" data-mode="seg_depth" onclick="setCamera('seg_depth')">Seg+D</button>
             </div>
         </div>
         <div class="camera-feed" id="camera-feed">
@@ -368,6 +411,14 @@
                 <span class="camera-stat" id="camera-fps">-- FPS</span>
                 <span class="camera-stat" id="camera-resolution">--x--</span>
             </div>
+        </div>
+        <!-- Object Detection Panel -->
+        <div class="object-panel" id="object-panel" style="display: none;">
+            <div class="object-panel-header">
+                <span>🎯 Detected Objects</span>
+                <span id="object-count">0 objects</span>
+            </div>
+            <div class="object-list" id="object-list"></div>
         </div>
     </div>
     
@@ -543,25 +594,47 @@ let cameraStream = null;
 let cameraMode = 'rgb';
 
 // Camera
+let segmentationInterval = null;
+
 function setCamera(mode) {
     cameraMode = mode;
     document.querySelectorAll('.camera-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent.toLowerCase().includes(mode));
+        btn.classList.toggle('active', btn.dataset.mode === mode);
     });
     startCameraStream();
+
+    // Show/hide object panel and start/stop polling for segmentation modes
+    const objectPanel = document.getElementById('object-panel');
+    if (mode.includes('seg')) {
+        objectPanel.style.display = 'block';
+        startSegmentationPolling();
+    } else {
+        objectPanel.style.display = 'none';
+        stopSegmentationPolling();
+    }
 }
 
 function startCameraStream() {
     const feed = document.getElementById('camera-feed');
     const streamUrl = `/api/camera/stream?mode=${cameraMode}&t=${Date.now()}`;
-    
+
     feed.innerHTML = `
-        <img src="${streamUrl}" alt="Camera feed" onerror="cameraError()">
+        <img src="${streamUrl}" alt="Camera feed" onerror="cameraError()" onload="refreshCameraStream()">
         <div class="camera-overlay">
             <span class="camera-stat" id="camera-fps">30 FPS</span>
-            <span class="camera-stat" id="camera-resolution">640x480</span>
+            <span class="camera-stat" id="camera-resolution">640x400</span>
         </div>
     `;
+}
+
+function refreshCameraStream() {
+    // Auto-refresh camera frame for continuous streaming
+    setTimeout(() => {
+        const img = document.querySelector('#camera-feed img');
+        if (img) {
+            img.src = `/api/camera/stream?mode=${cameraMode}&t=${Date.now()}`;
+        }
+    }, 100);  // ~10 FPS refresh rate
 }
 
 function cameraError() {
@@ -573,6 +646,51 @@ function cameraError() {
             <div style="font-size: 12px; margin-top: 8px;">Check hardware connection</div>
         </div>
     `;
+}
+
+function startSegmentationPolling() {
+    if (segmentationInterval) return;
+    segmentationInterval = setInterval(fetchSegmentationData, 500);
+    fetchSegmentationData();  // Immediate first fetch
+}
+
+function stopSegmentationPolling() {
+    if (segmentationInterval) {
+        clearInterval(segmentationInterval);
+        segmentationInterval = null;
+    }
+}
+
+async function fetchSegmentationData() {
+    try {
+        const response = await fetch('/api/vision/segmentation');
+        const data = await response.json();
+        updateObjectPanel(data);
+    } catch (error) {
+        console.error('Failed to fetch segmentation:', error);
+    }
+}
+
+function updateObjectPanel(data) {
+    const countEl = document.getElementById('object-count');
+    const listEl = document.getElementById('object-list');
+
+    if (!data.objects || data.objects.length === 0) {
+        countEl.textContent = '0 objects';
+        listEl.innerHTML = '<span style="color: var(--text-muted); font-size: 11px;">No objects detected</span>';
+        return;
+    }
+
+    countEl.textContent = `${data.objects.length} object${data.objects.length > 1 ? 's' : ''}`;
+
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd', '#98d8c8', '#f7dc6f'];
+
+    listEl.innerHTML = data.objects.map((obj, i) => `
+        <span class="object-tag" style="border-color: ${colors[i % colors.length]}; color: ${colors[i % colors.length]}">
+            <span>Obj${obj.id}</span>
+            <span class="score">${(obj.score * 100).toFixed(0)}%</span>
+        </span>
+    `).join('');
 }
 
 // Drive controls
