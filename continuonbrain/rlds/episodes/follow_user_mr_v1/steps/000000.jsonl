@@ -1,2 +1,0 @@
-{"timestamp_micros": 0, "observation": {"pose": [0,0,0]}, "action": {"steering": 0.0, "throttle": 0.1}}
-{"timestamp_micros": 100000, "observation": {"pose": [0.1,0.0,0.0]}, "action": {"steering": 0.05, "throttle": 0.12}}

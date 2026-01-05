@@ -160,11 +160,13 @@ def get_v2_network_html() -> str:
     return render_template("network_v2.html", active_page="network")
 
 def get_v2_agent_html() -> str:
-    """Agent intelligence page with chat and knowledge map."""
-    # Falls back to dashboard since agent rail is always visible
-    return render_template("dashboard_v2.html", active_page="agent")
+    """Agent intelligence page with chat, thought process, and sub-agent management."""
+    return render_template("agent_v2.html", active_page="agent")
 
 def get_v2_settings_html() -> str:
-    """Settings page in v2 style."""
-    # Reuse existing settings for now, can be upgraded later
-    return render_template("settings.html", active_page="settings")
+    """Settings page in v2 style with organized sections."""
+    return render_template("settings_v2.html", active_page="settings")
+
+def get_v2_connect_html() -> str:
+    """Find My Robot page with QR scanner for easy pairing."""
+    return render_template("connect_v2.html", active_page="connect")

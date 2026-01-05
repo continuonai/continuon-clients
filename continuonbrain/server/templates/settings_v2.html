@@ -1,0 +1,1112 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Settings - Continuon Brain{% endblock %}
+
+{% block extra_styles %}
+/* Settings Page Styles */
+.settings-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+    min-height: calc(100vh - var(--header-height) - var(--footer-height) - 80px);
+}
+
+.settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    text-align: left;
+}
+
+.settings-nav-item:hover {
+    background: var(--bg-glass);
+    color: var(--text-primary);
+}
+
+.settings-nav-item.active {
+    background: var(--accent-primary-dim);
+    color: var(--accent-primary);
+}
+
+.settings-nav-item .icon {
+    font-size: 18px;
+}
+
+.settings-nav-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 8px 0;
+}
+
+.settings-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.settings-section {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.settings-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+}
+
+.settings-section-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.settings-section-body {
+    padding: 20px;
+}
+
+.setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.setting-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.setting-row:first-child {
+    padding-top: 0;
+}
+
+.setting-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.setting-label {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.setting-description {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.setting-control {
+    margin-left: 24px;
+    flex-shrink: 0;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    width: 44px;
+    height: 24px;
+    background: var(--bg-elevated);
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+}
+
+.toggle-switch.active {
+    background: var(--accent-primary);
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: transform var(--duration-fast);
+}
+
+.toggle-switch.active::after {
+    transform: translateX(20px);
+}
+
+/* Select */
+.settings-select {
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    min-width: 180px;
+    cursor: pointer;
+}
+
+.settings-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+/* Slider */
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 200px;
+}
+
+.slider-track {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    position: relative;
+}
+
+.slider-input {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    outline: none;
+}
+
+.slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.slider-input::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.slider-value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    min-width: 40px;
+    text-align: right;
+}
+
+/* Input Field */
+.settings-input {
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    min-width: 200px;
+}
+
+.settings-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+/* Buttons */
+.settings-btn {
+    padding: 8px 16px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.settings-btn:hover {
+    background: var(--bg-glass-hover);
+    border-color: var(--border-default);
+}
+
+.settings-btn.primary {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.settings-btn.primary:hover {
+    filter: brightness(1.1);
+}
+
+.settings-btn.danger {
+    background: var(--accent-danger-dim);
+    border-color: var(--accent-danger);
+    color: var(--accent-danger);
+}
+
+.settings-btn.danger:hover {
+    background: var(--accent-danger);
+    color: white;
+}
+
+/* Pill Buttons */
+.pill-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pill-btn {
+    padding: 6px 14px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.pill-btn:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+}
+
+.pill-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+/* Info Cards */
+.info-card {
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.info-card-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.info-card-value {
+    font-family: var(--font-mono);
+    font-size: 14px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+/* Danger Zone */
+.danger-zone {
+    border-color: var(--accent-danger);
+    background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(239, 68, 68, 0.03) 100%);
+}
+
+.danger-zone .settings-section-header {
+    background: var(--accent-danger-dim);
+    border-bottom-color: var(--accent-danger);
+}
+
+.danger-zone .settings-section-title {
+    color: var(--accent-danger);
+}
+
+/* Output Console */
+.console-output {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: #0a0a0f;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 12px;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+    .settings-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .settings-nav-divider {
+        display: none;
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-subtitle">Configure system preferences, models, and behavior</p>
+    <p class="help-text">Manage robot identity, agent behavior, hardware preferences, and safety settings. Changes are saved automatically.</p>
+</div>
+
+<div class="settings-layout">
+    <!-- Navigation -->
+    <div class="settings-nav">
+        <button class="settings-nav-item active" data-section="general" onclick="showSection('general')">
+            <span class="icon">⚙️</span>
+            <span>General</span>
+        </button>
+        <button class="settings-nav-item" data-section="models" onclick="showSection('models')">
+            <span class="icon">🧠</span>
+            <span>Models & AI</span>
+        </button>
+        <button class="settings-nav-item" data-section="persona" onclick="showSection('persona')">
+            <span class="icon">🎭</span>
+            <span>Persona</span>
+        </button>
+        <button class="settings-nav-item" data-section="hardware" onclick="showSection('hardware')">
+            <span class="icon">🔧</span>
+            <span>Hardware</span>
+        </button>
+        <div class="settings-nav-divider"></div>
+        <button class="settings-nav-item" data-section="safety" onclick="showSection('safety')">
+            <span class="icon">🛡️</span>
+            <span>Safety</span>
+        </button>
+        <button class="settings-nav-item" data-section="network" onclick="showSection('network')">
+            <span class="icon">📡</span>
+            <span>Network</span>
+        </button>
+        <div class="settings-nav-divider"></div>
+        <button class="settings-nav-item" data-section="advanced" onclick="showSection('advanced')">
+            <span class="icon">🔬</span>
+            <span>Advanced</span>
+        </button>
+        <button class="settings-nav-item" data-section="danger" onclick="showSection('danger')">
+            <span class="icon">⚠️</span>
+            <span>Danger Zone</span>
+        </button>
+    </div>
+
+    <!-- Content Sections -->
+    <div class="settings-content">
+        <!-- General Settings -->
+        <div class="settings-section" id="section-general">
+            <div class="settings-section-header">
+                <span class="settings-section-title">General Settings</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Robot Name</div>
+                        <div class="setting-description">Display name shown in the header and RCAN identity</div>
+                    </div>
+                    <div class="setting-control">
+                        <input type="text" class="settings-input" id="robot-name-input" placeholder="ContinuonBot" value="">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Language</div>
+                        <div class="setting-description">UI and agent response language</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="language-select">
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="ja">Japanese</option>
+                            <option value="zh">Chinese</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Theme</div>
+                        <div class="setting-description">Visual appearance of the interface</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="theme-select">
+                            <option value="dark">Dark (Default)</option>
+                            <option value="darker">Darker</option>
+                            <option value="midnight">Midnight Blue</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Sound Effects</div>
+                        <div class="setting-description">Play audio feedback for actions and alerts</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch active" id="sound-toggle" onclick="toggleSetting('sound')"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Notifications</div>
+                        <div class="setting-description">Show browser notifications for important events</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch" id="notifications-toggle" onclick="toggleSetting('notifications')"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Models & AI -->
+        <div class="settings-section" id="section-models" style="display: none;">
+            <div class="settings-section-header">
+                <span class="settings-section-title">Models & AI</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Primary Model</div>
+                        <div class="setting-description">Main model for Agent Manager inference</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="model-select">
+                            <option value="wavecore-mamba">WaveCore Mamba (12.8M)</option>
+                            <option value="gemma-3n">Gemma 3n (JAX)</option>
+                            <option value="gemma-transformer">Gemma Transformer</option>
+                            <option value="hailo-runtime">Hailo Runtime</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Vision Model</div>
+                        <div class="setting-description">Model for object detection and segmentation</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="vision-model-select">
+                            <option value="yolov8s">YOLOv8s (Hailo)</option>
+                            <option value="yolov8m">YOLOv8m (Hailo)</option>
+                            <option value="yolov8n">YOLOv8n (Fast)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Inference Temperature</div>
+                        <div class="setting-description">Higher = more creative, lower = more focused</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="slider-container">
+                            <input type="range" class="slider-input" id="temperature-slider" min="0" max="1" step="0.05" value="0.35">
+                            <span class="slider-value" id="temperature-value">0.35</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Max Response Tokens</div>
+                        <div class="setting-description">Maximum length of agent responses</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="max-tokens-select">
+                            <option value="256">256 (Fast)</option>
+                            <option value="512" selected>512 (Balanced)</option>
+                            <option value="1024">1024 (Detailed)</option>
+                            <option value="2048">2048 (Long)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Sub-Agents</div>
+                        <div class="setting-description">Enable/disable specialized agent modules</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="pill-group">
+                            <button class="pill-btn active" data-agent="planner">Planner</button>
+                            <button class="pill-btn active" data-agent="navigator">Navigator</button>
+                            <button class="pill-btn" data-agent="safety">Safety</button>
+                            <button class="pill-btn active" data-agent="recorder">Recorder</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Persona Settings -->
+        <div class="settings-section" id="section-persona" style="display: none;">
+            <div class="settings-section-header">
+                <span class="settings-section-title">Persona & Behavior</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Persona Role</div>
+                        <div class="setting-description">Preset personality configuration</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="persona-select">
+                            <option value="operator">Operator</option>
+                            <option value="safety_officer">Safety Officer</option>
+                            <option value="demo_host">Demo Host</option>
+                            <option value="researcher">Researcher</option>
+                            <option value="assistant">Assistant</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Response Style</div>
+                        <div class="setting-description">How detailed should responses be</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="response-style-select">
+                            <option value="concise">Concise</option>
+                            <option value="balanced">Balanced</option>
+                            <option value="detailed">Detailed</option>
+                            <option value="technical">Technical</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Empathy Level</div>
+                        <div class="setting-description">How emotionally attuned responses should be</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="slider-container">
+                            <input type="range" class="slider-input" id="empathy-slider" min="0" max="1" step="0.05" value="0.5">
+                            <span class="slider-value" id="empathy-value">0.50</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Verbosity</div>
+                        <div class="setting-description">How much detail to include in responses</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="slider-container">
+                            <input type="range" class="slider-input" id="verbosity-slider" min="0" max="1" step="0.05" value="0.5">
+                            <span class="slider-value" id="verbosity-value">0.50</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Humor Level</div>
+                        <div class="setting-description">How playful responses can be</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="slider-container">
+                            <input type="range" class="slider-input" id="humor-slider" min="0" max="1" step="0.05" value="0.3">
+                            <span class="slider-value" id="humor-value">0.30</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Behavior Flags</div>
+                        <div class="setting-description">Special behavior modifiers</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="pill-group">
+                            <button class="pill-btn active" data-flag="cautious">Cautious</button>
+                            <button class="pill-btn" data-flag="fast-iterate">Fast Iterate</button>
+                            <button class="pill-btn" data-flag="verbose-logs">Verbose Logs</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hardware Settings -->
+        <div class="settings-section" id="section-hardware" style="display: none;">
+            <div class="settings-section-header">
+                <span class="settings-section-title">Hardware Configuration</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-label">Accelerator</div>
+                        <div class="info-card-value" id="hw-accelerator">Hailo-8L</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Camera</div>
+                        <div class="info-card-value" id="hw-camera">OAK-D</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">CPU</div>
+                        <div class="info-card-value" id="hw-cpu">BCM2712</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">RAM</div>
+                        <div class="info-card-value" id="hw-ram">16GB</div>
+                    </div>
+                </div>
+                <div class="setting-row" style="margin-top: 20px;">
+                    <div class="setting-info">
+                        <div class="setting-label">Hardware Mode</div>
+                        <div class="setting-description">Run with real or simulated hardware</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="hardware-mode-select">
+                            <option value="auto">Auto-Detect</option>
+                            <option value="real">Real Hardware</option>
+                            <option value="mock">Mock (Simulated)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Camera Resolution</div>
+                        <div class="setting-description">Capture resolution for vision pipeline</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="camera-res-select">
+                            <option value="640x400">640x400 (Fast)</option>
+                            <option value="1280x720" selected>1280x720 (HD)</option>
+                            <option value="1920x1080">1920x1080 (Full HD)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Auto Power Save</div>
+                        <div class="setting-description">Reduce power usage when idle</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch active" id="power-save-toggle" onclick="toggleSetting('power-save')"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Safety Settings -->
+        <div class="settings-section" id="section-safety" style="display: none;">
+            <div class="settings-section-header">
+                <span class="settings-section-title">Safety & Motion</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Allow Motion</div>
+                        <div class="setting-description">Enable robot movement commands</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch active" id="motion-toggle" onclick="toggleSetting('motion')"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Record Episodes</div>
+                        <div class="setting-description">Automatically record RLDS training data</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch active" id="record-toggle" onclick="toggleSetting('record')"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Teleop Only Mode</div>
+                        <div class="setting-description">Disable autonomous actions, require human control</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch" id="teleop-toggle" onclick="toggleSetting('teleop')"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Safety Bias</div>
+                        <div class="setting-description">How cautious the robot should be</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="slider-container">
+                            <input type="range" class="slider-input" id="safety-slider" min="0" max="1" step="0.05" value="0.7">
+                            <span class="slider-value" id="safety-value">0.70</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Collision Detection Sensitivity</div>
+                        <div class="setting-description">How sensitive to potential collisions</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="collision-sensitivity-select">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="max">Maximum</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Settings -->
+        <div class="settings-section" id="section-network" style="display: none;">
+            <div class="settings-section-header">
+                <span class="settings-section-title">Network & Communication</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">RCAN Registry</div>
+                        <div class="setting-description">Cloud registry for robot identity</div>
+                    </div>
+                    <div class="setting-control">
+                        <input type="text" class="settings-input" id="rcan-registry-input" value="continuon.cloud" disabled>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">mDNS Discovery</div>
+                        <div class="setting-description">Enable local network discovery</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch active" id="mdns-toggle" onclick="toggleSetting('mdns')"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">API Port</div>
+                        <div class="setting-description">Port for the REST API server</div>
+                    </div>
+                    <div class="setting-control">
+                        <input type="text" class="settings-input" id="api-port-input" value="8081" style="min-width: 100px;">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">WebSocket Events</div>
+                        <div class="setting-description">Enable real-time event streaming</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch active" id="websocket-toggle" onclick="toggleSetting('websocket')"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Settings -->
+        <div class="settings-section" id="section-advanced" style="display: none;">
+            <div class="settings-section-header">
+                <span class="settings-section-title">Advanced Settings</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Debug Mode</div>
+                        <div class="setting-description">Enable verbose logging and debug endpoints</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch" id="debug-toggle" onclick="toggleSetting('debug')"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Profiling</div>
+                        <div class="setting-description">Enable performance profiling</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="toggle-switch" id="profiling-toggle" onclick="toggleSetting('profiling')"></div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Log Level</div>
+                        <div class="setting-description">Minimum severity level for logs</div>
+                    </div>
+                    <div class="setting-control">
+                        <select class="settings-select" id="log-level-select">
+                            <option value="debug">Debug</option>
+                            <option value="info" selected>Info</option>
+                            <option value="warning">Warning</option>
+                            <option value="error">Error</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Export Logs</div>
+                        <div class="setting-description">Download system logs for debugging</div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="settings-btn" onclick="exportLogs()">Download Logs</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Clear Cache</div>
+                        <div class="setting-description">Clear temporary files and cached data</div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="settings-btn" onclick="clearCache()">Clear Cache</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="settings-section danger-zone" id="section-danger" style="display: none;">
+            <div class="settings-section-header">
+                <span class="settings-section-title">Danger Zone</span>
+            </div>
+            <div class="settings-section-body">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Factory Reset</div>
+                        <div class="setting-description">Wipe all data including model, adapters, RLDS episodes, and checkpoints</div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="settings-btn danger" onclick="showResetDialog()">Factory Reset</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Clear Memories Only</div>
+                        <div class="setting-description">Wipe episodic memories but keep model folders</div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="settings-btn danger" onclick="showClearMemoriesDialog()">Clear Memories</button>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Promote Candidate Model</div>
+                        <div class="setting-description">Promote the candidate checkpoint to current model</div>
+                    </div>
+                    <div class="setting-control">
+                        <button class="settings-btn" onclick="promoteCandidate()">Promote Candidate</button>
+                    </div>
+                </div>
+                <div class="console-output" id="danger-output">Ready.</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+// Settings page logic
+let currentSection = 'general';
+
+function showSection(section) {
+    currentSection = section;
+
+    // Update nav
+    document.querySelectorAll('.settings-nav-item').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.section === section);
+    });
+
+    // Show/hide sections
+    document.querySelectorAll('.settings-section').forEach(sec => {
+        sec.style.display = 'none';
+    });
+    document.getElementById('section-' + section).style.display = 'block';
+}
+
+function toggleSetting(setting) {
+    const toggle = document.getElementById(setting + '-toggle');
+    toggle.classList.toggle('active');
+    saveSetting(setting, toggle.classList.contains('active'));
+}
+
+function saveSetting(key, value) {
+    const settings = JSON.parse(localStorage.getItem('continuon_settings') || '{}');
+    settings[key] = value;
+    localStorage.setItem('continuon_settings', JSON.stringify(settings));
+    console.log('Saved setting:', key, value);
+}
+
+// Slider handlers
+document.querySelectorAll('.slider-input').forEach(slider => {
+    slider.addEventListener('input', function() {
+        const valueSpan = document.getElementById(this.id.replace('-slider', '-value'));
+        if (valueSpan) {
+            valueSpan.textContent = parseFloat(this.value).toFixed(2);
+        }
+        saveSetting(this.id.replace('-slider', ''), parseFloat(this.value));
+    });
+});
+
+// Pill button handlers
+document.querySelectorAll('.pill-btn').forEach(pill => {
+    pill.addEventListener('click', function() {
+        this.classList.toggle('active');
+    });
+});
+
+// Load settings
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/discovery/info');
+        const data = await response.json();
+        if (data.robot_name) {
+            document.getElementById('robot-name-input').value = data.robot_name;
+        }
+    } catch (error) {
+        console.error('Failed to load settings:', error);
+    }
+
+    // Load hardware info
+    try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        if (data.status && data.status.hardware_mode) {
+            document.getElementById('hardware-mode-select').value = data.status.hardware_mode;
+        }
+        if (data.runtime_context && data.runtime_context.hardware) {
+            const hw = data.runtime_context.hardware;
+            if (hw.accelerator) document.getElementById('hw-accelerator').textContent = hw.accelerator;
+            if (hw.system) {
+                if (hw.system.ram_total_gb) {
+                    document.getElementById('hw-ram').textContent = hw.system.ram_total_gb.toFixed(0) + 'GB';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load status:', error);
+    }
+
+    // Load local settings
+    const settings = JSON.parse(localStorage.getItem('continuon_settings') || '{}');
+    for (const [key, value] of Object.entries(settings)) {
+        const toggle = document.getElementById(key + '-toggle');
+        if (toggle) {
+            toggle.classList.toggle('active', value);
+        }
+        const slider = document.getElementById(key + '-slider');
+        if (slider) {
+            slider.value = value;
+            const valueSpan = document.getElementById(key + '-value');
+            if (valueSpan) valueSpan.textContent = parseFloat(value).toFixed(2);
+        }
+    }
+}
+
+async function exportLogs() {
+    try {
+        const response = await fetch('/api/system/logs');
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'continuon_logs_' + new Date().toISOString().slice(0, 10) + '.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        alert('Failed to export logs: ' + error.message);
+    }
+}
+
+async function clearCache() {
+    if (confirm('Clear all cached data?')) {
+        try {
+            await fetch('/api/system/cache', { method: 'DELETE' });
+            alert('Cache cleared');
+        } catch (error) {
+            alert('Failed to clear cache: ' + error.message);
+        }
+    }
+}
+
+async function showResetDialog() {
+    const confirm1 = prompt('Type "FACTORY RESET" to confirm:');
+    if (confirm1 !== 'FACTORY RESET') {
+        document.getElementById('danger-output').textContent = 'Reset cancelled.';
+        return;
+    }
+
+    const output = document.getElementById('danger-output');
+    output.textContent = 'Executing factory reset...';
+
+    try {
+        const response = await fetch('/api/admin/factory_reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile: 'factory', confirm: 'FACTORY RESET' })
+        });
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+        output.textContent = 'Error: ' + error.message;
+    }
+}
+
+async function showClearMemoriesDialog() {
+    const confirm1 = prompt('Type "CLEAR MEMORIES" to confirm:');
+    if (confirm1 !== 'CLEAR MEMORIES') {
+        document.getElementById('danger-output').textContent = 'Operation cancelled.';
+        return;
+    }
+
+    const output = document.getElementById('danger-output');
+    output.textContent = 'Clearing memories...';
+
+    try {
+        const response = await fetch('/api/admin/factory_reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile: 'memories_only', confirm: 'CLEAR MEMORIES' })
+        });
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+        output.textContent = 'Error: ' + error.message;
+    }
+}
+
+async function promoteCandidate() {
+    if (!confirm('Promote candidate model to current?')) return;
+
+    const output = document.getElementById('danger-output');
+    output.textContent = 'Promoting candidate...';
+
+    try {
+        const response = await fetch('/api/admin/promote_candidate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+        output.textContent = 'Error: ' + error.message;
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', loadSettings);
+{% endblock %}

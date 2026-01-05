@@ -847,6 +847,250 @@ class BrainClient {
     return setRobotMode('reflex');
   }
 
+  // ===== Learning / Slow Loop APIs =====
+
+  /// Get learning system status
+  Future<Map<String, dynamic>> getLearningStatus() async {
+    if (_host == null) return {'enabled': false, 'running': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/learning/status');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Learning status failed: $e');
+    }
+    return {'enabled': false, 'running': false};
+  }
+
+  /// Get detailed learning progress metrics
+  Future<Map<String, dynamic>> getLearningProgress() async {
+    if (_host == null) return {};
+    final uri = Uri.http('$_host:$_httpPort', '/api/learning/progress');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Learning progress failed: $e');
+    }
+    return {};
+  }
+
+  /// Get all learning metrics including curiosity, surprise, and history
+  Future<Map<String, dynamic>> getLearningMetrics({int? limit}) async {
+    if (_host == null) return {};
+    final queryParams = <String, String>{};
+    if (limit != null) queryParams['limit'] = limit.toString();
+    final uri = Uri.http('$_host:$_httpPort', '/api/training/metrics', queryParams);
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Learning metrics failed: $e');
+    }
+    return {};
+  }
+
+  /// Pause learning
+  Future<bool> pauseLearning() async {
+    if (_host == null) return false;
+    final uri = Uri.http('$_host:$_httpPort', '/api/learning/pause');
+    try {
+      final response = await http.post(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      debugPrint('Pause learning failed: $e');
+    }
+    return false;
+  }
+
+  /// Resume learning
+  Future<bool> resumeLearning() async {
+    if (_host == null) return false;
+    final uri = Uri.http('$_host:$_httpPort', '/api/learning/resume');
+    try {
+      final response = await http.post(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      debugPrint('Resume learning failed: $e');
+    }
+    return false;
+  }
+
+  /// Reset learning (stop and restart)
+  Future<bool> resetLearning() async {
+    if (_host == null) return false;
+    final uri = Uri.http('$_host:$_httpPort', '/api/learning/reset');
+    try {
+      final response = await http.post(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      debugPrint('Reset learning failed: $e');
+    }
+    return false;
+  }
+
+  /// Get training benchmarks history
+  Future<Map<String, dynamic>> getTrainingBenchmarks() async {
+    if (_host == null) return {'benchmarks': []};
+    final uri = Uri.http('$_host:$_httpPort', '/api/training/benchmarks');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Training benchmarks failed: $e');
+    }
+    return {'benchmarks': []};
+  }
+
+  // ===== OTA Update APIs =====
+
+  /// Check for available updates
+  Future<Map<String, dynamic>> checkForUpdates() async {
+    if (_host == null) return {'update_available': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/updates/check');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Check updates failed: $e');
+    }
+    return {'update_available': false};
+  }
+
+  /// Get current OTA update status
+  Future<Map<String, dynamic>> getUpdateStatus() async {
+    if (_host == null) return {};
+    final uri = Uri.http('$_host:$_httpPort', '/api/updates/status');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Update status failed: $e');
+    }
+    return {};
+  }
+
+  /// Download an update to the candidate directory
+  Future<Map<String, dynamic>> downloadUpdate({String? modelId, String? version}) async {
+    if (_host == null) return {'success': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/updates/download');
+    try {
+      final body = <String, dynamic>{};
+      if (modelId != null) body['model_id'] = modelId;
+      if (version != null) body['version'] = version;
+
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json', ..._headers()},
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('Download update failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Activate the downloaded update
+  Future<Map<String, dynamic>> activateUpdate({bool runHealthCheck = true, bool force = false}) async {
+    if (_host == null) return {'success': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/updates/activate');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json', ..._headers()},
+        body: jsonEncode({
+          'run_health_check': runHealthCheck,
+          'force': force,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('Activate update failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Rollback to the previous version
+  Future<Map<String, dynamic>> rollbackUpdate() async {
+    if (_host == null) return {'success': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/updates/rollback');
+    try {
+      final response = await http.post(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('Rollback update failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // ===== Robot Initialization APIs =====
+
+  /// Get robot name and creator info
+  Future<Map<String, dynamic>> getRobotName() async {
+    if (_host == null) return {};
+    final uri = Uri.http('$_host:$_httpPort', '/api/robot/name');
+    try {
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Get robot name failed: $e');
+    }
+    return {};
+  }
+
+  /// Set robot name
+  Future<Map<String, dynamic>> setRobotName(String name) async {
+    if (_host == null) return {'success': false};
+    final uri = Uri.http('$_host:$_httpPort', '/api/robot/name');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json', ..._headers()},
+        body: jsonEncode({'robot_name': name}),
+      );
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+      return {'success': false, 'error': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('Set robot name failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   Stream<Map<String, dynamic>> subscribeToEvents() async* {
     if (_host == null) return;
 

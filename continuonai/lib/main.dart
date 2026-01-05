@@ -15,6 +15,12 @@ import 'screens/robot_portal_screen.dart';
 import 'screens/pair_robot_screen.dart';
 import 'screens/research_screen.dart';
 import 'screens/youtube_import_screen.dart';
+import 'screens/robot_detail_screen.dart';
+import 'screens/robot_init_wizard_screen.dart';
+import 'screens/seed_model_update_screen.dart';
+import 'screens/slow_loop_dashboard_screen.dart';
+import 'screens/unified_qr_scanner_screen.dart';
+import 'screens/find_robot_screen.dart';
 import 'services/brain_client.dart';
 import 'services/gemma_runtime.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,6 +28,8 @@ import 'blocs/auth/auth_bloc.dart';
 import 'blocs/robot/robot_context_bloc.dart';
 import 'blocs/thought/brain_thought_bloc.dart';
 import 'blocs/thought/brain_thought_event.dart';
+import 'blocs/learning/learning_bloc.dart';
+import 'blocs/ota/ota_bloc.dart';
 
 import 'theme/continuon_theme.dart';
 
@@ -51,6 +59,10 @@ void main() async {
         BlocProvider(
             create: (context) => BrainThoughtBloc(brainClient: brainClient)
               ..add(ThoughtSubscriptionRequested())),
+        BlocProvider(
+            create: (context) => LearningBloc(brainClient: brainClient)),
+        BlocProvider(
+            create: (context) => OTABloc(brainClient: brainClient)),
       ],
       child: MyApp(brainClient: brainClient),
     ),
@@ -113,6 +125,27 @@ class MyApp extends StatelessWidget {
             RecordScreen(brainClient: brainClient),
         ModelManagerScreen.routeName: (context) =>
             ModelManagerScreen(brainClient: brainClient),
+        RobotDetailScreen.routeName: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map<String, dynamic>) {
+            return RobotDetailScreen(
+              brainClient: brainClient,
+              robotId: args['robotId'] as String?,
+              robotName: args['robotName'] as String?,
+            );
+          }
+          return RobotDetailScreen(brainClient: brainClient);
+        },
+        RobotInitWizardScreen.routeName: (context) =>
+            RobotInitWizardScreen(brainClient: brainClient),
+        SeedModelUpdateScreen.routeName: (context) =>
+            SeedModelUpdateScreen(brainClient: brainClient),
+        SlowLoopDashboardScreen.routeName: (context) =>
+            SlowLoopDashboardScreen(brainClient: brainClient),
+        UnifiedQRScannerScreen.routeName: (context) =>
+            UnifiedQRScannerScreen(brainClient: brainClient),
+        FindRobotScreen.routeName: (context) =>
+            FindRobotScreen(brainClient: brainClient),
       },
     );
   }

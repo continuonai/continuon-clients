@@ -1098,7 +1098,7 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_settings_html().encode("utf-8"))
+                self.wfile.write(ui_routes.get_v2_settings_html().encode("utf-8"))
 
             elif self.path in ("/control", "/control/"):
                 self.send_response(200)
@@ -1131,11 +1131,18 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.wfile.write(ui_routes.get_v2_network_html().encode("utf-8"))
 
             elif self.path in ("/agent", "/agent/"):
-                # Agent page - shows HOPE agent chat expanded view
+                # Agent page - shows HOPE agent console with thought process and sub-agents
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(ui_routes.get_v2_dashboard_html().encode("utf-8"))
+                self.wfile.write(ui_routes.get_v2_agent_html().encode("utf-8"))
+
+            elif self.path in ("/connect", "/connect/", "/find", "/find/"):
+                # Find My Robot page - QR scanner for easy robot discovery and pairing
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_connect_html().encode("utf-8"))
 
             elif self.path in ("/training_proof", "/training_proof/"):
                 self.send_response(200)
@@ -1460,6 +1467,12 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
                 self.wfile.write(ui_routes.get_v2_settings_html().encode("utf-8"))
+
+            elif self.path in ("/v2/connect", "/v2/find"):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(ui_routes.get_v2_connect_html().encode("utf-8"))
 
             elif self.path == "/api/vision/status":
                 # Return vision subsystem status
@@ -3658,9 +3671,10 @@ def main():
     args = parser.parse_args()
 
     # Check environment variables as fallback for hardware mode
-    env_real_hw = os.environ.get("CONTINUON_FORCE_REAL_HARDWARE", "0").lower() in ("1", "true", "yes")
+    # Default: REAL hardware mode (unless mock is explicitly requested)
+    env_real_hw = os.environ.get("CONTINUON_FORCE_REAL_HARDWARE", "1").lower() in ("1", "true", "yes")
     env_mock_hw = os.environ.get("CONTINUON_FORCE_MOCK_HARDWARE", "0").lower() in ("1", "true", "yes")
-    prefer_real = (args.real_hardware or env_real_hw) and not (args.mock_hardware or env_mock_hw)
+    prefer_real = not (args.mock_hardware or env_mock_hw)  # Real is default, mock must be explicit
     desired_port = args.port
     event_logger = SystemEventLogger(args.config_dir)
 

@@ -793,7 +793,7 @@
                              onclick="editRobotName()" onblur="saveRobotName()" 
                              onkeydown="handleNameKey(event)" title="Click to edit robot name">Loading...</div>
                         <div class="robot-ruri" id="robot-ruri">rcan://...</div>
-                        <div class="creator-name" id="creator-name">by Craig Michael Merry</div>
+                        <div class="creator-name" id="creator-name"></div>
                     </div>
                 </div>
             </div>
@@ -821,16 +821,17 @@
 
         <!-- NAV RAIL -->
         <nav class="nav-rail" role="navigation" aria-label="Main navigation">
-            <button class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')" title="Dashboard - System overview and status" aria-label="Dashboard">🏠</button>
-            <button class="nav-item" data-page="control" onclick="navigateTo('control')" title="Control - Manual robot control & camera" aria-label="Control Center">🎮</button>
-            <button class="nav-item" data-page="training" onclick="navigateTo('training')" title="Training - ML pipeline & teacher mode" aria-label="Training Hub">🧠</button>
-            <button class="nav-item" data-page="safety" onclick="navigateTo('safety')" title="Safety - Ring 0 kernel & work authorization" aria-label="Safety Center">🛡️</button>
+            <button class="nav-item{% if active_page == 'dashboard' %} active{% endif %}" data-page="dashboard" onclick="navigateTo('dashboard')" title="Dashboard - System overview and status" aria-label="Dashboard">🏠</button>
+            <button class="nav-item{% if active_page == 'control' %} active{% endif %}" data-page="control" onclick="navigateTo('control')" title="Control - Manual robot control & camera" aria-label="Control Center">🎮</button>
+            <button class="nav-item{% if active_page == 'training' %} active{% endif %}" data-page="training" onclick="navigateTo('training')" title="Training - ML pipeline & teacher mode" aria-label="Training Hub">🧠</button>
+            <button class="nav-item{% if active_page == 'safety' %} active{% endif %}" data-page="safety" onclick="navigateTo('safety')" title="Safety - Ring 0 kernel & work authorization" aria-label="Safety Center">🛡️</button>
             <div class="nav-divider" role="separator"></div>
-            <button class="nav-item" data-page="network" onclick="navigateTo('network')" title="Network - RCAN, WiFi & Bluetooth" aria-label="Network Settings">📡</button>
-            <button class="nav-item" data-page="agent" onclick="navigateTo('agent')" title="Agent - Chat with HOPE AI assistant" aria-label="Agent Chat">💬</button>
+            <button class="nav-item{% if active_page == 'network' %} active{% endif %}" data-page="network" onclick="navigateTo('network')" title="Network - RCAN, WiFi & Bluetooth" aria-label="Network Settings">📡</button>
+            <button class="nav-item{% if active_page == 'agent' %} active{% endif %}" data-page="agent" onclick="navigateTo('agent')" title="Agent - Chat with HOPE AI assistant" aria-label="Agent Chat">💬</button>
+            <button class="nav-item{% if active_page == 'connect' %} active{% endif %}" data-page="connect" onclick="navigateTo('connect')" title="Find My Robot - Scan QR code to connect" aria-label="Find Robot">🔍</button>
             <div class="nav-spacer"></div>
             <div class="nav-divider" role="separator"></div>
-            <button class="nav-item" data-page="settings" onclick="navigateTo('settings')" title="Settings - System configuration" aria-label="Settings">⚙️</button>
+            <button class="nav-item{% if active_page == 'settings' %} active{% endif %}" data-page="settings" onclick="navigateTo('settings')" title="Settings - System configuration" aria-label="Settings">⚙️</button>
         </nav>
 
         <!-- MAIN WORKSPACE -->
@@ -891,8 +892,8 @@
         // ============================================
         // CORE APP LOGIC
         // ============================================
-        
-        let currentPage = 'dashboard';
+
+        let currentPage = '{{ active_page|default("dashboard") }}';
         let robotState = {};
         
         // Navigation - use clean routes
@@ -1036,7 +1037,7 @@
                 const response = await fetch('/api/discovery/info');
                 const data = await response.json();
                 document.getElementById('robot-name').textContent = data.robot_name || 'ContinuonBot';
-                document.getElementById('creator-name').textContent = `by ${data.creator_name || 'Craig Michael Merry'}`;
+                // Creator name removed from display
                 if (data.rcan && data.rcan.ruri) {
                     document.getElementById('robot-ruri').textContent = data.rcan.ruri;
                 }
