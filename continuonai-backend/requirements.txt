@@ -1,0 +1,31 @@
+# ContinuonAI Backend API Dependencies
+
+# Web framework
+fastapi>=0.109.0,<1.0.0
+uvicorn[standard]>=0.27.0,<1.0.0
+python-multipart>=0.0.6  # For file uploads
+
+# Pydantic for data validation
+pydantic>=2.5.0,<3.0.0
+pydantic-settings>=2.1.0,<3.0.0
+email-validator>=2.1.0  # For email validation in Pydantic
+
+# Firebase Admin SDK
+firebase-admin>=6.3.0,<7.0.0
+
+# Google Cloud
+google-cloud-firestore>=2.14.0,<3.0.0
+google-cloud-storage>=2.14.0,<3.0.0
+google-cloud-aiplatform>=1.38.0,<2.0.0  # For Vertex AI training
+
+# HTTP client
+httpx>=0.26.0,<1.0.0
+
+# Utilities
+python-dotenv>=1.0.0  # For .env file support
+
+# Testing (optional, for development)
+pytest>=7.4.0,<8.0.0
+pytest-asyncio>=0.23.0,<1.0.0
+pytest-cov>=4.1.0,<5.0.0
+httpx>=0.26.0  # For TestClient

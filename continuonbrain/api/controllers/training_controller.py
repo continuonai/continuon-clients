@@ -2,16 +2,40 @@
 Training Controller - API endpoints for brain training management.
 
 Simple API for the SimpleBrainTrainer (JAX CoreModel only).
+Also includes cloud training endpoints for GCP-based training.
 """
 
+import asyncio
 import json
 import logging
-from typing import Any, Dict
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from continuonbrain.core.security import UserRole
 from continuonbrain.api.middleware.auth import require_role
 
 logger = logging.getLogger(__name__)
+
+# Cloud training service (lazy loaded)
+_cloud_training_service: Optional[Any] = None
+
+
+def _get_cloud_training_service():
+    """Lazy load the cloud training service."""
+    global _cloud_training_service
+    if _cloud_training_service is None:
+        try:
+            from continuonbrain.services.cloud_training import (
+                CloudTrainingService,
+                CloudTrainingConfig,
+            )
+            config_path = Path("/opt/continuonos/brain/config/cloud_training.yaml")
+            _cloud_training_service = CloudTrainingService(config_path=config_path)
+        except ImportError as e:
+            logger.warning(f"Cloud training not available: {e}")
+            _cloud_training_service = None
+    return _cloud_training_service
 
 
 class TrainingControllerMixin:
@@ -349,3 +373,365 @@ class TrainingControllerMixin:
         if brain_service is None:
             return None
         return getattr(brain_service, 'brain_trainer', None)
+
+    # =========================================================================
+    # Cloud Training Endpoints
+    # =========================================================================
+
+    @require_role(UserRole.CONSUMER)
+    def handle_cloud_training_status(self):
+        """
+        GET /api/training/cloud/status
+        Get cloud training service status.
+        """
+        try:
+            service = _get_cloud_training_service()
+            if service is None:
+                self.send_json({
+                    "success": True,
+                    "status": {
+                        "available": False,
+                        "message": "Cloud training service not available",
+                    }
+                })
+                return
+
+            status = service.get_status()
+            self.send_json({"success": True, "status": status})
+        except Exception as e:
+            logger.error(f"Cloud training status error: {e}")
+            self.send_json({"success": False, "error": str(e)}, status=500)
+
+    @require_role(UserRole.CREATOR)
+    def handle_cloud_training_upload(self, body: str):
+        """
+        POST /api/training/cloud/upload
+        Upload episodes for cloud training.
+
+        Request body:
+        {
+            "episodes_dir": "/path/to/episodes",  // optional
+            "episode_ids": ["ep1", "ep2"],        // optional, filter by IDs
+            "compress": true                       // optional, default true
+        }
+        """
+        try:
+            service = _get_cloud_training_service()
+            if service is None:
+                self.send_json({
+                    "success": False,
+                    "error": "Cloud training service not available"
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+
+            episodes_dir = None
+            if data.get("episodes_dir"):
+                episodes_dir = Path(data["episodes_dir"])
+
+            episode_ids = data.get("episode_ids")
+            compress = data.get("compress", True)
+
+            # Run async upload
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(
+                    service.upload_episodes(
+                        local_dir=episodes_dir,
+                        episode_ids=episode_ids,
+                        compress=compress,
+                    )
+                )
+            finally:
+                loop.close()
+
+            if result.get("success"):
+                self.send_json(result)
+            else:
+                self.send_json(result, status=500)
+
+        except Exception as e:
+            logger.error(f"Cloud upload error: {e}")
+            self.send_json({"success": False, "error": str(e)}, status=500)
+
+    @require_role(UserRole.CREATOR)
+    def handle_cloud_training_trigger(self, body: str):
+        """
+        POST /api/training/cloud/trigger
+        Start a cloud training job.
+
+        Request body:
+        {
+            "episodes_uri": "gs://bucket/path",   // required if not auto-uploading
+            "auto_upload": true,                   // upload local episodes first
+            "config": {
+                "epochs": 100,
+                "batch_size": 32,
+                "learning_rate": 0.0001,
+                "model_type": "wavecore",
+                "arch_preset": "cloud"
+            }
+        }
+        """
+        try:
+            service = _get_cloud_training_service()
+            if service is None:
+                self.send_json({
+                    "success": False,
+                    "error": "Cloud training service not available"
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+
+            episodes_uri = data.get("episodes_uri")
+            auto_upload = data.get("auto_upload", False)
+            config_data = data.get("config", {})
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # Auto-upload if requested
+                if auto_upload and not episodes_uri:
+                    upload_result = loop.run_until_complete(
+                        service.upload_episodes(compress=True)
+                    )
+                    if not upload_result.get("success"):
+                        self.send_json({
+                            "success": False,
+                            "error": f"Episode upload failed: {upload_result.get('error')}",
+                        }, status=500)
+                        return
+                    episodes_uri = upload_result.get("gcs_uri")
+
+                if not episodes_uri:
+                    self.send_json({
+                        "success": False,
+                        "error": "episodes_uri required (or use auto_upload=true)",
+                    }, status=400)
+                    return
+
+                # Create training config
+                from continuonbrain.services.cloud_training import TrainingJobConfig
+                training_config = TrainingJobConfig(
+                    model_type=config_data.get("model_type", "wavecore"),
+                    epochs=config_data.get("epochs", 100),
+                    batch_size=config_data.get("batch_size", 32),
+                    learning_rate=config_data.get("learning_rate", 1e-4),
+                    obs_dim=config_data.get("obs_dim", 128),
+                    action_dim=config_data.get("action_dim", 32),
+                    output_dim=config_data.get("output_dim", 32),
+                    arch_preset=config_data.get("arch_preset", "cloud"),
+                    use_tpu=config_data.get("use_tpu", False),
+                    use_gpu=config_data.get("use_gpu", True),
+                    mixed_precision=config_data.get("mixed_precision", True),
+                    sparsity_lambda=config_data.get("sparsity_lambda", 0.0),
+                )
+
+                # Trigger training
+                result = loop.run_until_complete(
+                    service.trigger_training(
+                        episodes_uri=episodes_uri,
+                        config=training_config,
+                    )
+                )
+            finally:
+                loop.close()
+
+            if result.get("success"):
+                self.send_json(result)
+            else:
+                self.send_json(result, status=500)
+
+        except Exception as e:
+            logger.error(f"Cloud trigger error: {e}")
+            self.send_json({"success": False, "error": str(e)}, status=500)
+
+    @require_role(UserRole.CONSUMER)
+    def handle_cloud_training_job_status(self, job_id: str):
+        """
+        GET /api/training/cloud/status/{job_id}
+        Get status of a specific training job.
+        """
+        try:
+            service = _get_cloud_training_service()
+            if service is None:
+                self.send_json({
+                    "success": False,
+                    "error": "Cloud training service not available"
+                }, status=503)
+                return
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(service.get_job_status(job_id))
+            finally:
+                loop.close()
+
+            self.send_json({
+                "success": True,
+                "job_id": result.job_id,
+                "status": result.status.value,
+                "model_uri": result.model_uri,
+                "final_loss": result.final_loss,
+                "training_time_seconds": result.training_time_seconds,
+                "epochs_completed": result.epochs_completed,
+                "metrics": result.metrics,
+                "error_message": result.error_message,
+                "created_at": result.created_at,
+                "completed_at": result.completed_at,
+            })
+
+        except Exception as e:
+            logger.error(f"Cloud job status error: {e}")
+            self.send_json({"success": False, "error": str(e)}, status=500)
+
+    @require_role(UserRole.CONSUMER)
+    def handle_cloud_training_jobs(self):
+        """
+        GET /api/training/cloud/jobs
+        List recent training jobs.
+        """
+        try:
+            service = _get_cloud_training_service()
+            if service is None:
+                self.send_json({
+                    "success": True,
+                    "jobs": [],
+                    "message": "Cloud training service not available",
+                })
+                return
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                jobs = loop.run_until_complete(service.list_jobs(limit=20))
+            finally:
+                loop.close()
+
+            jobs_data = []
+            for job in jobs:
+                jobs_data.append({
+                    "job_id": job.job_id,
+                    "status": job.status.value,
+                    "model_uri": job.model_uri,
+                    "final_loss": job.final_loss,
+                    "training_time_seconds": job.training_time_seconds,
+                    "created_at": job.created_at,
+                    "completed_at": job.completed_at,
+                })
+
+            self.send_json({"success": True, "jobs": jobs_data})
+
+        except Exception as e:
+            logger.error(f"Cloud jobs list error: {e}")
+            self.send_json({"success": False, "error": str(e)}, status=500)
+
+    @require_role(UserRole.CREATOR)
+    def handle_cloud_training_download(self, body: str):
+        """
+        POST /api/training/cloud/download/{job_id}
+        Download trained model from completed job.
+
+        Request body:
+        {
+            "job_id": "job_abc123",
+            "dest_dir": "/path/to/download",  // optional
+            "install": true                    // optional, install to adapters
+        }
+        """
+        try:
+            service = _get_cloud_training_service()
+            if service is None:
+                self.send_json({
+                    "success": False,
+                    "error": "Cloud training service not available"
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+
+            job_id = data.get("job_id")
+            if not job_id:
+                self.send_json({
+                    "success": False,
+                    "error": "job_id is required"
+                }, status=400)
+                return
+
+            dest_dir = None
+            if data.get("dest_dir"):
+                dest_dir = Path(data["dest_dir"])
+
+            install = data.get("install", True)
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(
+                    service.download_result(
+                        job_id=job_id,
+                        dest_dir=dest_dir,
+                        install=install,
+                    )
+                )
+            finally:
+                loop.close()
+
+            if result.get("success"):
+                self.send_json(result)
+            else:
+                self.send_json(result, status=500)
+
+        except Exception as e:
+            logger.error(f"Cloud download error: {e}")
+            self.send_json({"success": False, "error": str(e)}, status=500)
+
+    @require_role(UserRole.CREATOR)
+    def handle_cloud_training_cancel(self, body: str):
+        """
+        POST /api/training/cloud/cancel
+        Cancel a running or queued training job.
+
+        Request body:
+        {
+            "job_id": "job_abc123"
+        }
+        """
+        try:
+            service = _get_cloud_training_service()
+            if service is None:
+                self.send_json({
+                    "success": False,
+                    "error": "Cloud training service not available"
+                }, status=503)
+                return
+
+            data = json.loads(body) if body else {}
+
+            job_id = data.get("job_id")
+            if not job_id:
+                self.send_json({
+                    "success": False,
+                    "error": "job_id is required"
+                }, status=400)
+                return
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(service.cancel_job(job_id))
+            finally:
+                loop.close()
+
+            if result.get("success"):
+                self.send_json(result)
+            else:
+                self.send_json(result, status=400)
+
+        except Exception as e:
+            logger.error(f"Cloud cancel error: {e}")
+            self.send_json({"success": False, "error": str(e)}, status=500)

@@ -1,0 +1,37 @@
+# Cloud Training Configuration for ContinuonBrain
+#
+# This file configures the cloud training service for uploading
+# episodes to GCS and triggering training jobs on GCP.
+#
+# Copy this file to /opt/continuonos/brain/config/cloud_training.yaml
+# and update with your GCP project settings.
+
+# GCP Project Configuration
+project_id: "continuon-xr"
+region: "us-central1"
+
+# Google Cloud Storage bucket for training data
+bucket_name: "continuon-training-data"
+
+# GCS prefixes for organizing data
+episodes_prefix: "episodes"
+models_prefix: "models"
+
+# Service account credentials (optional if using default credentials)
+# service_account_path: "/opt/continuonos/brain/config/service-account.json"
+
+# Robot identification
+robot_id: "robot_001"
+
+# Default training configuration
+default_epochs: 100
+default_batch_size: 32
+default_learning_rate: 0.0001
+model_type: "wavecore"
+
+# Vertex AI settings (optional - for GPU/TPU training)
+use_vertex_ai: false
+vertex_machine_type: "n1-standard-8"
+vertex_accelerator_type: "NVIDIA_TESLA_T4"
+vertex_accelerator_count: 1
+trainer_image_uri: "gcr.io/continuon/trainer:latest"

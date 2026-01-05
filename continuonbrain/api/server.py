@@ -57,6 +57,7 @@ from continuonbrain.api.controllers.data_controller import DataControllerMixin
 from continuonbrain.api.controllers.learning_controller import LearningControllerMixin
 from continuonbrain.api.controllers.training_controller import TrainingControllerMixin
 from continuonbrain.api.controllers.chat_controller import ChatControllerMixin
+from continuonbrain.api.controllers.update_controller import UpdateControllerMixin
 
 # OAK-D camera support
 try:
@@ -668,7 +669,7 @@ def bluetooth_connect(address: str):
     except subprocess.TimeoutExpired:
         return {"success": False, "message": "Bluetooth connect timed out"}
 
-class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin, LearningControllerMixin, TrainingControllerMixin, ChatControllerMixin):
+class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotControllerMixin, ModelControllerMixin, DataControllerMixin, LearningControllerMixin, TrainingControllerMixin, ChatControllerMixin, UpdateControllerMixin):
     """Handles HTTP requests for the Brain API."""
     
     def _base_dir(self) -> Path:
@@ -1439,6 +1440,21 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
             elif self.path == "/api/training/pipeline":
                 # JSON mirror of /ui/training-plan for automation/tests
                 self.send_json(_training_pipeline_overview())
+
+            # ============================================
+            # OTA Update API Endpoints (GET)
+            # ============================================
+            elif self.path == "/api/updates/check":
+                self.handle_check_updates()
+                return
+
+            elif self.path == "/api/updates/status":
+                self.handle_update_status()
+                return
+
+            elif self.path == "/api/updates/scheduler":
+                self.handle_scheduler_status()
+                return
 
             elif self.path == "/api/hope/structure":
                 data = brain_service.get_brain_structure()
@@ -2329,6 +2345,41 @@ class BrainRequestHandler(BaseHTTPRequestHandler, AdminControllerMixin, RobotCon
 
             elif self.path == "/api/v1/models/upload":
                 self.handle_upload_model(body)
+                return
+
+            # ============================================
+            # OTA Update API Endpoints (POST)
+            # ============================================
+            elif self.path == "/api/updates/download":
+                self.handle_download_update(body)
+                return
+
+            elif self.path == "/api/updates/activate":
+                self.handle_activate_update(body)
+                return
+
+            elif self.path == "/api/updates/rollback":
+                self.handle_rollback_update(body)
+                return
+
+            elif self.path == "/api/updates/scheduler/start":
+                self.handle_scheduler_start(body)
+                return
+
+            elif self.path == "/api/updates/scheduler/stop":
+                self.handle_scheduler_stop(body)
+                return
+
+            elif self.path == "/api/updates/scheduler/trigger":
+                self.handle_scheduler_trigger(body)
+                return
+
+            elif self.path == "/api/updates/cleanup/candidate":
+                self.handle_cleanup_candidate(body)
+                return
+
+            elif self.path == "/api/updates/cleanup/rollback":
+                self.handle_cleanup_rollback(body)
                 return
 
             elif self.path == "/api/v1/data/tag":

@@ -1,0 +1,118 @@
+# Model Registry Configuration
+# Centralized configuration for cloud and local model storage
+
+# Cloud Storage Settings
+cloud:
+  # Primary cloud provider: "gcs" (Google Cloud Storage) or "s3" (Amazon S3)
+  provider: "gcs"
+
+  # GCS bucket name for model storage
+  bucket: "continuon-models"
+
+  # Region for S3 (ignored for GCS)
+  region: "us-central1"
+
+  # Path to service account credentials (optional, uses default credentials if not set)
+  # credentials_path: "/path/to/service-account.json"
+
+  # Enable/disable cloud sync
+  enabled: true
+
+# Local Storage Settings
+local:
+  # Base directory for local model cache
+  base_dir: "~/.continuonbrain/models"
+
+  # Create directory if it doesn't exist
+  create_if_missing: true
+
+  # Enable local fallback when cloud unavailable
+  fallback_enabled: true
+
+# Hybrid Mode Settings
+hybrid:
+  # Prefer cloud over local when both available
+  prefer_cloud: true
+
+  # Automatic sync settings
+  auto_sync:
+    # Enable automatic sync between cloud and local
+    enabled: false
+
+    # Sync interval in seconds
+    interval: 3600  # 1 hour
+
+    # Direction: "to_cloud", "from_cloud", or "both"
+    direction: "from_cloud"
+
+    # Only sync latest version of each model
+    latest_only: true
+
+# Model Types
+model_types:
+  seed:
+    description: "Base seed models for initialization"
+    directory: "seed"
+
+  adapter:
+    description: "LoRA adapters for robot-specific fine-tuning"
+    directory: "adapters"
+
+  release:
+    description: "Production-ready bundled releases"
+    directory: "releases"
+
+# Versioning
+versioning:
+  # Semantic versioning format: vMAJOR.MINOR.PATCH
+  format: "semver"
+
+  # Prefix for version strings
+  prefix: "v"
+
+# Checksum Verification
+checksum:
+  # Algorithm for file checksums
+  algorithm: "sha256"
+
+  # Verify checksums on download
+  verify_on_download: true
+
+  # Verify checksums on upload
+  verify_on_upload: true
+
+# Caching
+cache:
+  # Enable model caching
+  enabled: true
+
+  # Maximum cache size in MB (0 for unlimited)
+  max_size_mb: 1024
+
+  # Cache cleanup threshold (fraction of max_size)
+  cleanup_threshold: 0.8
+
+  # Time to live for cached models in hours (0 for no expiry)
+  ttl_hours: 168  # 1 week
+
+# Logging
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+
+  # Log file path (optional)
+  # file_path: "/var/log/continuonbrain/registry.log"
+
+# API Endpoints (if using HTTP API)
+api:
+  # Base path for registry API
+  base_path: "/api/models/registry"
+
+  # Endpoints
+  endpoints:
+    list: "GET /"
+    get: "GET /{model_id}"
+    download: "POST /{model_id}/download"
+    upload: "POST /upload"
+    versions: "GET /{model_id}/versions"
+    latest: "GET /{model_id}/latest"

@@ -1,0 +1,27 @@
+# Cloud Function requirements for ContinuonBrain Training
+#
+# Deploy with:
+# gcloud functions deploy train_model \
+#     --runtime python311 \
+#     --trigger-event providers/cloud.firestore/eventTypes/document.create \
+#     --trigger-resource "projects/YOUR_PROJECT/databases/(default)/documents/training_triggers/{job_id}" \
+#     --memory 16GB \
+#     --timeout 3600s \
+#     --region us-central1
+
+# Google Cloud
+google-cloud-storage>=2.10.0
+google-cloud-firestore>=2.11.0
+
+# JAX for training (CPU version for Cloud Functions)
+# For GPU/TPU, use Vertex AI with appropriate JAX version
+jax>=0.4.20
+jaxlib>=0.4.20
+optax>=0.1.7
+flax>=0.8.0
+
+# Data processing
+numpy>=1.24.0
+
+# Utilities
+tqdm>=4.66.0
