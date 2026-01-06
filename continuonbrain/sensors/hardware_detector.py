@@ -598,9 +598,12 @@ class HardwareDetector:
         ))
 
     def generate_config(self) -> Dict[str, Any]:
+        # Ensure platform_info is populated
+        if not self.platform_info:
+            self._detect_environment()
         config = {
             "hardware_profile": "auto_detected",
-            "platform": self.platform_info["os"].lower(),
+            "platform": self.platform_info.get("os", platform.system()).lower(),
             "detected_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             "devices": {},
         }

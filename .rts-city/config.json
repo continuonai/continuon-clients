@@ -1,0 +1,1518 @@
+{
+  "version": 1,
+  "stateName": "The State of Continuon Xr",
+  "stateSubtitle": "A visual journey through the codebase",
+  "settlementRules": [
+    {
+      "pattern": "^brain_config/",
+      "type": "capital",
+      "label": "Brain Config"
+    },
+    {
+      "pattern": "^continuonbrain/",
+      "type": "capital",
+      "label": "Continuonbrain"
+    },
+    {
+      "pattern": "^apps?/",
+      "type": "city",
+      "label": "Application"
+    },
+    {
+      "pattern": "^src/app/",
+      "type": "city",
+      "label": "Application"
+    },
+    {
+      "pattern": "^pages?/",
+      "type": "city",
+      "label": "Pages"
+    },
+    {
+      "pattern": "^views?/",
+      "type": "city",
+      "label": "Views"
+    },
+    {
+      "pattern": "^routes?/",
+      "type": "city",
+      "label": "Routes"
+    },
+    {
+      "pattern": "^frontend/",
+      "type": "city",
+      "label": "Frontend"
+    },
+    {
+      "pattern": "^client/",
+      "type": "city",
+      "label": "Client"
+    },
+    {
+      "pattern": "^web/",
+      "type": "city",
+      "label": "Web App"
+    },
+    {
+      "pattern": "^mobile/",
+      "type": "city",
+      "label": "Mobile App"
+    },
+    {
+      "pattern": "^desktop/",
+      "type": "city",
+      "label": "Desktop App"
+    },
+    {
+      "pattern": "^services?/",
+      "type": "town",
+      "label": "Services"
+    },
+    {
+      "pattern": "^api/",
+      "type": "town",
+      "label": "API"
+    },
+    {
+      "pattern": "^server/",
+      "type": "town",
+      "label": "Server"
+    },
+    {
+      "pattern": "^backend/",
+      "type": "town",
+      "label": "Backend"
+    },
+    {
+      "pattern": "^modules?/",
+      "type": "town",
+      "label": "Modules"
+    },
+    {
+      "pattern": "^features?/",
+      "type": "town",
+      "label": "Features"
+    },
+    {
+      "pattern": "^domain/",
+      "type": "town",
+      "label": "Domain"
+    },
+    {
+      "pattern": "^models?/",
+      "type": "town",
+      "label": "Models"
+    },
+    {
+      "pattern": "^controllers?/",
+      "type": "town",
+      "label": "Controllers"
+    },
+    {
+      "pattern": "^handlers?/",
+      "type": "town",
+      "label": "Handlers"
+    },
+    {
+      "pattern": "^workers?/",
+      "type": "town",
+      "label": "Workers"
+    },
+    {
+      "pattern": "^agents?/",
+      "type": "town",
+      "label": "Agents"
+    },
+    {
+      "pattern": "^pipelines?/",
+      "type": "town",
+      "label": "Pipelines"
+    },
+    {
+      "pattern": "^processors?/",
+      "type": "town",
+      "label": "Processors"
+    },
+    {
+      "pattern": "^configs?/",
+      "type": "village",
+      "label": "Config"
+    },
+    {
+      "pattern": "^settings?/",
+      "type": "village",
+      "label": "Settings"
+    },
+    {
+      "pattern": "^utils?/",
+      "type": "village",
+      "label": "Utilities"
+    },
+    {
+      "pattern": "^helpers?/",
+      "type": "village",
+      "label": "Helpers"
+    },
+    {
+      "pattern": "^lib/",
+      "type": "village",
+      "label": "Library"
+    },
+    {
+      "pattern": "^libs?/",
+      "type": "village",
+      "label": "Libraries"
+    },
+    {
+      "pattern": "^common/",
+      "type": "village",
+      "label": "Common"
+    },
+    {
+      "pattern": "^shared/",
+      "type": "village",
+      "label": "Shared"
+    },
+    {
+      "pattern": "^tests?/",
+      "type": "village",
+      "label": "Tests"
+    },
+    {
+      "pattern": "^__tests__/",
+      "type": "village",
+      "label": "Tests"
+    },
+    {
+      "pattern": "^spec/",
+      "type": "village",
+      "label": "Specs"
+    },
+    {
+      "pattern": "^fixtures?/",
+      "type": "village",
+      "label": "Fixtures"
+    },
+    {
+      "pattern": "^mocks?/",
+      "type": "village",
+      "label": "Mocks"
+    },
+    {
+      "pattern": "^types?/",
+      "type": "village",
+      "label": "Types"
+    },
+    {
+      "pattern": "^interfaces?/",
+      "type": "village",
+      "label": "Interfaces"
+    },
+    {
+      "pattern": "^constants?/",
+      "type": "village",
+      "label": "Constants"
+    },
+    {
+      "pattern": "^schemas?/",
+      "type": "village",
+      "label": "Schemas"
+    },
+    {
+      "pattern": "^migrations?/",
+      "type": "village",
+      "label": "Migrations"
+    },
+    {
+      "pattern": "^scripts?/",
+      "type": "village",
+      "label": "Scripts"
+    },
+    {
+      "pattern": "^tools?/",
+      "type": "village",
+      "label": "Tools"
+    },
+    {
+      "pattern": "^assets?/",
+      "type": "village",
+      "label": "Assets"
+    },
+    {
+      "pattern": "^static/",
+      "type": "village",
+      "label": "Static"
+    },
+    {
+      "pattern": "^public/",
+      "type": "village",
+      "label": "Public"
+    },
+    {
+      "pattern": "^resources?/",
+      "type": "village",
+      "label": "Resources"
+    },
+    {
+      "pattern": "^components?/",
+      "type": "village",
+      "label": "Components"
+    },
+    {
+      "pattern": "^hooks?/",
+      "type": "village",
+      "label": "Hooks"
+    },
+    {
+      "pattern": "^contexts?/",
+      "type": "village",
+      "label": "Contexts"
+    },
+    {
+      "pattern": "^store/",
+      "type": "village",
+      "label": "Store"
+    },
+    {
+      "pattern": "^state/",
+      "type": "village",
+      "label": "State"
+    },
+    {
+      "pattern": "^data/",
+      "type": "village",
+      "label": "Data"
+    },
+    {
+      "pattern": "^db/",
+      "type": "village",
+      "label": "Database"
+    },
+    {
+      "pattern": "^database/",
+      "type": "village",
+      "label": "Database"
+    },
+    {
+      "pattern": "^core/",
+      "type": "capital",
+      "label": "Core"
+    },
+    {
+      "pattern": "^engine/",
+      "type": "capital",
+      "label": "Engine"
+    },
+    {
+      "pattern": "^kernel/",
+      "type": "capital",
+      "label": "Kernel"
+    },
+    {
+      "pattern": "^brain/",
+      "type": "capital",
+      "label": "Brain"
+    },
+    {
+      "pattern": "^apps?/",
+      "type": "city",
+      "label": "Application"
+    },
+    {
+      "pattern": "^src/app/",
+      "type": "city",
+      "label": "Application"
+    },
+    {
+      "pattern": "^pages?/",
+      "type": "city",
+      "label": "Pages"
+    },
+    {
+      "pattern": "^views?/",
+      "type": "city",
+      "label": "Views"
+    },
+    {
+      "pattern": "^routes?/",
+      "type": "city",
+      "label": "Routes"
+    },
+    {
+      "pattern": "^frontend/",
+      "type": "city",
+      "label": "Frontend"
+    },
+    {
+      "pattern": "^client/",
+      "type": "city",
+      "label": "Client"
+    },
+    {
+      "pattern": "^web/",
+      "type": "city",
+      "label": "Web App"
+    },
+    {
+      "pattern": "^mobile/",
+      "type": "city",
+      "label": "Mobile App"
+    },
+    {
+      "pattern": "^desktop/",
+      "type": "city",
+      "label": "Desktop App"
+    },
+    {
+      "pattern": "^services?/",
+      "type": "town",
+      "label": "Services"
+    },
+    {
+      "pattern": "^api/",
+      "type": "town",
+      "label": "API"
+    },
+    {
+      "pattern": "^server/",
+      "type": "town",
+      "label": "Server"
+    },
+    {
+      "pattern": "^backend/",
+      "type": "town",
+      "label": "Backend"
+    },
+    {
+      "pattern": "^modules?/",
+      "type": "town",
+      "label": "Modules"
+    },
+    {
+      "pattern": "^features?/",
+      "type": "town",
+      "label": "Features"
+    },
+    {
+      "pattern": "^domain/",
+      "type": "town",
+      "label": "Domain"
+    },
+    {
+      "pattern": "^models?/",
+      "type": "town",
+      "label": "Models"
+    },
+    {
+      "pattern": "^controllers?/",
+      "type": "town",
+      "label": "Controllers"
+    },
+    {
+      "pattern": "^handlers?/",
+      "type": "town",
+      "label": "Handlers"
+    },
+    {
+      "pattern": "^workers?/",
+      "type": "town",
+      "label": "Workers"
+    },
+    {
+      "pattern": "^agents?/",
+      "type": "town",
+      "label": "Agents"
+    },
+    {
+      "pattern": "^pipelines?/",
+      "type": "town",
+      "label": "Pipelines"
+    },
+    {
+      "pattern": "^processors?/",
+      "type": "town",
+      "label": "Processors"
+    },
+    {
+      "pattern": "^configs?/",
+      "type": "village",
+      "label": "Config"
+    },
+    {
+      "pattern": "^settings?/",
+      "type": "village",
+      "label": "Settings"
+    },
+    {
+      "pattern": "^utils?/",
+      "type": "village",
+      "label": "Utilities"
+    },
+    {
+      "pattern": "^helpers?/",
+      "type": "village",
+      "label": "Helpers"
+    },
+    {
+      "pattern": "^lib/",
+      "type": "village",
+      "label": "Library"
+    },
+    {
+      "pattern": "^libs?/",
+      "type": "village",
+      "label": "Libraries"
+    },
+    {
+      "pattern": "^common/",
+      "type": "village",
+      "label": "Common"
+    },
+    {
+      "pattern": "^shared/",
+      "type": "village",
+      "label": "Shared"
+    },
+    {
+      "pattern": "^tests?/",
+      "type": "village",
+      "label": "Tests"
+    },
+    {
+      "pattern": "^__tests__/",
+      "type": "village",
+      "label": "Tests"
+    },
+    {
+      "pattern": "^spec/",
+      "type": "village",
+      "label": "Specs"
+    },
+    {
+      "pattern": "^fixtures?/",
+      "type": "village",
+      "label": "Fixtures"
+    },
+    {
+      "pattern": "^mocks?/",
+      "type": "village",
+      "label": "Mocks"
+    },
+    {
+      "pattern": "^types?/",
+      "type": "village",
+      "label": "Types"
+    },
+    {
+      "pattern": "^interfaces?/",
+      "type": "village",
+      "label": "Interfaces"
+    },
+    {
+      "pattern": "^constants?/",
+      "type": "village",
+      "label": "Constants"
+    },
+    {
+      "pattern": "^schemas?/",
+      "type": "village",
+      "label": "Schemas"
+    },
+    {
+      "pattern": "^migrations?/",
+      "type": "village",
+      "label": "Migrations"
+    },
+    {
+      "pattern": "^scripts?/",
+      "type": "village",
+      "label": "Scripts"
+    },
+    {
+      "pattern": "^tools?/",
+      "type": "village",
+      "label": "Tools"
+    },
+    {
+      "pattern": "^assets?/",
+      "type": "village",
+      "label": "Assets"
+    },
+    {
+      "pattern": "^static/",
+      "type": "village",
+      "label": "Static"
+    },
+    {
+      "pattern": "^public/",
+      "type": "village",
+      "label": "Public"
+    },
+    {
+      "pattern": "^resources?/",
+      "type": "village",
+      "label": "Resources"
+    },
+    {
+      "pattern": "^components?/",
+      "type": "village",
+      "label": "Components"
+    },
+    {
+      "pattern": "^hooks?/",
+      "type": "village",
+      "label": "Hooks"
+    },
+    {
+      "pattern": "^contexts?/",
+      "type": "village",
+      "label": "Contexts"
+    },
+    {
+      "pattern": "^store/",
+      "type": "village",
+      "label": "Store"
+    },
+    {
+      "pattern": "^state/",
+      "type": "village",
+      "label": "State"
+    },
+    {
+      "pattern": "^data/",
+      "type": "village",
+      "label": "Data"
+    },
+    {
+      "pattern": "^db/",
+      "type": "village",
+      "label": "Database"
+    },
+    {
+      "pattern": "^database/",
+      "type": "village",
+      "label": "Database"
+    }
+  ],
+  "colors": {
+    "capital": {
+      "grass": 2972205,
+      "path": 13938487,
+      "accent": 3832378,
+      "wall": 9139029
+    },
+    "city": {
+      "grass": 4025149,
+      "path": 12632256,
+      "accent": 4885578,
+      "wall": 7039851
+    },
+    "town": {
+      "grass": 4880970,
+      "path": 10191717,
+      "accent": 5938266,
+      "wall": 9136965
+    },
+    "village": {
+      "grass": 5933658,
+      "path": 8086341,
+      "accent": 6990954,
+      "wall": 7035701
+    }
+  },
+  "specialZone": {
+    "enabled": true,
+    "name": "Continuonbrain",
+    "capitalPattern": "^continuonbrain/",
+    "layers": [
+      {
+        "pattern": "01_vision_dreamer",
+        "layer": "perception",
+        "label": "01 Vision Dreamer",
+        "color": 561586,
+        "description": "Visual processing"
+      },
+      {
+        "pattern": "02_liquid_reflex",
+        "layer": "reflex",
+        "label": "02 Liquid Reflex",
+        "color": 16347926,
+        "description": "Fast reactions"
+      },
+      {
+        "pattern": "03_mamba_brain",
+        "layer": "cognition",
+        "label": "03 Mamba Brain",
+        "color": 9647082,
+        "description": "Cognitive model"
+      },
+      {
+        "pattern": "__pycache__",
+        "layer": "infrastructure",
+        "label": "  Pycache  ",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "actuators",
+        "layer": "reflex",
+        "label": "Actuators",
+        "color": 15357964,
+        "description": "Motor control"
+      },
+      {
+        "pattern": "aina_impl",
+        "layer": "agent",
+        "label": "Aina Impl",
+        "color": 14362487,
+        "description": "Implementation"
+      },
+      {
+        "pattern": "api",
+        "layer": "services",
+        "label": "Api",
+        "color": 366185,
+        "description": "API interface"
+      },
+      {
+        "pattern": "behaviors",
+        "layer": "infrastructure",
+        "label": "Behaviors",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "checkpoints",
+        "layer": "infrastructure",
+        "label": "Checkpoints",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "cloud",
+        "layer": "infrastructure",
+        "label": "Cloud",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "config",
+        "layer": "infrastructure",
+        "label": "Config",
+        "color": 4674921,
+        "description": "Configuration"
+      },
+      {
+        "pattern": "configs",
+        "layer": "infrastructure",
+        "label": "Configs",
+        "color": 4674921,
+        "description": "Configuration"
+      },
+      {
+        "pattern": "core",
+        "layer": "infrastructure",
+        "label": "Core",
+        "color": 6583435,
+        "description": "Core system"
+      },
+      {
+        "pattern": "docs",
+        "layer": "infrastructure",
+        "label": "Docs",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "eval",
+        "layer": "infrastructure",
+        "label": "Eval",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "examples",
+        "layer": "infrastructure",
+        "label": "Examples",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "hal",
+        "layer": "infrastructure",
+        "label": "Hal",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "hope_impl",
+        "layer": "agent",
+        "label": "Hope Impl",
+        "color": 14362487,
+        "description": "Implementation"
+      },
+      {
+        "pattern": "jax_models",
+        "layer": "infrastructure",
+        "label": "Jax Models",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "kernel",
+        "layer": "infrastructure",
+        "label": "Kernel",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "mamba_brain",
+        "layer": "cognition",
+        "label": "Mamba Brain",
+        "color": 9647082,
+        "description": "Cognitive model"
+      },
+      {
+        "pattern": "model",
+        "layer": "infrastructure",
+        "label": "Model",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "opt",
+        "layer": "infrastructure",
+        "label": "Opt",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "production_agent",
+        "layer": "agent",
+        "label": "Production Agent",
+        "color": 15485081,
+        "description": "Agent implementation"
+      },
+      {
+        "pattern": "reasoning",
+        "layer": "cognition",
+        "label": "Reasoning",
+        "color": 8141549,
+        "description": "Reasoning engine"
+      },
+      {
+        "pattern": "recognition",
+        "layer": "cognition",
+        "label": "Recognition",
+        "color": 11032055,
+        "description": "Main thinking"
+      },
+      {
+        "pattern": "recording",
+        "layer": "infrastructure",
+        "label": "Recording",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "rlds",
+        "layer": "training",
+        "label": "Rlds",
+        "color": 10576391,
+        "description": "RL dataset"
+      },
+      {
+        "pattern": "runtime",
+        "layer": "infrastructure",
+        "label": "Runtime",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "safety",
+        "layer": "infrastructure",
+        "label": "Safety",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "scripts",
+        "layer": "infrastructure",
+        "label": "Scripts",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "seed",
+        "layer": "infrastructure",
+        "label": "Seed",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "sensors",
+        "layer": "perception",
+        "label": "Sensors",
+        "color": 2282478,
+        "description": "Sensor input"
+      },
+      {
+        "pattern": "server",
+        "layer": "infrastructure",
+        "label": "Server",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "services",
+        "layer": "services",
+        "label": "Services",
+        "color": 1096065,
+        "description": "Services"
+      },
+      {
+        "pattern": "swarm",
+        "layer": "infrastructure",
+        "label": "Swarm",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "synthetic",
+        "layer": "infrastructure",
+        "label": "Synthetic",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "systemd",
+        "layer": "infrastructure",
+        "label": "Systemd",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "task_library",
+        "layer": "infrastructure",
+        "label": "Task Library",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "tests",
+        "layer": "infrastructure",
+        "label": "Tests",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "tools",
+        "layer": "infrastructure",
+        "label": "Tools",
+        "color": 7041664,
+        "description": "Supporting module"
+      },
+      {
+        "pattern": "trainer",
+        "layer": "training",
+        "label": "Trainer",
+        "color": 13273604,
+        "description": "Training system"
+      },
+      {
+        "pattern": "utils",
+        "layer": "infrastructure",
+        "label": "Utils",
+        "color": 7041664,
+        "description": "Utilities"
+      },
+      {
+        "pattern": "wavecore",
+        "layer": "infrastructure",
+        "label": "Wavecore",
+        "color": 6583435,
+        "description": "Core system"
+      }
+    ],
+    "layerRings": {
+      "cognition": {
+        "ringRadius": 0,
+        "label": "Cognition",
+        "color": 9647082
+      },
+      "perception": {
+        "ringRadius": 1,
+        "label": "Perception",
+        "color": 561586
+      },
+      "reflex": {
+        "ringRadius": 2,
+        "label": "Reflex",
+        "color": 16347926
+      },
+      "agent": {
+        "ringRadius": 3,
+        "label": "Agent",
+        "color": 14362487
+      },
+      "services": {
+        "ringRadius": 4,
+        "label": "Services",
+        "color": 366185
+      },
+      "training": {
+        "ringRadius": 5,
+        "label": "Training",
+        "color": 10576391
+      },
+      "infrastructure": {
+        "ringRadius": 6,
+        "label": "Infrastructure",
+        "color": 7041664
+      }
+    }
+  },
+  "roadmap": null,
+  "buildingStyles": {
+    "py": {
+      "baseColor": 4878245,
+      "roofColor": 2968175,
+      "type": "office"
+    },
+    "ts": {
+      "baseColor": 3242182,
+      "roofColor": 1723002,
+      "type": "skyscraper"
+    },
+    "tsx": {
+      "baseColor": 6413051,
+      "roofColor": 3836575,
+      "type": "special"
+    },
+    "js": {
+      "baseColor": 15784783,
+      "roofColor": 12101180,
+      "type": "house"
+    },
+    "jsx": {
+      "baseColor": 6413051,
+      "roofColor": 3836575,
+      "type": "special"
+    },
+    "json": {
+      "baseColor": 9145227,
+      "roofColor": 5921370,
+      "type": "factory"
+    },
+    "default": {
+      "baseColor": 7041664,
+      "roofColor": 4869975,
+      "type": "house"
+    }
+  },
+  "gameRules": {
+    "enabled": true,
+    "showTutorial": true,
+    "difficulty": "normal",
+    "gameMode": "developer",
+    "autoSuggestPrompts": true,
+    "showAdvisors": true,
+    "showCityStats": true,
+    "showEvents": true,
+    "claudeCodeIntegration": {
+      "enabled": true,
+      "autoRun": false,
+      "confirmBeforeRun": true,
+      "maxTurns": 10,
+      "permissionMode": "default"
+    },
+    "contextManagement": {
+      "priorityFiles": [
+        "README.md",
+        "package.json",
+        "tsconfig.json"
+      ],
+      "excludePatterns": [
+        "node_modules/",
+        "dist/",
+        "build/",
+        "*.min.js",
+        "*.map"
+      ],
+      "maxContextFiles": 20,
+      "estimatedTokensPerFile": 500
+    }
+  },
+  "advisors": [
+    {
+      "type": "mayor",
+      "name": "Mayor Claude",
+      "icon": "🏛️",
+      "color": 16766720,
+      "enabled": true
+    },
+    {
+      "type": "architect",
+      "name": "Chief Architect",
+      "icon": "📐",
+      "color": 3900150,
+      "enabled": true
+    },
+    {
+      "type": "security",
+      "name": "Security Chief",
+      "icon": "🛡️",
+      "color": 15680580,
+      "enabled": true
+    },
+    {
+      "type": "performance",
+      "name": "Performance Engineer",
+      "icon": "⚡",
+      "color": 16096779,
+      "enabled": true
+    },
+    {
+      "type": "quality",
+      "name": "Quality Inspector",
+      "icon": "✅",
+      "color": 2278750,
+      "enabled": true
+    }
+  ],
+  "promptSuggestions": [
+    {
+      "id": "build-all",
+      "category": "build",
+      "icon": "🏗️",
+      "label": "Build City",
+      "prompt": "Run the build and show me any errors",
+      "description": "Compile the entire codebase",
+      "priority": 100
+    },
+    {
+      "id": "build-dev",
+      "category": "build",
+      "icon": "🔨",
+      "label": "Dev Build",
+      "prompt": "Run the development build with watch mode",
+      "description": "Start development server",
+      "priority": 90
+    },
+    {
+      "id": "install-deps",
+      "category": "build",
+      "icon": "📦",
+      "label": "Install Packages",
+      "prompt": "Install all dependencies and update lock file",
+      "description": "npm/yarn install",
+      "priority": 80
+    },
+    {
+      "id": "fix-errors",
+      "category": "fix",
+      "icon": "🔧",
+      "label": "Fix Errors",
+      "prompt": "Find and fix all TypeScript/build errors in the codebase",
+      "description": "Auto-fix compilation issues",
+      "priority": 95
+    },
+    {
+      "id": "fix-lint",
+      "category": "fix",
+      "icon": "🧹",
+      "label": "Fix Lint",
+      "prompt": "Run linter and auto-fix all fixable issues",
+      "description": "Clean up code style",
+      "priority": 70
+    },
+    {
+      "id": "fix-security",
+      "category": "fix",
+      "icon": "🛡️",
+      "label": "Fix Security",
+      "prompt": "Audit dependencies for security vulnerabilities and fix them",
+      "description": "Security patches",
+      "priority": 85
+    },
+    {
+      "id": "fix-circular",
+      "category": "fix",
+      "icon": "🔄",
+      "label": "Fix Circular Deps",
+      "prompt": "Find and resolve circular dependencies in the codebase",
+      "description": "Break dependency cycles",
+      "priority": 75
+    },
+    {
+      "id": "refactor-file",
+      "category": "improve",
+      "icon": "✨",
+      "label": "Refactor This",
+      "prompt": "Refactor the currently selected file to improve code quality",
+      "description": "Clean up selected code",
+      "priority": 60
+    },
+    {
+      "id": "optimize-perf",
+      "category": "improve",
+      "icon": "🚀",
+      "label": "Optimize",
+      "prompt": "Profile and optimize the slowest parts of the codebase",
+      "description": "Performance improvements",
+      "priority": 65
+    },
+    {
+      "id": "add-types",
+      "category": "improve",
+      "icon": "📝",
+      "label": "Add Types",
+      "prompt": "Add TypeScript types to untyped code",
+      "description": "Improve type safety",
+      "priority": 55
+    },
+    {
+      "id": "modernize",
+      "category": "improve",
+      "icon": "⬆️",
+      "label": "Modernize",
+      "prompt": "Update deprecated APIs and modernize the codebase",
+      "description": "Use latest patterns",
+      "priority": 50
+    },
+    {
+      "id": "run-tests",
+      "category": "test",
+      "icon": "🧪",
+      "label": "Run Tests",
+      "prompt": "Run all tests and report results",
+      "description": "Execute test suite",
+      "priority": 88
+    },
+    {
+      "id": "add-tests",
+      "category": "test",
+      "icon": "➕",
+      "label": "Add Tests",
+      "prompt": "Add unit tests for untested functions",
+      "description": "Increase coverage",
+      "priority": 70
+    },
+    {
+      "id": "fix-tests",
+      "category": "test",
+      "icon": "🩹",
+      "label": "Fix Tests",
+      "prompt": "Fix all failing tests",
+      "description": "Get tests passing",
+      "priority": 82
+    },
+    {
+      "id": "explain-arch",
+      "category": "explore",
+      "icon": "🗺️",
+      "label": "Explain Architecture",
+      "prompt": "Explain the overall architecture of this codebase",
+      "description": "Understand structure",
+      "priority": 40
+    },
+    {
+      "id": "find-entry",
+      "category": "explore",
+      "icon": "🚪",
+      "label": "Find Entry Points",
+      "prompt": "Show me the main entry points and how the app starts",
+      "description": "Where does it begin?",
+      "priority": 45
+    },
+    {
+      "id": "trace-flow",
+      "category": "explore",
+      "icon": "🔍",
+      "label": "Trace Data Flow",
+      "prompt": "Trace how data flows through the application",
+      "description": "Follow the data",
+      "priority": 35
+    },
+    {
+      "id": "find-todos",
+      "category": "explore",
+      "icon": "📋",
+      "label": "Find TODOs",
+      "prompt": "Find all TODO, FIXME, and HACK comments",
+      "description": "Technical debt list",
+      "priority": 50
+    },
+    {
+      "id": "add-docs",
+      "category": "document",
+      "icon": "📚",
+      "label": "Add Docs",
+      "prompt": "Add JSDoc comments to undocumented functions",
+      "description": "Document the code",
+      "priority": 30
+    },
+    {
+      "id": "gen-readme",
+      "category": "document",
+      "icon": "📖",
+      "label": "Update README",
+      "prompt": "Update the README with current project information",
+      "description": "Keep docs current",
+      "priority": 25
+    },
+    {
+      "id": "api-docs",
+      "category": "document",
+      "icon": "📡",
+      "label": "API Docs",
+      "prompt": "Generate API documentation for all endpoints",
+      "description": "Document the API",
+      "priority": 35
+    }
+  ],
+  "slashCommands": [
+    {
+      "id": "build",
+      "name": "/build",
+      "description": "Build the project",
+      "prompt": "Run the build and fix any errors",
+      "category": "build",
+      "icon": "🏗️",
+      "keybinding": "Ctrl+B"
+    },
+    {
+      "id": "dev",
+      "name": "/dev",
+      "description": "Start development server",
+      "prompt": "Start the development server with hot reload",
+      "category": "build",
+      "icon": "🔨"
+    },
+    {
+      "id": "install",
+      "name": "/install",
+      "description": "Install dependencies",
+      "prompt": "Install all dependencies",
+      "category": "build",
+      "icon": "📦"
+    },
+    {
+      "id": "fix",
+      "name": "/fix",
+      "description": "Fix errors in selected file",
+      "prompt": "Fix all errors in this file",
+      "category": "fix",
+      "icon": "🔧",
+      "requiresSelection": true
+    },
+    {
+      "id": "fix-all",
+      "name": "/fix-all",
+      "description": "Fix all errors in project",
+      "prompt": "Find and fix all TypeScript and lint errors",
+      "category": "fix",
+      "icon": "🩹"
+    },
+    {
+      "id": "lint",
+      "name": "/lint",
+      "description": "Run linter and fix issues",
+      "prompt": "Run the linter and auto-fix all issues",
+      "category": "fix",
+      "icon": "🧹"
+    },
+    {
+      "id": "refactor",
+      "name": "/refactor",
+      "description": "Refactor selected code",
+      "prompt": "Refactor this code to improve quality and maintainability",
+      "category": "improve",
+      "icon": "✨",
+      "requiresSelection": true
+    },
+    {
+      "id": "optimize",
+      "name": "/optimize",
+      "description": "Optimize performance",
+      "prompt": "Find and fix performance issues",
+      "category": "improve",
+      "icon": "🚀"
+    },
+    {
+      "id": "types",
+      "name": "/types",
+      "description": "Add TypeScript types",
+      "prompt": "Add proper TypeScript types to this file",
+      "category": "improve",
+      "icon": "📝",
+      "requiresSelection": true
+    },
+    {
+      "id": "test",
+      "name": "/test",
+      "description": "Run all tests",
+      "prompt": "Run the test suite and report results",
+      "category": "test",
+      "icon": "🧪",
+      "keybinding": "Ctrl+T"
+    },
+    {
+      "id": "test-file",
+      "name": "/test-file",
+      "description": "Run tests for file",
+      "prompt": "Run tests for this specific file",
+      "category": "test",
+      "icon": "🎯",
+      "requiresSelection": true
+    },
+    {
+      "id": "coverage",
+      "name": "/coverage",
+      "description": "Generate test coverage",
+      "prompt": "Run tests with coverage and identify gaps",
+      "category": "test",
+      "icon": "📊"
+    },
+    {
+      "id": "explain",
+      "name": "/explain",
+      "description": "Explain selected code",
+      "prompt": "Explain what this code does in detail",
+      "category": "explore",
+      "icon": "🔍",
+      "requiresSelection": true
+    },
+    {
+      "id": "architecture",
+      "name": "/architecture",
+      "description": "Explain project architecture",
+      "prompt": "Explain the overall architecture and structure of this codebase",
+      "category": "explore",
+      "icon": "🗺️"
+    },
+    {
+      "id": "deps",
+      "name": "/deps",
+      "description": "Analyze dependencies",
+      "prompt": "Analyze the dependencies of this file and their relationships",
+      "category": "explore",
+      "icon": "🕸️",
+      "requiresSelection": true
+    },
+    {
+      "id": "doc",
+      "name": "/doc",
+      "description": "Add documentation",
+      "prompt": "Add comprehensive documentation to this code",
+      "category": "document",
+      "icon": "📚",
+      "requiresSelection": true
+    },
+    {
+      "id": "readme",
+      "name": "/readme",
+      "description": "Update README",
+      "prompt": "Update the README to reflect the current state of the project",
+      "category": "document",
+      "icon": "📖"
+    },
+    {
+      "id": "context-add",
+      "name": "/context-add",
+      "description": "Add file to context",
+      "prompt": "Add this file to the current context for future operations",
+      "category": "context",
+      "icon": "➕",
+      "requiresSelection": true
+    },
+    {
+      "id": "context-clear",
+      "name": "/context-clear",
+      "description": "Clear context",
+      "prompt": "Clear the current context and start fresh",
+      "category": "context",
+      "icon": "🗑️"
+    },
+    {
+      "id": "context-show",
+      "name": "/context-show",
+      "description": "Show current context",
+      "prompt": "Show what files are currently in context",
+      "category": "context",
+      "icon": "📋"
+    }
+  ],
+  "achievements": [
+    {
+      "id": "first-build",
+      "icon": "🏗️",
+      "title": "First Foundation",
+      "description": "Complete your first successful build",
+      "unlocked": false
+    },
+    {
+      "id": "bug-squasher",
+      "icon": "🐛",
+      "title": "Bug Squasher",
+      "description": "Fix 10 errors in one session",
+      "unlocked": false
+    },
+    {
+      "id": "metropolis",
+      "icon": "🌆",
+      "title": "Metropolis",
+      "description": "Visualize a codebase with 1000+ files",
+      "unlocked": false
+    },
+    {
+      "id": "clean-city",
+      "icon": "✨",
+      "title": "Clean City",
+      "description": "Achieve 0 linting errors",
+      "unlocked": false
+    },
+    {
+      "id": "tested-town",
+      "icon": "🧪",
+      "title": "Tested Town",
+      "description": "Reach 80% test coverage",
+      "unlocked": false
+    },
+    {
+      "id": "speed-demon",
+      "icon": "⚡",
+      "title": "Speed Demon",
+      "description": "Build completes in under 5 seconds",
+      "unlocked": false
+    },
+    {
+      "id": "architect",
+      "icon": "📐",
+      "title": "Master Architect",
+      "description": "Resolve all circular dependencies",
+      "unlocked": false
+    },
+    {
+      "id": "explorer",
+      "icon": "🗺️",
+      "title": "City Explorer",
+      "description": "Click on 50 different buildings",
+      "unlocked": false
+    },
+    {
+      "id": "night-owl",
+      "icon": "🦉",
+      "title": "Night Owl",
+      "description": "Code after midnight",
+      "unlocked": false
+    },
+    {
+      "id": "documentarian",
+      "icon": "📚",
+      "title": "Documentarian",
+      "description": "Add docs to 20 functions",
+      "unlocked": false
+    }
+  ]
+}
