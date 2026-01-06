@@ -97,10 +97,8 @@
       font-weight: 600;
       font-family: 'SF Mono', Monaco, monospace;
       font-size: 12px;
-      max-width: 200px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      word-break: break-all;
+      text-align: right;
     }
 
     .info-value.secure {
@@ -257,8 +255,100 @@
   </div>
 
   <script>
-    // Auto-refresh QR code every 5 minutes (tunnel URLs can change)
-    setTimeout(() => location.reload(), 5 * 60 * 1000);
+    // Auto-start pairing session and display QR code
+    (async function() {
+      const qrImg = document.getElementById('qr-image');
+      const robotNameEl = document.getElementById('robot-name');
+      const ruriEl = document.getElementById('ruri');
+      const hostEl = document.getElementById('host');
+
+      // Add confirm code display element
+      const infoGrid = document.querySelector('.info-grid');
+      const codeRow = document.createElement('div');
+      codeRow.className = 'info-row';
+      codeRow.innerHTML = `
+        <span class="info-label">Confirm Code</span>
+        <span class="info-value" id="confirm-code" style="font-size: 18px; color: var(--accent); letter-spacing: 2px;">------</span>
+      `;
+      infoGrid.appendChild(codeRow);
+      const confirmCodeEl = document.getElementById('confirm-code');
+
+      // Add QR URL display for debugging
+      const urlRow = document.createElement('div');
+      urlRow.className = 'info-row';
+      urlRow.style.marginTop = '8px';
+      urlRow.innerHTML = `
+        <span class="info-label">QR URL</span>
+        <span class="info-value" id="qr-url" style="font-size: 10px;">Loading...</span>
+      `;
+      infoGrid.appendChild(urlRow);
+      const qrUrlEl = document.getElementById('qr-url');
+
+      async function startPairing() {
+        try {
+          const res = await fetch('/api/ownership/pair/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          const data = await res.json();
+          if (data.status === 'ok' || data.confirm_code) {
+            // Display confirm code
+            confirmCodeEl.textContent = data.confirm_code || '------';
+            // Display QR URL
+            if (data.url) {
+              qrUrlEl.textContent = data.url;
+            }
+            // Reload QR image
+            qrImg.src = '/api/ownership/pair/qr.png?' + Date.now();
+            return true;
+          }
+        } catch (e) {
+          console.error('Failed to start pairing:', e);
+        }
+        return false;
+      }
+
+      async function checkAndStartPairing() {
+        // Check if pairing session exists
+        try {
+          const res = await fetch('/api/discovery/info');
+          const data = await res.json();
+          if (data.pairing && data.pairing.pending) {
+            confirmCodeEl.textContent = data.pairing.confirm_code || '------';
+            if (data.pairing.url) {
+              qrUrlEl.textContent = data.pairing.url;
+            }
+            // Update display info
+            if (data.robot_name) robotNameEl.textContent = data.robot_name;
+            if (data.rcan && data.rcan.ruri) ruriEl.textContent = data.rcan.ruri;
+            if (data.base_url) {
+              const h = data.base_url.replace(/^https?:\/\//, '').split('/')[0];
+              hostEl.textContent = h;
+            }
+            return;
+          }
+        } catch (e) {
+          console.error('Discovery check failed:', e);
+        }
+        // No pending session, start one
+        await startPairing();
+      }
+
+      // Check/start pairing on page load
+      await checkAndStartPairing();
+
+      // Handle QR image load error
+      qrImg.onerror = async function() {
+        console.log('QR image failed to load, starting new pairing session...');
+        await startPairing();
+      };
+
+      // Auto-refresh every 4 minutes (before 5-minute expiry)
+      setInterval(async () => {
+        await startPairing();
+      }, 4 * 60 * 1000);
+    })();
   </script>
 </body>
 </html>

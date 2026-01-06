@@ -50,18 +50,38 @@ class _PairRobotScreenState extends State<PairRobotScreen> {
   void _onDetect(BarcodeCapture capture) {
     if (_pairUrl != null) return;
     final barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
+    if (barcodes.isEmpty) {
+      debugPrint('[QR Scanner] No barcodes detected');
+      return;
+    }
     final raw = barcodes.first.rawValue;
-    if (raw == null || raw.isEmpty) return;
+    debugPrint('[QR Scanner] Raw value: $raw');
+    if (raw == null || raw.isEmpty) {
+      debugPrint('[QR Scanner] Empty raw value');
+      return;
+    }
     try {
       final uri = Uri.parse(raw);
-      if (uri.host.isEmpty || !uri.path.contains('/pair')) return;
+      debugPrint('[QR Scanner] Parsed URI - host: ${uri.host}, path: ${uri.path}, query: ${uri.query}');
+      if (uri.host.isEmpty) {
+        debugPrint('[QR Scanner] Empty host, rejecting');
+        setState(() => _error = 'QR code has no host: $raw');
+        return;
+      }
+      if (!uri.path.contains('/pair')) {
+        debugPrint('[QR Scanner] Path does not contain /pair, rejecting');
+        setState(() => _error = 'Not a pairing QR code: $raw');
+        return;
+      }
       setState(() {
         _pairUrl = uri;
         _error = null;
       });
       _scannerController.stop();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[QR Scanner] Parse error: $e');
+      setState(() => _error = 'Failed to parse QR: $e');
+    }
   }
 
   Future<void> _confirm() async {

@@ -338,15 +338,44 @@ class SimpleJSONServer:
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
         elif path == "/pair":
             token = (query_params.get("token") or "")
-            creator = ""
+
+            # Get base URL for display
+            base_url = self._infer_advertise_base_url(headers=headers, writer=writer)
+            parsed_url = base_url.replace("http://", "").replace("https://", "")
+            host = parsed_url.split("/")[0]  # Remove any path
+            is_secure = base_url.startswith("https://")
+            is_tunnel = ".ngrok" in base_url or ".trycloudflare" in base_url or ".loca.lt" in base_url
+
+            # Load robot name from settings
+            robot_name = "ContinuonBot"
             try:
-                creator = (
-                    (SettingsStore(Path(self.service.config_dir)).load().get("identity", {}) or {}).get("creator_display_name")
-                    or ""
-                )
+                settings = SettingsStore(Path(self.service.config_dir)).load()
+                identity = settings.get("identity", {}) or {}
+                robot_name = identity.get("creator_display_name") or identity.get("robot_name") or robot_name
             except Exception:
-                creator = ""
-            response_body = self.render_template("pair.html", {"active_page": "", "token": token, "creator": creator})
+                pass
+
+            # Get RCAN RURI if available
+            ruri = "rcan://unknown"
+            try:
+                rcan_info = self.service.rcan.get_discovery_info()
+                ruri = rcan_info.get("ruri", ruri)
+            except Exception:
+                pass
+
+            # Get capabilities
+            capabilities = ["arm", "vision", "training", "autonomous", "pairing"]
+
+            response_body = self.render_template("pair_qr.html", {
+                "active_page": "",
+                "token": token,
+                "robot_name": robot_name,
+                "ruri": ruri,
+                "host": host,
+                "secure": is_secure,
+                "capabilities": capabilities,
+                "is_tunnel": is_tunnel,
+            })
             response_bytes = response_body.encode('utf-8')
             return f"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len(response_bytes)}\r\n\r\n".encode('utf-8') + response_bytes
         elif path == "/status":
