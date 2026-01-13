@@ -14,5 +14,10 @@ from .community_dataset_importer import (  # noqa: F401
     ingest_grouped_samples,
     ingest_huggingface_dataset,
 )
+from .civqo_importer import (  # noqa: F401
+    CivqoImportConfig,
+    normalize_episode as normalize_civqo_episode,
+    import_episodes as import_civqo_episodes,
+)
 from .mock_mode import generate_mock_mode_episode  # noqa: F401
 from .validators import ValidationResult, validate_episode  # noqa: F401
