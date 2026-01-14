@@ -376,6 +376,9 @@ class BrainService:
         self._tool_router_bundle = None
         self.jax_adapter = None
 
+        # Background learner (lazy-initialized or set externally)
+        self.background_learner = None
+
         # HOPE brain (initialized by BackgroundLearner or switch_model)
         self.hope_brain = None
         self._hope_agent_cache = None  # Cached HOPEAgent instance
@@ -1733,7 +1736,64 @@ class BrainService:
                 
                 hope_agent = HOPEAgent(self.hope_brain)
                 self.gemma_chat = HOPEAgentWrapper(hope_agent, llm)
-                
+
+            elif model_id == "claude-code-cli":
+                # Claude Code CLI - uses local CLI for agentic capabilities
+                try:
+                    from continuonbrain.services.chat.claude_code_cli import create_claude_code_cli
+
+                    # Load CLI preferences from settings
+                    from continuonbrain.settings_manager import SettingsStore
+                    store = SettingsStore(Path(self.config_dir))
+                    settings = store.load()
+                    cli_model = settings.get("harness", {}).get("claude_code", {}).get("cli_model", "sonnet")
+
+                    # Get working directory from settings or use project root
+                    work_dir = settings.get("harness", {}).get("ralph_loop", {}).get("working_directory", "")
+                    if not work_dir:
+                        work_dir = "/home/craigm26/Downloads/ContinuonXR"
+
+                    self.gemma_chat = create_claude_code_cli(
+                        config_dir=self.config_dir,
+                        model=cli_model,
+                        working_directory=work_dir,
+                    )
+                    # Validate the CLI is available
+                    self.gemma_chat.load_model()
+                    logger.info(f"Successfully initialized Claude Code CLI with model: {cli_model}")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Claude Code CLI: {e}")
+                    self.gemma_chat = create_gemma_chat(use_mock=True, error_msg=f"Claude Code CLI init failed: {e}")
+
+            elif model_id == "claude-code" or model_id.startswith("claude-"):
+                # Claude API model (requires Anthropic API key)
+                try:
+                    from continuonbrain.services.chat.claude_chat import create_claude_chat
+
+                    # Determine which Claude model to use
+                    if model_id == "claude-code":
+                        # Load model preference from settings
+                        from continuonbrain.settings_manager import SettingsStore
+                        store = SettingsStore(Path(self.config_dir))
+                        settings = store.load()
+                        claude_model = settings.get("harness", {}).get("claude_code", {}).get("model", "claude-opus-4-5")
+                    else:
+                        claude_model = model_id
+
+                    self.gemma_chat = create_claude_chat(
+                        config_dir=self.config_dir,
+                        model=claude_model,
+                    )
+                    # Validate the API key works
+                    self.gemma_chat.load_model()
+                    logger.info(f"Successfully initialized Claude chat with model: {claude_model}")
+                except ImportError as e:
+                    logger.error(f"Claude chat requires anthropic package: {e}")
+                    self.gemma_chat = create_gemma_chat(use_mock=True, error_msg="Claude requires anthropic package")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Claude chat: {e}")
+                    self.gemma_chat = create_gemma_chat(use_mock=True, error_msg=f"Claude init failed: {e}")
+
             else:
                 # Real model - could be Gemma or VLA
                 self.gemma_chat = create_gemma_chat(use_mock=False, model_name=model_id)

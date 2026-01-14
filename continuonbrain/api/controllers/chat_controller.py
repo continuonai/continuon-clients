@@ -8,6 +8,7 @@ have conversations with the HOPE brain.
 
 import json
 import logging
+import time
 from typing import Any, Dict
 
 from continuonbrain.core.security import UserRole
@@ -69,11 +70,56 @@ class ChatControllerMixin:
             session_id = data.get("session_id")
             history = data.get("history")
 
-            result = hope_chat.chat(
-                message=message,
-                session_id=session_id,
-                history=history,
-            )
+            # Call chat with parameters the backend supports
+            # Different backends have different signatures, so we try to be flexible
+            start_time = time.time()
+
+            try:
+                # Try full HopeChat-compatible interface first
+                result = hope_chat.chat(
+                    message=message,
+                    session_id=session_id,
+                    history=history,
+                )
+            except TypeError:
+                # Fall back to simpler interface (GemmaChat, etc.)
+                try:
+                    result = hope_chat.chat(
+                        message=message,
+                        history=history,
+                    )
+                except TypeError:
+                    # Simplest interface - just message
+                    result = hope_chat.chat(message)
+
+            # Normalize the result to match expected format
+            if isinstance(result, str):
+                # Backend returned just a string - wrap in dict
+                result = {
+                    "success": True,
+                    "response": result,
+                    "session_id": session_id or "default",
+                    "agent": getattr(hope_chat, "model_name", "unknown"),
+                    "duration_ms": (time.time() - start_time) * 1000,
+                    "turn_count": 1,
+                }
+            elif isinstance(result, dict):
+                # Ensure required fields exist
+                if "success" not in result:
+                    result["success"] = True
+                if "response" not in result and "text" in result:
+                    result["response"] = result["text"]
+                if "session_id" not in result:
+                    result["session_id"] = session_id or "default"
+            else:
+                # Unexpected type - convert to string
+                result = {
+                    "success": True,
+                    "response": str(result),
+                    "session_id": session_id or "default",
+                    "agent": "unknown",
+                    "duration_ms": (time.time() - start_time) * 1000,
+                }
 
             self.send_json(result)
 
@@ -235,11 +281,44 @@ class ChatControllerMixin:
             }, status=500)
 
     def _get_hope_chat(self):
-        """Get the HopeChat instance from brain_service."""
+        """
+        Get the appropriate chat backend from brain_service.
+
+        Routes to different backends based on the selected agent model:
+        - hope-v1: Use hope_chat (JAX-based HOPE brain)
+        - claude-code/claude-*: Use gemma_chat (which holds Claude adapter)
+        - gemma-*: Use gemma_chat (local Gemma model)
+        - Other LLMs: Use gemma_chat
+        """
         brain_service = getattr(self.server, 'brain_service', None)
         if brain_service is None:
             return None
-        return getattr(brain_service, 'hope_chat', None)
+
+        # Check the agent_model setting to determine which backend to use
+        agent_model = "hope-v1"  # Default
+        try:
+            from continuonbrain.settings_manager import SettingsStore
+            from pathlib import Path
+            config_dir = getattr(brain_service, 'config_dir', None)
+            if config_dir:
+                store = SettingsStore(Path(config_dir))
+                settings = store.load()
+                agent_model = settings.get("agent_manager", {}).get("agent_model", "hope-v1")
+        except Exception as e:
+            logger.warning(f"Failed to load agent_model setting: {e}")
+
+        # Route to appropriate backend
+        if agent_model == "hope-v1":
+            # Use the JAX-based HOPE brain
+            return getattr(brain_service, 'hope_chat', None)
+        else:
+            # Use the LLM backend (Claude, Gemma, etc.)
+            # gemma_chat is updated by switch_model() to hold the current LLM
+            chat = getattr(brain_service, 'gemma_chat', None)
+            if chat is not None:
+                return chat
+            # Fallback to hope_chat if gemma_chat not available
+            return getattr(brain_service, 'hope_chat', None)
 
     def _get_hope_agent(self):
         """Get the HOPEAgent instance from brain_service, auto-initializing if needed."""

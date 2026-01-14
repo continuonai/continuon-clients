@@ -40,7 +40,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "enable_sleep_learning": True,    # Enabled by default for autonomous learning
     },
     "agent_manager": {
-        "agent_model": "hope-v1",  # Default to HOPE Agent
+        "agent_model": "hope-v1",  # Default to HOPE Agent. Options: hope-v1, gemma-local, claude-code
         "enable_thinking_indicator": True,
         "enable_intervention_prompts": True,
         "intervention_confidence_threshold": 0.5,
@@ -85,7 +85,67 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
             "tool_router_steps": 200,
         },
     },
+    # Claude Code / Agent Harness Configuration
+    # Integrates with Civqo's Ralph loop for agentic workflows
+    "harness": {
+        # Whether harness mode is enabled
+        "enabled": False,
+        # Harness type: "ralph" (Ralph loop), "native" (local agent), "civqo" (Civqo cloud)
+        "harness_type": "ralph",
+        # Claude Code / Anthropic API configuration
+        "claude_code": {
+            "enabled": False,
+            # API key is stored encrypted in secrets.json, not here
+            # This just indicates if key is configured
+            "api_key_configured": False,
+            # Model preference: claude-3-opus, claude-opus-4-5, claude-3-haiku
+            "model": "claude-opus-4-5",
+            # Max tokens for responses
+            "max_tokens": 4096,
+            # Whether to show Claude thinking process
+            "show_thinking": True,
+            # Enable tool use (file operations, bash, etc.)
+            "enable_tools": True,
+        },
+        # Ralph Loop configuration (from Civqo harness)
+        "ralph_loop": {
+            "enabled": False,
+            # Max iterations per task
+            "max_iterations": 50,
+            # Auto-commit changes
+            "auto_commit": False,
+            # Require approval before execution
+            "require_approval": True,
+            # Export sessions as RLDS episodes
+            "export_rlds": True,
+            # Working directory for Ralph sessions
+            "working_directory": "",
+            # Task queue mode: "sequential", "parallel"
+            "task_mode": "sequential",
+        },
+        # RLDS export configuration (for training data generation)
+        "rlds_export": {
+            "enabled": True,
+            # Auto-export completed sessions
+            "auto_export": True,
+            # Output directory for RLDS episodes
+            "output_dir": "/opt/continuonos/brain/rlds/episodes",
+            # Anonymize exported data
+            "anonymize": True,
+            # Include tool call results
+            "include_tool_results": True,
+            # Max steps per episode
+            "max_steps_per_episode": 1000,
+        },
+    },
 }
+
+# Valid agent model options
+ALLOWED_AGENT_MODELS = {"hope-v1", "gemma-local", "claude-code", "mock"}
+# Valid harness types
+ALLOWED_HARNESS_TYPES = {"ralph", "native", "civqo", "claude-code"}
+# Valid Claude models
+ALLOWED_CLAUDE_MODELS = {"claude-opus-4-5", "claude-3-opus", "claude-opus-4-5", "claude-3-haiku", "claude-3-5-sonnet"}
 
 ALLOWED_PERSONAS = {"operator", "safety_officer", "demo_host"}
 
@@ -336,6 +396,83 @@ class SettingsStore:
         # Agent model selection
         agent_model = agent_mgr.get("agent_model", DEFAULT_SETTINGS["agent_manager"]["agent_model"])
         normalized["agent_manager"]["agent_model"] = str(agent_model).strip() or "mock"
+
+        # Harness settings (Claude Code / Ralph Loop)
+        harness = payload.get("harness", {}) if isinstance(payload, dict) else {}
+        # Deep copy the defaults to avoid reference issues
+        normalized["harness"] = json.loads(json.dumps(DEFAULT_SETTINGS.get("harness", {})))
+
+        # Main harness settings
+        normalized["harness"]["enabled"] = bool(harness.get("enabled", normalized["harness"].get("enabled", False)))
+
+        harness_type = str(harness.get("harness_type", normalized["harness"].get("harness_type", "ralph"))).strip()
+        if harness_type in ALLOWED_HARNESS_TYPES:
+            normalized["harness"]["harness_type"] = harness_type
+        else:
+            normalized["harness"]["harness_type"] = "ralph"
+
+        # Claude Code settings
+        claude_code = harness.get("claude_code", {}) if isinstance(harness, dict) else {}
+        if "claude_code" not in normalized["harness"]:
+            normalized["harness"]["claude_code"] = {}
+
+        normalized["harness"]["claude_code"]["enabled"] = bool(claude_code.get("enabled", normalized["harness"]["claude_code"].get("enabled", False)))
+
+        # Preserve API key if present (don't overwrite with None)
+        if claude_code.get("api_key"):
+            normalized["harness"]["claude_code"]["api_key"] = claude_code["api_key"]
+        elif "api_key" in normalized["harness"]["claude_code"]:
+            pass  # Keep existing value
+
+        normalized["harness"]["claude_code"]["api_key_configured"] = bool(normalized["harness"]["claude_code"].get("api_key"))
+
+        claude_model = str(claude_code.get("model", normalized["harness"]["claude_code"].get("model", "claude-opus-4-5"))).strip()
+        if claude_model in ALLOWED_CLAUDE_MODELS:
+            normalized["harness"]["claude_code"]["model"] = claude_model
+        else:
+            normalized["harness"]["claude_code"]["model"] = "claude-opus-4-5"
+
+        normalized["harness"]["claude_code"]["max_tokens"] = int(claude_code.get("max_tokens", normalized["harness"]["claude_code"].get("max_tokens", 4096)))
+        normalized["harness"]["claude_code"]["show_thinking"] = bool(claude_code.get("show_thinking", normalized["harness"]["claude_code"].get("show_thinking", True)))
+        normalized["harness"]["claude_code"]["enable_tools"] = bool(claude_code.get("enable_tools", normalized["harness"]["claude_code"].get("enable_tools", True)))
+
+        # Ralph Loop settings
+        ralph_loop = harness.get("ralph_loop", {}) if isinstance(harness, dict) else {}
+        if "ralph_loop" not in normalized["harness"]:
+            normalized["harness"]["ralph_loop"] = {}
+
+        normalized["harness"]["ralph_loop"]["enabled"] = bool(ralph_loop.get("enabled", normalized["harness"]["ralph_loop"].get("enabled", False)))
+
+        max_iter = ralph_loop.get("max_iterations", normalized["harness"]["ralph_loop"].get("max_iterations", 50))
+        try:
+            max_iter_val = max(1, min(200, int(max_iter)))
+        except (TypeError, ValueError):
+            max_iter_val = 50
+        normalized["harness"]["ralph_loop"]["max_iterations"] = max_iter_val
+
+        normalized["harness"]["ralph_loop"]["auto_commit"] = bool(ralph_loop.get("auto_commit", normalized["harness"]["ralph_loop"].get("auto_commit", False)))
+        normalized["harness"]["ralph_loop"]["require_approval"] = bool(ralph_loop.get("require_approval", normalized["harness"]["ralph_loop"].get("require_approval", True)))
+        normalized["harness"]["ralph_loop"]["export_rlds"] = bool(ralph_loop.get("export_rlds", normalized["harness"]["ralph_loop"].get("export_rlds", True)))
+        normalized["harness"]["ralph_loop"]["working_directory"] = str(ralph_loop.get("working_directory", normalized["harness"]["ralph_loop"].get("working_directory", ""))).strip()
+        normalized["harness"]["ralph_loop"]["task_mode"] = str(ralph_loop.get("task_mode", normalized["harness"]["ralph_loop"].get("task_mode", "sequential"))).strip()
+
+        # RLDS Export settings
+        rlds_export = harness.get("rlds_export", {}) if isinstance(harness, dict) else {}
+        if "rlds_export" not in normalized["harness"]:
+            normalized["harness"]["rlds_export"] = {}
+
+        normalized["harness"]["rlds_export"]["enabled"] = bool(rlds_export.get("enabled", normalized["harness"]["rlds_export"].get("enabled", True)))
+        normalized["harness"]["rlds_export"]["auto_export"] = bool(rlds_export.get("auto_export", normalized["harness"]["rlds_export"].get("auto_export", True)))
+        normalized["harness"]["rlds_export"]["output_dir"] = str(rlds_export.get("output_dir", normalized["harness"]["rlds_export"].get("output_dir", "/opt/continuonos/brain/rlds/episodes"))).strip()
+        normalized["harness"]["rlds_export"]["anonymize"] = bool(rlds_export.get("anonymize", normalized["harness"]["rlds_export"].get("anonymize", True)))
+        normalized["harness"]["rlds_export"]["include_tool_results"] = bool(rlds_export.get("include_tool_results", normalized["harness"]["rlds_export"].get("include_tool_results", True)))
+
+        max_steps = rlds_export.get("max_steps_per_episode", normalized["harness"]["rlds_export"].get("max_steps_per_episode", 1000))
+        try:
+            max_steps_val = max(10, min(10000, int(max_steps)))
+        except (TypeError, ValueError):
+            max_steps_val = 1000
+        normalized["harness"]["rlds_export"]["max_steps_per_episode"] = max_steps_val
 
         return normalized
 

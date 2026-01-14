@@ -1,6 +1,8 @@
 {
   "identity": {
-    "creator_display_name": "Craig Michael Merry"
+    "robot_name": "ContinuonBot",
+    "creator_display_name": "Craig Michael Merry",
+    "_creator_immutable": true
   },
   "safety": {
     "allow_motion": true,
@@ -13,10 +15,10 @@
   "chat": {
     "persona": "operator",
     "temperature": 0.35,
-    "log_rlds": true
+    "log_rlds": false
   },
   "training": {
-    "enable_sidecar_trainer": true,
+    "enable_sidecar_trainer": false,
     "enable_sleep_learning": true
   },
   "agent_manager": {
@@ -24,19 +26,18 @@
     "enable_intervention_prompts": true,
     "intervention_confidence_threshold": 0.5,
     "chat_learn": {
-      "enabled": true,
-      "interval_s": 300,
-      "turns_per_cycle": 12,
-      "model_hint": "mock",
-      "delegate_model_hint": "consult:google/gemma-3-4b-it",
-      "topic": "curiosity-driven self-improvement and architectural understanding: World Model, SSM, Mamba, CMS (Fast/Mid/Slow loops), Particle/Wave splitting, and autonomous system optimization.",
+      "enabled": false,
+      "interval_s": 600,
+      "turns_per_cycle": 10,
+      "model_hint": "google/gemma-3n-2b",
+      "delegate_model_hint": "",
+      "topic": "coding this repository (ContinuonXR/continuonbrain/continuonai)",
       "modes": [
-        "idle",
-        "autonomous"
+        "idle"
       ]
     },
     "autonomy_orchestrator": {
-      "enabled": true,
+      "enabled": false,
       "modes": [
         "autonomous"
       ],
@@ -55,6 +56,48 @@
     "enable_autonomous_learning": true,
     "autonomous_learning_steps_per_cycle": 100,
     "autonomous_learning_checkpoint_interval": 1000,
-    "agent_model": "mock"
+    "agent_model": "claude-3-5-sonnet",
+    "available_models": [
+      "claude-3-5-sonnet",
+      "claude-opus-4-5",
+      "claude-code-cli",
+      "hope-v1",
+      "mock"
+    ]
+  },
+  "harness": {
+    "enabled": true,
+    "harness_type": "ralph",
+    "claude_code": {
+      "enabled": true,
+      "api_key_configured": true,
+      "api_key": "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",
+      "model": "claude-3-5-sonnet",
+      "cli_model": "sonnet",
+      "max_tokens": 4096,
+      "show_thinking": true,
+      "enable_tools": true,
+      "available_models": [
+        "claude-3-5-sonnet",
+        "claude-opus-4-5"
+      ]
+    },
+    "ralph_loop": {
+      "enabled": true,
+      "max_iterations": 50,
+      "auto_commit": false,
+      "require_approval": true,
+      "export_rlds": true,
+      "working_directory": "",
+      "task_mode": "sequential"
+    },
+    "rlds_export": {
+      "enabled": true,
+      "auto_export": true,
+      "output_dir": "/opt/continuonos/brain/rlds/episodes",
+      "anonymize": true,
+      "include_tool_results": true,
+      "max_steps_per_episode": 1000
+    }
   }
 }
