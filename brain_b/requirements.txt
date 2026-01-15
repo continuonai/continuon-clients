@@ -1,0 +1,16 @@
+# Brain B - Minimal dependencies
+
+# Core (required)
+# None - uses only Python stdlib
+
+# Optional - for web interface
+fastapi>=0.100.0
+uvicorn>=0.23.0
+websockets>=11.0
+
+# Optional - for real hardware
+# RPi.GPIO  # Raspberry Pi GPIO (install on Pi only)
+# pigpio    # Alternative GPIO library
+
+# Optional - for testing
+pytest>=7.0.0

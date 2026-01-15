@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain A Trainer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #16213e;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #e94560;
+        }
+
+        .status {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e94560;
+        }
+
+        .status-dot.connected {
+            background: #4ade80;
+        }
+
+        .user-badge {
+            background: #0f3460;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1rem;
+            padding: 1rem;
+            height: calc(100vh - 70px);
+        }
+
+        .left-panel {
+            display: grid;
+            grid-template-rows: 1fr auto;
+            gap: 1rem;
+        }
+
+        .camera-section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .camera-container {
+            position: relative;
+            flex: 1;
+            background: #0a0a0a;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #camera-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .face-overlay {
+            position: absolute;
+            border: 2px solid #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .face-label {
+            position: absolute;
+            top: -24px;
+            left: 0;
+            background: #4ade80;
+            color: #000;
+            padding: 2px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        .controls-section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .drive-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            max-width: 200px;
+            margin: 0 auto;
+        }
+
+        .drive-btn {
+            width: 60px;
+            height: 60px;
+            border: none;
+            border-radius: 8px;
+            background: #0f3460;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .drive-btn:hover {
+            background: #1a4f8f;
+        }
+
+        .drive-btn:active, .drive-btn.active {
+            background: #e94560;
+            transform: scale(0.95);
+        }
+
+        .drive-btn.stop {
+            background: #e94560;
+        }
+
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .panel {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .panel h3 {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .arm-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .joint-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .joint-label {
+            width: 20px;
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .joint-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .joint-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .joint-value {
+            width: 40px;
+            font-size: 0.8rem;
+            text-align: right;
+            color: #888;
+        }
+
+        .gripper-control {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #0f3460;
+        }
+
+        .chat-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            max-height: 200px;
+        }
+
+        .chat-message {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .chat-message.user {
+            background: #0f3460;
+        }
+
+        .chat-message.assistant {
+            background: #1a4f8f;
+        }
+
+        .chat-message.system {
+            background: #333;
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            background: #0f3460;
+            color: #fff;
+            outline: none;
+        }
+
+        .chat-input button {
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            background: #e94560;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .action-btn.record {
+            background: #4ade80;
+            color: #000;
+        }
+
+        .action-btn.record.recording {
+            background: #e94560;
+            animation: pulse 1s infinite;
+        }
+
+        .action-btn.speak {
+            background: #0f3460;
+            color: #fff;
+        }
+
+        .action-btn.register {
+            background: #8b5cf6;
+            color: #fff;
+        }
+
+        .action-btn.emergency {
+            background: #dc2626;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .voice-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .voice-level {
+            flex: 1;
+            height: 4px;
+            background: #0f3460;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .voice-level-bar {
+            height: 100%;
+            background: #4ade80;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        /* Modal for face registration */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #16213e;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 1rem;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: none;
+            border-radius: 8px;
+            background: #0f3460;
+            color: #fff;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .modal-buttons button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .modal-buttons .cancel {
+            background: #333;
+            color: #fff;
+        }
+
+        .modal-buttons .confirm {
+            background: #4ade80;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Brain A Trainer</h1>
+        <div class="status">
+            <div class="status-dot" id="connection-status"></div>
+            <span id="connection-text">Disconnected</span>
+            <div class="user-badge" id="user-badge">No face detected</div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="left-panel">
+            <section class="camera-section">
+                <div class="camera-header">
+                    <h3>Camera</h3>
+                    <div class="action-buttons">
+                        <button class="action-btn register" onclick="openRegisterModal()">Register Face</button>
+                    </div>
+                </div>
+                <div class="camera-container">
+                    <video id="camera-video" autoplay playsinline></video>
+                    <canvas id="face-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+                </div>
+            </section>
+
+            <section class="controls-section">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <h3 style="margin-bottom:1rem;color:#888;font-size:0.9rem;">DRIVE (WASD)</h3>
+                        <div class="drive-controls">
+                            <div></div>
+                            <button class="drive-btn" id="btn-forward" data-direction="forward">↑</button>
+                            <div></div>
+                            <button class="drive-btn" id="btn-left" data-direction="left">←</button>
+                            <button class="drive-btn stop" id="btn-stop" data-direction="stop">■</button>
+                            <button class="drive-btn" id="btn-right" data-direction="right">→</button>
+                            <div></div>
+                            <button class="drive-btn" id="btn-backward" data-direction="backward">↓</button>
+                            <div></div>
+                        </div>
+                    </div>
+                    <div class="action-buttons" style="flex-direction:column;">
+                        <button class="action-btn record" id="record-btn" onclick="toggleRecording()">Start Recording</button>
+                        <button class="action-btn emergency" onclick="emergencyStop()">EMERGENCY STOP</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="right-panel">
+            <section class="panel">
+                <h3>Robot Arm</h3>
+                <div class="arm-controls" id="arm-controls">
+                    <!-- Generated by JS -->
+                </div>
+                <div class="gripper-control">
+                    <div class="joint-control">
+                        <span class="joint-label">G</span>
+                        <input type="range" class="joint-slider" id="gripper-slider" min="0" max="100" value="0">
+                        <span class="joint-value" id="gripper-value">0%</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h3>Voice</h3>
+                <div class="action-buttons">
+                    <button class="action-btn speak" id="listen-btn" onclick="toggleListening()">🎤 Listen</button>
+                    <button class="action-btn speak" onclick="speakTest()">🔊 Test Speaker</button>
+                </div>
+                <div class="voice-indicator">
+                    <span style="font-size:0.8rem;color:#888;">Mic Level</span>
+                    <div class="voice-level">
+                        <div class="voice-level-bar" id="voice-level"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel chat-section">
+                <h3>Ask Claude</h3>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-message system">Ask Claude Code for help with robot tasks...</div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Ask Claude..." onkeypress="handleChatKeypress(event)">
+                    <button onclick="sendChat()">Send</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Face Registration Modal -->
+    <div class="modal" id="register-modal">
+        <div class="modal-content">
+            <h2>Register Your Face</h2>
+            <p style="color:#888;margin-bottom:1rem;font-size:0.9rem;">Look at the camera and enter your name</p>
+            <input type="text" id="face-name-input" placeholder="Your name">
+            <div class="modal-buttons">
+                <button class="cancel" onclick="closeRegisterModal()">Cancel</button>
+                <button class="confirm" onclick="registerFace()">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // State
+        // ============================================================
+        let ws = null;
+        let isRecording = false;
+        let isListening = false;
+        let recognition = null;
+        let audioContext = null;
+        let analyser = null;
+
+        // ============================================================
+        // WebSocket Connection
+        // ============================================================
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                document.getElementById('connection-status').classList.add('connected');
+                document.getElementById('connection-text').textContent = 'Connected';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connection-status').classList.remove('connected');
+                document.getElementById('connection-text').textContent = 'Disconnected';
+                setTimeout(connect, 2000);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleServerMessage(data);
+            };
+        }
+
+        function send(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(data));
+            }
+        }
+
+        function handleServerMessage(data) {
+            switch (data.type) {
+                case 'state':
+                    updateState(data.data);
+                    if (data.known_faces) {
+                        console.log('Known faces:', data.known_faces);
+                    }
+                    break;
+
+                case 'faces_detected':
+                    drawFaces(data.faces);
+                    if (data.faces.length > 0 && data.faces[0].name !== 'Unknown') {
+                        document.getElementById('user-badge').textContent = `👤 ${data.faces[0].name}`;
+                    }
+                    break;
+
+                case 'face_registered':
+                    addChatMessage('system', `Face registered for ${data.name}`);
+                    closeRegisterModal();
+                    break;
+
+                case 'claude_thinking':
+                    addChatMessage('system', 'Claude is thinking...');
+                    break;
+
+                case 'claude_response':
+                    addChatMessage('assistant', data.response);
+                    break;
+
+                case 'recording':
+                    if (data.status === 'started') {
+                        isRecording = true;
+                        document.getElementById('record-btn').textContent = '⏹ Stop Recording';
+                        document.getElementById('record-btn').classList.add('recording');
+                    } else {
+                        isRecording = false;
+                        document.getElementById('record-btn').textContent = '⏺ Start Recording';
+                        document.getElementById('record-btn').classList.remove('recording');
+                        if (data.path) {
+                            addChatMessage('system', `Recording saved to ${data.path}`);
+                        }
+                    }
+                    break;
+
+                case 'error':
+                    addChatMessage('system', `Error: ${data.message}`);
+                    break;
+            }
+        }
+
+        function updateState(state) {
+            // Update any state displays if needed
+        }
+
+        // ============================================================
+        // Camera
+        // ============================================================
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: 640, height: 480 },
+                    audio: false
+                });
+                const video = document.getElementById('camera-video');
+                video.srcObject = stream;
+
+                // Start sending frames for face recognition
+                setInterval(sendCameraFrame, 1000);
+            } catch (err) {
+                console.error('Camera error:', err);
+                addChatMessage('system', 'Camera access denied');
+            }
+        }
+
+        function sendCameraFrame() {
+            const video = document.getElementById('camera-video');
+            if (!video.srcObject) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = 240;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, 320, 240);
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            send({ type: 'camera_frame', image: imageData });
+        }
+
+        function drawFaces(faces) {
+            const video = document.getElementById('camera-video');
+            const canvas = document.getElementById('face-canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Scale factor (we send 320x240, display is larger)
+            const scaleX = video.videoWidth / 320;
+            const scaleY = video.videoHeight / 240;
+
+            faces.forEach(face => {
+                const [left, top, right, bottom] = face.box;
+                const x = left * scaleX;
+                const y = top * scaleY;
+                const w = (right - left) * scaleX;
+                const h = (bottom - top) * scaleY;
+
+                ctx.strokeStyle = face.name === 'Unknown' ? '#e94560' : '#4ade80';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
+
+                ctx.fillStyle = face.name === 'Unknown' ? '#e94560' : '#4ade80';
+                ctx.font = '14px sans-serif';
+                ctx.fillText(face.name, x, y - 5);
+            });
+        }
+
+        // ============================================================
+        // Face Registration
+        // ============================================================
+        function openRegisterModal() {
+            document.getElementById('register-modal').classList.add('active');
+            document.getElementById('face-name-input').focus();
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('register-modal').classList.remove('active');
+            document.getElementById('face-name-input').value = '';
+        }
+
+        function registerFace() {
+            const name = document.getElementById('face-name-input').value.trim();
+            if (!name) {
+                alert('Please enter a name');
+                return;
+            }
+
+            const video = document.getElementById('camera-video');
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, 640, 480);
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.9);
+            send({ type: 'register_face', name: name, image: imageData });
+        }
+
+        // ============================================================
+        // Drive Controls
+        // ============================================================
+        function initDriveControls() {
+            const buttons = document.querySelectorAll('.drive-btn');
+            buttons.forEach(btn => {
+                const direction = btn.dataset.direction;
+
+                btn.addEventListener('mousedown', () => {
+                    send({ type: 'drive', direction: direction, speed: 0.5 });
+                    btn.classList.add('active');
+                });
+
+                btn.addEventListener('mouseup', () => {
+                    if (direction !== 'stop') {
+                        send({ type: 'drive', direction: 'stop' });
+                    }
+                    btn.classList.remove('active');
+                });
+
+                btn.addEventListener('mouseleave', () => {
+                    btn.classList.remove('active');
+                });
+            });
+
+            // Keyboard controls
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+
+                let direction = null;
+                switch (e.key.toLowerCase()) {
+                    case 'w': direction = 'forward'; break;
+                    case 's': direction = 'backward'; break;
+                    case 'a': direction = 'left'; break;
+                    case 'd': direction = 'right'; break;
+                    case ' ': direction = 'stop'; break;
+                }
+
+                if (direction) {
+                    e.preventDefault();
+                    send({ type: 'drive', direction: direction, speed: 0.5 });
+                    document.getElementById(`btn-${direction}`)?.classList.add('active');
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+
+                const keys = ['w', 's', 'a', 'd'];
+                if (keys.includes(e.key.toLowerCase())) {
+                    send({ type: 'drive', direction: 'stop' });
+                    document.querySelectorAll('.drive-btn').forEach(btn => btn.classList.remove('active'));
+                }
+            });
+        }
+
+        // ============================================================
+        // Arm Controls
+        // ============================================================
+        function initArmControls() {
+            const container = document.getElementById('arm-controls');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 6; i++) {
+                const div = document.createElement('div');
+                div.className = 'joint-control';
+                div.innerHTML = `
+                    <span class="joint-label">J${i + 1}</span>
+                    <input type="range" class="joint-slider" id="joint-${i}" min="-100" max="100" value="0">
+                    <span class="joint-value" id="joint-${i}-value">0</span>
+                `;
+                container.appendChild(div);
+
+                const slider = div.querySelector('input');
+                slider.addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value) / 100;
+                    document.getElementById(`joint-${i}-value`).textContent = e.target.value;
+                    send({ type: 'arm', joint: i, value: value });
+                });
+            }
+
+            // Gripper
+            const gripperSlider = document.getElementById('gripper-slider');
+            gripperSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value) / 100;
+                document.getElementById('gripper-value').textContent = `${e.target.value}%`;
+                send({ type: 'gripper', value: value });
+            });
+        }
+
+        // ============================================================
+        // Voice
+        // ============================================================
+        function initVoice() {
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+
+                recognition.onresult = (event) => {
+                    const result = event.results[event.results.length - 1];
+                    if (result.isFinal) {
+                        const text = result[0].transcript;
+                        addChatMessage('user', text);
+                        send({ type: 'ask_claude', prompt: text });
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    isListening = false;
+                    document.getElementById('listen-btn').textContent = '🎤 Listen';
+                };
+            }
+
+            // Audio level visualization
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                audioContext = new AudioContext();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 256;
+
+                const updateLevel = () => {
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(dataArray);
+                    const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                    document.getElementById('voice-level').style.width = `${Math.min(100, avg * 2)}%`;
+                    requestAnimationFrame(updateLevel);
+                };
+                updateLevel();
+            }).catch(err => {
+                console.error('Microphone error:', err);
+            });
+        }
+
+        function toggleListening() {
+            if (!recognition) {
+                addChatMessage('system', 'Speech recognition not available');
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+                isListening = false;
+                document.getElementById('listen-btn').textContent = '🎤 Listen';
+            } else {
+                recognition.start();
+                isListening = true;
+                document.getElementById('listen-btn').textContent = '🎤 Listening...';
+            }
+        }
+
+        function speakTest() {
+            send({ type: 'speak', text: 'Hello, I am your robot assistant.' });
+        }
+
+        // ============================================================
+        // Chat
+        // ============================================================
+        function addChatMessage(role, text) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `chat-message ${role}`;
+            div.textContent = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            addChatMessage('user', text);
+            send({ type: 'ask_claude', prompt: text });
+            input.value = '';
+        }
+
+        function handleChatKeypress(e) {
+            if (e.key === 'Enter') {
+                sendChat();
+            }
+        }
+
+        // ============================================================
+        // Recording
+        // ============================================================
+        function toggleRecording() {
+            if (isRecording) {
+                send({ type: 'stop_recording' });
+            } else {
+                send({ type: 'start_recording' });
+            }
+        }
+
+        function emergencyStop() {
+            send({ type: 'emergency_stop' });
+            addChatMessage('system', '🚨 EMERGENCY STOP ACTIVATED');
+        }
+
+        // ============================================================
+        // Initialize
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            connect();
+            initCamera();
+            initDriveControls();
+            initArmControls();
+            initVoice();
+        });
+    </script>
+</body>
+</html>

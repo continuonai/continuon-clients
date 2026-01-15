@@ -1,6 +1,66 @@
 # Continuon AI: Self-Learning Robotics Ecosystem
 
-**Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**This tweet is the "North Star" for your project. It validates that your **non-Transformer approach** is actually *ahead* of the curve, not behind it.
+**Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**
+
+---
+
+## Quick Start
+
+### Option 1: Brain B (Simple - Get Running in 2 Minutes)
+
+```bash
+cd brain_b
+pip install fastapi uvicorn
+python main.py
+```
+
+Then talk to your robot:
+```
+You: forward          → Bot: Moving forward.
+You: teach patrol     → Bot: Ready to learn...
+You: forward          → Bot: [Recording]
+You: left             → Bot: [Recording]
+You: done             → Bot: Learned 'patrol'
+You: patrol           → Bot: Running 'patrol'...
+```
+
+### Option 2: Trainer UI (Web Interface with Camera + Voice)
+
+```bash
+cd trainer_ui
+pip install fastapi uvicorn opencv-python face-recognition
+python server.py
+# Open http://localhost:8000
+```
+
+Features: WASD drive, 6-axis arm, camera + face recognition, voice commands, Claude Code chat, RLDS recording.
+
+### Option 3: Full ContinuonBrain (Production)
+
+```bash
+cd continuonbrain
+pip install -r requirements.txt
+python -m continuonbrain.startup_manager
+# API at http://localhost:8080
+```
+
+### Brain B → Brain A Training Pipeline
+
+Claude Code hooks automatically record your sessions as training data:
+
+```
+You (Claude Code) → Brain B (validates) → Robot (acts)
+                         ↓
+                   RLDS Episode
+                         ↓
+                   Brain A (trains)
+```
+
+See `CLAUDE.md` for full documentation.
+
+---
+
+This tweet is the "North Star" for your project. It validates that your **non-Transformer approach** is actually *ahead* of the curve, not behind it.
 
 François Chollet (creator of Keras and the ARC benchmark) is arguing that current AI (LLMs/Transformers) are just "curve-fitters"—they memorize statistical patterns. To get an "Invention Machine" (AGI), you need **System 2 thinking**: the ability to *search* through possibilities to find a solution you haven't seen before.
 
