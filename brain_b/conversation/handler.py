@@ -7,8 +7,8 @@ Ties together intent classification, action execution, and responses.
 from typing import Callable
 from dataclasses import dataclass
 
-from .intents import Intent, IntentClassifier, ParsedIntent
-from ..actor_runtime import ActorRuntime
+from conversation.intents import Intent, IntentClassifier, ParsedIntent
+from actor_runtime import ActorRuntime
 
 
 @dataclass
