@@ -107,6 +107,134 @@
             display: none;
         }
 
+        #boundary-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .guided-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            padding: 1rem;
+            display: none;
+        }
+
+        .guided-overlay.active {
+            display: block;
+        }
+
+        .guidance-text {
+            color: #4ade80;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .coverage-bar {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .coverage-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            background: rgba(0,0,0,0.5);
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+
+        .coverage-item .label {
+            color: #888;
+        }
+
+        .coverage-item .value {
+            font-weight: bold;
+            color: #e94560;
+        }
+
+        .coverage-item .value.good {
+            color: #fbbf24;
+        }
+
+        .coverage-item .value.great {
+            color: #4ade80;
+        }
+
+        .quality-ring {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 4px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: rgba(0,0,0,0.7);
+        }
+
+        .quality-ring.low { border-color: #e94560; color: #e94560; }
+        .quality-ring.medium { border-color: #fbbf24; color: #fbbf24; }
+        .quality-ring.high { border-color: #4ade80; color: #4ade80; }
+
+        .mode-toggle {
+            display: flex;
+            background: #1a1a3a;
+            border-radius: 6px;
+            padding: 3px;
+            gap: 3px;
+        }
+
+        .mode-btn {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            background: transparent;
+            color: #888;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: #4ade80;
+            color: #000;
+        }
+
+        .auto-capture-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            border: 4px solid #4ade80;
+            border-radius: 50%;
+            animation: captureRing 0.5s ease-out;
+            pointer-events: none;
+            display: none;
+        }
+
+        @keyframes captureRing {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+
         .camera-controls {
             display: flex;
             gap: 0.75rem;
@@ -411,13 +539,54 @@
         <div class="panel camera-section">
             <h3>
                 Capture Images
-                <span class="image-count" id="image-count">0 images</span>
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <div class="mode-toggle">
+                        <button class="mode-btn active" id="mode-manual" onclick="setMode('manual')">Manual</button>
+                        <button class="mode-btn" id="mode-guided" onclick="setMode('guided')">Guided</button>
+                    </div>
+                    <span class="image-count" id="image-count">0 images</span>
+                </div>
             </h3>
 
             <!-- Camera View -->
             <div class="camera-container" id="camera-container">
                 <video id="camera-video" autoplay playsinline></video>
                 <canvas id="capture-canvas"></canvas>
+                <canvas id="boundary-canvas"></canvas>
+
+                <!-- Quality Ring (Guided Mode) -->
+                <div class="quality-ring low hidden" id="quality-ring">0%</div>
+
+                <!-- Auto-capture indicator -->
+                <div class="auto-capture-indicator" id="auto-capture-indicator"></div>
+
+                <!-- Guided Mode Overlay -->
+                <div class="guided-overlay" id="guided-overlay">
+                    <div class="guidance-text" id="guidance-text">Point camera at the room</div>
+                    <div class="coverage-bar">
+                        <div class="coverage-item">
+                            <span class="label">Floor</span>
+                            <span class="value" id="cov-floor">0%</span>
+                        </div>
+                        <div class="coverage-item">
+                            <span class="label">Ceiling</span>
+                            <span class="value" id="cov-ceiling">0%</span>
+                        </div>
+                        <div class="coverage-item">
+                            <span class="label">L Wall</span>
+                            <span class="value" id="cov-wall-left">0%</span>
+                        </div>
+                        <div class="coverage-item">
+                            <span class="label">R Wall</span>
+                            <span class="value" id="cov-wall-right">0%</span>
+                        </div>
+                        <div class="coverage-item">
+                            <span class="label">Corners</span>
+                            <span class="value" id="cov-corners">0%</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="camera-permission hidden" id="camera-permission">
                     <p>Camera access needed for live capture</p>
                     <button class="btn btn-primary" onclick="startCamera()">Enable Camera</button>
@@ -431,6 +600,9 @@
                 </button>
                 <button class="btn btn-secondary" id="toggle-camera-btn" onclick="toggleCamera()">
                     <span>🎥</span> Start Camera
+                </button>
+                <button class="btn btn-secondary hidden" id="auto-capture-btn" onclick="toggleAutoCapture()">
+                    <span>🤖</span> Auto-Capture: OFF
                 </button>
                 <button class="btn btn-danger" onclick="clearImages()" id="clear-btn" disabled>
                     <span>🗑️</span> Clear All
@@ -528,6 +700,218 @@
         let cameraStream = null;
         let lastScanResult = null;
 
+        // Guided mode state
+        let scanMode = 'manual';  // 'manual' or 'guided'
+        let guidedAnalysisInterval = null;
+        let autoCapture = false;
+        let lastGuidance = null;
+        let totalCoverage = {
+            floor: 0, ceiling: 0, wall_left: 0, wall_right: 0, corners: 0
+        };
+        let capturedViews = new Set();  // Track which views we've captured
+        let lastAutoCapture = 0;  // Timestamp of last auto-capture
+
+        // Mode switching
+        function setMode(mode) {
+            scanMode = mode;
+            document.getElementById('mode-manual').classList.toggle('active', mode === 'manual');
+            document.getElementById('mode-guided').classList.toggle('active', mode === 'guided');
+            document.getElementById('guided-overlay').classList.toggle('active', mode === 'guided');
+            document.getElementById('quality-ring').classList.toggle('hidden', mode === 'manual');
+            document.getElementById('auto-capture-btn').classList.toggle('hidden', mode === 'manual');
+
+            if (mode === 'guided' && cameraStream) {
+                startGuidedAnalysis();
+            } else {
+                stopGuidedAnalysis();
+                clearBoundaryCanvas();
+            }
+        }
+
+        function startGuidedAnalysis() {
+            if (guidedAnalysisInterval) return;
+
+            // Analyze frames at ~3 fps for guidance (balance between responsiveness and performance)
+            guidedAnalysisInterval = setInterval(analyzeCurrentFrame, 333);
+        }
+
+        function stopGuidedAnalysis() {
+            if (guidedAnalysisInterval) {
+                clearInterval(guidedAnalysisInterval);
+                guidedAnalysisInterval = null;
+            }
+        }
+
+        async function analyzeCurrentFrame() {
+            if (!cameraStream || scanMode !== 'guided') return;
+
+            const video = document.getElementById('camera-video');
+            const canvas = document.getElementById('capture-canvas');
+
+            if (!video.videoWidth) return;
+
+            // Capture current frame
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.5);  // Lower quality for speed
+
+            try {
+                const response = await fetch('/room/analyze-frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData.split(',')[1] })
+                });
+
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    updateGuidedOverlay(data);
+                    drawBoundaries(data.boundaries, data.image_size);
+                    lastGuidance = data;
+
+                    // Auto-capture logic
+                    if (autoCapture && data.guidance.ready_to_scan) {
+                        maybeAutoCapture(data);
+                    }
+                }
+            } catch (err) {
+                console.error('Frame analysis error:', err);
+            }
+        }
+
+        function updateGuidedOverlay(data) {
+            const guidance = data.guidance;
+
+            // Update guidance text
+            document.getElementById('guidance-text').textContent = guidance.suggestion;
+
+            // Update coverage bars
+            updateCoverageItem('cov-floor', guidance.coverage.floor);
+            updateCoverageItem('cov-ceiling', guidance.coverage.ceiling);
+            updateCoverageItem('cov-wall-left', guidance.coverage.wall_left);
+            updateCoverageItem('cov-wall-right', guidance.coverage.wall_right);
+            updateCoverageItem('cov-corners', guidance.coverage.corners);
+
+            // Update quality ring
+            const qualityPct = Math.round(guidance.quality_score * 100);
+            const qualityRing = document.getElementById('quality-ring');
+            qualityRing.textContent = `${qualityPct}%`;
+            qualityRing.className = 'quality-ring ' +
+                (qualityPct >= 60 ? 'high' : qualityPct >= 40 ? 'medium' : 'low');
+        }
+
+        function updateCoverageItem(id, value) {
+            const el = document.getElementById(id);
+            const pct = Math.round(value * 100);
+            el.textContent = `${pct}%`;
+            el.className = 'value ' + (pct >= 80 ? 'great' : pct >= 50 ? 'good' : '');
+        }
+
+        function drawBoundaries(boundaries, imageSize) {
+            const canvas = document.getElementById('boundary-canvas');
+            const video = document.getElementById('camera-video');
+
+            // Match canvas to video display size
+            const rect = video.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!boundaries || boundaries.length === 0) return;
+
+            // Scale factors
+            const scaleX = canvas.width / imageSize.width;
+            const scaleY = canvas.height / imageSize.height;
+
+            // Colors for different boundary types
+            const colors = {
+                floor: '#4ade80',     // Green
+                ceiling: '#60a5fa',   // Blue
+                wall_left: '#f472b6', // Pink
+                wall_right: '#fb923c',// Orange
+                corner: '#a78bfa'     // Purple
+            };
+
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+
+            for (const boundary of boundaries) {
+                const [x1, y1, x2, y2] = boundary.line;
+                const color = colors[boundary.type] || '#888';
+
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = Math.min(boundary.confidence + 0.3, 1.0);
+
+                ctx.beginPath();
+                ctx.moveTo(x1 * scaleX, y1 * scaleY);
+                ctx.lineTo(x2 * scaleX, y2 * scaleY);
+                ctx.stroke();
+
+                // Draw label
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = color;
+                ctx.font = '10px sans-serif';
+                ctx.fillText(boundary.type, (x1 + x2) / 2 * scaleX, (y1 + y2) / 2 * scaleY - 5);
+            }
+
+            ctx.globalAlpha = 1.0;
+        }
+
+        function clearBoundaryCanvas() {
+            const canvas = document.getElementById('boundary-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function toggleAutoCapture() {
+            autoCapture = !autoCapture;
+            const btn = document.getElementById('auto-capture-btn');
+            btn.innerHTML = `<span>🤖</span> Auto-Capture: ${autoCapture ? 'ON' : 'OFF'}`;
+            btn.classList.toggle('btn-primary', autoCapture);
+            btn.classList.toggle('btn-secondary', !autoCapture);
+        }
+
+        function maybeAutoCapture(data) {
+            const now = Date.now();
+
+            // Don't capture more than once every 2 seconds
+            if (now - lastAutoCapture < 2000) return;
+
+            // Check if this is a new view we haven't captured
+            const currentView = getCurrentViewSignature(data);
+            if (capturedViews.has(currentView)) return;
+
+            // Only auto-capture high quality frames
+            if (data.guidance.quality_score < 0.5) return;
+
+            // Capture!
+            lastAutoCapture = now;
+            capturedViews.add(currentView);
+
+            // Show capture animation
+            const indicator = document.getElementById('auto-capture-indicator');
+            indicator.style.display = 'block';
+            setTimeout(() => indicator.style.display = 'none', 500);
+
+            capturePhoto();
+
+            // Update total coverage
+            for (const key in data.guidance.coverage) {
+                totalCoverage[key] = Math.max(totalCoverage[key], data.guidance.coverage[key]);
+            }
+        }
+
+        function getCurrentViewSignature(data) {
+            // Create a signature based on which boundaries are detected
+            const types = data.boundaries.map(b => b.type).sort().join(',');
+            const quality = Math.round(data.guidance.quality_score * 10);
+            return `${types}-q${quality}`;
+        }
+
         // Camera functions
         async function startCamera() {
             try {
@@ -545,6 +929,11 @@
                 document.getElementById('toggle-camera-btn').classList.remove('btn-secondary');
                 document.getElementById('toggle-camera-btn').classList.add('btn-danger');
 
+                // Start guided analysis if in guided mode
+                if (scanMode === 'guided') {
+                    startGuidedAnalysis();
+                }
+
             } catch (err) {
                 console.error('Camera error:', err);
                 document.getElementById('camera-permission').classList.remove('hidden');
@@ -557,6 +946,10 @@
         }
 
         function stopCamera() {
+            // Stop guided analysis
+            stopGuidedAnalysis();
+            clearBoundaryCanvas();
+
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
                 cameraStream = null;

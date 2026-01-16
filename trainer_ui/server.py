@@ -1559,6 +1559,37 @@ async def scan_room_images(request_data: dict):
         return {"error": str(e), "result": None}
 
 
+@app.post("/room/analyze-frame")
+async def analyze_frame(request_data: dict):
+    """
+    Analyze a single frame for guided room scanning.
+
+    Detects floor, walls, ceiling boundaries and provides
+    real-time guidance for capturing optimal room images.
+
+    Request body:
+        {
+            "image": "base64_image_data"
+        }
+
+    Returns:
+        Detected boundaries, coverage info, and user guidance
+    """
+    if not HAS_ROOM_SCANNER:
+        return {"error": "Room scanner not available"}
+
+    image_data = request_data.get("image", "")
+    if not image_data:
+        return {"error": "No image provided"}
+
+    try:
+        from room_scanner import analyze_frame_for_guided_scan
+        result = analyze_frame_for_guided_scan(image_data)
+        return {"status": "ok", **result}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/room/scan/{scan_id}")
 async def get_scan_result(scan_id: str):
     """
