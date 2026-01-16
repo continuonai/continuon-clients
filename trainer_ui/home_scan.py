@@ -64,10 +64,11 @@ HAS_HOME_SCAN = HAS_HOME_SIMULATOR
 class HomeScanConfig:
     """Configuration for HomeScan integration."""
     rlds_output_path: Path = field(default_factory=lambda: Path("../brain_b/brain_b_data/home_rlds"))
-    model_path: Optional[Path] = None
+    model_path: Optional[Path] = field(default_factory=lambda: Path("../brain_b/brain_b_data/home_models/home3d_nav_model.json"))
     default_level: str = "empty_room"
     auto_record: bool = True  # Auto-start RLDS recording
     render_mode: str = "ascii"  # ascii, json, or visual
+    auto_load_model: bool = True  # Auto-load model if available
 
 
 # ============================================================================
@@ -159,11 +160,21 @@ class HomeScanIntegration:
             self.config.rlds_output_path.mkdir(parents=True, exist_ok=True)
             self.logger = HomeRLDSLogger(self.config.rlds_output_path)
 
-            # Try to load predictor
-            if self.config.model_path and self.config.model_path.exists():
-                self.predictor = Home3DNavigationPredictor()
-                self.predictor.load(self.config.model_path)
-                self.state.predictor_ready = self.predictor.is_ready
+            # Try to load predictor (auto-load if model exists)
+            if self.config.auto_load_model and self.config.model_path:
+                model_path = Path(self.config.model_path)
+                if model_path.exists():
+                    try:
+                        self.predictor = Home3DNavigationPredictor()
+                        self.predictor.load(model_path)
+                        self.state.predictor_ready = self.predictor.is_ready
+                        if self.state.predictor_ready:
+                            print(f"HomeScan: Loaded trained model from {model_path}")
+                    except Exception as e:
+                        print(f"HomeScan: Failed to load model: {e}")
+                        self.predictor = None
+                else:
+                    print(f"HomeScan: No trained model found at {model_path}")
 
             # Update state
             self.state.active = True
@@ -388,8 +399,9 @@ class HomeScanIntegration:
         # Build observation
         obs = self._build_observation_vector()
 
-        # Get prediction
-        action_idx, probs = self.predictor.predict(obs)
+        # Get prediction - predict() returns list of probabilities
+        probs = self.predictor.predict(obs)
+        action_idx = probs.index(max(probs))
 
         return {
             "action": HOME_ACTIONS[action_idx],
@@ -419,7 +431,8 @@ class HomeScanIntegration:
         ])
 
         # Room encoding (one-hot, 8 room types)
-        room_name = self.world.get_current_room_name()
+        current_room = self.world.get_room_at(robot.position)
+        room_name = current_room.room_type.value if current_room else "unknown"
         room_vec = [0.0] * 8
         room_types = list(RoomType)
         for i, rt in enumerate(room_types[:8]):
@@ -429,10 +442,12 @@ class HomeScanIntegration:
         obs.extend(room_vec)
 
         # Visible objects summary (16: 2 per object type x 8 types)
+        # get_visible_objects returns list of dicts with 'distance' key
         objects = self.world.get_visible_objects()[:8]
         for i in range(8):
             if i < len(objects):
-                obj, dist = objects[i]
+                obj = objects[i]
+                dist = obj.get("distance", 10.0)
                 obs.extend([1.0, min(1.0, 1.0 / (dist + 0.1))])
             else:
                 obs.extend([0.0, 0.0])
@@ -451,11 +466,15 @@ class HomeScanIntegration:
         obs.extend(inv_vec)
 
         # State (6)
+        goal_distance = (
+            robot.position.distance_to(self.world.goal_position)
+            if self.world.goal_position else 20.0
+        )
         obs.extend([
             robot.battery,
             min(1.0, robot.moves / 100.0),
-            1.0 if self.world.is_goal_reached() else 0.0,
-            min(1.0, self.world.get_goal_distance() / 20.0),
+            1.0 if self.world.level_complete else 0.0,
+            min(1.0, goal_distance / 20.0),
             0.0,  # Reserved
             0.0,  # Reserved
         ])
@@ -523,6 +542,299 @@ class HomeScanIntegration:
             "success": True,
             "message": "Level reset",
             "state": asdict(self.state),
+        }
+
+    # =========================================================================
+    # Training Methods
+    # =========================================================================
+
+    async def generate_training_data(
+        self,
+        num_episodes: int = 10,
+        strategy: str = "mixed",
+        max_steps: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Generate training data using exploration strategies.
+
+        Args:
+            num_episodes: Number of episodes to generate
+            strategy: Exploration strategy (random, goal, wall, or mixed)
+            max_steps: Max steps per episode
+
+        Returns:
+            Results dict with stats
+        """
+        if not HAS_HOME_SIMULATOR:
+            return {"success": False, "error": "Simulator not available"}
+
+        try:
+            from brain_b.simulator.home_rlds_logger import HomeRLDSLogger
+
+            # Setup logger
+            output_path = self.config.rlds_output_path
+            output_path.mkdir(parents=True, exist_ok=True)
+            logger = HomeRLDSLogger(output_path)
+
+            # Get levels
+            levels = list_home_levels()
+            strategies = ["random", "goal", "wall"] if strategy == "mixed" else [strategy]
+
+            results = []
+            total = num_episodes
+            count = 0
+
+            for ep_num in range(num_episodes):
+                count += 1
+                level = levels[ep_num % len(levels)]
+                strat = strategies[ep_num % len(strategies)]
+
+                # Generate episode
+                result = await self._generate_single_episode(
+                    level, strat, logger, max_steps
+                )
+                results.append(result)
+
+            # Stats
+            successful = [r for r in results if r.get("success")]
+            goals_reached = [r for r in successful if r.get("goal_reached")]
+            total_steps = sum(r.get("steps", 0) for r in successful)
+
+            return {
+                "success": True,
+                "episodes": len(successful),
+                "goals_reached": len(goals_reached),
+                "total_steps": total_steps,
+                "success_rate": len(goals_reached) / len(successful) if successful else 0,
+                "output_path": str(output_path),
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def _generate_single_episode(
+        self,
+        level_name: str,
+        strategy: str,
+        logger: "HomeRLDSLogger",
+        max_steps: int,
+    ) -> Dict[str, Any]:
+        """Generate a single training episode."""
+        import time
+        import random
+
+        # Load level
+        world = get_home_level(level_name)
+        if not world:
+            return {"success": False, "error": f"Level not found: {level_name}"}
+
+        # Start episode
+        episode_id = logger.start_episode(
+            world=world,
+            level_id=level_name,
+            session_id=f"gen_{strategy}_{int(time.time())}",
+        )
+
+        # Run exploration strategy
+        actions = []
+        action_vocab = ["forward", "backward", "strafe_left", "strafe_right",
+                        "turn_left", "turn_right", "interact"]
+
+        for step in range(max_steps):
+            # Choose action based on strategy
+            if strategy == "random":
+                action = random.choice(action_vocab)
+            elif strategy == "goal":
+                action = self._goal_seek_action(world)
+            elif strategy == "wall":
+                action = self._wall_follow_action(world, actions)
+            else:
+                action = random.choice(action_vocab)
+
+            actions.append(action)
+
+            # Execute action
+            self._execute_action_on_world(world, action)
+
+            # Log step
+            logger.log_step(
+                world=world,
+                action_command=action,
+                action_intent=action,
+                action_params={},
+                raw_input=action,
+                success=True,
+                level_complete=world.level_complete,
+            )
+
+            if world.level_complete:
+                break
+
+        # End episode
+        path = logger.end_episode(world=world, success=world.level_complete)
+
+        return {
+            "success": True,
+            "episode_id": episode_id,
+            "level": level_name,
+            "strategy": strategy,
+            "steps": len(actions),
+            "goal_reached": world.level_complete,
+            "path": str(path),
+        }
+
+    def _goal_seek_action(self, world: "HomeWorld") -> str:
+        """Goal-seeking action selection."""
+        import random
+
+        if not world.goal_position:
+            return random.choice(["forward", "turn_left", "turn_right"])
+
+        robot = world.robot
+        dx = world.goal_position.x - robot.position.x
+        dy = world.goal_position.y - robot.position.y
+
+        # Decide target direction
+        if abs(dx) > abs(dy):
+            target_yaw = 90 if dx > 0.5 else 270
+        else:
+            target_yaw = 0 if dy < -0.5 else 180
+
+        yaw_diff = (target_yaw - robot.rotation.yaw + 180) % 360 - 180
+
+        if abs(yaw_diff) > 30:
+            return "turn_right" if yaw_diff > 0 else "turn_left"
+        else:
+            return "forward"
+
+    def _wall_follow_action(self, world: "HomeWorld", history: List[str]) -> str:
+        """Wall-following action selection."""
+        import random
+
+        # Check recent actions
+        recent_turns = sum(1 for a in history[-3:] if "turn" in a)
+
+        if recent_turns > 2:
+            return "forward"
+        elif len(history) > 0 and history[-1] == "forward":
+            return "forward" if random.random() > 0.3 else "turn_right"
+        else:
+            return "turn_right" if random.random() > 0.5 else "forward"
+
+    def _execute_action_on_world(self, world: "HomeWorld", action: str):
+        """Execute an action directly on a world instance."""
+        action_map = {
+            "forward": world.move_forward,
+            "backward": world.move_backward,
+            "strafe_left": world.strafe_left,
+            "strafe_right": world.strafe_right,
+            "turn_left": world.turn_left,
+            "turn_right": world.turn_right,
+            "look_up": world.look_up,
+            "look_down": world.look_down,
+            "interact": world.interact,
+        }
+
+        method = action_map.get(action)
+        if method:
+            method()
+
+    async def train_model(
+        self,
+        epochs: int = 20,
+        batch_size: int = 32,
+    ) -> Dict[str, Any]:
+        """
+        Train the navigation model on RLDS episodes.
+
+        Args:
+            epochs: Training epochs
+            batch_size: Training batch size
+
+        Returns:
+            Training results
+        """
+        if not HAS_HOME_SIMULATOR:
+            return {"success": False, "error": "Simulator not available"}
+
+        try:
+            from brain_b.simulator.home_training import run_home3d_training
+
+            # Paths - run_home3d_training saves to {output_dir}/home3d_nav_model.json
+            episodes_dir = str(self.config.rlds_output_path)
+            if self.config.model_path:
+                output_dir = str(self.config.model_path.parent)
+            else:
+                output_dir = "../brain_b/brain_b_data/home_models"
+
+            # The training function saves with fixed name
+            actual_model_path = Path(output_dir) / "home3d_nav_model.json"
+
+            # Run training (returns Home3DTrainingMetrics dataclass)
+            metrics = run_home3d_training(
+                episodes_dir=episodes_dir,
+                output_dir=output_dir,
+                epochs=epochs,
+                batch_size=batch_size,
+            )
+
+            # Reload model from actual saved path
+            if metrics.samples_seen > 0:
+                # Create predictor if needed
+                if not self.predictor:
+                    self.predictor = Home3DNavigationPredictor()
+                self.predictor.load(actual_model_path)
+                self.state.predictor_ready = self.predictor.is_ready
+
+            return {
+                "success": metrics.samples_seen > 0,
+                "accuracy": metrics.accuracy,
+                "loss": metrics.loss,
+                "samples_seen": metrics.samples_seen,
+                "episodes_processed": metrics.episodes_processed,
+                "epochs": epochs,
+                "model_path": str(actual_model_path),
+                "predictor_ready": self.state.predictor_ready,
+            }
+
+        except Exception as e:
+            import traceback
+            return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+
+    def get_training_status(self) -> Dict[str, Any]:
+        """Get current training status and stats."""
+        # Count RLDS episodes (stored as subdirectories with metadata.json)
+        episodes_path = self.config.rlds_output_path
+        episode_count = 0
+        total_steps = 0
+
+        if episodes_path.exists():
+            import json
+            for ep_dir in episodes_path.iterdir():
+                if not ep_dir.is_dir():
+                    continue
+                # Check if it's an episode directory
+                metadata_file = ep_dir / "metadata.json"
+                steps_file = ep_dir / "steps.jsonl"
+                if metadata_file.exists() or steps_file.exists():
+                    episode_count += 1
+                    # Count steps
+                    if steps_file.exists():
+                        try:
+                            with open(steps_file) as f:
+                                total_steps += sum(1 for _ in f)
+                        except:
+                            pass
+
+        # Model info
+        model_exists = self.config.model_path and self.config.model_path.exists()
+
+        return {
+            "episodes": episode_count,
+            "total_steps": total_steps,
+            "model_exists": model_exists,
+            "model_path": str(self.config.model_path) if self.config.model_path else None,
+            "predictor_ready": self.state.predictor_ready,
         }
 
     def shutdown(self):
@@ -635,6 +947,46 @@ def create_home_scan_handlers(home_scan: HomeScanIntegration) -> Dict[str, calla
             "state": home_scan.get_state_dict(),
         }
 
+    async def handle_home_generate_data(data: dict) -> dict:
+        """Generate training data."""
+        num_episodes = data.get("num_episodes", 10)
+        strategy = data.get("strategy", "mixed")
+        max_steps = data.get("max_steps", 100)
+
+        result = await home_scan.generate_training_data(
+            num_episodes=num_episodes,
+            strategy=strategy,
+            max_steps=max_steps,
+        )
+        return {
+            "type": "home_training_result",
+            "action": "generate_data",
+            **result,
+        }
+
+    async def handle_home_train(data: dict) -> dict:
+        """Train the navigation model."""
+        epochs = data.get("epochs", 20)
+        learning_rate = data.get("learning_rate", 0.01)
+
+        result = await home_scan.train_model(
+            epochs=epochs,
+            learning_rate=learning_rate,
+        )
+        return {
+            "type": "home_training_result",
+            "action": "train",
+            **result,
+        }
+
+    async def handle_home_training_status(data: dict) -> dict:
+        """Get training status."""
+        status = home_scan.get_training_status()
+        return {
+            "type": "home_training_status",
+            **status,
+        }
+
     return {
         "home_init": handle_home_init,
         "home_command": handle_home_command,
@@ -644,6 +996,9 @@ def create_home_scan_handlers(home_scan: HomeScanIntegration) -> Dict[str, calla
         "home_render": handle_home_render,
         "home_recording": handle_home_recording,
         "home_state": handle_home_state,
+        "home_generate_data": handle_home_generate_data,
+        "home_train": handle_home_train,
+        "home_training_status": handle_home_training_status,
     }
 
 

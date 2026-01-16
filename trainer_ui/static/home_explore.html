@@ -446,6 +446,30 @@
             </div>
 
             <div class="panel">
+                <h3>Training</h3>
+                <div class="robot-info">
+                    <div class="info-row">
+                        <span class="info-label">Episodes</span>
+                        <span class="info-value" id="train-episodes">0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Total Steps</span>
+                        <span class="info-value" id="train-steps">0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Model</span>
+                        <span class="info-value" id="train-model-status">Not loaded</span>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.75rem;">
+                    <button class="action-btn secondary" onclick="generateTrainingData()" id="btn-generate">Generate Data (10 eps)</button>
+                    <button class="action-btn primary" onclick="trainModel()" id="btn-train">Train Model</button>
+                    <button class="action-btn secondary" onclick="refreshTrainingStatus()">Refresh Status</button>
+                </div>
+                <div id="training-status" style="margin-top:0.5rem;font-size:0.8rem;color:#888;"></div>
+            </div>
+
+            <div class="panel">
                 <h3>Action Log</h3>
                 <div class="message-log" id="message-log">
                     <div class="message info">Ready to explore...</div>
@@ -481,6 +505,7 @@
                 document.getElementById('connection-status').classList.add('connected');
                 document.getElementById('connection-text').textContent = 'Connected';
                 send({ type: 'home_init' });
+                setTimeout(() => send({ type: 'home_training_status' }), 200);
             };
 
             ws.onclose = () => {
@@ -547,6 +572,14 @@
                     } else {
                         addLog(`Recording saved: ${data.path}`, 'success');
                     }
+                    break;
+
+                case 'home_training_result':
+                    handleTrainingResult(data);
+                    break;
+
+                case 'home_training_status':
+                    updateTrainingStatus(data);
                     break;
 
                 case 'error':
@@ -713,6 +746,67 @@
                 sendCommand(lastPrediction.action);
                 addLog(`Executing prediction: ${lastPrediction.action}`, 'info');
             }
+        }
+
+        // Training functions
+        function generateTrainingData() {
+            document.getElementById('btn-generate').disabled = true;
+            document.getElementById('btn-generate').textContent = 'Generating...';
+            document.getElementById('training-status').textContent = 'Generating training episodes...';
+            addLog('Starting training data generation...', 'info');
+            send({ type: 'home_generate_data', num_episodes: 10, strategy: 'mixed', max_steps: 100 });
+        }
+
+        function trainModel() {
+            document.getElementById('btn-train').disabled = true;
+            document.getElementById('btn-train').textContent = 'Training...';
+            document.getElementById('training-status').textContent = 'Training model (this may take a moment)...';
+            addLog('Starting model training...', 'info');
+            send({ type: 'home_train', epochs: 20, learning_rate: 0.01 });
+        }
+
+        function refreshTrainingStatus() {
+            send({ type: 'home_training_status' });
+        }
+
+        function handleTrainingResult(data) {
+            document.getElementById('btn-generate').disabled = false;
+            document.getElementById('btn-generate').textContent = 'Generate Data (10 eps)';
+            document.getElementById('btn-train').disabled = false;
+            document.getElementById('btn-train').textContent = 'Train Model';
+
+            if (data.action === 'generate_data') {
+                if (data.success) {
+                    const msg = `Generated ${data.episodes} episodes, ${data.goals_reached} goals (${(data.success_rate * 100).toFixed(1)}%)`;
+                    document.getElementById('training-status').textContent = msg;
+                    addLog(msg, 'success');
+                } else {
+                    document.getElementById('training-status').textContent = `Error: ${data.error}`;
+                    addLog(`Generation failed: ${data.error}`, 'error');
+                }
+                refreshTrainingStatus();
+            } else if (data.action === 'train') {
+                if (data.success) {
+                    const msg = `Training complete! Accuracy: ${(data.accuracy * 100).toFixed(1)}%`;
+                    document.getElementById('training-status').textContent = msg;
+                    addLog(msg, 'success');
+                    // Also update prediction to show new model is ready
+                    getPrediction();
+                } else {
+                    document.getElementById('training-status').textContent = `Error: ${data.error}`;
+                    addLog(`Training failed: ${data.error}`, 'error');
+                }
+                refreshTrainingStatus();
+            }
+        }
+
+        function updateTrainingStatus(data) {
+            document.getElementById('train-episodes').textContent = data.episodes || 0;
+            document.getElementById('train-steps').textContent = data.total_steps || 0;
+            document.getElementById('train-model-status').textContent =
+                data.predictor_ready ? 'Ready' : (data.model_exists ? 'Not loaded' : 'Not trained');
+            document.getElementById('train-model-status').style.color =
+                data.predictor_ready ? '#4ade80' : '#fbbf24';
         }
 
         function initControls() {

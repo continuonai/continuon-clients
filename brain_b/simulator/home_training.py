@@ -99,6 +99,7 @@ class Home3DNavigationPredictor:
     def __init__(self, input_dim: int = 48, num_actions: int = 9):
         self.input_dim = input_dim
         self.num_actions = num_actions
+        self._loaded = False
 
         # Initialize weights with small random values
         self.weights = [
@@ -107,6 +108,11 @@ class Home3DNavigationPredictor:
         ]
 
         self.learning_rate = 0.01
+
+    @property
+    def is_ready(self) -> bool:
+        """Check if model has been loaded/trained."""
+        return self._loaded and len(self.weights) == self.num_actions
 
     def predict(self, state_vector: List[float]) -> List[float]:
         """Predict action probabilities given state."""
@@ -173,15 +179,16 @@ class Home3DNavigationPredictor:
                 "learning_rate": self.learning_rate,
             }, f)
 
-    def load(self, path: str) -> None:
+    def load(self, path) -> None:
         """Load model weights."""
-        with open(path) as f:
+        with open(str(path)) as f:
             data = json.load(f)
 
         self.input_dim = data["input_dim"]
         self.num_actions = data["num_actions"]
         self.weights = data["weights"]
         self.learning_rate = data.get("learning_rate", 0.01)
+        self._loaded = True
 
 
 class Home3DTrainingDataset:
