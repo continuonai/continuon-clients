@@ -24,11 +24,16 @@ import time
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, field, asdict
-from typing import Optional
+from typing import Optional, Dict, List
 import subprocess
 
 # Add parent directory to path for brain_b imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Hardware management
+from hardware import TrainerHardwareDetector, HardwareConfig, DualArmManager, AudioManager
+from hardware.arm_manager import ArmState
+from hardware.audio_manager import AudioConfig
 
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -138,9 +143,21 @@ class RobotState:
     drive_left: float = 0.0
     drive_right: float = 0.0
 
-    # Arm (6 joints)
+    # Arms (support for dual arms - arm_0 and arm_1)
+    arms: Dict[str, dict] = field(default_factory=dict)
+
+    # Legacy single arm (for backwards compatibility)
     arm_joints: list = field(default_factory=lambda: [0.0] * 6)
     gripper: float = 0.0
+
+    # Hardware status
+    hailo_available: bool = False
+    hailo_tops: float = 0.0
+    hailo_model: str = ""
+    audio_available: bool = False
+    audio_backend: str = ""
+    cameras: List[str] = field(default_factory=list)
+    is_mock: bool = False
 
     # Status
     battery: float = 1.0
@@ -248,6 +265,61 @@ class TrainerServer:
         self.camera = None
         self.camera_task = None
 
+        # Hardware management
+        self.hw_config: Optional[HardwareConfig] = None
+        self.arm_manager: Optional[DualArmManager] = None
+        self.audio_manager: Optional[AudioManager] = None
+        self._hardware_initialized = False
+
+    async def initialize_hardware(self):
+        """Initialize hardware detection and controllers."""
+        if self._hardware_initialized:
+            return
+
+        print("\n" + "=" * 50)
+        print("Initializing Hardware...")
+        print("=" * 50)
+
+        # Detect hardware
+        detector = TrainerHardwareDetector()
+        self.hw_config = detector.detect_all()
+
+        # Initialize arm manager
+        self.arm_manager = DualArmManager(self.hw_config)
+        arm_states = self.arm_manager.initialize()
+
+        # Update robot state with arm info
+        self.state.arms = {
+            arm_id: asdict(arm_state)
+            for arm_id, arm_state in arm_states.items()
+        }
+
+        # Initialize audio manager
+        audio_config = AudioConfig(
+            available=self.hw_config.audio_available,
+            backend=self.hw_config.audio_backend,
+        )
+        self.audio_manager = AudioManager(audio_config)
+
+        # Update robot state with hardware status
+        self.state.hailo_available = self.hw_config.hailo_available
+        self.state.hailo_tops = self.hw_config.hailo_tops
+        self.state.hailo_model = self.hw_config.hailo_model
+        self.state.audio_available = self.hw_config.audio_available
+        self.state.audio_backend = self.hw_config.audio_backend
+        self.state.cameras = self.hw_config.cameras
+        self.state.is_mock = self.hw_config.is_mock
+
+        self._hardware_initialized = True
+
+        print("\nHardware Summary:")
+        print(f"  Arms: {list(self.state.arms.keys())}")
+        print(f"  Hailo: {self.hw_config.hailo_model or 'N/A'} ({self.hw_config.hailo_tops} TOPS)")
+        print(f"  Audio: {self.hw_config.audio_backend or 'N/A'}")
+        print(f"  Cameras: {self.hw_config.cameras}")
+        print(f"  Mock Mode: {self.hw_config.is_mock}")
+        print("=" * 50 + "\n")
+
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.connections.append(websocket)
@@ -312,6 +384,9 @@ class TrainerServer:
         elif msg_type == "emergency_stop":
             await self.emergency_stop()
 
+        elif msg_type == "get_hardware_status":
+            await self.handle_get_hardware_status(websocket)
+
     async def handle_drive(self, data: dict):
         """Handle drive command."""
         direction = data.get("direction", "stop")
@@ -349,39 +424,63 @@ class TrainerServer:
         await self.broadcast({"type": "state", "data": asdict(self.state)})
 
     async def handle_arm(self, data: dict):
-        """Handle arm joint command."""
+        """Handle arm joint command with multi-arm support."""
+        arm_id = data.get("arm_id", "arm_0")  # Default to arm_0 for backwards compatibility
         joint = data.get("joint", 0)
         value = data.get("value", 0.0)
 
+        # Update legacy single arm state for backwards compatibility
         if 0 <= joint < 6:
             self.state.arm_joints[joint] = max(-1.0, min(1.0, value))
 
-        self.state.last_command = f"arm:joint{joint}={value:.2f}"
+        # Send to actual arm via arm manager
+        if self.arm_manager:
+            success = self.arm_manager.set_joint(arm_id, joint, value)
+            if success:
+                # Update arms state
+                arm_states = self.arm_manager.get_all_states()
+                self.state.arms = {
+                    aid: asdict(astate)
+                    for aid, astate in arm_states.items()
+                }
+
+        self.state.last_command = f"arm:{arm_id}:joint{joint}={value:.2f}"
         self.state.last_command_time = time.time()
 
         # Record for training
         self.recorder.record(
-            {"type": "arm", "joint": joint, "value": value},
+            {"type": "arm", "arm_id": arm_id, "joint": joint, "value": value},
             self.state,
             self.state.recognized_user,
         )
 
-        # TODO: Send to actual arm
-        # arm_controller.set_joint(joint, value)
-
         await self.broadcast({"type": "state", "data": asdict(self.state)})
 
     async def handle_gripper(self, data: dict):
-        """Handle gripper command."""
+        """Handle gripper command with multi-arm support."""
+        arm_id = data.get("arm_id", "arm_0")  # Default to arm_0 for backwards compatibility
         value = data.get("value", 0.0)
+
+        # Update legacy single gripper state for backwards compatibility
         self.state.gripper = max(0.0, min(1.0, value))
 
-        self.state.last_command = f"gripper:{value:.2f}"
+        # Send to actual gripper via arm manager
+        if self.arm_manager:
+            success = self.arm_manager.set_gripper(arm_id, value)
+            if success:
+                # Update arms state
+                arm_states = self.arm_manager.get_all_states()
+                self.state.arms = {
+                    aid: asdict(astate)
+                    for aid, astate in arm_states.items()
+                }
+
+        self.state.last_command = f"gripper:{arm_id}:{value:.2f}"
         self.state.last_command_time = time.time()
 
         # Record for training
         self.recorder.record(
-            {"type": "gripper", "value": value},
+            {"type": "gripper", "arm_id": arm_id, "value": value},
             self.state,
             self.state.recognized_user,
         )
@@ -389,19 +488,25 @@ class TrainerServer:
         await self.broadcast({"type": "state", "data": asdict(self.state)})
 
     async def handle_speak(self, data: dict, websocket: WebSocket):
-        """Handle text-to-speech request."""
+        """Handle text-to-speech request using audio manager."""
         text = data.get("text", "")
 
-        try:
-            # Use system TTS
-            if sys.platform == "darwin":
-                subprocess.run(["say", text], check=True)
+        if self.audio_manager:
+            result = self.audio_manager.speak(text)
+            if result.get("status") == "ok":
+                await websocket.send_json({"type": "speak_done", "text": text, "backend": result.get("backend")})
             else:
-                subprocess.run(["espeak", text], check=True)
-
-            await websocket.send_json({"type": "speak_done", "text": text})
-        except Exception as e:
-            await websocket.send_json({"type": "error", "message": str(e)})
+                await websocket.send_json({"type": "error", "message": result.get("message", "TTS failed")})
+        else:
+            # Fallback to direct system calls
+            try:
+                if sys.platform == "darwin":
+                    subprocess.run(["say", text], check=True)
+                else:
+                    subprocess.run(["espeak-ng", text], check=True)
+                await websocket.send_json({"type": "speak_done", "text": text})
+            except Exception as e:
+                await websocket.send_json({"type": "error", "message": str(e)})
 
     async def handle_claude(self, data: dict, websocket: WebSocket):
         """Handle Claude Code request."""
@@ -519,21 +624,46 @@ class TrainerServer:
             })
 
     async def emergency_stop(self):
-        """Emergency stop all motors."""
+        """Emergency stop all motors and arms."""
         self.state.drive_left = 0
         self.state.drive_right = 0
         self.state.arm_joints = [0.0] * 6
         self.state.last_command = "EMERGENCY_STOP"
         self.state.last_command_time = time.time()
 
-        # TODO: Send to actual hardware
-        # motor_controller.stop()
-        # arm_controller.stop()
+        # Stop all arms
+        if self.arm_manager:
+            self.arm_manager.emergency_stop_all()
+            # Update arm states
+            arm_states = self.arm_manager.get_all_states()
+            self.state.arms = {
+                aid: asdict(astate)
+                for aid, astate in arm_states.items()
+            }
 
         await self.broadcast({
             "type": "emergency_stop",
             "state": asdict(self.state),
         })
+
+    async def handle_get_hardware_status(self, websocket: WebSocket):
+        """Send current hardware status to client."""
+        status = {
+            "type": "hardware_status",
+            "arms": self.state.arms,
+            "hailo": {
+                "available": self.state.hailo_available,
+                "tops": self.state.hailo_tops,
+                "model": self.state.hailo_model,
+            },
+            "audio": {
+                "available": self.state.audio_available,
+                "backend": self.state.audio_backend,
+            },
+            "cameras": self.state.cameras,
+            "is_mock": self.state.is_mock,
+        }
+        await websocket.send_json(status)
 
 # ============================================================================
 # FastAPI App
@@ -541,6 +671,13 @@ class TrainerServer:
 
 app = FastAPI(title="Brain A Trainer")
 server = TrainerServer()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize hardware on startup."""
+    await server.initialize_hardware()
+
 
 @app.get("/")
 async def index():
@@ -565,6 +702,21 @@ async def health():
         "has_face_recognition": HAS_FACE_RECOGNITION,
         "connections": len(server.connections),
         "known_faces": list(server.face_db.known_faces.keys()),
+        "hardware": {
+            "arms": list(server.state.arms.keys()) if server.state.arms else [],
+            "arm_count": len(server.state.arms) if server.state.arms else 0,
+            "hailo": {
+                "available": server.state.hailo_available,
+                "model": server.state.hailo_model,
+                "tops": server.state.hailo_tops,
+            },
+            "audio": {
+                "available": server.state.audio_available,
+                "backend": server.state.audio_backend,
+            },
+            "cameras": server.state.cameras,
+            "is_mock": server.state.is_mock,
+        },
     }
 
 # ============================================================================
@@ -580,13 +732,16 @@ if __name__ == "__main__":
 ║                                                                 ║
 ║  Features:                                                      ║
 ║  • Drive: WASD keys or on-screen controls                      ║
-║  • Arm: 6-axis joint control with sliders                      ║
+║  • Arms: Dual SO-ARM101 support (6-axis + gripper)             ║
 ║  • Camera: Live feed with face recognition                     ║
 ║  • Voice: Speak to robot, TTS output                           ║
 ║  • Claude: Ask Claude Code for help                            ║
 ║  • Recording: Save sessions as RLDS for training               ║
+║  • Hardware: Auto-detect Hailo, arms, audio                    ║
 ║                                                                 ║
 ║  OpenCV: {'✓' if HAS_OPENCV else '✗'}  Face Recognition: {'✓' if HAS_FACE_RECOGNITION else '✗'}              ║
+║                                                                 ║
+║  Set TRAINER_MOCK_HARDWARE=1 to test without hardware          ║
 ╚═══════════════════════════════════════════════════════════════╝
 """)
 
