@@ -21,6 +21,15 @@ except ImportError:
     HAS_PREDICTOR = False
     Prediction = None
 
+# Navigation prediction (from simulator training)
+try:
+    from simulator.home_training import Home3DNavigationPredictor, IDX_TO_ACTION
+    HAS_NAV_PREDICTOR = True
+except ImportError:
+    HAS_NAV_PREDICTOR = False
+    Home3DNavigationPredictor = None
+    IDX_TO_ACTION = None
+
 
 @dataclass
 class Response:
@@ -49,6 +58,7 @@ class ConversationHandler:
         use_ai: bool = True,
         prefer_gemini: bool = True,
         model_path: Optional[str] = None,
+        nav_model_path: Optional[str] = None,
     ):
         self.runtime = runtime
         self.executor = executor
@@ -67,6 +77,17 @@ class ConversationHandler:
             self.predictor = ToolPredictorService(model_path)
             if self.predictor.is_ready:
                 print("[Init] Tool predictor enabled")
+
+        # Navigation predictor (from simulator training)
+        self.nav_predictor: Optional[Home3DNavigationPredictor] = None
+        if HAS_NAV_PREDICTOR and nav_model_path:
+            self.nav_predictor = Home3DNavigationPredictor()
+            try:
+                self.nav_predictor.load(nav_model_path)
+                print("[Init] Navigation predictor enabled")
+            except Exception as e:
+                print(f"[Init] Navigation predictor failed to load: {e}")
+                self.nav_predictor = None
 
         # AI backend for intelligent conversation (Gemini preferred, Claude fallback)
         self.ai_backend: Optional[Union[GeminiBackend, ClaudeBackend]] = None
@@ -372,3 +393,67 @@ class ConversationHandler:
         suggestions = [{"tool": pred["tool"], "confidence": pred["confidence"]}]
         suggestions.extend(pred["alternatives"][:count - 1])
         return suggestions
+
+    # === Navigation Prediction ===
+
+    def predict_navigation_action(self, state_vector: List[float]) -> Optional[dict]:
+        """
+        Predict next navigation action from state vector.
+
+        Args:
+            state_vector: 48-dim state vector from 3D home observation
+
+        Returns:
+            Dictionary with action, confidence, and alternatives
+        """
+        if not self.nav_predictor or not self.nav_predictor.is_ready:
+            return None
+
+        probs = self.nav_predictor.predict(state_vector)
+        if not probs:
+            return None
+
+        # Get top predictions
+        indexed_probs = [(i, p) for i, p in enumerate(probs)]
+        indexed_probs.sort(key=lambda x: -x[1])
+
+        best_idx, best_prob = indexed_probs[0]
+        alternatives = [
+            {"action": IDX_TO_ACTION[idx], "confidence": prob}
+            for idx, prob in indexed_probs[1:4]
+        ]
+
+        return {
+            "action": IDX_TO_ACTION[best_idx],
+            "confidence": best_prob,
+            "alternatives": alternatives,
+        }
+
+    def load_navigation_model(self, path: str) -> bool:
+        """Load or reload the navigation model."""
+        if not HAS_NAV_PREDICTOR:
+            return False
+
+        if self.nav_predictor is None:
+            self.nav_predictor = Home3DNavigationPredictor()
+
+        try:
+            self.nav_predictor.load(path)
+            print(f"[Handler] Navigation model loaded from {path}")
+            return True
+        except Exception as e:
+            print(f"[Handler] Failed to load navigation model: {e}")
+            return False
+
+    def get_prediction_status(self) -> dict:
+        """Get status of all prediction models."""
+        return {
+            "tool_predictor": {
+                "available": HAS_PREDICTOR,
+                "ready": self.predictor.is_ready if self.predictor else False,
+            },
+            "navigation_predictor": {
+                "available": HAS_NAV_PREDICTOR,
+                "ready": self.nav_predictor.is_ready if self.nav_predictor else False,
+            },
+        }

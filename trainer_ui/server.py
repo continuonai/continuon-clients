@@ -91,6 +91,14 @@ except ImportError:
     HAS_ROOM_SCANNER = False
     print("Room scanner not available")
 
+# Hailo-8 NPU Scanner - Fast neural segmentation
+try:
+    from hailo_scanner import HailoScanner, scan_with_hailo, get_hailo_scanner
+    HAS_HAILO_SCANNER = True
+except ImportError:
+    HAS_HAILO_SCANNER = False
+    print("Hailo scanner not available")
+
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.staticfiles import StaticFiles
@@ -1503,6 +1511,197 @@ async def simulator_predict_action(
 
 
 # ============================================================================
+# Unified Training Integration API
+# ============================================================================
+
+# Import training integration
+try:
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b"))
+    from trainer.simulator_integration import (
+        SimulatorTrainingIntegration,
+        SimulatorTrainingConfig,
+        get_training_integration,
+    )
+    HAS_TRAINING_INTEGRATION = True
+except ImportError as e:
+    HAS_TRAINING_INTEGRATION = False
+    print(f"[Server] Training integration not available: {e}")
+
+
+@app.get("/brain-b/training/status")
+async def brain_b_training_status():
+    """
+    Get unified Brain B training status.
+
+    Returns status for both navigation and tool prediction models.
+    """
+    if not HAS_TRAINING_INTEGRATION:
+        return {"error": "Training integration not available", "status": None}
+
+    try:
+        integration = get_training_integration()
+        status = integration.get_status()
+        summary = integration.get_episode_summary()
+
+        return {
+            "status": "ok",
+            "training_status": status,
+            "episode_summary": summary,
+            "should_train_navigation": integration.should_train_navigation(),
+            "should_train_tools": integration.should_train_tools(),
+        }
+    except Exception as e:
+        return {"error": str(e), "status": None}
+
+
+@app.post("/brain-b/training/navigation")
+async def train_brain_b_navigation(force: bool = False, epochs: int = 10, batch_size: int = 32):
+    """
+    Train Brain B navigation model on Home3D RLDS episodes.
+
+    Args:
+        force: Train even if threshold not reached
+        epochs: Training epochs
+        batch_size: Batch size
+
+    Returns:
+        Training result with metrics
+    """
+    if not HAS_TRAINING_INTEGRATION:
+        return {"error": "Training integration not available", "result": None}
+
+    try:
+        integration = get_training_integration()
+
+        # Update config if custom values provided
+        integration.config.navigation_epochs = epochs
+        integration.config.batch_size = batch_size
+
+        result = integration.train_navigation(force=force)
+
+        return {
+            "status": "ok" if result.success else "error",
+            "result": {
+                "success": result.success,
+                "model_type": result.model_type,
+                "accuracy": result.accuracy,
+                "loss": result.loss,
+                "episodes_processed": result.episodes_processed,
+                "samples_seen": result.samples_seen,
+                "duration_s": result.duration_s,
+                "model_path": result.model_path,
+                "error": result.error,
+            },
+        }
+    except Exception as e:
+        return {"error": str(e), "result": None}
+
+
+@app.post("/brain-b/training/tools")
+async def train_brain_b_tools(force: bool = False, epochs: int = 10, batch_size: int = 32):
+    """
+    Train Brain B tool predictor on Claude Code RLDS episodes.
+
+    Args:
+        force: Train even if threshold not reached
+        epochs: Training epochs
+        batch_size: Batch size
+
+    Returns:
+        Training result with metrics
+    """
+    if not HAS_TRAINING_INTEGRATION:
+        return {"error": "Training integration not available", "result": None}
+
+    try:
+        integration = get_training_integration()
+
+        # Update config if custom values provided
+        integration.config.tool_epochs = epochs
+        integration.config.batch_size = batch_size
+
+        result = integration.train_tools(force=force)
+
+        return {
+            "status": "ok" if result.success else "error",
+            "result": {
+                "success": result.success,
+                "model_type": result.model_type,
+                "accuracy": result.accuracy,
+                "loss": result.loss,
+                "episodes_processed": result.episodes_processed,
+                "samples_seen": result.samples_seen,
+                "duration_s": result.duration_s,
+                "model_path": result.model_path,
+                "error": result.error,
+            },
+        }
+    except Exception as e:
+        return {"error": str(e), "result": None}
+
+
+@app.post("/brain-b/training/all")
+async def train_brain_b_all(force: bool = False):
+    """
+    Train all Brain B models if needed.
+
+    Args:
+        force: Train even if thresholds not reached
+
+    Returns:
+        Results for each model type
+    """
+    if not HAS_TRAINING_INTEGRATION:
+        return {"error": "Training integration not available", "results": None}
+
+    try:
+        integration = get_training_integration()
+        results = integration.train_all(force=force)
+
+        return {
+            "status": "ok",
+            "results": {
+                model_type: {
+                    "success": r.success,
+                    "accuracy": r.accuracy,
+                    "episodes_processed": r.episodes_processed,
+                    "error": r.error,
+                }
+                for model_type, r in results.items()
+            },
+        }
+    except Exception as e:
+        return {"error": str(e), "results": None}
+
+
+@app.post("/brain-b/training/convert-episodes")
+async def convert_nav_to_tool_episodes():
+    """
+    Convert navigation episodes to tool prediction format.
+
+    This allows the tool predictor to learn from navigation patterns.
+
+    Returns:
+        Number of episodes converted
+    """
+    if not HAS_TRAINING_INTEGRATION:
+        return {"error": "Training integration not available", "converted": 0}
+
+    try:
+        integration = get_training_integration()
+        converted = integration.convert_navigation_to_tool_episodes()
+
+        return {
+            "status": "ok",
+            "converted": converted,
+            "message": f"Converted {converted} navigation episodes to tool format",
+        }
+    except Exception as e:
+        return {"error": str(e), "converted": 0}
+
+
+# ============================================================================
 # Room Scanner API - Image to 3D Asset Pipeline
 # ============================================================================
 
@@ -1519,7 +1718,8 @@ async def scan_room_images(request_data: dict):
         {
             "images": ["base64_image_data", ...],
             "room_scale": 10.0,  # Optional, world scale factor
-            "use_sam3": true     # Optional, use SAM3 for segmentation
+            "use_sam3": true,    # Optional, use SAM3 for segmentation (slow on CPU)
+            "use_hailo": true    # Optional, use Hailo-8 NPU (fast, recommended)
         }
 
     Returns:
@@ -1531,16 +1731,23 @@ async def scan_room_images(request_data: dict):
     images = request_data.get("images", [])
     room_scale = request_data.get("room_scale", 10.0)
     use_sam3 = request_data.get("use_sam3", False)
+    use_hailo = request_data.get("use_hailo", False)
 
     if not images:
         return {"error": "No images provided", "result": None}
 
     try:
-        scanner = get_room_scanner()
-
-        # Check if SAM3 is requested
-        if use_sam3:
+        # Priority: Hailo > SAM3 > OpenCV
+        if use_hailo and HAS_HAILO_SCANNER:
             try:
+                print("[RoomScanner] Using Hailo-8 NPU")
+                result = scan_with_hailo(images[0], room_scale)
+            except Exception as e:
+                print(f"[RoomScanner] Hailo failed, falling back to OpenCV: {e}")
+                result = process_room_images(images, room_scale)
+        elif use_sam3:
+            try:
+                scanner = get_room_scanner()
                 result = await scan_with_sam3(images, room_scale, scanner)
             except Exception as e:
                 print(f"[RoomScanner] SAM3 failed, falling back to OpenCV: {e}")
