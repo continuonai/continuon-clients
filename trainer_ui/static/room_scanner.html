@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Room Scanner - Image to 3D</title>
+    <title>Room Scanner - ContinuonXR</title>
+    <link rel="stylesheet" href="/static/shared-nav.css">
+    <script src="/static/shared-nav.js"></script>
+    <!-- Three.js for 3D room preview -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -239,6 +244,33 @@
             display: flex;
             gap: 0.75rem;
             flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .camera-select {
+            background: #1e293b;
+            color: #e2e8f0;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            min-width: 200px;
+            cursor: pointer;
+        }
+
+        .camera-select:hover {
+            border-color: #4ade80;
+        }
+
+        .camera-select:focus {
+            outline: none;
+            border-color: #4ade80;
+            box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+        }
+
+        .camera-select option {
+            background: #1e293b;
+            color: #e2e8f0;
         }
 
         .btn {
@@ -523,18 +555,203 @@
         .hidden {
             display: none !important;
         }
+
+        /* Full Auto Mode Styles */
+        .full-auto-layout {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        @media (max-width: 1200px) {
+            .full-auto-layout {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .full-auto-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .room-preview-panel {
+            background: #12122a;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+
+        .room-preview-panel h3 {
+            color: #4ade80;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-3d-container {
+            flex: 1;
+            background: #0a0a1a;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            min-height: 300px;
+        }
+
+        #room-preview-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .preview-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .preview-legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .coverage-3d-panel {
+            background: #1a1a3a;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .coverage-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+        }
+
+        .coverage-cell {
+            aspect-ratio: 1;
+            background: #2a2a4a;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .coverage-cell.captured {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        }
+
+        .coverage-cell.partial {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        }
+
+        .coverage-cell .cell-label {
+            font-size: 0.65rem;
+            color: #aaa;
+        }
+
+        .coverage-cell.captured .cell-label,
+        .coverage-cell.partial .cell-label {
+            color: #000;
+        }
+
+        .auto-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #1a1a3a;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-dot.active {
+            background: #4ade80;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.processing {
+            background: #fbbf24;
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .capture-log {
+            max-height: 150px;
+            overflow-y: auto;
+            background: #0a0a1a;
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+
+        .log-entry {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #1a1a3a;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: #666;
+        }
+
+        .log-msg {
+            color: #4ade80;
+        }
+
+        .log-msg.error {
+            color: #e94560;
+        }
+
+        .camera-position-indicator {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
-    <header class="header">
-        <h1>Room Scanner <span>Image to 3D Assets</span></h1>
-        <div class="nav-links">
-            <a href="/">Trainer UI</a>
-            <a href="/home-explore">Home Explore</a>
-            <a href="/homescan">HomeScan 3D</a>
-        </div>
-    </header>
-
     <main class="main">
         <div class="panel camera-section">
             <h3>
@@ -543,6 +760,7 @@
                     <div class="mode-toggle">
                         <button class="mode-btn active" id="mode-manual" onclick="setMode('manual')">Manual</button>
                         <button class="mode-btn" id="mode-guided" onclick="setMode('guided')">Guided</button>
+                        <button class="mode-btn" id="mode-fullauto" onclick="setMode('fullauto')">🚀 Full Auto</button>
                     </div>
                     <span class="image-count" id="image-count">0 images</span>
                 </div>
@@ -595,6 +813,9 @@
 
             <!-- Camera Controls -->
             <div class="camera-controls">
+                <select id="camera-select" class="camera-select" onchange="onCameraChange()">
+                    <option value="">Select Camera...</option>
+                </select>
                 <button class="btn btn-primary" id="capture-btn" onclick="capturePhoto()" disabled>
                     <span>📸</span> Capture Photo
                 </button>
@@ -692,6 +913,88 @@
                 </div>
             </div>
         </div>
+
+        <!-- 3D Room Preview Panel (shown in Full Auto mode) -->
+        <div class="panel room-preview-panel hidden" id="room-preview-panel">
+            <h3>
+                3D Room Preview
+                <span style="font-size:0.8rem;color:#888;" id="preview-status">Waiting...</span>
+            </h3>
+
+            <!-- Auto Status -->
+            <div class="auto-status" id="auto-status">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="auto-status-text">Ready to start</span>
+            </div>
+
+            <!-- 3D Preview Canvas -->
+            <div class="preview-3d-container">
+                <canvas id="room-preview-canvas"></canvas>
+                <div class="camera-position-indicator" id="camera-position">
+                    📷 Camera: Front Center
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="preview-legend">
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#4ade80;"></div>
+                    <span>Captured</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#60a5fa;"></div>
+                    <span>Furniture</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#fbbf24;"></div>
+                    <span>Pending</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background:#e94560;"></div>
+                    <span>Camera</span>
+                </div>
+            </div>
+
+            <!-- Coverage Grid (top-down view) -->
+            <div class="coverage-3d-panel">
+                <h4 style="color:#888;font-size:0.85rem;margin-bottom:0.75rem;">Room Coverage (Top View)</h4>
+                <div class="coverage-grid" id="coverage-grid">
+                    <div class="coverage-cell" data-area="back-left"><span class="cell-label">Back L</span></div>
+                    <div class="coverage-cell" data-area="back-center"><span class="cell-label">Back</span></div>
+                    <div class="coverage-cell" data-area="back-right"><span class="cell-label">Back R</span></div>
+                    <div class="coverage-cell" data-area="left"><span class="cell-label">Left</span></div>
+                    <div class="coverage-cell" data-area="center"><span class="cell-label">Center</span></div>
+                    <div class="coverage-cell" data-area="right"><span class="cell-label">Right</span></div>
+                    <div class="coverage-cell" data-area="front-left"><span class="cell-label">Front L</span></div>
+                    <div class="coverage-cell" data-area="front-center"><span class="cell-label">Front</span></div>
+                    <div class="coverage-cell" data-area="front-right"><span class="cell-label">Front R</span></div>
+                </div>
+            </div>
+
+            <!-- Preview Controls -->
+            <div class="preview-controls">
+                <button class="btn btn-primary" id="start-auto-btn">
+                    <span>▶️</span> Start Scanning
+                </button>
+                <button class="btn btn-secondary" onclick="resetRoomPreview()">
+                    <span>🔄</span> Reset
+                </button>
+                <button class="btn btn-secondary" onclick="exportRoom3D()">
+                    <span>💾</span> Export GLB
+                </button>
+            </div>
+
+            <!-- Capture Log -->
+            <div style="margin-top:1rem;">
+                <h4 style="color:#888;font-size:0.85rem;margin-bottom:0.5rem;">Capture Log</h4>
+                <div class="capture-log" id="capture-log">
+                    <div class="log-entry">
+                        <span class="log-time">--:--:--</span>
+                        <span class="log-msg">Waiting for Full Auto to start...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <script>
@@ -699,6 +1002,122 @@
         let capturedImages = [];
         let cameraStream = null;
         let lastScanResult = null;
+        let availableCameras = [];
+        let selectedCameraId = null;
+        let oakdAvailable = false;
+        let oakdRunning = false;
+        let oakdCaptureInterval = null;
+
+        // Full Auto Mode State
+        let fullAutoActive = false;
+        let fullAutoInterval = null;
+        let lastFrameHash = null;
+        let stableFrameCount = 0;
+        let processingQueue = [];
+        let isProcessing = false;
+        let roomCoverage = {
+            'back-left': 0, 'back-center': 0, 'back-right': 0,
+            'left': 0, 'center': 0, 'right': 0,
+            'front-left': 0, 'front-center': 0, 'front-right': 0
+        };
+        let generatedAssets3D = [];
+        let capturePositions = [];
+
+        // Three.js State
+        let threeScene = null;
+        let threeCamera = null;
+        let threeRenderer = null;
+        let threeControls = null;
+        let roomBox = null;
+        let assetMeshes = [];
+        let cameraMarker = null;
+        let captureMarkers = [];
+
+        // Camera enumeration - includes both browser cameras and OAK-D
+        async function enumerateCameras() {
+            const select = document.getElementById('camera-select');
+            select.innerHTML = '<option value="">Select Camera...</option>';
+            availableCameras = [];
+
+            // Check for OAK-D cameras first
+            try {
+                const oakdResponse = await fetch('/oakd/status');
+                const oakdData = await oakdResponse.json();
+                oakdAvailable = oakdData.available && oakdData.devices && oakdData.devices.length > 0;
+
+                if (oakdAvailable) {
+                    oakdData.devices.forEach((device, index) => {
+                        const cameraObj = {
+                            deviceId: `oakd:${index}`,
+                            label: `OAK-D Lite (RGB + Depth)`,
+                            isOakd: true
+                        };
+                        availableCameras.push(cameraObj);
+
+                        const option = document.createElement('option');
+                        option.value = cameraObj.deviceId;
+                        option.text = cameraObj.label;
+                        option.style.color = '#4ade80';  // Green for depth camera
+                        select.appendChild(option);
+                    });
+                    console.log('OAK-D camera detected');
+                }
+            } catch (err) {
+                console.log('OAK-D not available:', err.message);
+            }
+
+            // Then enumerate browser cameras
+            try {
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                tempStream.getTracks().forEach(track => track.stop());
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const browserCameras = devices.filter(device => device.kind === 'videoinput');
+
+                browserCameras.forEach((camera, index) => {
+                    const cameraObj = {
+                        deviceId: camera.deviceId,
+                        label: camera.label || `Camera ${index + 1}`,
+                        isOakd: false
+                    };
+                    availableCameras.push(cameraObj);
+
+                    const option = document.createElement('option');
+                    option.value = camera.deviceId;
+                    option.text = camera.label || `Camera ${index + 1}`;
+                    select.appendChild(option);
+                });
+            } catch (err) {
+                console.log('No browser cameras:', err.message);
+            }
+
+            // Auto-select first camera (prefer OAK-D)
+            if (availableCameras.length > 0) {
+                select.value = availableCameras[0].deviceId;
+                selectedCameraId = availableCameras[0].deviceId;
+                console.log(`Found ${availableCameras.length} camera(s)`);
+            } else {
+                console.warn('No cameras found');
+            }
+
+            return availableCameras;
+        }
+
+        function isOakdCamera(cameraId) {
+            return cameraId && cameraId.startsWith('oakd:');
+        }
+
+        function onCameraChange() {
+            const select = document.getElementById('camera-select');
+            selectedCameraId = select.value;
+            console.log('Selected camera:', selectedCameraId);
+
+            // If camera is running, restart with new camera
+            if (cameraStream || oakdRunning) {
+                stopCamera();
+                startCamera();
+            }
+        }
 
         // Guided mode state
         let scanMode = 'manual';  // 'manual' or 'guided'
@@ -716,11 +1135,33 @@
             scanMode = mode;
             document.getElementById('mode-manual').classList.toggle('active', mode === 'manual');
             document.getElementById('mode-guided').classList.toggle('active', mode === 'guided');
+            document.getElementById('mode-fullauto').classList.toggle('active', mode === 'fullauto');
             document.getElementById('guided-overlay').classList.toggle('active', mode === 'guided');
-            document.getElementById('quality-ring').classList.toggle('hidden', mode === 'manual');
+            document.getElementById('quality-ring').classList.toggle('hidden', mode === 'manual' || mode === 'fullauto');
             document.getElementById('auto-capture-btn').classList.toggle('hidden', mode === 'manual');
 
-            if (mode === 'guided' && cameraStream) {
+            // Show/hide 3D room preview panel for Full Auto mode
+            const roomPreviewPanel = document.getElementById('room-preview-panel');
+            const mainLayout = document.querySelector('.main');
+
+            if (mode === 'fullauto') {
+                roomPreviewPanel.classList.remove('hidden');
+                mainLayout.classList.add('full-auto-layout');
+                initThreeJSPreview();
+                // Auto-start camera if not running
+                if (!cameraStream && !oakdRunning) {
+                    startCamera();
+                }
+            } else {
+                roomPreviewPanel.classList.add('hidden');
+                mainLayout.classList.remove('full-auto-layout');
+                // Stop full auto if active
+                if (fullAutoActive) {
+                    stopFullAuto();
+                }
+            }
+
+            if (mode === 'guided' && (cameraStream || oakdRunning)) {
                 startGuidedAnalysis();
             } else {
                 stopGuidedAnalysis();
@@ -914,16 +1355,47 @@
 
         // Camera functions
         async function startCamera() {
+            const video = document.getElementById('camera-video');
+            const permission = document.getElementById('camera-permission');
+
+            // Check if OAK-D camera is selected
+            if (isOakdCamera(selectedCameraId)) {
+                await startOakdCamera();
+                return;
+            }
+
+            // Standard browser camera
             try {
-                const video = document.getElementById('camera-video');
-                const permission = document.getElementById('camera-permission');
+                // Build video constraints based on selected camera
+                let videoConstraints = {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                };
+
+                if (selectedCameraId) {
+                    // Use specific camera by ID
+                    videoConstraints.deviceId = { exact: selectedCameraId };
+                } else {
+                    // Fallback: try environment-facing camera (mobile) or any available
+                    videoConstraints.facingMode = 'environment';
+                }
+
+                console.log('Starting camera with constraints:', videoConstraints);
 
                 cameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                    video: videoConstraints
                 });
 
                 video.srcObject = cameraStream;
                 permission.classList.add('hidden');
+
+                // Update camera select to show which camera is actually being used
+                const tracks = cameraStream.getVideoTracks();
+                if (tracks.length > 0) {
+                    const settings = tracks[0].getSettings();
+                    const label = tracks[0].label;
+                    console.log('Camera started:', label, settings);
+                }
                 document.getElementById('capture-btn').disabled = false;
                 document.getElementById('toggle-camera-btn').innerHTML = '<span>🎥</span> Stop Camera';
                 document.getElementById('toggle-camera-btn').classList.remove('btn-secondary');
@@ -937,15 +1409,193 @@
             } catch (err) {
                 console.error('Camera error:', err);
                 document.getElementById('camera-permission').classList.remove('hidden');
+
+                // Provide helpful message based on error type
+                let errorTitle = 'Camera access denied or unavailable';
+                let errorHelp = '';
+
+                if (err.name === 'NotFoundError' || err.message.includes('not found')) {
+                    errorTitle = 'No camera detected';
+                    errorHelp = 'This device does not have a camera, or it is in use by another application.';
+                } else if (err.name === 'NotAllowedError') {
+                    errorTitle = 'Camera permission denied';
+                    errorHelp = 'Please allow camera access in your browser settings.';
+                }
+
                 document.getElementById('camera-permission').innerHTML = `
-                    <p>Camera access denied or unavailable</p>
+                    <p>${errorTitle}</p>
+                    <p style="font-size:0.8rem;color:#94a3b8;margin:0.5rem 0;">${errorHelp}</p>
                     <p style="font-size:0.8rem;color:#e94560;">${err.message}</p>
-                    <button class="btn btn-secondary" onclick="startCamera()">Try Again</button>
+                    <div style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;">
+                        <button class="btn btn-secondary" onclick="startCamera()">Try Again</button>
+                        <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">Upload Image</button>
+                    </div>
                 `;
             }
         }
 
+        // OAK-D specific camera functions
+        async function startOakdCamera() {
+            const video = document.getElementById('camera-video');
+            const permission = document.getElementById('camera-permission');
+
+            try {
+                // Start OAK-D via server
+                const startResponse = await fetch('/oakd/start', { method: 'POST' });
+                const startData = await startResponse.json();
+
+                if (startData.error || !startData.running) {
+                    throw new Error(startData.error || 'Failed to start OAK-D');
+                }
+
+                oakdRunning = true;
+                permission.classList.add('hidden');
+
+                // Create a canvas to display OAK-D frames
+                const canvas = document.createElement('canvas');
+                canvas.id = 'oakd-canvas';
+                canvas.width = 1280;
+                canvas.height = 720;
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                canvas.style.objectFit = 'contain';
+
+                // Hide video, show canvas
+                video.style.display = 'none';
+                video.parentElement.appendChild(canvas);
+
+                // Show depth view toggle
+                showDepthViewToggle();
+
+                // Start frame capture loop
+                oakdCaptureInterval = setInterval(updateOakdFrame, 100);  // 10 FPS
+
+                document.getElementById('capture-btn').disabled = false;
+                document.getElementById('toggle-camera-btn').innerHTML = '<span>🎥</span> Stop OAK-D';
+                document.getElementById('toggle-camera-btn').classList.remove('btn-secondary');
+                document.getElementById('toggle-camera-btn').classList.add('btn-danger');
+
+                console.log('OAK-D camera started');
+
+                // Start guided analysis if in guided mode
+                if (scanMode === 'guided') {
+                    startGuidedAnalysis();
+                }
+
+            } catch (err) {
+                console.error('OAK-D error:', err);
+                permission.classList.remove('hidden');
+                permission.innerHTML = `
+                    <p>OAK-D Camera Error</p>
+                    <p style="font-size:0.8rem;color:#94a3b8;">Could not start depth camera</p>
+                    <p style="font-size:0.8rem;color:#e94560;">${err.message}</p>
+                    <div style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;">
+                        <button class="btn btn-secondary" onclick="startCamera()">Try Again</button>
+                        <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">Upload Image</button>
+                    </div>
+                `;
+            }
+        }
+
+        let showDepthView = false;
+        let lastOakdFrame = null;
+
+        function showDepthViewToggle() {
+            // Add depth view toggle button if not exists
+            if (!document.getElementById('depth-toggle-btn')) {
+                const controls = document.querySelector('.camera-controls');
+                const btn = document.createElement('button');
+                btn.id = 'depth-toggle-btn';
+                btn.className = 'btn btn-secondary';
+                btn.innerHTML = '<span>🔵</span> Show Depth';
+                btn.onclick = toggleDepthView;
+                controls.appendChild(btn);
+            }
+        }
+
+        function hideDepthViewToggle() {
+            const btn = document.getElementById('depth-toggle-btn');
+            if (btn) btn.remove();
+        }
+
+        function toggleDepthView() {
+            showDepthView = !showDepthView;
+            const btn = document.getElementById('depth-toggle-btn');
+            if (btn) {
+                btn.innerHTML = showDepthView ? '<span>🌈</span> Show RGB' : '<span>🔵</span> Show Depth';
+                btn.classList.toggle('btn-primary', showDepthView);
+                btn.classList.toggle('btn-secondary', !showDepthView);
+            }
+        }
+
+        async function updateOakdFrame() {
+            if (!oakdRunning) return;
+
+            try {
+                const response = await fetch('/oakd/capture?include_depth=true');
+                const data = await response.json();
+
+                if (data.error) {
+                    console.warn('OAK-D capture error:', data.error);
+                    return;
+                }
+
+                lastOakdFrame = data;
+
+                const canvas = document.getElementById('oakd-canvas');
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+
+                // Show RGB or depth based on toggle
+                const imageData = showDepthView && data.depth ? data.depth : data.rgb;
+                const mimeType = showDepthView && data.depth ? data.depth_mime : data.rgb_mime;
+
+                if (imageData) {
+                    img.onload = () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                    };
+                    img.src = `data:${mimeType};base64,${imageData}`;
+                }
+
+            } catch (err) {
+                console.error('OAK-D frame update error:', err);
+            }
+        }
+
+        function stopOakdCamera() {
+            if (oakdCaptureInterval) {
+                clearInterval(oakdCaptureInterval);
+                oakdCaptureInterval = null;
+            }
+
+            // Stop OAK-D via server
+            fetch('/oakd/stop', { method: 'POST' }).catch(err => console.warn('OAK-D stop error:', err));
+
+            oakdRunning = false;
+            lastOakdFrame = null;
+
+            // Remove canvas, show video
+            const canvas = document.getElementById('oakd-canvas');
+            if (canvas) canvas.remove();
+
+            const video = document.getElementById('camera-video');
+            video.style.display = '';
+
+            hideDepthViewToggle();
+
+            console.log('OAK-D camera stopped');
+        }
+
         function stopCamera() {
+            // Stop OAK-D if running
+            if (oakdRunning) {
+                stopOakdCamera();
+            }
+
             // Stop guided analysis
             stopGuidedAnalysis();
             clearBoundaryCanvas();
@@ -970,6 +1620,25 @@
         }
 
         function capturePhoto() {
+            // Handle OAK-D capture
+            if (oakdRunning && lastOakdFrame && lastOakdFrame.rgb) {
+                const imageData = `data:${lastOakdFrame.rgb_mime};base64,${lastOakdFrame.rgb}`;
+                addCapturedImage(imageData);
+
+                // Also save depth if available (for 3D reconstruction)
+                if (lastOakdFrame.depth) {
+                    // Store depth data associated with this capture
+                    const depthData = `data:${lastOakdFrame.depth_mime};base64,${lastOakdFrame.depth}`;
+                    // Attach depth to the last captured image metadata
+                    if (capturedImages.length > 0) {
+                        // Store as metadata (for future use in 3D reconstruction)
+                        console.log('Depth data captured alongside RGB');
+                    }
+                }
+                return;
+            }
+
+            // Standard browser camera capture
             const video = document.getElementById('camera-video');
             const canvas = document.getElementById('capture-canvas');
 
@@ -1255,17 +1924,550 @@
             }
         }
 
+        // =========================================
+        // Three.js Room Preview Functions
+        // =========================================
+
+        function initThreeJSPreview() {
+            if (threeScene) return; // Already initialized
+
+            const canvas = document.getElementById('room-preview-canvas');
+            const container = canvas.parentElement;
+
+            // Scene
+            threeScene = new THREE.Scene();
+            threeScene.background = new THREE.Color(0x0a0a1a);
+
+            // Camera
+            const aspect = container.clientWidth / container.clientHeight;
+            threeCamera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
+            threeCamera.position.set(8, 6, 8);
+            threeCamera.lookAt(0, 0, 0);
+
+            // Renderer
+            threeRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            threeRenderer.setSize(container.clientWidth, container.clientHeight);
+            threeRenderer.setPixelRatio(window.devicePixelRatio);
+
+            // Controls
+            threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+            threeControls.enableDamping = true;
+            threeControls.dampingFactor = 0.05;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            threeScene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            threeScene.add(directionalLight);
+
+            // Grid helper
+            const gridHelper = new THREE.GridHelper(10, 10, 0x2a2a4a, 0x1a1a3a);
+            threeScene.add(gridHelper);
+
+            // Room wireframe box (default 5x3x5 meters)
+            createRoomBox(5, 3, 5);
+
+            // Camera marker (represents capture position)
+            createCameraMarker();
+
+            // Start animation loop
+            animateThreeJS();
+
+            // Handle resize
+            window.addEventListener('resize', onThreeResize);
+
+            addLog('3D preview initialized');
+        }
+
+        function createRoomBox(width, height, depth) {
+            if (roomBox) {
+                threeScene.remove(roomBox);
+            }
+
+            // Create wireframe room
+            const geometry = new THREE.BoxGeometry(width, height, depth);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: 0x4ade80, opacity: 0.5, transparent: true });
+            roomBox = new THREE.LineSegments(edges, material);
+            roomBox.position.y = height / 2;
+            threeScene.add(roomBox);
+
+            // Add floor plane
+            const floorGeometry = new THREE.PlaneGeometry(width, depth);
+            const floorMaterial = new THREE.MeshBasicMaterial({
+                color: 0x1a1a3a,
+                side: THREE.DoubleSide,
+                opacity: 0.3,
+                transparent: true
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = 0.01;
+            threeScene.add(floor);
+        }
+
+        function createCameraMarker() {
+            // Camera frustum visualization
+            const coneGeometry = new THREE.ConeGeometry(0.3, 0.5, 4);
+            const coneMaterial = new THREE.MeshBasicMaterial({ color: 0xe94560 });
+            cameraMarker = new THREE.Mesh(coneGeometry, coneMaterial);
+            cameraMarker.rotation.x = Math.PI / 2;
+            cameraMarker.position.set(0, 1.5, 4);
+            threeScene.add(cameraMarker);
+        }
+
+        function animateThreeJS() {
+            if (!threeRenderer) return;
+            requestAnimationFrame(animateThreeJS);
+            threeControls.update();
+            threeRenderer.render(threeScene, threeCamera);
+        }
+
+        function onThreeResize() {
+            if (!threeRenderer) return;
+            const container = document.getElementById('room-preview-canvas').parentElement;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            threeCamera.aspect = width / height;
+            threeCamera.updateProjectionMatrix();
+            threeRenderer.setSize(width, height);
+        }
+
+        function addAssetToPreview(asset) {
+            if (!threeScene) return;
+
+            // Create simple box representation of asset
+            const size = asset.size || { width: 0.5, height: 0.5, depth: 0.5 };
+            const geometry = new THREE.BoxGeometry(
+                size.width || 0.5,
+                size.height || 0.5,
+                size.depth || 0.5
+            );
+
+            const color = asset.color || 0x60a5fa;
+            const material = new THREE.MeshPhongMaterial({
+                color: color,
+                opacity: 0.8,
+                transparent: true
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(
+                asset.position?.x || 0,
+                asset.position?.y || 0.5,
+                asset.position?.z || 0
+            );
+
+            threeScene.add(mesh);
+            assetMeshes.push(mesh);
+
+            // Add label sprite
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#4ade80';
+            ctx.font = '14px sans-serif';
+            ctx.fillText(asset.asset_type || 'Object', 4, 20);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.position.copy(mesh.position);
+            sprite.position.y += (size.height || 0.5) / 2 + 0.3;
+            sprite.scale.set(1, 0.25, 1);
+            threeScene.add(sprite);
+            assetMeshes.push(sprite);
+        }
+
+        function addCaptureMarkerToPreview(position, direction) {
+            if (!threeScene) return;
+
+            // Small sphere at capture position
+            const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+            const material = new THREE.MeshBasicMaterial({ color: 0x4ade80 });
+            const marker = new THREE.Mesh(geometry, material);
+            marker.position.set(position.x, position.y, position.z);
+            threeScene.add(marker);
+            captureMarkers.push(marker);
+
+            // Direction arrow
+            const dir = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
+            const arrowHelper = new THREE.ArrowHelper(dir, marker.position, 0.5, 0x4ade80);
+            threeScene.add(arrowHelper);
+            captureMarkers.push(arrowHelper);
+        }
+
+        function updateCameraMarkerPosition(areaName) {
+            if (!cameraMarker) return;
+
+            // Map area names to positions
+            const positions = {
+                'front-center': { x: 0, z: 4 },
+                'front-left': { x: -2, z: 4 },
+                'front-right': { x: 2, z: 4 },
+                'center': { x: 0, z: 0 },
+                'left': { x: -3, z: 0 },
+                'right': { x: 3, z: 0 },
+                'back-center': { x: 0, z: -4 },
+                'back-left': { x: -2, z: -4 },
+                'back-right': { x: 2, z: -4 }
+            };
+
+            const pos = positions[areaName] || positions['front-center'];
+            cameraMarker.position.set(pos.x, 1.5, pos.z);
+
+            document.getElementById('camera-position').textContent = `📷 Camera: ${areaName.replace('-', ' ')}`;
+        }
+
+        function resetRoomPreview() {
+            // Clear all asset meshes
+            assetMeshes.forEach(mesh => threeScene.remove(mesh));
+            assetMeshes = [];
+
+            // Clear capture markers
+            captureMarkers.forEach(marker => threeScene.remove(marker));
+            captureMarkers = [];
+
+            // Reset coverage
+            roomCoverage = {
+                'back-left': 0, 'back-center': 0, 'back-right': 0,
+                'left': 0, 'center': 0, 'right': 0,
+                'front-left': 0, 'front-center': 0, 'front-right': 0
+            };
+            updateCoverageGrid();
+
+            // Clear generated assets
+            generatedAssets3D = [];
+            capturePositions = [];
+
+            // Clear log
+            document.getElementById('capture-log').innerHTML = `
+                <div class="log-entry">
+                    <span class="log-time">${getTimeString()}</span>
+                    <span class="log-msg">Preview reset</span>
+                </div>
+            `;
+
+            addLog('Room preview reset');
+        }
+
+        function exportRoom3D() {
+            // Simple JSON export for now (GLB would require GLTFExporter)
+            const exportData = {
+                room_dimensions: { width: 5, height: 3, depth: 5 },
+                assets: generatedAssets3D,
+                capture_positions: capturePositions,
+                coverage: roomCoverage
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `room_3d_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            addLog('Room exported as JSON');
+        }
+
+        // =========================================
+        // Full Auto Mode Functions
+        // =========================================
+
+        function toggleFullAuto() {
+            console.log('toggleFullAuto called, current state:', fullAutoActive);
+            if (fullAutoActive) {
+                stopFullAuto();
+            } else {
+                startFullAuto();
+            }
+        }
+
+        function startFullAuto() {
+            if (!cameraStream && !oakdRunning) {
+                addLog('Starting camera first...', true);
+                startCamera().then(() => {
+                    setTimeout(startFullAuto, 1000);
+                });
+                return;
+            }
+
+            fullAutoActive = true;
+            lastFrameHash = null;
+            stableFrameCount = 0;
+
+            // Update UI
+            const btn = document.getElementById('start-auto-btn');
+            btn.innerHTML = '<span>⏸️</span> Stop Scanning';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-danger');
+
+            document.getElementById('status-dot').classList.add('active');
+            document.getElementById('auto-status-text').textContent = 'Scanning...';
+            document.getElementById('preview-status').textContent = 'Active';
+
+            addLog('Full Auto scanning started');
+
+            // Start the auto-capture loop
+            fullAutoInterval = setInterval(fullAutoLoop, 500);
+        }
+
+        function stopFullAuto() {
+            fullAutoActive = false;
+
+            if (fullAutoInterval) {
+                clearInterval(fullAutoInterval);
+                fullAutoInterval = null;
+            }
+
+            // Update UI
+            const btn = document.getElementById('start-auto-btn');
+            btn.innerHTML = '<span>▶️</span> Start Scanning';
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-danger');
+
+            document.getElementById('status-dot').classList.remove('active', 'processing');
+            document.getElementById('auto-status-text').textContent = 'Stopped';
+            document.getElementById('preview-status').textContent = 'Paused';
+
+            addLog('Full Auto scanning stopped');
+        }
+
+        async function fullAutoLoop() {
+            if (!fullAutoActive) return;
+            if (isProcessing) return; // Skip if still processing previous capture
+
+            try {
+                // Capture current frame
+                let imageData = null;
+
+                if (oakdRunning && lastOakdFrame && lastOakdFrame.rgb) {
+                    imageData = `data:${lastOakdFrame.rgb_mime};base64,${lastOakdFrame.rgb}`;
+                } else if (cameraStream) {
+                    const video = document.getElementById('camera-video');
+                    const canvas = document.getElementById('capture-canvas');
+                    if (video.videoWidth > 0) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(video, 0, 0);
+                        imageData = canvas.toDataURL('image/jpeg', 0.8);
+                    }
+                }
+
+                if (!imageData) return;
+
+                // Time-based auto-capture for OAK-D (hash-based stability doesn't work well
+                // with JPEG's variable encoding). Capture every ~3 seconds when scanning.
+                stableFrameCount++;
+
+                // Capture every 6 loop iterations (~3 seconds at 500ms interval)
+                if (stableFrameCount >= 6) {
+                    stableFrameCount = 0;
+
+                    // Show capture animation
+                    const indicator = document.getElementById('auto-capture-indicator');
+                    indicator.style.display = 'block';
+                    setTimeout(() => indicator.style.display = 'none', 500);
+
+                    addLog('Stable frame detected, capturing...');
+
+                    // Add to captured images
+                    addCapturedImage(imageData);
+
+                    // Immediately process this capture
+                    await processCapture(imageData);
+                }
+
+            } catch (err) {
+                console.error('Full auto loop error:', err);
+                addLog('Error: ' + err.message, true);
+            }
+        }
+
+        async function processCapture(imageData) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            document.getElementById('status-dot').classList.add('processing');
+            document.getElementById('status-dot').classList.remove('active');
+            document.getElementById('auto-status-text').textContent = 'Processing...';
+
+            try {
+                const base64Data = imageData.split(',')[1];
+
+                const response = await fetch('/room/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        images: [base64Data],
+                        room_scale: 10.0,
+                        quick_mode: true  // Request faster processing for real-time
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                const result = data.result;
+
+                // Update 3D preview with detected assets
+                if (result.generated_assets && result.generated_assets.length > 0) {
+                    for (const asset of result.generated_assets) {
+                        addAssetToPreview(asset);
+                        generatedAssets3D.push(asset);
+                    }
+                    addLog(`Found ${result.generated_assets.length} objects`);
+                }
+
+                // Estimate capture area and update coverage
+                const captureArea = estimateCaptureArea(result);
+                updateCaptureArea(captureArea);
+
+                // Add capture position marker
+                const capturePos = {
+                    x: (Math.random() - 0.5) * 4,
+                    y: 1.5,
+                    z: 3 + Math.random() * 2
+                };
+                capturePositions.push(capturePos);
+                addCaptureMarkerToPreview(capturePos, { x: 0, y: 0, z: -1 });
+
+                // Update results display
+                displayResults(result);
+                lastScanResult = result;
+
+                addLog(`Processed: ${result.detected_objects?.length || 0} objects detected`);
+
+            } catch (err) {
+                console.error('Process capture error:', err);
+                addLog('Process error: ' + err.message, true);
+            } finally {
+                isProcessing = false;
+                if (fullAutoActive) {
+                    document.getElementById('status-dot').classList.remove('processing');
+                    document.getElementById('status-dot').classList.add('active');
+                    document.getElementById('auto-status-text').textContent = 'Scanning...';
+                }
+            }
+        }
+
+        function estimateCaptureArea(result) {
+            // Simple heuristic based on detected objects and boundaries
+            const areas = ['front-center', 'front-left', 'front-right', 'center', 'left', 'right', 'back-center', 'back-left', 'back-right'];
+
+            // For now, pick area based on capture count (round-robin with some randomness)
+            const captureCount = capturePositions.length;
+            const baseIndex = captureCount % areas.length;
+
+            // Add some variation
+            const variation = Math.floor(Math.random() * 3) - 1;
+            const index = Math.max(0, Math.min(areas.length - 1, baseIndex + variation));
+
+            return areas[index];
+        }
+
+        function updateCaptureArea(areaName) {
+            // Increase coverage for this area
+            if (roomCoverage[areaName] !== undefined) {
+                roomCoverage[areaName] = Math.min(1, roomCoverage[areaName] + 0.5);
+            }
+
+            updateCoverageGrid();
+            updateCameraMarkerPosition(areaName);
+        }
+
+        function updateCoverageGrid() {
+            const cells = document.querySelectorAll('.coverage-cell');
+            cells.forEach(cell => {
+                const area = cell.getAttribute('data-area');
+                const coverage = roomCoverage[area] || 0;
+
+                cell.classList.remove('captured', 'partial');
+                if (coverage >= 0.8) {
+                    cell.classList.add('captured');
+                } else if (coverage >= 0.3) {
+                    cell.classList.add('partial');
+                }
+            });
+        }
+
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return hash;
+        }
+
+        function addLog(message, isError = false) {
+            const logContainer = document.getElementById('capture-log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">${getTimeString()}</span>
+                <span class="log-msg ${isError ? 'error' : ''}">${message}</span>
+            `;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+
+            // Keep only last 20 entries
+            while (logContainer.children.length > 20) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        function getTimeString() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-US', { hour12: false });
+        }
+
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             loadScanHistory();
-            // Check if camera permission was granted before
+
+            // Add event listener for Start Scanning button (more reliable than onclick)
+            const startAutoBtn = document.getElementById('start-auto-btn');
+            if (startAutoBtn) {
+                startAutoBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Start Scanning button clicked, fullAutoActive:', fullAutoActive);
+                    toggleFullAuto();
+                });
+            }
+
+            // Check if camera API is available and enumerate cameras
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 document.getElementById('camera-permission').classList.add('hidden');
+
+                // Enumerate available cameras
+                const cameras = await enumerateCameras();
+                if (cameras.length === 0) {
+                    document.getElementById('camera-permission').classList.remove('hidden');
+                    document.getElementById('camera-permission').innerHTML = `
+                        <p>No cameras detected</p>
+                        <p style="font-size:0.8rem;color:#94a3b8;">Connect a USB camera and refresh, or use file upload</p>
+                        <div style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;">
+                            <button class="btn btn-secondary" onclick="enumerateCameras()">Refresh Cameras</button>
+                            <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">Upload Image</button>
+                        </div>
+                    `;
+                }
             } else {
                 document.getElementById('camera-permission').classList.remove('hidden');
                 document.getElementById('camera-permission').innerHTML = `
-                    <p>Camera not available</p>
+                    <p>Camera API not available</p>
                     <p style="font-size:0.8rem;color:#888;">Use file upload instead</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">Upload Image</button>
                 `;
             }
         });
