@@ -1,12 +1,75 @@
 ---
 active: true
-iteration: 4
+iteration: 5
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-16T06:01:18Z"
 ---
 
 # Ralph Loop Progress
+
+## Iteration 5: Inference Integration - COMPLETE
+
+### Tasks Completed
+
+1. **Created Predictor Service** ✅
+   - New file: `brain_b/trainer/predictor.py`
+   - `ToolPredictorService` class loads trained model
+   - `predict()` method for context-based predictions
+   - `predict_for_task()` for natural language task descriptions
+
+2. **Integrated with Conversation Handler** ✅
+   - Added predictor to `ConversationHandler.__init__`
+   - New methods: `predict_tool()`, `record_tool_use()`, `get_tool_suggestions()`
+   - Tool history tracking for context-aware predictions
+
+3. **Added API Endpoints to Trainer UI** ✅
+   - `GET /predict?task=...` - Predict tool for a task
+   - `GET /suggestions?count=N` - Get top N tool suggestions
+   - Updated `/health` to include Brain B predictor status
+
+### Prediction API
+
+```bash
+# Predict tool for a task
+curl "http://localhost:8000/predict?task=run+the+tests"
+
+# Get tool suggestions
+curl "http://localhost:8000/suggestions?count=3"
+```
+
+### Example Output
+
+```
+=== Tool Prediction Test ===
+
+Context: prev=           -> Predicted: Bash       (17.40%)
+Context: prev=Bash       -> Predicted: Bash       (36.15%)
+Context: prev=Write      -> Predicted: Write      (29.19%)
+
+=== Task-Based Predictions ===
+
+Task: 'Run the tests'     -> Bash (34.44%)
+Task: 'Create a new module' -> Write (17.60%)
+```
+
+### Files Created/Modified
+
+| File | Purpose |
+|------|---------|
+| `brain_b/trainer/predictor.py` | Predictor service for inference |
+| `brain_b/conversation/handler.py` | Integrated predictor + new methods |
+| `trainer_ui/server.py` | Added `/predict` and `/suggestions` endpoints |
+
+### Training → Inference Pipeline
+
+```
+RLDS Episodes → Training → Model → Predictor → API
+                  ↓
+              97.06% acc
+```
+
+---
 
 ## Iteration 4: Training Cycle - COMPLETE
 

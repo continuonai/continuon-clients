@@ -2,13 +2,24 @@
 Conversation Handler - The main interface for talking to your robot.
 
 Ties together intent classification, action execution, and responses.
+Includes Gemini/Claude integration for intelligent conversation.
 """
 
-from typing import Callable
+from typing import Callable, Optional, Union, List
 from dataclasses import dataclass
 
 from conversation.intents import Intent, IntentClassifier, ParsedIntent
+from conversation.claude_backend import ClaudeBackend
+from conversation.gemini_backend import GeminiBackend
 from actor_runtime import ActorRuntime
+
+# Tool prediction (trained model)
+try:
+    from trainer.predictor import ToolPredictorService, Prediction
+    HAS_PREDICTOR = True
+except ImportError:
+    HAS_PREDICTOR = False
+    Prediction = None
 
 
 @dataclass
@@ -35,6 +46,9 @@ class ConversationHandler:
         runtime: ActorRuntime,
         executor: Callable[[dict], None],
         default_speed: float = 0.5,
+        use_ai: bool = True,
+        prefer_gemini: bool = True,
+        model_path: Optional[str] = None,
     ):
         self.runtime = runtime
         self.executor = executor
@@ -43,6 +57,38 @@ class ConversationHandler:
         self.speed = default_speed
         self.min_speed = 0.1
         self.max_speed = 1.0
+
+        # Tool history for predictions
+        self.tool_history: List[str] = []
+
+        # Tool predictor (trained model)
+        self.predictor: Optional[ToolPredictorService] = None
+        if HAS_PREDICTOR:
+            self.predictor = ToolPredictorService(model_path)
+            if self.predictor.is_ready:
+                print("[Init] Tool predictor enabled")
+
+        # AI backend for intelligent conversation (Gemini preferred, Claude fallback)
+        self.ai_backend: Optional[Union[GeminiBackend, ClaudeBackend]] = None
+        if use_ai:
+            if prefer_gemini:
+                self.ai_backend = GeminiBackend()
+                if self.ai_backend.is_available:
+                    print("[Init] Gemini integration enabled")
+                else:
+                    # Fallback to Claude
+                    self.ai_backend = ClaudeBackend()
+                    if self.ai_backend.is_available:
+                        print("[Init] Claude integration enabled (Gemini unavailable)")
+            else:
+                self.ai_backend = ClaudeBackend()
+                if self.ai_backend.is_available:
+                    print("[Init] Claude integration enabled")
+                else:
+                    # Fallback to Gemini
+                    self.ai_backend = GeminiBackend()
+                    if self.ai_backend.is_available:
+                        print("[Init] Gemini integration enabled (Claude unavailable)")
 
     def handle(self, user_input: str) -> Response:
         """
@@ -244,6 +290,85 @@ class ConversationHandler:
         return Response("Goodbye!")
 
     def _handle_unknown(self, parsed: ParsedIntent) -> Response:
+        # If recording, keep strict command mode
         if self.runtime.teaching.is_recording:
             return Response(f"I don't understand '{parsed.raw_text}'. Say 'done' to save, or 'cancel' to abort.")
+
+        # Try AI backend (Gemini or Claude) for intelligent conversation
+        if self.ai_backend and self.ai_backend.is_available:
+            response_text, action = self.ai_backend.process(
+                parsed.raw_text,
+                speed=self.speed,
+                behaviors=self.runtime.teaching.list_behaviors(),
+                recording=self.runtime.teaching.recording_name,
+            )
+
+            # If AI suggested an action, execute it
+            if action:
+                action_type = action.get("type")
+                if action_type in ("forward", "backward", "left", "right", "stop"):
+                    self.runtime.execute_action(action, self.executor)
+                    return Response(response_text, True, action_type)
+                elif action_type == "teach":
+                    result = self.runtime.teach(action.get("name", ""))
+                    return Response(f"{response_text}\n{result}")
+                elif action_type == "invoke":
+                    def on_step(step: int, total: int, action: dict):
+                        print(f"  [{step}/{total}] {action.get('type', '?')}")
+                    result = self.runtime.invoke(action.get("name", ""), self.executor, on_step)
+                    return Response(f"{response_text}\n{result}", True, "invoke")
+
+            return Response(response_text)
+
         return Response(f"I don't understand '{parsed.raw_text}'. Say 'help' for commands.")
+
+    # === Tool Prediction ===
+
+    def predict_tool(self, task: str = "") -> Optional[dict]:
+        """
+        Predict the next tool based on task and history.
+
+        Args:
+            task: Optional task description for context
+
+        Returns:
+            Dictionary with prediction info or None if predictor unavailable
+        """
+        if not self.predictor or not self.predictor.is_ready:
+            return None
+
+        if task:
+            pred = self.predictor.predict_for_task(task, self.tool_history)
+        else:
+            context = {
+                "current_tool": "",
+                "prev_tool": self.tool_history[-1] if self.tool_history else "",
+                "prev_success": True,
+                "step_idx": len(self.tool_history),
+            }
+            pred = self.predictor.predict(context)
+
+        if pred:
+            return {
+                "tool": pred.tool,
+                "confidence": pred.confidence,
+                "alternatives": [{"tool": t, "confidence": c} for t, c in pred.alternatives],
+            }
+        return None
+
+    def record_tool_use(self, tool: str, success: bool = True):
+        """Record a tool use for future predictions."""
+        self.tool_history.append(tool)
+        # Keep only last 20 tools
+        if len(self.tool_history) > 20:
+            self.tool_history = self.tool_history[-20:]
+
+    def get_tool_suggestions(self, count: int = 3) -> List[dict]:
+        """Get top tool suggestions based on current context."""
+        pred = self.predict_tool()
+        if not pred:
+            return []
+
+        suggestions = [{"tool": pred["tool"], "confidence": pred["confidence"]}]
+        suggestions.extend(pred["alternatives"][:count - 1])
+        return suggestions

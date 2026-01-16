@@ -1004,6 +1004,67 @@ async def health():
             "cameras": server.state.cameras,
             "is_mock": server.state.is_mock,
         },
+        "brain_b": {
+            "available": server.brain_b is not None and server.brain_b.is_available,
+            "predictor": server.brain_b.handler.predictor.is_ready if (
+                server.brain_b and server.brain_b.is_available and
+                hasattr(server.brain_b, 'handler') and server.brain_b.handler and
+                hasattr(server.brain_b.handler, 'predictor') and server.brain_b.handler.predictor
+            ) else False,
+        },
+    }
+
+
+@app.get("/predict")
+async def predict_tool(task: str = ""):
+    """
+    Predict the next tool based on task description.
+
+    Args:
+        task: Optional task description (e.g., "run the tests")
+
+    Returns:
+        Tool prediction with confidence and alternatives
+    """
+    if not server.brain_b or not server.brain_b.is_available:
+        return {"error": "Brain B not available", "prediction": None}
+
+    handler = server.brain_b.handler
+    if not handler or not hasattr(handler, 'predict_tool'):
+        return {"error": "Predictor not available", "prediction": None}
+
+    prediction = handler.predict_tool(task)
+    if prediction:
+        return {
+            "status": "ok",
+            "task": task,
+            "prediction": prediction,
+        }
+    return {"error": "No prediction available", "prediction": None}
+
+
+@app.get("/suggestions")
+async def get_suggestions(count: int = 3):
+    """
+    Get top tool suggestions based on current context.
+
+    Args:
+        count: Number of suggestions to return (default 3)
+
+    Returns:
+        List of tool suggestions with confidence
+    """
+    if not server.brain_b or not server.brain_b.is_available:
+        return {"error": "Brain B not available", "suggestions": []}
+
+    handler = server.brain_b.handler
+    if not handler or not hasattr(handler, 'get_tool_suggestions'):
+        return {"error": "Predictor not available", "suggestions": []}
+
+    suggestions = handler.get_tool_suggestions(count)
+    return {
+        "status": "ok",
+        "suggestions": suggestions,
     }
 
 # ============================================================================
