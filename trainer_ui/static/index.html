@@ -410,6 +410,88 @@
             padding: 1rem;
         }
 
+        /* Pose buttons */
+        .pose-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+        }
+
+        .pose-btn {
+            padding: 0.3rem 0.6rem;
+            border: none;
+            border-radius: 4px;
+            background: #0f3460;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .pose-btn:hover {
+            background: #1a4f8f;
+        }
+
+        .pose-btn.default {
+            border: 1px solid #e94560;
+        }
+
+        /* Teaching list */
+        .teaching-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .teaching-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.3rem 0.5rem;
+            background: #0f3460;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .teaching-item .name {
+            font-weight: bold;
+        }
+
+        .teaching-item .meta {
+            color: #888;
+            font-size: 0.65rem;
+        }
+
+        .teaching-item .actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .teaching-item button {
+            padding: 0.2rem 0.4rem;
+            border: none;
+            border-radius: 3px;
+            background: #1a4f8f;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.65rem;
+        }
+
+        .teaching-item button:hover {
+            background: #e94560;
+        }
+
+        .teaching-item button.delete {
+            background: #dc2626;
+        }
+
+        #teaching-btn.recording {
+            background: #dc2626;
+            animation: pulse 1s infinite;
+        }
+
         .voice-indicator {
             display: flex;
             align-items: center;
@@ -584,6 +666,39 @@
             </section>
 
             <section class="panel">
+                <h3>Poses</h3>
+                <div class="pose-buttons" id="pose-buttons">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="pose-actions" style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                    <input type="text" id="pose-name-input" placeholder="Pose name" style="flex:1;padding:0.4rem;border-radius:4px;border:1px solid #333;background:#0a1931;color:#fff;">
+                    <button class="action-btn" onclick="savePose()" style="padding:0.4rem 0.8rem;">💾 Save</button>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h3>Teaching Mode</h3>
+                <div class="teaching-controls">
+                    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+                        <input type="text" id="teaching-name-input" placeholder="Recording name" style="flex:1;padding:0.4rem;border-radius:4px;border:1px solid #333;background:#0a1931;color:#fff;">
+                        <button class="action-btn" id="teaching-btn" onclick="toggleTeaching()" style="padding:0.4rem 0.8rem;">⏺ Record</button>
+                    </div>
+                    <div class="teaching-list" id="teaching-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h3>Dual Arm Control</h3>
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="mirrorArms()">🪞 Mirror L→R</button>
+                    <button class="action-btn" onclick="syncArms()">⚡ Sync Both</button>
+                    <button class="action-btn" onclick="homeArms()">🏠 Home All</button>
+                </div>
+            </section>
+
+            <section class="panel">
                 <h3>Voice</h3>
                 <div class="action-buttons">
                     <button class="action-btn speak" id="listen-btn" onclick="toggleListening()">🎤 Listen</button>
@@ -654,8 +769,10 @@
             ws.onopen = () => {
                 document.getElementById('connection-status').classList.add('connected');
                 document.getElementById('connection-text').textContent = 'Connected';
-                // Request hardware status on connect
+                // Request hardware status, poses, and teachings on connect
                 send({ type: 'get_hardware_status' });
+                send({ type: 'list_poses' });
+                send({ type: 'list_teachings' });
             };
 
             ws.onclose = () => {
@@ -732,6 +849,50 @@
 
                 case 'error':
                     addChatMessage('system', `Error: ${data.message}`);
+                    break;
+
+                // Pose management
+                case 'poses_list':
+                    buildPoseButtons(data.poses);
+                    break;
+
+                case 'pose_saved':
+                    buildPoseButtons(data.poses);
+                    addChatMessage('system', `Pose saved: ${data.name}`);
+                    break;
+
+                case 'pose_loaded':
+                    addChatMessage('system', `Loaded pose: ${data.name}`);
+                    break;
+
+                case 'pose_deleted':
+                    buildPoseButtons(data.poses);
+                    break;
+
+                // Teaching mode
+                case 'teachings_list':
+                    buildTeachingList(data.teachings);
+                    break;
+
+                case 'teaching_started':
+                    addChatMessage('system', `Recording started: ${data.name}`);
+                    break;
+
+                case 'teaching_stopped':
+                    buildTeachingList(data.teachings);
+                    addChatMessage('system', `Saved recording: ${data.name} (${data.frame_count} frames)`);
+                    break;
+
+                case 'playback_started':
+                    addChatMessage('system', `Playing: ${data.name}...`);
+                    break;
+
+                case 'playback_complete':
+                    addChatMessage('system', `Playback complete: ${data.name}`);
+                    break;
+
+                case 'teaching_deleted':
+                    buildTeachingList(data.teachings);
                     break;
             }
         }
@@ -850,6 +1011,130 @@
 
         function updateState(state) {
             // Update any state displays if needed
+        }
+
+        // ============================================================
+        // Poses
+        // ============================================================
+        let poses = [];
+
+        function requestPoses() {
+            send({ type: 'list_poses' });
+        }
+
+        function buildPoseButtons(posesList) {
+            poses = posesList || [];
+            const container = document.getElementById('pose-buttons');
+            container.innerHTML = '';
+
+            poses.forEach(pose => {
+                const btn = document.createElement('button');
+                btn.className = 'pose-btn' + (pose.is_default ? ' default' : '');
+                btn.textContent = pose.name;
+                btn.onclick = () => loadPose(pose.name);
+                container.appendChild(btn);
+            });
+        }
+
+        function savePose() {
+            const name = document.getElementById('pose-name-input').value.trim();
+            if (!name) {
+                alert('Enter a pose name');
+                return;
+            }
+            send({ type: 'save_pose', name: name, arm_id: currentArmId });
+            document.getElementById('pose-name-input').value = '';
+        }
+
+        function loadPose(name) {
+            send({ type: 'load_pose', name: name, arm_id: currentArmId });
+        }
+
+        // ============================================================
+        // Teaching Mode
+        // ============================================================
+        let isTeaching = false;
+        let teachings = [];
+
+        function requestTeachings() {
+            send({ type: 'list_teachings' });
+        }
+
+        function buildTeachingList(teachingsList) {
+            teachings = teachingsList || [];
+            const container = document.getElementById('teaching-list');
+            container.innerHTML = '';
+
+            if (teachings.length === 0) {
+                container.innerHTML = '<div style="color:#888;font-size:0.75rem;text-align:center;">No recordings yet</div>';
+                return;
+            }
+
+            teachings.forEach(rec => {
+                const div = document.createElement('div');
+                div.className = 'teaching-item';
+                div.innerHTML = `
+                    <div>
+                        <span class="name">${rec.name}</span>
+                        <span class="meta">${rec.duration_s.toFixed(1)}s · ${rec.frame_count} frames</span>
+                    </div>
+                    <div class="actions">
+                        <button onclick="playbackTeaching('${rec.name}')">▶</button>
+                        <button class="delete" onclick="deleteTeaching('${rec.name}')">✕</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function toggleTeaching() {
+            if (isTeaching) {
+                send({ type: 'stop_teaching' });
+                isTeaching = false;
+                document.getElementById('teaching-btn').textContent = '⏺ Record';
+                document.getElementById('teaching-btn').classList.remove('recording');
+            } else {
+                const name = document.getElementById('teaching-name-input').value.trim();
+                if (!name) {
+                    alert('Enter a recording name');
+                    return;
+                }
+                send({ type: 'start_teaching', name: name, arm_id: currentArmId });
+                isTeaching = true;
+                document.getElementById('teaching-btn').textContent = '⏹ Stop';
+                document.getElementById('teaching-btn').classList.add('recording');
+                document.getElementById('teaching-name-input').value = '';
+            }
+        }
+
+        function playbackTeaching(name) {
+            send({ type: 'playback_teaching', name: name, arm_id: currentArmId, speed: 1.0 });
+        }
+
+        function deleteTeaching(name) {
+            if (confirm(`Delete recording "${name}"?`)) {
+                send({ type: 'delete_teaching', name: name });
+            }
+        }
+
+        // ============================================================
+        // Dual Arm Control
+        // ============================================================
+        function mirrorArms() {
+            send({ type: 'mirror_arms', source: currentArmId, invert_x: true });
+        }
+
+        function syncArms() {
+            // Get current arm state and sync both
+            if (hardwareStatus.arms && hardwareStatus.arms[currentArmId]) {
+                const arm = hardwareStatus.arms[currentArmId];
+                send({ type: 'sync_arms', joints: arm.joints, gripper: arm.gripper });
+            }
+        }
+
+        function homeArms() {
+            send({ type: 'load_pose', name: 'home', arm_id: 'arm_0' });
+            send({ type: 'load_pose', name: 'home', arm_id: 'arm_1' });
         }
 
         // ============================================================

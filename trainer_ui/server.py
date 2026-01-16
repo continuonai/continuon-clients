@@ -31,7 +31,7 @@ import subprocess
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Hardware management
-from hardware import TrainerHardwareDetector, HardwareConfig, DualArmManager, AudioManager
+from hardware import TrainerHardwareDetector, HardwareConfig, DualArmManager, AudioManager, PoseManager, TeachingMode
 from hardware.arm_manager import ArmState
 from hardware.audio_manager import AudioConfig
 
@@ -269,6 +269,8 @@ class TrainerServer:
         self.hw_config: Optional[HardwareConfig] = None
         self.arm_manager: Optional[DualArmManager] = None
         self.audio_manager: Optional[AudioManager] = None
+        self.pose_manager: Optional[PoseManager] = None
+        self.teaching_mode: Optional[TeachingMode] = None
         self._hardware_initialized = False
 
     async def initialize_hardware(self):
@@ -300,6 +302,10 @@ class TrainerServer:
             backend=self.hw_config.audio_backend,
         )
         self.audio_manager = AudioManager(audio_config)
+
+        # Initialize pose manager and teaching mode
+        self.pose_manager = PoseManager(Path("poses"))
+        self.teaching_mode = TeachingMode(Path("teachings"))
 
         # Update robot state with hardware status
         self.state.hailo_available = self.hw_config.hailo_available
@@ -387,6 +393,42 @@ class TrainerServer:
         elif msg_type == "get_hardware_status":
             await self.handle_get_hardware_status(websocket)
 
+        # Pose management
+        elif msg_type == "list_poses":
+            await self.handle_list_poses(websocket)
+
+        elif msg_type == "save_pose":
+            await self.handle_save_pose(data, websocket)
+
+        elif msg_type == "load_pose":
+            await self.handle_load_pose(data, websocket)
+
+        elif msg_type == "delete_pose":
+            await self.handle_delete_pose(data, websocket)
+
+        # Teaching mode
+        elif msg_type == "start_teaching":
+            await self.handle_start_teaching(data, websocket)
+
+        elif msg_type == "stop_teaching":
+            await self.handle_stop_teaching(websocket)
+
+        elif msg_type == "list_teachings":
+            await self.handle_list_teachings(websocket)
+
+        elif msg_type == "playback_teaching":
+            await self.handle_playback_teaching(data, websocket)
+
+        elif msg_type == "delete_teaching":
+            await self.handle_delete_teaching(data, websocket)
+
+        # Dual arm coordination
+        elif msg_type == "mirror_arms":
+            await self.handle_mirror_arms(data)
+
+        elif msg_type == "sync_arms":
+            await self.handle_sync_arms(data)
+
     async def handle_drive(self, data: dict):
         """Handle drive command."""
         direction = data.get("direction", "stop")
@@ -444,6 +486,12 @@ class TrainerServer:
                     for aid, astate in arm_states.items()
                 }
 
+                # Record frame if teaching mode is active
+                if self.teaching_mode and self.teaching_mode.is_recording:
+                    arm = self.arm_manager.get_arm(arm_id)
+                    if arm and self.teaching_mode.current_recording and self.teaching_mode.current_recording.arm_id == arm_id:
+                        self.teaching_mode.record_frame(arm)
+
         self.state.last_command = f"arm:{arm_id}:joint{joint}={value:.2f}"
         self.state.last_command_time = time.time()
 
@@ -474,6 +522,12 @@ class TrainerServer:
                     aid: asdict(astate)
                     for aid, astate in arm_states.items()
                 }
+
+                # Record frame if teaching mode is active
+                if self.teaching_mode and self.teaching_mode.is_recording:
+                    arm = self.arm_manager.get_arm(arm_id)
+                    if arm and self.teaching_mode.current_recording and self.teaching_mode.current_recording.arm_id == arm_id:
+                        self.teaching_mode.record_frame(arm)
 
         self.state.last_command = f"gripper:{arm_id}:{value:.2f}"
         self.state.last_command_time = time.time()
@@ -664,6 +718,202 @@ class TrainerServer:
             "is_mock": self.state.is_mock,
         }
         await websocket.send_json(status)
+
+    # ========================================================================
+    # Pose Management Handlers
+    # ========================================================================
+
+    async def handle_list_poses(self, websocket: WebSocket):
+        """List all available poses."""
+        if self.pose_manager:
+            poses = self.pose_manager.list_poses()
+            await websocket.send_json({"type": "poses_list", "poses": poses})
+
+    async def handle_save_pose(self, data: dict, websocket: WebSocket):
+        """Save current arm position as a named pose."""
+        name = data.get("name", "").strip()
+        arm_id = data.get("arm_id", "arm_0")
+
+        if not name:
+            await websocket.send_json({"type": "error", "message": "Pose name required"})
+            return
+
+        if self.arm_manager and self.pose_manager:
+            arm = self.arm_manager.get_arm(arm_id)
+            if arm:
+                pose = self.pose_manager.save_pose(name, arm)
+                await websocket.send_json({
+                    "type": "pose_saved",
+                    "name": name,
+                    "poses": self.pose_manager.list_poses(),
+                })
+            else:
+                await websocket.send_json({"type": "error", "message": f"Arm not found: {arm_id}"})
+
+    async def handle_load_pose(self, data: dict, websocket: WebSocket):
+        """Load a named pose to an arm."""
+        name = data.get("name", "")
+        arm_id = data.get("arm_id", "arm_0")
+
+        if self.arm_manager and self.pose_manager:
+            arm = self.arm_manager.get_arm(arm_id)
+            if arm:
+                success = self.pose_manager.load_pose(name, arm)
+                if success:
+                    # Update state
+                    arm_states = self.arm_manager.get_all_states()
+                    self.state.arms = {
+                        aid: asdict(astate)
+                        for aid, astate in arm_states.items()
+                    }
+                    await self.broadcast({"type": "state", "data": asdict(self.state)})
+                    await websocket.send_json({"type": "pose_loaded", "name": name, "arm_id": arm_id})
+                else:
+                    await websocket.send_json({"type": "error", "message": f"Pose not found: {name}"})
+
+    async def handle_delete_pose(self, data: dict, websocket: WebSocket):
+        """Delete a saved pose."""
+        name = data.get("name", "")
+
+        if self.pose_manager:
+            success = self.pose_manager.delete_pose(name)
+            if success:
+                await websocket.send_json({
+                    "type": "pose_deleted",
+                    "name": name,
+                    "poses": self.pose_manager.list_poses(),
+                })
+            else:
+                await websocket.send_json({"type": "error", "message": f"Cannot delete pose: {name}"})
+
+    # ========================================================================
+    # Teaching Mode Handlers
+    # ========================================================================
+
+    async def handle_start_teaching(self, data: dict, websocket: WebSocket):
+        """Start recording arm movements for teaching."""
+        name = data.get("name", "").strip()
+        arm_id = data.get("arm_id", "arm_0")
+
+        if not name:
+            await websocket.send_json({"type": "error", "message": "Teaching name required"})
+            return
+
+        if self.teaching_mode:
+            success = self.teaching_mode.start_recording(name, arm_id)
+            if success:
+                await websocket.send_json({"type": "teaching_started", "name": name, "arm_id": arm_id})
+            else:
+                await websocket.send_json({"type": "error", "message": "Already recording"})
+
+    async def handle_stop_teaching(self, websocket: WebSocket):
+        """Stop teaching recording and save."""
+        if self.teaching_mode:
+            rec = self.teaching_mode.stop_recording()
+            if rec:
+                await websocket.send_json({
+                    "type": "teaching_stopped",
+                    "name": rec.name,
+                    "duration_s": rec.duration_s,
+                    "frame_count": len(rec.frames),
+                    "teachings": self.teaching_mode.list_recordings(),
+                })
+            else:
+                await websocket.send_json({"type": "error", "message": "No recording in progress"})
+
+    async def handle_list_teachings(self, websocket: WebSocket):
+        """List all teaching recordings."""
+        if self.teaching_mode:
+            teachings = self.teaching_mode.list_recordings()
+            await websocket.send_json({"type": "teachings_list", "teachings": teachings})
+
+    async def handle_playback_teaching(self, data: dict, websocket: WebSocket):
+        """Play back a teaching recording."""
+        name = data.get("name", "")
+        arm_id = data.get("arm_id", "arm_0")
+        speed = data.get("speed", 1.0)
+
+        if self.arm_manager and self.teaching_mode:
+            arm = self.arm_manager.get_arm(arm_id)
+            if arm:
+                await websocket.send_json({"type": "playback_started", "name": name})
+                await self.teaching_mode.playback(name, arm, speed)
+                # Update state after playback
+                arm_states = self.arm_manager.get_all_states()
+                self.state.arms = {
+                    aid: asdict(astate)
+                    for aid, astate in arm_states.items()
+                }
+                await self.broadcast({"type": "state", "data": asdict(self.state)})
+                await websocket.send_json({"type": "playback_complete", "name": name})
+
+    async def handle_delete_teaching(self, data: dict, websocket: WebSocket):
+        """Delete a teaching recording."""
+        name = data.get("name", "")
+
+        if self.teaching_mode:
+            success = self.teaching_mode.delete_recording(name)
+            if success:
+                await websocket.send_json({
+                    "type": "teaching_deleted",
+                    "name": name,
+                    "teachings": self.teaching_mode.list_recordings(),
+                })
+            else:
+                await websocket.send_json({"type": "error", "message": f"Recording not found: {name}"})
+
+    # ========================================================================
+    # Dual Arm Coordination Handlers
+    # ========================================================================
+
+    async def handle_mirror_arms(self, data: dict):
+        """Mirror arm_0 movements to arm_1 (or vice versa)."""
+        source_id = data.get("source", "arm_0")
+        target_id = "arm_1" if source_id == "arm_0" else "arm_0"
+        invert_x = data.get("invert_x", True)  # Invert base rotation for mirroring
+
+        if self.arm_manager:
+            source = self.arm_manager.get_arm(source_id)
+            target = self.arm_manager.get_arm(target_id)
+
+            if source and target:
+                # Copy joints with optional X inversion
+                for i in range(5):
+                    value = source.joint_values[i]
+                    if i == 0 and invert_x:  # Base joint
+                        value = -value
+                    target.set_joint(i, value)
+                target.set_gripper(source.gripper_value)
+
+                # Update state
+                arm_states = self.arm_manager.get_all_states()
+                self.state.arms = {
+                    aid: asdict(astate)
+                    for aid, astate in arm_states.items()
+                }
+                await self.broadcast({"type": "state", "data": asdict(self.state)})
+
+    async def handle_sync_arms(self, data: dict):
+        """Synchronize both arms to the same position."""
+        joints = data.get("joints", [0.0] * 5)
+        gripper = data.get("gripper", 0.0)
+
+        if self.arm_manager:
+            for arm_id in self.arm_manager.arm_ids:
+                arm = self.arm_manager.get_arm(arm_id)
+                if arm:
+                    for i, value in enumerate(joints[:5]):
+                        arm.set_joint(i, value)
+                    arm.set_gripper(gripper)
+
+            # Update state
+            arm_states = self.arm_manager.get_all_states()
+            self.state.arms = {
+                aid: asdict(astate)
+                for aid, astate in arm_states.items()
+            }
+            await self.broadcast({"type": "state", "data": asdict(self.state)})
+
 
 # ============================================================================
 # FastAPI App

@@ -318,3 +318,323 @@ class DualArmManager:
     def arm_ids(self) -> List[str]:
         """List of connected arm IDs."""
         return list(self.arms.keys())
+
+
+# ============================================================================
+# Pose Management
+# ============================================================================
+
+@dataclass
+class ArmPose:
+    """Stored arm pose."""
+    name: str
+    joints: List[float]  # 5 joint values [-1, 1]
+    gripper: float  # [0, 1]
+    arm_id: str = "arm_0"
+    created_at: str = ""
+
+    def __post_init__(self):
+        if not self.created_at:
+            from datetime import datetime
+            self.created_at = datetime.now().isoformat()
+
+
+class PoseManager:
+    """
+    Manages saved arm poses for quick recall.
+    Supports per-arm poses and dual-arm synchronized poses.
+    """
+
+    # Default poses
+    DEFAULT_POSES = {
+        "home": ArmPose(name="home", joints=[0.0, 0.0, 0.0, 0.0, 0.0], gripper=0.0),
+        "ready": ArmPose(name="ready", joints=[0.0, 0.3, -0.3, 0.0, 0.0], gripper=0.0),
+        "wave_up": ArmPose(name="wave_up", joints=[0.0, 0.8, -0.5, 0.0, 0.0], gripper=0.0),
+        "grab_ready": ArmPose(name="grab_ready", joints=[0.0, 0.0, 0.5, 0.3, 0.0], gripper=0.0),
+        "grab_closed": ArmPose(name="grab_closed", joints=[0.0, 0.0, 0.5, 0.3, 0.0], gripper=1.0),
+    }
+
+    def __init__(self, poses_dir: Path = None):
+        """
+        Initialize pose manager.
+
+        Args:
+            poses_dir: Directory to store pose files
+        """
+        from pathlib import Path
+        self.poses_dir = poses_dir or Path("poses")
+        self.poses_dir.mkdir(parents=True, exist_ok=True)
+        self.poses: Dict[str, ArmPose] = {}
+        self._load_poses()
+
+    def _load_poses(self):
+        """Load poses from disk and add defaults."""
+        # Add defaults first
+        self.poses = dict(self.DEFAULT_POSES)
+
+        # Load saved poses
+        import json
+        for pose_file in self.poses_dir.glob("*.json"):
+            try:
+                with open(pose_file) as f:
+                    data = json.load(f)
+                    pose = ArmPose(**data)
+                    self.poses[pose.name] = pose
+            except Exception as e:
+                print(f"Warning: Failed to load pose {pose_file}: {e}")
+
+        print(f"Loaded {len(self.poses)} poses")
+
+    def save_pose(self, name: str, arm: ArmController) -> ArmPose:
+        """
+        Save current arm position as a named pose.
+
+        Args:
+            name: Name for the pose
+            arm: ArmController to capture state from
+
+        Returns:
+            The saved ArmPose
+        """
+        import json
+
+        pose = ArmPose(
+            name=name,
+            joints=arm.joint_values[:5].copy(),  # Only 5 joints, not gripper
+            gripper=arm.gripper_value,
+            arm_id=arm.arm_id,
+        )
+
+        self.poses[name] = pose
+
+        # Save to disk
+        pose_file = self.poses_dir / f"{name}.json"
+        with open(pose_file, "w") as f:
+            json.dump(asdict(pose), f, indent=2)
+
+        print(f"Saved pose: {name}")
+        return pose
+
+    def load_pose(self, name: str, arm: ArmController) -> bool:
+        """
+        Load a named pose to an arm.
+
+        Args:
+            name: Name of the pose to load
+            arm: ArmController to apply pose to
+
+        Returns:
+            True if successful
+        """
+        pose = self.poses.get(name)
+        if pose is None:
+            print(f"Pose not found: {name}")
+            return False
+
+        # Apply joints
+        for i, value in enumerate(pose.joints):
+            arm.set_joint(i, value)
+
+        # Apply gripper
+        arm.set_gripper(pose.gripper)
+
+        print(f"Loaded pose '{name}' to {arm.arm_id}")
+        return True
+
+    def delete_pose(self, name: str) -> bool:
+        """Delete a saved pose."""
+        if name in self.DEFAULT_POSES:
+            print(f"Cannot delete default pose: {name}")
+            return False
+
+        if name not in self.poses:
+            return False
+
+        del self.poses[name]
+
+        # Delete file
+        pose_file = self.poses_dir / f"{name}.json"
+        if pose_file.exists():
+            pose_file.unlink()
+
+        print(f"Deleted pose: {name}")
+        return True
+
+    def list_poses(self) -> List[Dict]:
+        """List all available poses."""
+        return [
+            {
+                "name": p.name,
+                "is_default": p.name in self.DEFAULT_POSES,
+                "arm_id": p.arm_id,
+            }
+            for p in self.poses.values()
+        ]
+
+
+# ============================================================================
+# Teaching Mode
+# ============================================================================
+
+@dataclass
+class TeachingRecording:
+    """Recording of arm movements for teaching."""
+    name: str
+    frames: List[Dict]  # List of {timestamp, joints, gripper}
+    arm_id: str
+    duration_s: float = 0.0
+    created_at: str = ""
+
+    def __post_init__(self):
+        if not self.created_at:
+            from datetime import datetime
+            self.created_at = datetime.now().isoformat()
+
+
+class TeachingMode:
+    """
+    Records and plays back arm movements for teaching behaviors.
+    """
+
+    def __init__(self, recordings_dir: Path = None):
+        """
+        Initialize teaching mode.
+
+        Args:
+            recordings_dir: Directory to store recordings
+        """
+        from pathlib import Path
+        self.recordings_dir = recordings_dir or Path("teachings")
+        self.recordings_dir.mkdir(parents=True, exist_ok=True)
+
+        self.recordings: Dict[str, TeachingRecording] = {}
+        self.is_recording = False
+        self.current_recording: Optional[TeachingRecording] = None
+        self.recording_start_time: float = 0.0
+
+        self._load_recordings()
+
+    def _load_recordings(self):
+        """Load recordings from disk."""
+        import json
+        for rec_file in self.recordings_dir.glob("*.json"):
+            try:
+                with open(rec_file) as f:
+                    data = json.load(f)
+                    rec = TeachingRecording(**data)
+                    self.recordings[rec.name] = rec
+            except Exception as e:
+                print(f"Warning: Failed to load recording {rec_file}: {e}")
+
+        print(f"Loaded {len(self.recordings)} teaching recordings")
+
+    def start_recording(self, name: str, arm_id: str) -> bool:
+        """Start recording arm movements."""
+        if self.is_recording:
+            print("Already recording")
+            return False
+
+        self.current_recording = TeachingRecording(
+            name=name,
+            frames=[],
+            arm_id=arm_id,
+        )
+        self.recording_start_time = time.time()
+        self.is_recording = True
+        print(f"Started teaching recording: {name}")
+        return True
+
+    def record_frame(self, arm: ArmController):
+        """Record current arm state as a frame."""
+        if not self.is_recording or self.current_recording is None:
+            return
+
+        frame = {
+            "timestamp": time.time() - self.recording_start_time,
+            "joints": arm.joint_values[:5].copy(),
+            "gripper": arm.gripper_value,
+        }
+        self.current_recording.frames.append(frame)
+
+    def stop_recording(self) -> Optional[TeachingRecording]:
+        """Stop recording and save."""
+        if not self.is_recording or self.current_recording is None:
+            return None
+
+        self.is_recording = False
+        self.current_recording.duration_s = time.time() - self.recording_start_time
+
+        # Save recording
+        import json
+        rec = self.current_recording
+        self.recordings[rec.name] = rec
+
+        rec_file = self.recordings_dir / f"{rec.name}.json"
+        with open(rec_file, "w") as f:
+            json.dump(asdict(rec), f, indent=2)
+
+        print(f"Saved teaching recording: {rec.name} ({len(rec.frames)} frames, {rec.duration_s:.1f}s)")
+
+        result = self.current_recording
+        self.current_recording = None
+        return result
+
+    async def playback(self, name: str, arm: ArmController, speed: float = 1.0):
+        """
+        Play back a recorded movement.
+
+        Args:
+            name: Name of recording to play
+            arm: Arm to play on
+            speed: Playback speed multiplier (1.0 = normal)
+        """
+        rec = self.recordings.get(name)
+        if rec is None:
+            print(f"Recording not found: {name}")
+            return
+
+        print(f"Playing back: {name} ({len(rec.frames)} frames)")
+
+        import asyncio
+        last_time = 0.0
+
+        for frame in rec.frames:
+            # Wait for correct time
+            wait_time = (frame["timestamp"] - last_time) / speed
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
+
+            # Apply frame
+            for i, value in enumerate(frame["joints"]):
+                arm.set_joint(i, value)
+            arm.set_gripper(frame["gripper"])
+
+            last_time = frame["timestamp"]
+
+        print(f"Playback complete: {name}")
+
+    def list_recordings(self) -> List[Dict]:
+        """List all recordings."""
+        return [
+            {
+                "name": r.name,
+                "arm_id": r.arm_id,
+                "duration_s": r.duration_s,
+                "frame_count": len(r.frames),
+            }
+            for r in self.recordings.values()
+        ]
+
+    def delete_recording(self, name: str) -> bool:
+        """Delete a recording."""
+        if name not in self.recordings:
+            return False
+
+        del self.recordings[name]
+
+        rec_file = self.recordings_dir / f"{name}.json"
+        if rec_file.exists():
+            rec_file.unlink()
+
+        print(f"Deleted recording: {name}")
+        return True
