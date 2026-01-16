@@ -24,7 +24,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from simulator.home_world import HomeWorld, get_level, list_levels, LEVELS
+from simulator.home_world import (
+    HomeWorld, get_level, list_levels, LEVELS,
+    create_from_scan, register_scanned_level, get_scanned_level
+)
 from simulator.home_handler import HomeHandler
 from simulator.home_rlds_logger import HomeRLDSLogger
 from actor_runtime import ActorRuntime
@@ -264,6 +267,69 @@ async def load_level_endpoint(level_id: str):
         return JSONResponse(content=state)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/load_scanned_room")
+async def load_scanned_room(scan_data: dict):
+    """
+    Load a scanned room from Room Scanner as a training environment.
+
+    Expected scan_data format:
+    {
+        "dimensions": {"width": 5.0, "height": 3.0, "depth": 5.0},
+        "room_type": "living_room",
+        "objects": [{"type": "couch", "position": {"x": 2, "y": 3, "z": 0}}],
+        "coverage": {...},
+        "textures": {...}  // Optional
+    }
+    """
+    if not session:
+        raise HTTPException(status_code=500, detail="Session not initialized")
+
+    try:
+        # End current episode if active
+        if session._episode_active:
+            session.end_episode()
+
+        # Create world from scan data
+        world = create_from_scan(scan_data)
+
+        # Generate unique level ID
+        import time
+        level_id = f"scanned_{int(time.time())}"
+        world.level_id = level_id
+
+        # Register for later access
+        register_scanned_level(level_id, world)
+
+        # Load into session
+        session.world = world
+        session.handler.world = session.world
+
+        state = session.get_state()
+        state["level_id"] = level_id
+        state["real2sim"] = True
+
+        await session.broadcast({"type": "scanned_room_loaded", **state})
+
+        return JSONResponse(content={
+            "status": "ok",
+            "level_id": level_id,
+            "message": f"Scanned room loaded as '{level_id}'",
+            "state": state
+        })
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/scanned_levels")
+async def list_scanned_levels():
+    """List all registered scanned levels."""
+    from simulator.home_world import SCANNED_LEVELS
+    return JSONResponse(content={
+        "levels": list(SCANNED_LEVELS.keys()),
+        "count": len(SCANNED_LEVELS)
+    })
 
 
 @app.post("/api/reset")

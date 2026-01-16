@@ -1082,6 +1082,150 @@ def create_full_house() -> HomeWorld:
     return world
 
 
+# Factory function to create world from room scanner data
+def create_from_scan(scan_data: Dict) -> "HomeWorld":
+    """
+    Create a HomeWorld from room scanner data.
+
+    Args:
+        scan_data: Dict with:
+            - dimensions: {width, height, depth} in meters
+            - room_type: Optional room type string
+            - objects: List of detected objects with positions
+            - textures: Optional dict of wall textures (base64)
+            - coverage: Coverage data from scanner
+
+    Returns:
+        HomeWorld configured as a real2sim training environment
+    """
+    # Extract dimensions (convert from meters to grid units, 1 unit = 0.5m)
+    dims = scan_data.get("dimensions", {"width": 5, "height": 3, "depth": 5})
+    width = int(dims.get("width", 5) * 2)   # Convert to grid units
+    depth = int(dims.get("depth", 5) * 2)
+    height = int(dims.get("height", 3) * 2)
+
+    # Clamp to reasonable sizes
+    width = max(4, min(width, 40))
+    depth = max(4, min(depth, 40))
+    height = max(2, min(height, 10))
+
+    # Determine room type
+    room_type_str = scan_data.get("room_type", "living_room")
+    try:
+        room_type = RoomType(room_type_str)
+    except ValueError:
+        room_type = RoomType.LIVING_ROOM
+
+    # Create world
+    world = HomeWorld(
+        level_id="scanned_room",
+        width=width,
+        depth=depth,
+        height=height,
+        goal_description=f"Explore scanned {room_type.value} and learn the layout",
+    )
+
+    # Create the scanned room
+    room = Room(
+        room_type=room_type,
+        bounds=(0, 0, 0, width, depth, height),
+        floor_level=0,
+        name=f"Scanned {room_type.value.replace('_', ' ').title()}"
+    )
+    world.add_room(room)
+
+    # Add walls around the perimeter
+    for x in range(width):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, depth - 1, 0)))
+    for y in range(depth):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(width - 1, y, 0)))
+
+    # Add detected objects from scan
+    detected_objects = scan_data.get("objects", [])
+    for obj in detected_objects:
+        obj_type_str = obj.get("type", "").lower()
+        obj_pos = obj.get("position", {})
+
+        # Map common object names to ObjectType
+        type_mapping = {
+            "couch": ObjectType.COUCH,
+            "sofa": ObjectType.COUCH,
+            "table": ObjectType.TABLE,
+            "desk": ObjectType.DESK,
+            "chair": ObjectType.CHAIR,
+            "bed": ObjectType.BED,
+            "tv": ObjectType.TV,
+            "television": ObjectType.TV,
+            "lamp": ObjectType.LAMP,
+            "light": ObjectType.LAMP,
+            "fridge": ObjectType.FRIDGE,
+            "refrigerator": ObjectType.FRIDGE,
+            "sink": ObjectType.SINK,
+            "stove": ObjectType.STOVE,
+            "oven": ObjectType.STOVE,
+            "shelf": ObjectType.SHELF,
+            "bookshelf": ObjectType.SHELF,
+            "door": ObjectType.DOOR,
+            "window": ObjectType.WINDOW,
+        }
+
+        if obj_type_str in type_mapping:
+            # Convert position from meters to grid units
+            pos_x = int(obj_pos.get("x", width // 2) * 2) % width
+            pos_y = int(obj_pos.get("y", depth // 2) * 2) % depth
+            pos_z = int(obj_pos.get("z", 0) * 2)
+
+            world.add_object(WorldObject(
+                type_mapping[obj_type_str],
+                Position3D(pos_x, pos_y, pos_z)
+            ))
+
+    # Add some default furniture if no objects detected
+    if not detected_objects:
+        # Add a few items based on room type
+        if room_type == RoomType.LIVING_ROOM:
+            world.add_object(WorldObject(ObjectType.COUCH, Position3D(width // 2, depth // 2, 0)))
+            world.add_object(WorldObject(ObjectType.TV, Position3D(width // 2, 1, 0)))
+            world.add_object(WorldObject(ObjectType.LAMP, Position3D(2, 2, 0)))
+        elif room_type == RoomType.KITCHEN:
+            world.add_object(WorldObject(ObjectType.FRIDGE, Position3D(1, 1, 0)))
+            world.add_object(WorldObject(ObjectType.STOVE, Position3D(3, 1, 0)))
+            world.add_object(WorldObject(ObjectType.SINK, Position3D(5, 1, 0)))
+        elif room_type == RoomType.BEDROOM:
+            world.add_object(WorldObject(ObjectType.BED, Position3D(width // 2, depth // 2, 0)))
+            world.add_object(WorldObject(ObjectType.DESK, Position3D(2, 2, 0)))
+
+    # Store scan metadata for later use
+    world.metadata = {
+        "scan_data": scan_data,
+        "real2sim": True,
+        "original_dimensions_m": dims,
+    }
+
+    # Set robot start position (center of room)
+    world.robot_position = Position3D(width // 2, depth // 2, 0)
+    world.goal_position = Position3D(width - 2, depth - 2, 0)
+
+    return world
+
+
+# Dynamic level storage for scanned rooms
+SCANNED_LEVELS: Dict[str, HomeWorld] = {}
+
+
+def register_scanned_level(level_id: str, world: HomeWorld) -> str:
+    """Register a scanned level for use."""
+    SCANNED_LEVELS[level_id] = world
+    return level_id
+
+
+def get_scanned_level(level_id: str) -> Optional[HomeWorld]:
+    """Get a registered scanned level."""
+    return SCANNED_LEVELS.get(level_id)
+
+
 # Built-in levels
 LEVELS = {
     # Curriculum levels (0-7)
