@@ -7,7 +7,8 @@ Provides:
 """
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 # Optional hardware imports (guarded for development)
@@ -354,14 +355,13 @@ class PoseManager:
         "grab_closed": ArmPose(name="grab_closed", joints=[0.0, 0.0, 0.5, 0.3, 0.0], gripper=1.0),
     }
 
-    def __init__(self, poses_dir: Path = None):
+    def __init__(self, poses_dir: Optional[Path] = None):
         """
         Initialize pose manager.
 
         Args:
             poses_dir: Directory to store pose files
         """
-        from pathlib import Path
         self.poses_dir = poses_dir or Path("poses")
         self.poses_dir.mkdir(parents=True, exist_ok=True)
         self.poses: Dict[str, ArmPose] = {}
@@ -496,14 +496,13 @@ class TeachingMode:
     Records and plays back arm movements for teaching behaviors.
     """
 
-    def __init__(self, recordings_dir: Path = None):
+    def __init__(self, recordings_dir: Optional[Path] = None):
         """
         Initialize teaching mode.
 
         Args:
             recordings_dir: Directory to store recordings
         """
-        from pathlib import Path
         self.recordings_dir = recordings_dir or Path("teachings")
         self.recordings_dir.mkdir(parents=True, exist_ok=True)
 
