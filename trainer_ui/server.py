@@ -35,6 +35,14 @@ from hardware import TrainerHardwareDetector, HardwareConfig, DualArmManager, Au
 from hardware.arm_manager import ArmState
 from hardware.audio_manager import AudioConfig
 
+# Brain B integration
+try:
+    from brain_b_integration import BrainBIntegration
+    HAS_BRAIN_B = True
+except ImportError:
+    HAS_BRAIN_B = False
+    print("Brain B integration not available")
+
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.staticfiles import StaticFiles
@@ -271,6 +279,7 @@ class TrainerServer:
         self.audio_manager: Optional[AudioManager] = None
         self.pose_manager: Optional[PoseManager] = None
         self.teaching_mode: Optional[TeachingMode] = None
+        self.brain_b: Optional["BrainBIntegration"] = None
         self._hardware_initialized = False
 
     async def initialize_hardware(self):
@@ -306,6 +315,12 @@ class TrainerServer:
         # Initialize pose manager and teaching mode
         self.pose_manager = PoseManager(Path("poses"))
         self.teaching_mode = TeachingMode(Path("teachings"))
+
+        # Initialize Brain B integration
+        if HAS_BRAIN_B:
+            self.brain_b = BrainBIntegration(str(Path("../brain_b_data")))
+            if self.brain_b.is_available:
+                print("Brain B integration enabled")
 
         # Update robot state with hardware status
         self.state.hailo_available = self.hw_config.hailo_available
@@ -466,10 +481,21 @@ class TrainerServer:
         await self.broadcast({"type": "state", "data": asdict(self.state)})
 
     async def handle_arm(self, data: dict):
-        """Handle arm joint command with multi-arm support."""
+        """Handle arm joint command with multi-arm support and Brain B validation."""
         arm_id = data.get("arm_id", "arm_0")  # Default to arm_0 for backwards compatibility
         joint = data.get("joint", 0)
         value = data.get("value", 0.0)
+
+        # Validate through Brain B if available
+        if self.brain_b and self.brain_b.is_available:
+            is_valid, message, adjusted_value = self.brain_b.validate_arm_action(
+                arm_id, joint, value, self.state.arms.get(arm_id)
+            )
+            if adjusted_value != value:
+                value = adjusted_value  # Use rate-limited value
+
+            # Record action in Brain B for teaching
+            self.brain_b.record_arm_action("arm", arm_id, joint=joint, value=value)
 
         # Update legacy single arm state for backwards compatibility
         if 0 <= joint < 6:
@@ -495,7 +521,7 @@ class TrainerServer:
         self.state.last_command = f"arm:{arm_id}:joint{joint}={value:.2f}"
         self.state.last_command_time = time.time()
 
-        # Record for training
+        # Record for RLDS training
         self.recorder.record(
             {"type": "arm", "arm_id": arm_id, "joint": joint, "value": value},
             self.state,
@@ -505,9 +531,20 @@ class TrainerServer:
         await self.broadcast({"type": "state", "data": asdict(self.state)})
 
     async def handle_gripper(self, data: dict):
-        """Handle gripper command with multi-arm support."""
+        """Handle gripper command with multi-arm support and Brain B validation."""
         arm_id = data.get("arm_id", "arm_0")  # Default to arm_0 for backwards compatibility
         value = data.get("value", 0.0)
+
+        # Validate through Brain B if available
+        if self.brain_b and self.brain_b.is_available:
+            is_valid, message, adjusted_value = self.brain_b.validate_gripper_action(
+                arm_id, value, self.state.arms.get(arm_id)
+            )
+            if adjusted_value != value:
+                value = adjusted_value
+
+            # Record action in Brain B for teaching
+            self.brain_b.record_arm_action("gripper", arm_id, value=value)
 
         # Update legacy single gripper state for backwards compatibility
         self.state.gripper = max(0.0, min(1.0, value))
@@ -532,7 +569,7 @@ class TrainerServer:
         self.state.last_command = f"gripper:{arm_id}:{value:.2f}"
         self.state.last_command_time = time.time()
 
-        # Record for training
+        # Record for RLDS training
         self.recorder.record(
             {"type": "gripper", "arm_id": arm_id, "value": value},
             self.state,
