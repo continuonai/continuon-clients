@@ -1023,6 +1023,13 @@
         let generatedAssets3D = [];
         let capturePositions = [];
 
+        // Captured frames with depth for 3D reconstruction
+        let capturedFrames = [];  // {rgb: base64, depth: base64, position: {x,y,z}, area: string}
+        let scanComplete = false;
+        let reconstructionMesh = null;
+        let panoramaTexture = null;
+        let currentViewMode = 'wireframe';  // 'wireframe', 'textured', 'depth', 'panorama'
+
         // Three.js State
         let threeScene = null;
         let threeCamera = null;
@@ -2340,11 +2347,30 @@
                 capturePositions.push(capturePos);
                 addCaptureMarkerToPreview(capturePos, { x: 0, y: 0, z: -1 });
 
+                // Store frame with depth for 3D reconstruction
+                if (oakdRunning && lastOakdFrame) {
+                    capturedFrames.push({
+                        rgb: lastOakdFrame.rgb,
+                        depth: lastOakdFrame.depth,
+                        position: capturePos,
+                        area: captureArea,
+                        timestamp: Date.now()
+                    });
+                }
+
                 // Update results display
                 displayResults(result);
                 lastScanResult = result;
 
                 addLog(`Processed: ${result.detected_objects?.length || 0} objects detected`);
+
+                // Check if we have enough coverage to auto-stop
+                if (fullAutoActive && checkCoverageComplete()) {
+                    addLog('Room scan complete! Generating 3D reconstruction...');
+                    stopFullAuto();
+                    scanComplete = true;
+                    await generate3DReconstruction();
+                }
 
             } catch (err) {
                 console.error('Process capture error:', err);
@@ -2397,6 +2423,303 @@
                     cell.classList.add('partial');
                 }
             });
+        }
+
+        function checkCoverageComplete() {
+            // Check if we have enough room coverage (7+ zones with >= 0.5 coverage)
+            const coverageValues = Object.values(roomCoverage);
+            const capturedZones = coverageValues.filter(v => v >= 0.5).length;
+            const totalCoverage = coverageValues.reduce((a, b) => a + b, 0) / coverageValues.length;
+
+            // Also require minimum number of frames
+            const minFrames = 6;
+            const hasEnoughFrames = capturedFrames.length >= minFrames;
+
+            // Complete when 7+ zones captured OR high average coverage with enough frames
+            return (capturedZones >= 7 || totalCoverage >= 0.7) && hasEnoughFrames;
+        }
+
+        async function generate3DReconstruction() {
+            addLog('Building 3D room model...');
+            document.getElementById('auto-status-text').textContent = 'Building 3D Model...';
+
+            try {
+                // Update 3D preview status
+                const statusText = document.getElementById('auto-status-text');
+                if (statusText) statusText.textContent = 'Generating 3D...';
+
+                // Create textured room from captured images
+                await createTexturedRoom();
+
+                // Create panoramic view
+                await createPanoramicView();
+
+                // Update view mode buttons
+                showViewModeButtons();
+
+                addLog('3D reconstruction complete!');
+                document.getElementById('auto-status-text').textContent = 'Scan Complete!';
+
+                // Show completion notification
+                showCompletionNotification();
+
+            } catch (err) {
+                console.error('3D reconstruction error:', err);
+                addLog('Reconstruction error: ' + err.message, true);
+            }
+        }
+
+        async function createTexturedRoom() {
+            if (!threeScene || capturedFrames.length === 0) return;
+
+            // Get room dimensions from last scan result
+            const dims = lastScanResult?.room_dimensions || { width: 5, height: 3, depth: 5 };
+            const width = dims.width || 5;
+            const height = dims.height || 3;
+            const depth = dims.depth || 5;
+
+            // Remove old room box
+            if (roomBox) {
+                threeScene.remove(roomBox);
+            }
+
+            // Create room geometry
+            const roomGeom = new THREE.BoxGeometry(width, height, depth);
+
+            // Load textures from captured frames for each wall
+            const materials = [];
+            const wallFrames = selectFramesForWalls();
+
+            for (let i = 0; i < 6; i++) {
+                const frame = wallFrames[i];
+                if (frame && frame.rgb) {
+                    try {
+                        const texture = await loadTextureFromBase64(frame.rgb, frame.rgb_mime || 'image/jpeg');
+                        materials.push(new THREE.MeshBasicMaterial({
+                            map: texture,
+                            side: THREE.BackSide
+                        }));
+                    } catch (e) {
+                        materials.push(new THREE.MeshBasicMaterial({
+                            color: 0x334155,
+                            side: THREE.BackSide
+                        }));
+                    }
+                } else {
+                    materials.push(new THREE.MeshBasicMaterial({
+                        color: 0x334155,
+                        side: THREE.BackSide
+                    }));
+                }
+            }
+
+            reconstructionMesh = new THREE.Mesh(roomGeom, materials);
+            reconstructionMesh.position.set(0, height / 2, 0);
+            reconstructionMesh.visible = false;  // Start hidden, show when view mode selected
+            threeScene.add(reconstructionMesh);
+
+            addLog('Textured room created');
+        }
+
+        function selectFramesForWalls() {
+            // Select best frames for each wall face: right, left, top, bottom, front, back
+            const wallFrames = [null, null, null, null, null, null];
+
+            // Map areas to wall indices
+            const areaToWall = {
+                'right': 0, 'left': 1,
+                'back-center': 5, 'back-left': 5, 'back-right': 5,
+                'front-center': 4, 'front-left': 4, 'front-right': 4,
+                'center': 3  // floor
+            };
+
+            for (const frame of capturedFrames) {
+                const wallIndex = areaToWall[frame.area];
+                if (wallIndex !== undefined && !wallFrames[wallIndex]) {
+                    wallFrames[wallIndex] = frame;
+                }
+            }
+
+            // Fill remaining with any available frame
+            const anyFrame = capturedFrames[0];
+            for (let i = 0; i < 6; i++) {
+                if (!wallFrames[i]) wallFrames[i] = anyFrame;
+            }
+
+            return wallFrames;
+        }
+
+        function loadTextureFromBase64(base64Data, mimeType) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const texture = new THREE.Texture(img);
+                    texture.needsUpdate = true;
+                    resolve(texture);
+                };
+                img.onerror = reject;
+                img.src = `data:${mimeType};base64,${base64Data}`;
+            });
+        }
+
+        async function createPanoramicView() {
+            if (!threeScene || capturedFrames.length === 0) return;
+
+            // Create a sphere with captured images stitched together
+            const sphereGeom = new THREE.SphereGeometry(10, 32, 16);
+
+            // For a simple panorama, use the most central frame
+            const centerFrame = capturedFrames.find(f => f.area === 'center') || capturedFrames[0];
+
+            if (centerFrame && centerFrame.rgb) {
+                try {
+                    const texture = await loadTextureFromBase64(centerFrame.rgb, 'image/jpeg');
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.repeat.x = -1;  // Flip for inside view
+
+                    const sphereMat = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        side: THREE.BackSide
+                    });
+
+                    panoramaTexture = new THREE.Mesh(sphereGeom, sphereMat);
+                    panoramaTexture.position.set(0, 1.5, 0);
+                    panoramaTexture.visible = false;
+                    threeScene.add(panoramaTexture);
+
+                    addLog('Panoramic view created');
+                } catch (e) {
+                    console.error('Panorama creation error:', e);
+                }
+            }
+        }
+
+        function showViewModeButtons() {
+            // Add view mode toggle buttons to the 3D preview panel
+            const roomPreviewPanel = document.getElementById('room-preview-panel');
+            if (!roomPreviewPanel) return;
+
+            // Check if buttons already exist
+            if (document.getElementById('view-mode-btns')) return;
+
+            const btnContainer = document.createElement('div');
+            btnContainer.id = 'view-mode-btns';
+            btnContainer.style.cssText = 'display:flex;gap:0.5rem;margin:1rem 0;flex-wrap:wrap;justify-content:center;';
+
+            const modes = [
+                { id: 'wireframe', label: '📐 Wireframe', active: true },
+                { id: 'textured', label: '🏠 Textured' },
+                { id: 'panorama', label: '🌐 Panorama' },
+                { id: 'depth', label: '📊 Depth' }
+            ];
+
+            modes.forEach(mode => {
+                const btn = document.createElement('button');
+                btn.className = `view-mode-btn ${mode.active ? 'active' : ''}`;
+                btn.textContent = mode.label;
+                btn.style.cssText = 'padding:0.4rem 0.8rem;font-size:0.8rem;border-radius:6px;border:1px solid #334155;background:' + (mode.active ? '#4ade80' : '#1e293b') + ';color:' + (mode.active ? '#000' : '#e2e8f0') + ';cursor:pointer;transition:all 0.2s;';
+                btn.onclick = () => setViewMode(mode.id);
+                btnContainer.appendChild(btn);
+            });
+
+            // Insert after the coverage panel, before the controls
+            const coveragePanel = roomPreviewPanel.querySelector('.coverage-3d-panel');
+            const previewControls = roomPreviewPanel.querySelector('.preview-controls');
+            if (coveragePanel && previewControls) {
+                roomPreviewPanel.insertBefore(btnContainer, previewControls);
+            } else if (coveragePanel) {
+                coveragePanel.parentNode.insertBefore(btnContainer, coveragePanel.nextSibling);
+            } else {
+                roomPreviewPanel.appendChild(btnContainer);
+            }
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+
+            // Update button styles
+            document.querySelectorAll('.view-mode-btn').forEach(btn => {
+                const isActive = btn.textContent.toLowerCase().includes(mode);
+                btn.style.background = isActive ? '#4ade80' : '#1e293b';
+                btn.style.color = isActive ? '#000' : '#e2e8f0';
+            });
+
+            // Update 3D scene visibility
+            if (roomBox) roomBox.visible = (mode === 'wireframe');
+            if (reconstructionMesh) reconstructionMesh.visible = (mode === 'textured');
+            if (panoramaTexture) panoramaTexture.visible = (mode === 'panorama');
+
+            // Show depth visualization
+            if (mode === 'depth') {
+                showDepthVisualization();
+            }
+
+            addLog(`View mode: ${mode}`);
+        }
+
+        function showDepthVisualization() {
+            // Create depth point cloud from captured depth frames
+            if (!threeScene || capturedFrames.length === 0) return;
+
+            // Remove existing point cloud
+            const existingCloud = threeScene.getObjectByName('depthCloud');
+            if (existingCloud) threeScene.remove(existingCloud);
+
+            // For now, show a simple depth-colored room
+            if (roomBox) roomBox.visible = true;
+
+            // Colorize based on depth - this is a simplified visualization
+            // A full implementation would create actual point clouds from depth images
+            addLog('Depth view active (simplified)');
+        }
+
+        function showCompletionNotification() {
+            // Create a completion overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'scan-complete-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                border: 2px solid #4ade80;
+                border-radius: 12px;
+                padding: 2rem;
+                z-index: 1000;
+                text-align: center;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            `;
+            overlay.innerHTML = `
+                <div style="font-size:3rem;margin-bottom:1rem;">✅</div>
+                <h2 style="color:#4ade80;margin:0 0 1rem 0;">Room Scan Complete!</h2>
+                <p style="color:#94a3b8;margin:0 0 1rem 0;">
+                    Captured ${capturedFrames.length} frames<br>
+                    Coverage: ${Math.round(Object.values(roomCoverage).reduce((a,b) => a+b, 0) / 9 * 100)}%
+                </p>
+                <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">
+                    <button onclick="setViewMode('textured');this.parentNode.parentNode.remove();"
+                            style="padding:0.5rem 1rem;background:#4ade80;color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">
+                        🏠 View Textured Room
+                    </button>
+                    <button onclick="setViewMode('panorama');this.parentNode.parentNode.remove();"
+                            style="padding:0.5rem 1rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">
+                        🌐 View Panorama
+                    </button>
+                    <button onclick="this.parentNode.parentNode.remove();"
+                            style="padding:0.5rem 1rem;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;">
+                        Close
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            // Auto-close after 10 seconds
+            setTimeout(() => {
+                if (document.getElementById('scan-complete-overlay')) {
+                    document.getElementById('scan-complete-overlay').remove();
+                }
+            }, 10000);
         }
 
         function simpleHash(str) {
