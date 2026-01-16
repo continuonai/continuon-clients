@@ -37,6 +37,14 @@ from simulator.home_world import (
 )
 from simulator.home_handler import HomeHandler, Home3DIntent, Home3DResponse
 from simulator.home_rlds_logger import HomeRLDSLogger
+from simulator.home_training import (
+    Home3DNavigationPredictor,
+    Home3DTrainingDataset,
+    Home3DTrainer,
+    run_home3d_training,
+    HOME_ACTIONS,
+)
+from simulator.home_world import CURRICULUM_ORDER
 
 __all__ = [
     # 2D World
@@ -59,4 +67,7 @@ __all__ = [
     "HomeHandler", "Home3DIntent", "Home3DResponse",
     # 3D RLDS
     "HomeRLDSLogger",
+    # 3D Training
+    "Home3DNavigationPredictor", "Home3DTrainingDataset", "Home3DTrainer",
+    "run_home3d_training", "HOME_ACTIONS", "CURRICULUM_ORDER",
 ]

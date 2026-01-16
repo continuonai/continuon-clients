@@ -1,12 +1,89 @@
 ---
 active: true
-iteration: 7
+iteration: 8
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-16T06:01:18Z"
 ---
 
 # Ralph Loop Progress
+
+## Iteration 8: 3D Home Training Pipeline - COMPLETE
+
+### Tasks Completed
+
+1. **Created Navigation Trainer** ✅
+   - New file: `brain_b/simulator/home_training.py`
+   - `Home3DNavigationPredictor` - Linear softmax model for action prediction
+   - `Home3DTrainingDataset` - Loads RLDS episodes and converts to training samples
+   - `Home3DTrainer` - Training loop with checkpointing
+   - 48-dim state vector encoding position, rotation, room, objects, inventory
+
+2. **Added Curriculum Levels** ✅
+   - 8 new levels with progressive difficulty
+   - `CURRICULUM_ORDER` list for structured training
+   - Levels: empty_room → obstacle_course → door_puzzle → key_hunt → etc.
+
+3. **Tested Training Pipeline** ✅
+   - Generated 3 test episodes with random actions
+   - Trained model: 60 samples, 5 epochs
+   - Model saved to `brain_b_data/home_models/home3d_nav_model.json`
+
+### Curriculum Levels (11 total)
+
+| Level | Difficulty | Skills |
+|-------|------------|--------|
+| empty_room | 0 | Basic navigation |
+| obstacle_course | 1 | Avoid obstacles |
+| door_puzzle | 2 | Open doors |
+| key_hunt | 3 | Find items + doors |
+| simple_apartment | 4 | Combined skills |
+| office_layout | 5 | Complex navigation |
+| living_kitchen | 6 | Multi-room |
+| bathroom_search | 7 | Search and return |
+| two_room_house | 8 | Two rooms |
+| full_house | 9 | Full house |
+| multi_floor | 10 | Multi-floor |
+
+### State Vector (48 dims)
+
+```
+Position:      3 dims (x, y, z normalized)
+Rotation:      2 dims (pitch, yaw normalized)
+Room type:     9 dims (one-hot)
+Goal distance: 1 dim
+Visible objs: 17 dims (object counts)
+Inventory:     5 dims (has key, remote, etc.)
+Battery:       1 dim
+Progress:      2 dims (moves, complete)
+Padding:       8 dims
+```
+
+### Action Vocabulary (9 actions)
+
+```
+forward, backward, strafe_left, strafe_right,
+turn_left, turn_right, look_up, look_down, interact
+```
+
+### Run Training
+
+```bash
+cd brain_b
+python -m simulator.home_training \
+  ./brain_b_data/home_rlds_episodes \
+  ./brain_b_data/home_models
+```
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `brain_b/simulator/home_training.py` | Training pipeline |
+| `brain_b/simulator/home_world.py` | Added 8 curriculum levels |
+| `brain_b/simulator/__init__.py` | Updated exports |
+
+---
 
 ## Iteration 7: 3D Home Exploration Game - COMPLETE
 

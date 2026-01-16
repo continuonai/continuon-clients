@@ -752,12 +752,368 @@ def create_multi_floor_house() -> HomeWorld:
     return world
 
 
+# ============================================================================
+# Curriculum Levels (Increasing Difficulty)
+# ============================================================================
+
+def create_empty_room() -> HomeWorld:
+    """Level 0: Empty room - learn basic navigation."""
+    world = HomeWorld(width=8, depth=8, height=3)
+    world.level_id = "empty_room"
+    world.goal_description = "Walk to the goal marker"
+
+    # Walls
+    for x in range(8):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 7, 0)))
+    for y in range(1, 7):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(7, y, 0)))
+
+    world.robot.position = Position3D(2, 5, 0)
+    world.robot.rotation.yaw = 0
+    world.goal_position = Position3D(5, 2, 0)
+
+    return world
+
+
+def create_obstacle_course() -> HomeWorld:
+    """Level 1: Navigate around furniture."""
+    world = HomeWorld(width=10, depth=10, height=3)
+    world.level_id = "obstacle_course"
+    world.goal_description = "Navigate around furniture to reach the goal"
+
+    # Walls
+    for x in range(10):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 9, 0)))
+    for y in range(1, 9):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(9, y, 0)))
+
+    # Obstacles
+    world.add_object(WorldObject(ObjectType.TABLE, Position3D(3, 3, 0)))
+    world.add_object(WorldObject(ObjectType.COUCH, Position3D(5, 5, 0), size=(2, 1, 1)))
+    world.add_object(WorldObject(ObjectType.CHAIR, Position3D(7, 3, 0)))
+    world.add_object(WorldObject(ObjectType.DESK, Position3D(2, 6, 0)))
+
+    world.robot.position = Position3D(1, 1, 0)
+    world.robot.rotation.yaw = 0
+    world.goal_position = Position3D(8, 8, 0)
+
+    return world
+
+
+def create_door_puzzle() -> HomeWorld:
+    """Level 2: Open a door to proceed."""
+    world = HomeWorld(width=12, depth=8, height=3)
+    world.level_id = "door_puzzle"
+    world.goal_description = "Open the door and reach the other side"
+
+    # Walls
+    for x in range(12):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 7, 0)))
+    for y in range(1, 7):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(11, y, 0)))
+
+    # Dividing wall with door
+    for y in range(1, 7):
+        if y != 4:
+            world.add_object(WorldObject(ObjectType.WALL, Position3D(6, y, 0)))
+
+    # Door
+    world.add_object(WorldObject(
+        ObjectType.DOOR,
+        Position3D(6, 4, 0),
+        is_interactive=True,
+        state={"open": False},
+    ))
+
+    world.robot.position = Position3D(2, 4, 0)
+    world.robot.rotation.yaw = 90
+    world.goal_position = Position3D(9, 4, 0)
+
+    return world
+
+
+def create_key_hunt() -> HomeWorld:
+    """Level 3: Find a key to unlock the door."""
+    world = HomeWorld(width=12, depth=12, height=3)
+    world.level_id = "key_hunt"
+    world.goal_description = "Find the key and unlock the door to escape"
+
+    # Walls
+    for x in range(12):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 11, 0)))
+    for y in range(1, 11):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(11, y, 0)))
+
+    # Internal walls creating L-shape
+    for x in range(1, 7):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 6, 0)))
+    for y in range(2, 6):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(6, y, 0)))
+
+    # Furniture
+    world.add_object(WorldObject(ObjectType.TABLE, Position3D(9, 3, 0)))
+    world.add_object(WorldObject(ObjectType.COUCH, Position3D(2, 2, 0), size=(2, 1, 1)))
+
+    # Key hidden in corner
+    world.add_object(WorldObject(
+        ObjectType.KEY,
+        Position3D(10, 9, 0),
+        is_solid=False,
+        is_collectible=True,
+    ))
+
+    # Locked door to goal
+    world.add_object(WorldObject(
+        ObjectType.DOOR,
+        Position3D(3, 0, 0),
+        is_interactive=True,
+        state={"open": False, "locked": True},
+    ))
+
+    world.robot.position = Position3D(9, 5, 0)
+    world.robot.rotation.yaw = 180
+    world.goal_position = Position3D(3, 1, 0)
+
+    return world
+
+
+def create_office_layout() -> HomeWorld:
+    """Level 4: Navigate an office with desks and switches."""
+    world = HomeWorld(width=15, depth=12, height=3)
+    world.level_id = "office_layout"
+    world.goal_description = "Navigate the office and reach the exit"
+
+    # Walls
+    for x in range(15):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 11, 0)))
+    for y in range(1, 11):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(14, y, 0)))
+
+    # Cubicle walls
+    for x in range(3, 12, 4):
+        for y in range(2, 9, 3):
+            world.add_object(WorldObject(ObjectType.DESK, Position3D(x, y, 0)))
+            world.add_object(WorldObject(ObjectType.CHAIR, Position3D(x + 1, y, 0)))
+
+    # Light switches
+    world.add_object(WorldObject(
+        ObjectType.SWITCH,
+        Position3D(1, 1, 0),
+        is_solid=False,
+        is_interactive=True,
+        state={"on": True},
+    ))
+
+    # Some lamps
+    world.add_object(WorldObject(ObjectType.LAMP, Position3D(7, 5, 0), is_solid=False))
+
+    world.robot.position = Position3D(1, 5, 0)
+    world.robot.rotation.yaw = 90
+    world.goal_position = Position3D(13, 5, 0)
+
+    return world
+
+
+def create_living_room_kitchen() -> HomeWorld:
+    """Level 5: Living room connected to kitchen."""
+    world = HomeWorld(width=16, depth=12, height=3)
+    world.level_id = "living_kitchen"
+    world.goal_description = "Get the cup from the kitchen and bring it to the living room"
+
+    # Outer walls
+    for x in range(16):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 11, 0)))
+    for y in range(1, 11):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(15, y, 0)))
+
+    # Dividing wall with opening
+    for y in range(1, 11):
+        if y < 4 or y > 7:
+            world.add_object(WorldObject(ObjectType.WALL, Position3D(8, y, 0)))
+
+    # Living room (left)
+    world.add_object(WorldObject(ObjectType.COUCH, Position3D(2, 2, 0), size=(2, 1, 1)))
+    world.add_object(WorldObject(ObjectType.TV, Position3D(2, 8, 0), is_solid=False))
+    world.add_object(WorldObject(ObjectType.TABLE, Position3D(5, 5, 0)))
+
+    # Kitchen (right)
+    world.add_object(WorldObject(ObjectType.FRIDGE, Position3D(12, 2, 0), size=(1, 1, 2)))
+    world.add_object(WorldObject(ObjectType.STOVE, Position3D(10, 2, 0)))
+    world.add_object(WorldObject(ObjectType.SINK, Position3D(14, 5, 0)))
+    world.add_object(WorldObject(ObjectType.TABLE, Position3D(11, 8, 0)))
+
+    # Cup to collect
+    world.add_object(WorldObject(
+        ObjectType.CUP,
+        Position3D(11, 8, 0),
+        is_solid=False,
+        is_collectible=True,
+    ))
+
+    world.robot.position = Position3D(4, 5, 0)
+    world.robot.rotation.yaw = 90
+    world.goal_position = Position3D(5, 5, 0)  # Return to table
+
+    return world
+
+
+def create_bathroom_search() -> HomeWorld:
+    """Level 6: Find the phone in the bathroom."""
+    world = HomeWorld(width=10, depth=14, height=3)
+    world.level_id = "bathroom_search"
+    world.goal_description = "Find your phone that you left in the bathroom"
+
+    # Outer walls
+    for x in range(10):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 13, 0)))
+    for y in range(1, 13):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(9, y, 0)))
+
+    # Hallway and bathroom walls
+    for x in range(1, 9):
+        if x != 4:
+            world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 8, 0)))
+
+    # Door to bathroom
+    world.add_object(WorldObject(
+        ObjectType.DOOR,
+        Position3D(4, 8, 0),
+        is_interactive=True,
+        state={"open": False},
+    ))
+
+    # Hallway furniture
+    world.add_object(WorldObject(ObjectType.SHELF, Position3D(2, 3, 0)))
+    world.add_object(WorldObject(ObjectType.TABLE, Position3D(6, 3, 0)))
+
+    # Bathroom fixtures
+    world.add_object(WorldObject(ObjectType.SINK, Position3D(2, 10, 0)))
+    world.add_object(WorldObject(ObjectType.SHELF, Position3D(7, 11, 0)))
+
+    # Phone to find
+    world.add_object(WorldObject(
+        ObjectType.PHONE,
+        Position3D(7, 11, 0),
+        is_solid=False,
+        is_collectible=True,
+    ))
+
+    world.robot.position = Position3D(5, 2, 0)
+    world.robot.rotation.yaw = 0
+    world.goal_position = Position3D(5, 2, 0)  # Return to start with phone
+
+    return world
+
+
+def create_full_house() -> HomeWorld:
+    """Level 7: Complete house with multiple rooms."""
+    world = HomeWorld(width=20, depth=16, height=3)
+    world.level_id = "full_house"
+    world.goal_description = "Explore all rooms and find the remote control"
+
+    # Outer walls
+    for x in range(20):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 0, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 15, 0)))
+    for y in range(1, 15):
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(0, y, 0)))
+        world.add_object(WorldObject(ObjectType.WALL, Position3D(19, y, 0)))
+
+    # Vertical divider (living/dining | bedrooms)
+    for y in range(1, 15):
+        if y not in (5, 10):
+            world.add_object(WorldObject(ObjectType.WALL, Position3D(10, y, 0)))
+
+    # Doors
+    world.add_object(WorldObject(ObjectType.DOOR, Position3D(10, 5, 0),
+                                 is_interactive=True, state={"open": False}))
+    world.add_object(WorldObject(ObjectType.DOOR, Position3D(10, 10, 0),
+                                 is_interactive=True, state={"open": False}))
+
+    # Horizontal divider in right side (bedrooms)
+    for x in range(11, 19):
+        if x != 15:
+            world.add_object(WorldObject(ObjectType.WALL, Position3D(x, 8, 0)))
+    world.add_object(WorldObject(ObjectType.DOOR, Position3D(15, 8, 0),
+                                 is_interactive=True, state={"open": False}))
+
+    # Living room (bottom left)
+    world.add_object(WorldObject(ObjectType.COUCH, Position3D(2, 2, 0), size=(2, 1, 1)))
+    world.add_object(WorldObject(ObjectType.TV, Position3D(2, 5, 0), is_solid=False))
+    world.add_object(WorldObject(ObjectType.TABLE, Position3D(6, 3, 0)))
+
+    # Dining room (top left)
+    world.add_object(WorldObject(ObjectType.TABLE, Position3D(4, 10, 0), size=(2, 2, 1)))
+
+    # Bedroom 1 (bottom right)
+    world.add_object(WorldObject(ObjectType.BED, Position3D(14, 2, 0), size=(2, 2, 1)))
+    world.add_object(WorldObject(ObjectType.DESK, Position3D(17, 2, 0)))
+
+    # Bedroom 2 (top right)
+    world.add_object(WorldObject(ObjectType.BED, Position3D(14, 11, 0), size=(2, 2, 1)))
+    world.add_object(WorldObject(ObjectType.SHELF, Position3D(17, 13, 0)))
+
+    # Remote to find (hidden in bedroom 2)
+    world.add_object(WorldObject(
+        ObjectType.REMOTE,
+        Position3D(17, 13, 0),
+        is_solid=False,
+        is_collectible=True,
+    ))
+
+    world.robot.position = Position3D(5, 3, 0)
+    world.robot.rotation.yaw = 0
+    world.goal_position = Position3D(2, 5, 0)  # Return to TV area
+
+    return world
+
+
 # Built-in levels
 LEVELS = {
+    # Curriculum levels (0-7)
+    "empty_room": create_empty_room,
+    "obstacle_course": create_obstacle_course,
+    "door_puzzle": create_door_puzzle,
+    "key_hunt": create_key_hunt,
+    "office_layout": create_office_layout,
+    "living_kitchen": create_living_room_kitchen,
+    "bathroom_search": create_bathroom_search,
+    "full_house": create_full_house,
+    # Original levels
     "simple_apartment": create_simple_apartment,
     "two_room_house": create_two_room_house,
     "multi_floor": create_multi_floor_house,
 }
+
+
+# Curriculum order for training
+CURRICULUM_ORDER = [
+    "empty_room",        # Level 0: Basic navigation
+    "obstacle_course",   # Level 1: Avoid obstacles
+    "door_puzzle",       # Level 2: Open doors
+    "key_hunt",          # Level 3: Find items + doors
+    "simple_apartment",  # Level 4: Combined skills
+    "office_layout",     # Level 5: Complex navigation
+    "living_kitchen",    # Level 6: Multi-room
+    "bathroom_search",   # Level 7: Search and return
+    "two_room_house",    # Level 8: Two rooms
+    "full_house",        # Level 9: Full house
+    "multi_floor",       # Level 10: Multi-floor
+]
 
 
 def get_level(level_id: str) -> HomeWorld:
