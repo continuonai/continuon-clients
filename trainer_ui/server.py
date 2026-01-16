@@ -51,6 +51,21 @@ except ImportError:
     HAS_SIMULATOR = False
     print("Simulator utilities not available")
 
+# Simulator training
+try:
+    sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b" / "simulator"))
+    from simulator_training import (
+        SimulatorTrainer,
+        SimulatorDataset,
+        SimulatorActionPredictor,
+        run_simulator_training,
+        get_simulator_predictor,
+    )
+    HAS_SIM_TRAINING = True
+except ImportError:
+    HAS_SIM_TRAINING = False
+    print("Simulator training not available")
+
 # Auto-trainer for retraining models
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b"))
@@ -67,6 +82,14 @@ try:
 except ImportError:
     HAS_HOME_SCAN = False
     print("HomeScan 3D simulator not available")
+
+# Room Scanner - Image to 3D asset pipeline
+try:
+    from room_scanner import RoomScanner, process_room_images, get_room_scanner
+    HAS_ROOM_SCANNER = True
+except ImportError:
+    HAS_ROOM_SCANNER = False
+    print("Room scanner not available")
 
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -1125,6 +1148,12 @@ async def home_explore():
     return FileResponse(Path(__file__).parent / "static" / "home_explore.html")
 
 
+@app.get("/room-scanner")
+async def room_scanner_ui():
+    """Serve the Room Scanner UI for image-to-3D processing."""
+    return FileResponse(Path(__file__).parent / "static" / "room_scanner.html")
+
+
 @app.get("/home-scan/status")
 async def home_scan_status():
     """Get HomeScan 3D simulator status."""
@@ -1322,6 +1351,430 @@ async def trigger_retrain(force: bool = False):
     return {
         "status": "ok",
         "result": result,
+    }
+
+
+# ============================================================================
+# Simulator Training API
+# ============================================================================
+
+@app.get("/simulator/training/status")
+async def simulator_training_status():
+    """Get simulator training status and available data."""
+    if not HAS_SIM_TRAINING:
+        return {"error": "Simulator training not available", "status": None}
+
+    episodes_dir = Path(__file__).parent.parent / "continuonbrain" / "rlds" / "episodes"
+    models_dir = Path(__file__).parent.parent / "brain_b" / "brain_b_data" / "simulator_models"
+
+    # Count trainer episodes
+    trainer_episodes = 0
+    if episodes_dir.exists():
+        for ep_dir in episodes_dir.iterdir():
+            if ep_dir.is_dir() and ep_dir.name.startswith("trainer_"):
+                trainer_episodes += 1
+
+    # Check for existing model
+    model_path = models_dir / "simulator_action_model.json"
+    model_exists = model_path.exists()
+
+    model_info = {}
+    if model_exists:
+        try:
+            with open(model_path) as f:
+                data = json.load(f)
+            model_info = {
+                "version": data.get("version", "unknown"),
+                "num_actions": data.get("num_actions", 0),
+                "action_vocab": data.get("action_vocab", []),
+                "saved_at": data.get("saved_at", "unknown"),
+            }
+        except Exception:
+            pass
+
+    return {
+        "status": "ok",
+        "training_available": True,
+        "trainer_episodes": trainer_episodes,
+        "model_exists": model_exists,
+        "model_info": model_info,
+        "episodes_dir": str(episodes_dir),
+        "models_dir": str(models_dir),
+    }
+
+
+@app.post("/simulator/training/train")
+async def run_simulator_train(epochs: int = 10, batch_size: int = 16):
+    """
+    Train Brain B on simulator RLDS episodes.
+
+    Args:
+        epochs: Number of training epochs
+        batch_size: Training batch size
+
+    Returns:
+        Training results with metrics
+    """
+    if not HAS_SIM_TRAINING:
+        return {"error": "Simulator training not available", "result": None}
+
+    episodes_dir = str(Path(__file__).parent.parent / "continuonbrain" / "rlds" / "episodes")
+    output_dir = str(Path(__file__).parent.parent / "brain_b" / "brain_b_data" / "simulator_models")
+
+    try:
+        metrics = run_simulator_training(
+            episodes_dir=episodes_dir,
+            output_dir=output_dir,
+            epochs=epochs,
+            batch_size=batch_size,
+            filter_prefix="trainer_",
+        )
+
+        return {
+            "status": "ok",
+            "result": {
+                "loss": metrics.loss,
+                "accuracy": metrics.accuracy,
+                "samples_seen": metrics.samples_seen,
+                "episodes_processed": metrics.episodes_processed,
+                "action_distribution": metrics.action_distribution,
+            },
+        }
+    except Exception as e:
+        return {"error": str(e), "result": None}
+
+
+@app.get("/simulator/training/predict")
+async def simulator_predict_action(
+    x: float = 0.0,
+    y: float = 0.0,
+    z: float = 0.0,
+    rotation: float = 0.0,
+    obstacle_count: int = 0,
+):
+    """
+    Predict next simulator action based on state.
+
+    Args:
+        x, y, z: Robot position
+        rotation: Robot rotation in radians
+        obstacle_count: Number of obstacles
+
+    Returns:
+        Predicted action with confidence
+    """
+    if not HAS_SIM_TRAINING:
+        return {"error": "Simulator training not available", "prediction": None}
+
+    model_path = str(Path(__file__).parent.parent / "brain_b" / "brain_b_data" / "simulator_models" / "simulator_action_model.json")
+    predictor = get_simulator_predictor(model_path)
+
+    if not predictor.is_ready:
+        return {"error": "Model not trained yet", "prediction": None}
+
+    # Build state vector
+    import math
+    state_vector = [
+        (x + 50) / 100.0,
+        (y + 50) / 100.0,
+        (z + 50) / 100.0,
+        (rotation + math.pi) / (2 * math.pi),
+        min(obstacle_count / 10.0, 1.0),
+    ]
+    # Pad to 32 dims
+    state_vector.extend([0.0] * (32 - len(state_vector)))
+
+    action, confidence = predictor.predict_action(state_vector)
+    top_k = predictor.predict_top_k(state_vector, k=3)
+
+    return {
+        "status": "ok",
+        "prediction": {
+            "action": action,
+            "confidence": confidence,
+            "alternatives": [{"action": a, "confidence": c} for a, c in top_k],
+        },
+        "input_state": {
+            "x": x, "y": y, "z": z,
+            "rotation": rotation,
+            "obstacle_count": obstacle_count,
+        },
+    }
+
+
+# ============================================================================
+# Room Scanner API - Image to 3D Asset Pipeline
+# ============================================================================
+
+# Store scan results
+_scan_results: Dict[str, dict] = {}
+
+
+@app.post("/room/scan")
+async def scan_room_images(request_data: dict):
+    """
+    Process room images and generate 3D assets.
+
+    Request body:
+        {
+            "images": ["base64_image_data", ...],
+            "room_scale": 10.0,  # Optional, world scale factor
+            "use_sam3": true     # Optional, use SAM3 for segmentation
+        }
+
+    Returns:
+        Scan result with detected objects and generated assets
+    """
+    if not HAS_ROOM_SCANNER:
+        return {"error": "Room scanner not available", "result": None}
+
+    images = request_data.get("images", [])
+    room_scale = request_data.get("room_scale", 10.0)
+    use_sam3 = request_data.get("use_sam3", False)
+
+    if not images:
+        return {"error": "No images provided", "result": None}
+
+    try:
+        scanner = get_room_scanner()
+
+        # Check if SAM3 is requested
+        if use_sam3:
+            try:
+                result = await scan_with_sam3(images, room_scale, scanner)
+            except Exception as e:
+                print(f"[RoomScanner] SAM3 failed, falling back to OpenCV: {e}")
+                result = process_room_images(images, room_scale)
+        else:
+            result = process_room_images(images, room_scale)
+
+        # Store result for later retrieval
+        _scan_results[result["scan_id"]] = result
+
+        return {
+            "status": "ok",
+            "result": result,
+        }
+    except Exception as e:
+        return {"error": str(e), "result": None}
+
+
+@app.get("/room/scan/{scan_id}")
+async def get_scan_result(scan_id: str):
+    """
+    Retrieve a previous scan result.
+
+    Args:
+        scan_id: The scan ID from a previous scan
+
+    Returns:
+        The scan result or error if not found
+    """
+    if scan_id in _scan_results:
+        return {"status": "ok", "result": _scan_results[scan_id]}
+
+    # Try to load from disk
+    try:
+        scanner = get_room_scanner()
+        result_file = scanner.output_dir / f"{scan_id}.json"
+        if result_file.exists():
+            with open(result_file) as f:
+                result = json.load(f)
+            return {"status": "ok", "result": result}
+    except Exception:
+        pass
+
+    return {"error": f"Scan {scan_id} not found", "result": None}
+
+
+@app.get("/room/scans")
+async def list_scans():
+    """
+    List all available scan results.
+
+    Returns:
+        List of scan IDs with metadata
+    """
+    scans = []
+
+    # In-memory scans
+    for scan_id, result in _scan_results.items():
+        scans.append({
+            "scan_id": scan_id,
+            "timestamp": result.get("timestamp", ""),
+            "assets_count": result.get("assets_generated", 0),
+            "source": "memory",
+        })
+
+    # Disk scans
+    if HAS_ROOM_SCANNER:
+        scanner = get_room_scanner()
+        for scan_file in scanner.output_dir.glob("scan_*.json"):
+            scan_id = scan_file.stem
+            if scan_id not in _scan_results:
+                try:
+                    with open(scan_file) as f:
+                        data = json.load(f)
+                    scans.append({
+                        "scan_id": scan_id,
+                        "timestamp": data.get("timestamp", ""),
+                        "assets_count": len(data.get("generated_assets", [])),
+                        "source": "disk",
+                    })
+                except Exception:
+                    pass
+
+    return {"status": "ok", "scans": scans}
+
+
+async def scan_with_sam3(images: list, room_scale: float, scanner) -> dict:
+    """
+    Use SAM3 for advanced image segmentation.
+
+    This function uses Meta's SAM3 model for open-vocabulary
+    object detection and segmentation.
+    """
+    try:
+        from transformers import Sam3Processor, Sam3Model
+        import torch
+        from PIL import Image
+        from io import BytesIO
+        import numpy as np
+    except ImportError:
+        raise ImportError("SAM3 requires: pip install transformers torch pillow")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Load model (cached after first load)
+    if not hasattr(scan_with_sam3, "_model"):
+        print("[RoomScanner] Loading SAM3 model...")
+        scan_with_sam3._processor = Sam3Processor.from_pretrained("facebook/sam3")
+        scan_with_sam3._model = Sam3Model.from_pretrained("facebook/sam3").to(device)
+        print("[RoomScanner] SAM3 model loaded")
+
+    processor = scan_with_sam3._processor
+    model = scan_with_sam3._model
+
+    # Object categories to detect
+    categories = ["furniture", "table", "chair", "couch", "shelf", "lamp", "plant", "wall", "floor"]
+
+    all_assets = []
+    all_detected = []
+    scan_id = f"scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    for img_idx, image_data in enumerate(images):
+        # Decode image
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        pil_image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        width, height = pil_image.size
+
+        # Detect objects for each category
+        for category in categories:
+            try:
+                inputs = processor(images=pil_image, text=category, return_tensors="pt").to(device)
+
+                with torch.no_grad():
+                    outputs = model(**inputs)
+
+                results = processor.post_process_instance_segmentation(
+                    outputs,
+                    threshold=0.3,
+                    mask_threshold=0.5,
+                    target_sizes=[[height, width]]
+                )[0]
+
+                # Process detected objects
+                for i, (mask, box, score) in enumerate(zip(
+                    results.get("masks", []),
+                    results.get("boxes", []),
+                    results.get("scores", [])
+                )):
+                    if score < 0.3:
+                        continue
+
+                    # Get bounding box
+                    x1, y1, x2, y2 = box.tolist()
+                    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+
+                    # Convert to world coordinates
+                    norm_x = cx / width
+                    norm_y = cy / height
+                    world_x = (norm_x - 0.5) * room_scale
+                    world_z = (norm_y - 0.5) * room_scale
+
+                    # Estimate size from bounding box
+                    obj_width = (x2 - x1) / width * room_scale * 0.5
+                    obj_depth = (y2 - y1) / height * room_scale * 0.5
+
+                    from room_scanner import ASSET_TYPES
+                    type_info = ASSET_TYPES.get(category, ASSET_TYPES["decoration"])
+
+                    asset = {
+                        "asset_id": f"sam3_{img_idx}_{category}_{i}",
+                        "asset_type": category,
+                        "position": {"x": world_x, "y": type_info["default_size"][2] / 2, "z": world_z},
+                        "size": {
+                            "width": max(0.3, obj_width),
+                            "height": type_info["default_size"][2],
+                            "depth": max(0.3, obj_depth)
+                        },
+                        "rotation": 0.0,
+                        "color": type_info["color"],
+                        "geometry": type_info["geometry"],
+                        "metadata": {
+                            "source": "sam3",
+                            "confidence": float(score),
+                            "category": category,
+                        }
+                    }
+                    all_assets.append(asset)
+
+                    all_detected.append({
+                        "object_type": category,
+                        "confidence": float(score),
+                        "bounding_box": [int(x1), int(y1), int(x2-x1), int(y2-y1)],
+                        "center": [int(cx), int(cy)],
+                        "area": int((x2-x1) * (y2-y1)),
+                    })
+
+            except Exception as e:
+                print(f"[RoomScanner] SAM3 error for {category}: {e}")
+                continue
+
+    # Add floor and walls
+    from room_scanner import RoomScanner as RS
+    temp_scanner = RS()
+    room_dims = {"width": room_scale, "height": 3.0, "depth": room_scale}
+    room_structure = temp_scanner._generate_room_structure(room_dims)
+    all_assets = [
+        {
+            "asset_id": a.asset_id,
+            "asset_type": a.asset_type,
+            "position": a.position,
+            "size": a.size,
+            "rotation": a.rotation,
+            "color": a.color,
+            "geometry": a.geometry,
+            "metadata": getattr(a, "metadata", {}),
+        }
+        for a in room_structure
+    ] + all_assets
+
+    return {
+        "scan_id": scan_id,
+        "timestamp": datetime.now().isoformat(),
+        "images_processed": len(images),
+        "objects_detected": len(all_detected),
+        "assets_generated": len(all_assets),
+        "room_dimensions": room_dims,
+        "processing_time_ms": 0,  # TODO: measure
+        "assets": all_assets,
+        "metadata": {
+            "segmentation_model": "sam3",
+            "room_scale": room_scale,
+        }
     }
 
 

@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Scanner - Image to 3D</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #12122a;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1a1a3a;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #4ade80;
+        }
+
+        .header h1 span {
+            color: #888;
+            font-weight: normal;
+            font-size: 0.9rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-links a {
+            color: #4ade80;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) {
+            .main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: #12122a;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .panel h3 {
+            color: #4ade80;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .camera-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+
+        #camera-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #capture-canvas {
+            display: none;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #4ade80;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #5beef91;
+        }
+
+        .btn-primary:disabled {
+            background: #2a4a3a;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #1a1a3a;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #2a2a4a;
+        }
+
+        .btn-danger {
+            background: #e94560;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #f45a75;
+        }
+
+        .upload-area {
+            border: 2px dashed #333;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .upload-area p {
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        .captured-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .captured-image {
+            position: relative;
+            border-radius: 6px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            background: #1a1a3a;
+        }
+
+        .captured-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .captured-image .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(233, 69, 96, 0.9);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .captured-image .image-number {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .image-count {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .scan-status {
+            padding: 1rem;
+            background: #1a1a3a;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+
+        .scan-status.processing {
+            border-left: 3px solid #fbbf24;
+        }
+
+        .scan-status.success {
+            border-left: 3px solid #4ade80;
+        }
+
+        .scan-status.error {
+            border-left: 3px solid #e94560;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #1a1a3a;
+            border-radius: 2px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #4ade80;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        .results-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .result-item {
+            background: #1a1a3a;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .result-item h4 {
+            color: #4ade80;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .asset-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .asset-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #2a2a4a;
+        }
+
+        .asset-item:last-child {
+            border-bottom: none;
+        }
+
+        .asset-type {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .asset-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .asset-info {
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 0.75rem;
+            background: #0a0a1a;
+            border-radius: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 0.25rem;
+        }
+
+        .scan-history {
+            margin-top: 1rem;
+        }
+
+        .scan-history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: #1a1a3a;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .scan-history-item:hover {
+            background: #2a2a4a;
+        }
+
+        .scan-time {
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .camera-permission {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #888;
+            text-align: center;
+        }
+
+        .camera-permission p {
+            margin-bottom: 1rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Room Scanner <span>Image to 3D Assets</span></h1>
+        <div class="nav-links">
+            <a href="/">Trainer UI</a>
+            <a href="/home-explore">Home Explore</a>
+            <a href="/homescan">HomeScan 3D</a>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="panel camera-section">
+            <h3>
+                Capture Images
+                <span class="image-count" id="image-count">0 images</span>
+            </h3>
+
+            <!-- Camera View -->
+            <div class="camera-container" id="camera-container">
+                <video id="camera-video" autoplay playsinline></video>
+                <canvas id="capture-canvas"></canvas>
+                <div class="camera-permission hidden" id="camera-permission">
+                    <p>Camera access needed for live capture</p>
+                    <button class="btn btn-primary" onclick="startCamera()">Enable Camera</button>
+                </div>
+            </div>
+
+            <!-- Camera Controls -->
+            <div class="camera-controls">
+                <button class="btn btn-primary" id="capture-btn" onclick="capturePhoto()" disabled>
+                    <span>📸</span> Capture Photo
+                </button>
+                <button class="btn btn-secondary" id="toggle-camera-btn" onclick="toggleCamera()">
+                    <span>🎥</span> Start Camera
+                </button>
+                <button class="btn btn-danger" onclick="clearImages()" id="clear-btn" disabled>
+                    <span>🗑️</span> Clear All
+                </button>
+            </div>
+
+            <!-- Upload Area -->
+            <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+                <p>📁 Drag & drop images here or click to upload</p>
+                <p style="font-size:0.8rem;">Supports JPG, PNG, WebP</p>
+                <input type="file" id="file-input" accept="image/*" multiple onchange="handleFileUpload(event)">
+            </div>
+
+            <!-- Captured Images Preview -->
+            <div class="captured-images" id="captured-images">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Scan Button -->
+            <button class="btn btn-primary" style="width:100%;margin-top:1rem;" id="scan-btn" onclick="startScan()" disabled>
+                <span>🔍</span> Scan Room & Generate 3D Assets
+            </button>
+
+            <!-- Scan Status -->
+            <div class="scan-status hidden" id="scan-status">
+                <div id="status-text">Processing...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel results-section">
+            <h3>Scan Results</h3>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-objects">-</div>
+                    <div class="stat-label">Objects Detected</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-assets">-</div>
+                    <div class="stat-label">3D Assets</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-images">-</div>
+                    <div class="stat-label">Images Processed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-time">-</div>
+                    <div class="stat-label">Processing Time</div>
+                </div>
+            </div>
+
+            <!-- Generated Assets -->
+            <div class="result-item" id="assets-result">
+                <h4>Generated 3D Assets</h4>
+                <div class="asset-list" id="asset-list">
+                    <p style="color:#888;text-align:center;padding:1rem;">No assets generated yet</p>
+                </div>
+            </div>
+
+            <!-- Room Dimensions -->
+            <div class="result-item" id="room-result">
+                <h4>Room Dimensions</h4>
+                <div id="room-dimensions">
+                    <p style="color:#888;text-align:center;padding:1rem;">Scan room to detect dimensions</p>
+                </div>
+            </div>
+
+            <!-- Export Actions -->
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+                <button class="btn btn-secondary" onclick="exportJSON()" id="export-json-btn" disabled>
+                    <span>📄</span> Export JSON
+                </button>
+                <button class="btn btn-secondary" onclick="loadInSimulator()" id="load-sim-btn" disabled>
+                    <span>🎮</span> Load in Simulator
+                </button>
+            </div>
+
+            <!-- Scan History -->
+            <div class="scan-history">
+                <h4 style="color:#888;font-size:0.9rem;margin-bottom:0.75rem;">Recent Scans</h4>
+                <div id="scan-history-list">
+                    <p style="color:#666;font-size:0.85rem;">No previous scans</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // State
+        let capturedImages = [];
+        let cameraStream = null;
+        let lastScanResult = null;
+
+        // Camera functions
+        async function startCamera() {
+            try {
+                const video = document.getElementById('camera-video');
+                const permission = document.getElementById('camera-permission');
+
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+
+                video.srcObject = cameraStream;
+                permission.classList.add('hidden');
+                document.getElementById('capture-btn').disabled = false;
+                document.getElementById('toggle-camera-btn').innerHTML = '<span>🎥</span> Stop Camera';
+                document.getElementById('toggle-camera-btn').classList.remove('btn-secondary');
+                document.getElementById('toggle-camera-btn').classList.add('btn-danger');
+
+            } catch (err) {
+                console.error('Camera error:', err);
+                document.getElementById('camera-permission').classList.remove('hidden');
+                document.getElementById('camera-permission').innerHTML = `
+                    <p>Camera access denied or unavailable</p>
+                    <p style="font-size:0.8rem;color:#e94560;">${err.message}</p>
+                    <button class="btn btn-secondary" onclick="startCamera()">Try Again</button>
+                `;
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            document.getElementById('camera-video').srcObject = null;
+            document.getElementById('capture-btn').disabled = true;
+            document.getElementById('toggle-camera-btn').innerHTML = '<span>🎥</span> Start Camera';
+            document.getElementById('toggle-camera-btn').classList.add('btn-secondary');
+            document.getElementById('toggle-camera-btn').classList.remove('btn-danger');
+        }
+
+        function toggleCamera() {
+            if (cameraStream) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('camera-video');
+            const canvas = document.getElementById('capture-canvas');
+
+            if (!video.srcObject) {
+                alert('Camera not started');
+                return;
+            }
+
+            // Set canvas size to video size
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame to canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            // Get image data as base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.9);
+
+            // Add to captured images
+            addCapturedImage(imageData);
+        }
+
+        function addCapturedImage(imageData) {
+            capturedImages.push(imageData);
+            updateImagePreview();
+            updateButtons();
+        }
+
+        function removeImage(index) {
+            capturedImages.splice(index, 1);
+            updateImagePreview();
+            updateButtons();
+        }
+
+        function clearImages() {
+            capturedImages = [];
+            updateImagePreview();
+            updateButtons();
+        }
+
+        function updateImagePreview() {
+            const container = document.getElementById('captured-images');
+            const countEl = document.getElementById('image-count');
+
+            countEl.textContent = `${capturedImages.length} image${capturedImages.length !== 1 ? 's' : ''}`;
+
+            if (capturedImages.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = capturedImages.map((img, idx) => `
+                <div class="captured-image">
+                    <img src="${img}" alt="Captured ${idx + 1}">
+                    <button class="remove-btn" onclick="removeImage(${idx})">×</button>
+                    <span class="image-number">${idx + 1}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateButtons() {
+            const hasImages = capturedImages.length > 0;
+            document.getElementById('scan-btn').disabled = !hasImages;
+            document.getElementById('clear-btn').disabled = !hasImages;
+        }
+
+        // File upload
+        function handleFileUpload(event) {
+            const files = event.target.files;
+            for (const file of files) {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        addCapturedImage(e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+            event.target.value = '';
+        }
+
+        // Drag and drop
+        const uploadArea = document.getElementById('upload-area');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            for (const file of files) {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        addCapturedImage(ev.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+
+        // Scanning
+        async function startScan() {
+            if (capturedImages.length === 0) {
+                alert('Please capture or upload at least one image');
+                return;
+            }
+
+            const statusEl = document.getElementById('scan-status');
+            const statusText = document.getElementById('status-text');
+            const progressFill = document.getElementById('progress-fill');
+
+            statusEl.classList.remove('hidden', 'success', 'error');
+            statusEl.classList.add('processing');
+            statusText.textContent = 'Processing images...';
+            progressFill.style.width = '10%';
+
+            try {
+                // Prepare image data
+                const images = capturedImages.map(img => img.split(',')[1]); // Remove data:image/...;base64, prefix
+
+                progressFill.style.width = '30%';
+                statusText.textContent = 'Analyzing room structure...';
+
+                const response = await fetch('/room/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        images: images,
+                        room_scale: 10.0
+                    })
+                });
+
+                progressFill.style.width = '70%';
+                statusText.textContent = 'Generating 3D assets...';
+
+                const data = await response.json();
+
+                progressFill.style.width = '100%';
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                lastScanResult = data.result;
+                statusEl.classList.remove('processing');
+                statusEl.classList.add('success');
+                statusText.textContent = `Scan complete! Generated ${lastScanResult.generated_assets?.length || 0} assets`;
+
+                displayResults(lastScanResult);
+                loadScanHistory();
+
+            } catch (err) {
+                statusEl.classList.remove('processing');
+                statusEl.classList.add('error');
+                statusText.textContent = `Error: ${err.message}`;
+                console.error('Scan error:', err);
+            }
+        }
+
+        function displayResults(result) {
+            if (!result) return;
+
+            // Stats
+            document.getElementById('stat-objects').textContent = result.detected_objects?.length || 0;
+            document.getElementById('stat-assets').textContent = result.generated_assets?.length || 0;
+            document.getElementById('stat-images').textContent = result.images_processed || 0;
+            document.getElementById('stat-time').textContent = `${(result.processing_time_ms || 0).toFixed(0)}ms`;
+
+            // Assets list
+            const assetList = document.getElementById('asset-list');
+            const assets = result.generated_assets || [];
+
+            if (assets.length === 0) {
+                assetList.innerHTML = '<p style="color:#888;text-align:center;padding:1rem;">No assets detected</p>';
+            } else {
+                assetList.innerHTML = assets.map(asset => {
+                    const colorHex = (asset.color || 0x808080).toString(16).padStart(6, '0');
+                    return `
+                        <div class="asset-item">
+                            <div class="asset-type">
+                                <div class="asset-color" style="background:#${colorHex}"></div>
+                                <span>${asset.asset_type}</span>
+                            </div>
+                            <span class="asset-info">
+                                ${asset.position?.x?.toFixed(1) || 0}, ${asset.position?.y?.toFixed(1) || 0}, ${asset.position?.z?.toFixed(1) || 0}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Room dimensions
+            const roomDims = result.room_dimensions;
+            if (roomDims) {
+                document.getElementById('room-dimensions').innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;text-align:center;">
+                        <div>
+                            <div style="font-size:1.2rem;color:#4ade80;">${roomDims.width?.toFixed(1) || '-'}m</div>
+                            <div style="font-size:0.75rem;color:#888;">Width</div>
+                        </div>
+                        <div>
+                            <div style="font-size:1.2rem;color:#4ade80;">${roomDims.height?.toFixed(1) || '-'}m</div>
+                            <div style="font-size:0.75rem;color:#888;">Height</div>
+                        </div>
+                        <div>
+                            <div style="font-size:1.2rem;color:#4ade80;">${roomDims.depth?.toFixed(1) || '-'}m</div>
+                            <div style="font-size:0.75rem;color:#888;">Depth</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Enable export buttons
+            document.getElementById('export-json-btn').disabled = false;
+            document.getElementById('load-sim-btn').disabled = false;
+        }
+
+        function exportJSON() {
+            if (!lastScanResult) return;
+
+            const blob = new Blob([JSON.stringify(lastScanResult, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `room_scan_${lastScanResult.scan_id || 'export'}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function loadInSimulator() {
+            if (!lastScanResult) return;
+            // Store in localStorage for the simulator to pick up
+            localStorage.setItem('room_scan_assets', JSON.stringify(lastScanResult));
+            window.open('/homescan?load=latest', '_blank');
+        }
+
+        async function loadScanHistory() {
+            try {
+                const response = await fetch('/room/scans');
+                const data = await response.json();
+
+                const historyList = document.getElementById('scan-history-list');
+                const scans = data.scans || [];
+
+                if (scans.length === 0) {
+                    historyList.innerHTML = '<p style="color:#666;font-size:0.85rem;">No previous scans</p>';
+                    return;
+                }
+
+                historyList.innerHTML = scans.slice(0, 5).map(scan => `
+                    <div class="scan-history-item" onclick="loadScan('${scan.scan_id}')">
+                        <span>${scan.scan_id}</span>
+                        <span class="scan-time">${scan.objects || 0} objects</span>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                console.error('Error loading scan history:', err);
+            }
+        }
+
+        async function loadScan(scanId) {
+            try {
+                const response = await fetch(`/room/scan/${scanId}`);
+                const data = await response.json();
+
+                if (data.result) {
+                    lastScanResult = data.result;
+                    displayResults(lastScanResult);
+                }
+            } catch (err) {
+                console.error('Error loading scan:', err);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadScanHistory();
+            // Check if camera permission was granted before
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                document.getElementById('camera-permission').classList.add('hidden');
+            } else {
+                document.getElementById('camera-permission').classList.remove('hidden');
+                document.getElementById('camera-permission').innerHTML = `
+                    <p>Camera not available</p>
+                    <p style="font-size:0.8rem;color:#888;">Use file upload instead</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
