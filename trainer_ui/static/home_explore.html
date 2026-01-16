@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Explore - 3D Navigation Trainer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #12122a;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1a1a3a;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #4ade80;
+        }
+
+        .header h1 span {
+            color: #888;
+            font-weight: normal;
+            font-size: 0.9rem;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            background: #1a1a3a;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e94560;
+        }
+
+        .status-dot.connected { background: #4ade80; }
+        .status-dot.recording { background: #e94560; animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 1rem;
+            padding: 1rem;
+            height: calc(100vh - 70px);
+        }
+
+        .world-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .world-render {
+            background: #12122a;
+            border-radius: 12px;
+            padding: 1rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .world-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .world-header h3 {
+            color: #888;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .world-canvas {
+            flex: 1;
+            background: #080810;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre;
+            overflow: auto;
+            color: #4ade80;
+        }
+
+        .controls-section {
+            background: #12122a;
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .nav-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            max-width: 200px;
+            margin: 0 auto 1rem;
+        }
+
+        .nav-btn {
+            width: 60px;
+            height: 60px;
+            border: none;
+            border-radius: 8px;
+            background: #1a1a3a;
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-btn:hover { background: #2a2a4a; }
+        .nav-btn:active, .nav-btn.active { background: #4ade80; color: #000; transform: scale(0.95); }
+        .nav-btn.interact { background: #8b5cf6; }
+        .nav-btn.interact:hover { background: #9d6cff; }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+        }
+
+        .panel {
+            background: #12122a;
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .panel h3 {
+            color: #888;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+        }
+
+        .level-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .level-btn {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 6px;
+            background: #1a1a3a;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .level-btn:hover { background: #2a2a4a; color: #fff; }
+        .level-btn.active { background: #4ade80; color: #000; }
+
+        .robot-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+
+        .info-label { color: #888; }
+        .info-value { color: #4ade80; }
+        .info-value.warning { color: #fbbf24; }
+
+        .objects-list {
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+        }
+
+        .object-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.3rem 0;
+            border-bottom: 1px solid #1a1a3a;
+        }
+
+        .object-type { color: #8b5cf6; }
+        .object-distance { color: #888; }
+
+        .inventory-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+        }
+
+        .inventory-item {
+            padding: 0.2rem 0.5rem;
+            background: #1a1a3a;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #fbbf24;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .action-btn.primary { background: #4ade80; color: #000; }
+        .action-btn.primary:hover { background: #5beef91; }
+        .action-btn.secondary { background: #1a1a3a; color: #fff; }
+        .action-btn.secondary:hover { background: #2a2a4a; }
+        .action-btn.record { background: #1a1a3a; color: #fff; }
+        .action-btn.record.recording { background: #e94560; animation: pulse 1s infinite; }
+
+        .prediction-panel {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #1a1a3a;
+            border-radius: 6px;
+        }
+
+        .prediction-action { font-size: 1rem; color: #8b5cf6; font-weight: bold; }
+        .prediction-confidence { font-size: 0.75rem; color: #888; margin-top: 0.25rem; }
+
+        .message-log {
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+        }
+
+        .message {
+            padding: 0.3rem 0;
+            border-bottom: 1px solid #1a1a3a;
+        }
+
+        .message.success { color: #4ade80; }
+        .message.error { color: #e94560; }
+        .message.info { color: #888; }
+        .message-reward { float: right; color: #fbbf24; }
+
+        .keyboard-hint {
+            text-align: center;
+            color: #666;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .battery-bar {
+            height: 8px;
+            background: #1a1a3a;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+
+        .battery-fill {
+            height: 100%;
+            background: #4ade80;
+            transition: width 0.3s;
+        }
+
+        .battery-fill.low { background: #fbbf24; }
+        .battery-fill.critical { background: #e94560; }
+
+        .goal-indicator {
+            text-align: center;
+            padding: 1rem;
+            background: #1a1a3a;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+        }
+
+        .goal-indicator.reached { background: #4ade80; color: #000; }
+
+        .back-link {
+            color: #4ade80;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>Home Explore <span>3D Navigation Trainer</span></h1>
+        </div>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="connection-status"></div>
+                <span id="connection-text">Connecting...</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot" id="recording-status"></div>
+                <span id="recording-text">Not Recording</span>
+            </div>
+            <a href="/" class="back-link">&larr; Back to Trainer</a>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="world-section">
+            <div class="world-render">
+                <div class="world-header">
+                    <h3>World View</h3>
+                    <span id="level-name" style="color:#4ade80;">No level loaded</span>
+                </div>
+                <div class="world-canvas" id="world-canvas">Loading...</div>
+            </div>
+            <div class="controls-section">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <h3 style="margin-bottom:0.75rem;color:#888;font-size:0.85rem;">NAVIGATION</h3>
+                        <div class="nav-controls">
+                            <button class="nav-btn" data-cmd="strafe_left" title="Strafe Left (Q)">&#8592;</button>
+                            <button class="nav-btn" data-cmd="forward" title="Forward (W)">&#8593;</button>
+                            <button class="nav-btn" data-cmd="strafe_right" title="Strafe Right (E)">&#8594;</button>
+                            <button class="nav-btn" data-cmd="turn_left" title="Turn Left (A)">&#8634;</button>
+                            <button class="nav-btn interact" data-cmd="interact" title="Interact (Space)">&#9733;</button>
+                            <button class="nav-btn" data-cmd="turn_right" title="Turn Right (D)">&#8635;</button>
+                            <button class="nav-btn" data-cmd="look_up" title="Look Up (R)">&#8679;</button>
+                            <button class="nav-btn" data-cmd="backward" title="Backward (S)">&#8595;</button>
+                            <button class="nav-btn" data-cmd="look_down" title="Look Down (F)">&#8681;</button>
+                        </div>
+                        <div class="keyboard-hint">WASD to move, QE strafe, RF look, Space interact</div>
+                    </div>
+                    <div class="action-buttons" style="flex-direction:column;">
+                        <button class="action-btn primary" onclick="resetLevel()">Reset Level</button>
+                        <button class="action-btn record" id="record-btn" onclick="toggleRecording()">Start Recording</button>
+                        <button class="action-btn secondary" onclick="getPrediction()">Predict Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="panel">
+                <h3>Select Level</h3>
+                <div class="level-select" id="level-select"></div>
+            </div>
+
+            <div class="panel">
+                <h3>Robot Status</h3>
+                <div class="robot-info">
+                    <div class="info-row">
+                        <span class="info-label">Position</span>
+                        <span class="info-value" id="robot-position">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Rotation</span>
+                        <span class="info-value" id="robot-rotation">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Current Room</span>
+                        <span class="info-value" id="current-room">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Moves</span>
+                        <span class="info-value" id="moves-count">0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Battery</span>
+                        <span class="info-value" id="battery-text">100%</span>
+                    </div>
+                    <div class="battery-bar">
+                        <div class="battery-fill" id="battery-fill" style="width:100%"></div>
+                    </div>
+                    <div class="goal-indicator" id="goal-indicator">
+                        Goal Distance: <span id="goal-distance">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Visible Objects</h3>
+                <div class="objects-list" id="objects-list">
+                    <div class="object-item"><span class="info-label">No objects visible</span></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Inventory</h3>
+                <div class="inventory-list" id="inventory-list">
+                    <span class="info-label">Empty</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>AI Prediction</h3>
+                <div class="prediction-panel" id="prediction-panel">
+                    <div class="prediction-action" id="pred-action">-</div>
+                    <div class="prediction-confidence" id="pred-confidence">Request prediction</div>
+                </div>
+                <button class="action-btn secondary" onclick="executePrediction()" style="margin-top:0.5rem;width:100%;">Execute Predicted Action</button>
+            </div>
+
+            <div class="panel">
+                <h3>Action Log</h3>
+                <div class="message-log" id="message-log">
+                    <div class="message info">Ready to explore...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let ws = null;
+        let homeScanState = {
+            active: false,
+            level_name: '',
+            robot_position: {},
+            robot_rotation: {},
+            current_room: '',
+            visible_objects: [],
+            inventory: [],
+            battery: 1.0,
+            moves: 0,
+            goal_reached: false,
+            goal_distance: 0,
+            recording: false,
+        };
+        let availableLevels = [];
+        let lastPrediction = null;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                document.getElementById('connection-status').classList.add('connected');
+                document.getElementById('connection-text').textContent = 'Connected';
+                send({ type: 'home_init' });
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connection-status').classList.remove('connected');
+                document.getElementById('connection-text').textContent = 'Disconnected';
+                setTimeout(connect, 2000);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+        }
+
+        function send(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(data));
+            }
+        }
+
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'home_scan_state':
+                    if (data.state) {
+                        homeScanState = data.state;
+                        updateUI();
+                    }
+                    if (data.levels) {
+                        availableLevels = data.levels;
+                        buildLevelSelect();
+                    }
+                    break;
+
+                case 'home_scan_result':
+                    if (data.state) {
+                        homeScanState = data.state;
+                        updateUI();
+                    }
+                    addLog(data.message, data.success ? 'success' : 'error', data.reward);
+                    send({ type: 'home_render' });
+                    break;
+
+                case 'home_scan_update':
+                    if (data.state) {
+                        homeScanState = data.state;
+                        updateUI();
+                    }
+                    break;
+
+                case 'home_scan_render':
+                    document.getElementById('world-canvas').textContent = data.render || 'No render available';
+                    break;
+
+                case 'home_scan_prediction':
+                    lastPrediction = data.prediction;
+                    updatePrediction();
+                    break;
+
+                case 'home_scan_recording':
+                    homeScanState.recording = data.recording;
+                    updateRecordingUI();
+                    if (data.recording) {
+                        addLog(`Recording started: ${data.episode_id}`, 'info');
+                    } else {
+                        addLog(`Recording saved: ${data.path}`, 'success');
+                    }
+                    break;
+
+                case 'error':
+                    addLog(data.message, 'error');
+                    break;
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('level-name').textContent = homeScanState.level_name || 'No level';
+
+            const pos = homeScanState.robot_position;
+            if (pos.x !== undefined) {
+                document.getElementById('robot-position').textContent =
+                    `(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`;
+            }
+
+            const rot = homeScanState.robot_rotation;
+            if (rot.yaw !== undefined) {
+                document.getElementById('robot-rotation').textContent = `${rot.yaw.toFixed(0)}deg`;
+            }
+
+            document.getElementById('current-room').textContent = homeScanState.current_room || 'Unknown';
+            document.getElementById('moves-count').textContent = homeScanState.moves || 0;
+
+            const battery = homeScanState.battery || 1.0;
+            const batteryPct = Math.round(battery * 100);
+            document.getElementById('battery-text').textContent = `${batteryPct}%`;
+            const batteryFill = document.getElementById('battery-fill');
+            batteryFill.style.width = `${batteryPct}%`;
+            batteryFill.className = 'battery-fill' +
+                (batteryPct < 20 ? ' critical' : batteryPct < 50 ? ' low' : '');
+
+            const goalDist = homeScanState.goal_distance || 0;
+            document.getElementById('goal-distance').textContent = goalDist.toFixed(1);
+            const goalIndicator = document.getElementById('goal-indicator');
+            if (homeScanState.goal_reached) {
+                goalIndicator.classList.add('reached');
+                goalIndicator.textContent = 'GOAL REACHED!';
+            } else {
+                goalIndicator.classList.remove('reached');
+                goalIndicator.innerHTML = `Goal Distance: <span id="goal-distance">${goalDist.toFixed(1)}</span>`;
+            }
+
+            const objectsList = document.getElementById('objects-list');
+            const objects = homeScanState.visible_objects || [];
+            if (objects.length === 0) {
+                objectsList.innerHTML = '<div class="object-item"><span class="info-label">No objects visible</span></div>';
+            } else {
+                objectsList.innerHTML = objects.map(obj => `
+                    <div class="object-item">
+                        <span class="object-type">${obj.type}${obj.interactive ? ' *' : ''}</span>
+                        <span class="object-distance">${obj.distance.toFixed(1)}m</span>
+                    </div>
+                `).join('');
+            }
+
+            const inventoryList = document.getElementById('inventory-list');
+            const inventory = homeScanState.inventory || [];
+            if (inventory.length === 0) {
+                inventoryList.innerHTML = '<span class="info-label">Empty</span>';
+            } else {
+                inventoryList.innerHTML = inventory.map(item =>
+                    `<span class="inventory-item">${item}</span>`
+                ).join('');
+            }
+
+            updateLevelButtons();
+            updateRecordingUI();
+        }
+
+        function updateRecordingUI() {
+            const recordBtn = document.getElementById('record-btn');
+            const recordingStatus = document.getElementById('recording-status');
+            const recordingText = document.getElementById('recording-text');
+
+            if (homeScanState.recording) {
+                recordBtn.textContent = 'Stop Recording';
+                recordBtn.classList.add('recording');
+                recordingStatus.classList.add('recording');
+                recordingText.textContent = 'Recording';
+            } else {
+                recordBtn.textContent = 'Start Recording';
+                recordBtn.classList.remove('recording');
+                recordingStatus.classList.remove('recording');
+                recordingText.textContent = 'Not Recording';
+            }
+        }
+
+        function updatePrediction() {
+            const actionEl = document.getElementById('pred-action');
+            const confEl = document.getElementById('pred-confidence');
+
+            if (lastPrediction) {
+                actionEl.textContent = lastPrediction.action.toUpperCase();
+                const conf = Math.round(lastPrediction.confidence * 100);
+                confEl.textContent = `Confidence: ${conf}%`;
+            } else {
+                actionEl.textContent = '-';
+                confEl.textContent = 'No prediction available';
+            }
+        }
+
+        function buildLevelSelect() {
+            const container = document.getElementById('level-select');
+            container.innerHTML = '';
+
+            availableLevels.forEach(level => {
+                const btn = document.createElement('button');
+                btn.className = 'level-btn' + (level === homeScanState.level_name ? ' active' : '');
+                btn.textContent = level.replace(/_/g, ' ');
+                btn.onclick = () => loadLevel(level);
+                container.appendChild(btn);
+            });
+        }
+
+        function updateLevelButtons() {
+            const buttons = document.querySelectorAll('.level-btn');
+            buttons.forEach(btn => {
+                const level = btn.textContent.replace(/ /g, '_');
+                btn.classList.toggle('active', level === homeScanState.level_name);
+            });
+        }
+
+        function addLog(message, type = 'info', reward = null) {
+            const log = document.getElementById('message-log');
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = message + (reward !== null && reward !== undefined ?
+                `<span class="message-reward">${reward >= 0 ? '+' : ''}${reward.toFixed(2)}</span>` : '');
+            log.insertBefore(div, log.firstChild);
+
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        function sendCommand(command) {
+            send({ type: 'home_command', command: command, raw_input: command });
+        }
+
+        function loadLevel(levelName) {
+            send({ type: 'home_load_level', level: levelName });
+            addLog(`Loading level: ${levelName}`, 'info');
+            setTimeout(() => send({ type: 'home_render' }), 100);
+        }
+
+        function resetLevel() {
+            send({ type: 'home_reset' });
+            addLog('Level reset', 'info');
+            setTimeout(() => send({ type: 'home_render' }), 100);
+        }
+
+        function toggleRecording() {
+            send({ type: 'home_recording', action: 'toggle' });
+        }
+
+        function getPrediction() {
+            send({ type: 'home_predict' });
+        }
+
+        function executePrediction() {
+            if (lastPrediction && lastPrediction.action) {
+                sendCommand(lastPrediction.action);
+                addLog(`Executing prediction: ${lastPrediction.action}`, 'info');
+            }
+        }
+
+        function initControls() {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const cmd = btn.dataset.cmd;
+                if (cmd) {
+                    btn.addEventListener('click', () => {
+                        btn.classList.add('active');
+                        sendCommand(cmd);
+                        setTimeout(() => btn.classList.remove('active'), 150);
+                    });
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                let cmd = null;
+                switch (e.key.toLowerCase()) {
+                    case 'w': cmd = 'forward'; break;
+                    case 's': cmd = 'backward'; break;
+                    case 'a': cmd = 'turn_left'; break;
+                    case 'd': cmd = 'turn_right'; break;
+                    case 'q': cmd = 'strafe_left'; break;
+                    case 'e': cmd = 'strafe_right'; break;
+                    case 'r': cmd = 'look_up'; break;
+                    case 'f': cmd = 'look_down'; break;
+                    case ' ': cmd = 'interact'; break;
+                }
+
+                if (cmd) {
+                    e.preventDefault();
+                    sendCommand(cmd);
+
+                    const btn = document.querySelector(`.nav-btn[data-cmd="${cmd}"]`);
+                    if (btn) {
+                        btn.classList.add('active');
+                        setTimeout(() => btn.classList.remove('active'), 150);
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            connect();
+            initControls();
+        });
+    </script>
+</body>
+</html>

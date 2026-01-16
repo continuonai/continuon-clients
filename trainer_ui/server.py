@@ -43,6 +43,14 @@ except ImportError:
     HAS_BRAIN_B = False
     print("Brain B integration not available")
 
+# Simulator utilities
+try:
+    from simulator_utils import SimulatorSession, get_simulator_session
+    HAS_SIMULATOR = True
+except ImportError:
+    HAS_SIMULATOR = False
+    print("Simulator utilities not available")
+
 # Auto-trainer for retraining models
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b"))
@@ -51,6 +59,14 @@ try:
 except ImportError:
     HAS_AUTO_TRAINER = False
     print("Auto-trainer not available")
+
+# HomeScan 3D home simulator integration
+try:
+    from home_scan import HomeScanIntegration, HomeScanConfig, create_home_scan_handlers
+    HAS_HOME_SCAN = True
+except ImportError:
+    HAS_HOME_SCAN = False
+    print("HomeScan 3D simulator not available")
 
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -291,6 +307,22 @@ class TrainerServer:
         self.brain_b: Optional["BrainBIntegration"] = None
         self._hardware_initialized = False
 
+        # Simulator session for HomeScan (legacy 2D)
+        self.simulator_session: Optional[SimulatorSession] = None
+        if HAS_SIMULATOR:
+            self.simulator_session = get_simulator_session(CONFIG.rlds_path)
+
+        # HomeScan 3D home simulator
+        self.home_scan: Optional["HomeScanIntegration"] = None
+        self._home_scan_handlers: Dict = {}
+        if HAS_HOME_SCAN:
+            home_scan_config = HomeScanConfig(
+                rlds_output_path=Path("../brain_b/brain_b_data/home_rlds"),
+                auto_record=True,
+            )
+            self.home_scan = HomeScanIntegration(home_scan_config)
+            self._home_scan_handlers = create_home_scan_handlers(self.home_scan)
+
     async def initialize_hardware(self):
         """Initialize hardware detection and controllers."""
         if self._hardware_initialized:
@@ -452,6 +484,20 @@ class TrainerServer:
 
         elif msg_type == "sync_arms":
             await self.handle_sync_arms(data)
+
+        # Simulator handlers (legacy 2D)
+        elif msg_type == "sim_step":
+            await self.handle_sim_step(data, websocket)
+
+        elif msg_type == "sim_reset":
+            await self.handle_sim_reset(websocket)
+
+        elif msg_type == "sim_status":
+            await self.handle_sim_status(websocket)
+
+        # HomeScan 3D home simulator handlers
+        elif msg_type.startswith("home_"):
+            await self.handle_home_scan(msg_type, data, websocket)
 
     async def handle_drive(self, data: dict):
         """Handle drive command."""
@@ -960,6 +1006,92 @@ class TrainerServer:
             }
             await self.broadcast({"type": "state", "data": asdict(self.state)})
 
+    # ========================================================================
+    # Simulator Handlers (HomeScan)
+    # ========================================================================
+
+    async def handle_sim_step(self, data: dict, websocket: WebSocket):
+        """Handle a simulator step from HomeScan client."""
+        if not self.simulator_session:
+            await websocket.send_json({"type": "error", "message": "Simulator not available"})
+            return
+
+        # Start session if not already started
+        session_id = data.get("session_id", f"sim_{int(time.time())}")
+        if not self.simulator_session.session_id:
+            self.simulator_session.start(session_id)
+
+        # Process the step
+        result = self.simulator_session.process_step(data)
+
+        # Also record to the main RLDS recorder if recording is active
+        if self.recorder.recording:
+            action_data = data.get("action", {})
+            self.recorder.record(
+                {"type": "sim_action", **action_data},
+                self.state,
+                self.state.recognized_user,
+            )
+
+        await websocket.send_json({
+            "type": "sim_step_result",
+            **result,
+        })
+
+    async def handle_sim_reset(self, websocket: WebSocket):
+        """Reset the simulator environment."""
+        if self.simulator_session:
+            self.simulator_session.reset()
+            await websocket.send_json({
+                "type": "sim_reset",
+                "status": "ok",
+            })
+
+    async def handle_sim_status(self, websocket: WebSocket):
+        """Get simulator session status."""
+        if self.simulator_session:
+            status = self.simulator_session.get_status()
+            await websocket.send_json({
+                "type": "sim_status",
+                **status,
+            })
+        else:
+            await websocket.send_json({
+                "type": "sim_status",
+                "available": False,
+            })
+
+    # ========================================================================
+    # HomeScan 3D Home Simulator Handlers
+    # ========================================================================
+
+    async def handle_home_scan(self, msg_type: str, data: dict, websocket: WebSocket):
+        """Handle HomeScan 3D simulator messages."""
+        if not self.home_scan or not HAS_HOME_SCAN:
+            await websocket.send_json({
+                "type": "error",
+                "message": "HomeScan 3D simulator not available",
+            })
+            return
+
+        # Get the handler for this message type
+        handler = self._home_scan_handlers.get(msg_type)
+        if handler:
+            result = await handler(data)
+            await websocket.send_json(result)
+
+            # Broadcast state updates to all clients
+            if result.get("type") in ("home_scan_state", "home_scan_result"):
+                await self.broadcast({
+                    "type": "home_scan_update",
+                    "state": result.get("state"),
+                })
+        else:
+            await websocket.send_json({
+                "type": "error",
+                "message": f"Unknown HomeScan message type: {msg_type}",
+            })
+
 
 # ============================================================================
 # FastAPI App
@@ -979,6 +1111,42 @@ async def startup_event():
 async def index():
     """Serve the main UI."""
     return FileResponse(Path(__file__).parent / "static" / "index.html")
+
+
+@app.get("/homescan")
+async def homescan():
+    """Serve the HomeScan simulator UI (3D Three.js version)."""
+    return FileResponse(Path(__file__).parent / "static" / "homescan.html")
+
+
+@app.get("/home-explore")
+async def home_explore():
+    """Serve the Home Explore 3D navigation trainer UI."""
+    return FileResponse(Path(__file__).parent / "static" / "home_explore.html")
+
+
+@app.get("/home-scan/status")
+async def home_scan_status():
+    """Get HomeScan 3D simulator status."""
+    if server.home_scan and HAS_HOME_SCAN:
+        return {
+            "status": "ok",
+            "home_scan": server.home_scan.get_state_dict(),
+            "levels": server.home_scan.get_available_levels(),
+            "curriculum": server.home_scan.get_curriculum(),
+        }
+    return {"status": "unavailable", "home_scan": None}
+
+
+@app.get("/simulator/status")
+async def simulator_status():
+    """Get simulator session status."""
+    if server.simulator_session:
+        return {
+            "status": "ok",
+            "simulator": server.simulator_session.get_status(),
+        }
+    return {"status": "unavailable", "simulator": None}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -1020,6 +1188,18 @@ async def health():
                 hasattr(server.brain_b, 'handler') and server.brain_b.handler and
                 hasattr(server.brain_b.handler, 'predictor') and server.brain_b.handler.predictor
             ) else False,
+        },
+        "simulator": {
+            "available": HAS_SIMULATOR and server.simulator_session is not None,
+            "recording": server.simulator_session.recorder.is_recording() if server.simulator_session else False,
+            "session_id": server.simulator_session.session_id if server.simulator_session else None,
+        },
+        "home_scan": {
+            "available": HAS_HOME_SCAN and server.home_scan is not None,
+            "active": server.home_scan.state.active if server.home_scan else False,
+            "level": server.home_scan.state.level_name if server.home_scan else None,
+            "recording": server.home_scan.state.recording if server.home_scan else False,
+            "predictor_ready": server.home_scan.state.predictor_ready if server.home_scan else False,
         },
     }
 
