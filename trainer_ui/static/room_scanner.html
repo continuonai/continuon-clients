@@ -197,6 +197,196 @@
         .quality-ring.medium { border-color: #fbbf24; color: #fbbf24; }
         .quality-ring.high { border-color: #4ade80; color: #4ade80; }
 
+        /* Camera Movement Guidance Overlay */
+        .camera-guide-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+        }
+
+        .camera-guide-overlay.active {
+            display: block;
+        }
+
+        /* Landscape orientation reminder */
+        .orientation-reminder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(233, 69, 96, 0.95);
+            padding: 1.5rem 2rem;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+            z-index: 20;
+        }
+
+        .orientation-reminder.show {
+            display: block;
+            animation: pulse 1.5s infinite;
+        }
+
+        .orientation-reminder .icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            animation: rotatePhone 2s ease-in-out infinite;
+        }
+
+        @keyframes rotatePhone {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .orientation-reminder p {
+            color: white;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        /* Direction arrows */
+        .direction-arrow {
+            position: absolute;
+            font-size: 2.5rem;
+            color: #4ade80;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+            animation: arrowPulse 1s ease-in-out infinite;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .direction-arrow.active {
+            opacity: 1;
+        }
+
+        .direction-arrow.left { left: 10px; top: 50%; transform: translateY(-50%); }
+        .direction-arrow.right { right: 10px; top: 50%; transform: translateY(-50%); }
+        .direction-arrow.up { top: 10px; left: 50%; transform: translateX(-50%); }
+        .direction-arrow.down { bottom: 60px; left: 50%; transform: translateX(-50%); }
+
+        @keyframes arrowPulse {
+            0%, 100% { transform: translateY(-50%) scale(1); }
+            50% { transform: translateY(-50%) scale(1.2); }
+        }
+
+        .direction-arrow.up, .direction-arrow.down {
+            animation: arrowPulseVertical 1s ease-in-out infinite;
+        }
+
+        @keyframes arrowPulseVertical {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.2); }
+        }
+
+        /* Movement instruction banner */
+        .movement-instruction {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            border: 2px solid #4ade80;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            max-width: 90%;
+        }
+
+        .movement-instruction .icon {
+            font-size: 1.5rem;
+        }
+
+        .movement-instruction .text {
+            color: #4ade80;
+            font-weight: 600;
+            font-size: 0.95rem;
+            white-space: nowrap;
+        }
+
+        /* Target area grid overlay */
+        .target-grid {
+            position: absolute;
+            top: 15%;
+            left: 10%;
+            right: 10%;
+            bottom: 25%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 4px;
+            opacity: 0.7;
+        }
+
+        .target-cell {
+            border: 2px dashed transparent;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: transparent;
+            transition: all 0.3s;
+        }
+
+        .target-cell.needs-scan {
+            border-color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            color: #fbbf24;
+        }
+
+        .target-cell.scanned {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .target-cell.scanned::after {
+            content: '✓';
+            color: #4ade80;
+            font-size: 1.5rem;
+        }
+
+        .target-cell.current {
+            border-color: #60a5fa;
+            border-style: solid;
+            border-width: 3px;
+            background: rgba(96, 165, 250, 0.2);
+            animation: targetPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes targetPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(96, 165, 250, 0); }
+        }
+
+        /* Scan progress indicator */
+        .scan-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .scan-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #60a5fa);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
         .mode-toggle {
             display: flex;
             background: #1a1a3a;
@@ -809,6 +999,46 @@
                     <p>Camera access needed for live capture</p>
                     <button class="btn btn-primary" onclick="startCamera()">Enable Camera</button>
                 </div>
+
+                <!-- Camera Movement Guide Overlay -->
+                <div class="camera-guide-overlay" id="camera-guide-overlay">
+                    <!-- Landscape orientation reminder -->
+                    <div class="orientation-reminder" id="orientation-reminder">
+                        <div class="icon">📱</div>
+                        <p>Rotate to Landscape</p>
+                        <p style="font-size:0.85rem;opacity:0.9;margin-top:0.25rem;">for better room coverage</p>
+                    </div>
+
+                    <!-- Movement instruction banner -->
+                    <div class="movement-instruction" id="movement-instruction">
+                        <span class="icon">📷</span>
+                        <span class="text" id="movement-text">Slowly pan camera across the room</span>
+                    </div>
+
+                    <!-- Direction arrows -->
+                    <div class="direction-arrow left" id="arrow-left">◀</div>
+                    <div class="direction-arrow right" id="arrow-right">▶</div>
+                    <div class="direction-arrow up" id="arrow-up">▲</div>
+                    <div class="direction-arrow down" id="arrow-down">▼</div>
+
+                    <!-- Target area grid -->
+                    <div class="target-grid" id="target-grid">
+                        <div class="target-cell" data-area="top-left"></div>
+                        <div class="target-cell" data-area="top-center"></div>
+                        <div class="target-cell" data-area="top-right"></div>
+                        <div class="target-cell" data-area="middle-left"></div>
+                        <div class="target-cell" data-area="middle-center"></div>
+                        <div class="target-cell" data-area="middle-right"></div>
+                        <div class="target-cell" data-area="bottom-left"></div>
+                        <div class="target-cell" data-area="bottom-center"></div>
+                        <div class="target-cell" data-area="bottom-right"></div>
+                    </div>
+
+                    <!-- Progress bar -->
+                    <div class="scan-progress-bar">
+                        <div class="scan-progress-fill" id="scan-progress-fill"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Camera Controls -->
@@ -1137,6 +1367,23 @@
         let capturedViews = new Set();  // Track which views we've captured
         let lastAutoCapture = 0;  // Timestamp of last auto-capture
 
+        // Camera movement guide state
+        let cameraGuideActive = false;
+        let targetAreasCovered = {
+            'top-left': 0, 'top-center': 0, 'top-right': 0,
+            'middle-left': 0, 'middle-center': 0, 'middle-right': 0,
+            'bottom-left': 0, 'bottom-center': 0, 'bottom-right': 0
+        };
+        let currentTargetArea = 'middle-center';
+        let scanSequence = [
+            'middle-center', 'middle-left', 'middle-right',
+            'top-center', 'top-left', 'top-right',
+            'bottom-center', 'bottom-left', 'bottom-right'
+        ];
+        let scanSequenceIndex = 0;
+        let lastMotionTime = 0;
+        let isPortrait = false;
+
         // Mode switching
         function setMode(mode) {
             scanMode = mode;
@@ -1174,6 +1421,13 @@
                 stopGuidedAnalysis();
                 clearBoundaryCanvas();
             }
+
+            // Activate camera movement guide for guided and fullauto modes
+            if ((mode === 'guided' || mode === 'fullauto') && (cameraStream || oakdRunning)) {
+                activateCameraGuide();
+            } else {
+                deactivateCameraGuide();
+            }
         }
 
         function startGuidedAnalysis() {
@@ -1189,6 +1443,223 @@
                 guidedAnalysisInterval = null;
             }
         }
+
+        // ============================================
+        // Camera Movement Guide Functions
+        // ============================================
+
+        function activateCameraGuide() {
+            cameraGuideActive = true;
+            const overlay = document.getElementById('camera-guide-overlay');
+            overlay.classList.add('active');
+
+            // Check orientation
+            checkOrientation();
+            window.addEventListener('resize', checkOrientation);
+
+            // Reset target areas
+            resetTargetAreas();
+
+            // Start the guidance sequence
+            updateCameraGuide();
+
+            console.log('[CameraGuide] Activated');
+        }
+
+        function deactivateCameraGuide() {
+            cameraGuideActive = false;
+            const overlay = document.getElementById('camera-guide-overlay');
+            overlay.classList.remove('active');
+            window.removeEventListener('resize', checkOrientation);
+            console.log('[CameraGuide] Deactivated');
+        }
+
+        function checkOrientation() {
+            const container = document.getElementById('camera-container');
+            isPortrait = container.offsetHeight > container.offsetWidth;
+
+            const reminder = document.getElementById('orientation-reminder');
+            if (isPortrait && cameraGuideActive) {
+                reminder.classList.add('show');
+            } else {
+                reminder.classList.remove('show');
+            }
+        }
+
+        function resetTargetAreas() {
+            targetAreasCovered = {
+                'top-left': 0, 'top-center': 0, 'top-right': 0,
+                'middle-left': 0, 'middle-center': 0, 'middle-right': 0,
+                'bottom-left': 0, 'bottom-center': 0, 'bottom-right': 0
+            };
+            scanSequenceIndex = 0;
+            currentTargetArea = scanSequence[0];
+            updateTargetGrid();
+        }
+
+        function updateTargetGrid() {
+            const cells = document.querySelectorAll('.target-cell');
+            let scannedCount = 0;
+
+            cells.forEach(cell => {
+                const area = cell.dataset.area;
+                const coverage = targetAreasCovered[area] || 0;
+
+                cell.classList.remove('needs-scan', 'scanned', 'current');
+
+                if (coverage >= 100) {
+                    cell.classList.add('scanned');
+                    scannedCount++;
+                } else if (area === currentTargetArea) {
+                    cell.classList.add('current');
+                } else if (coverage < 50) {
+                    cell.classList.add('needs-scan');
+                }
+            });
+
+            // Update progress bar
+            const progress = (scannedCount / 9) * 100;
+            document.getElementById('scan-progress-fill').style.width = `${progress}%`;
+
+            return scannedCount;
+        }
+
+        function updateCameraGuide() {
+            if (!cameraGuideActive) return;
+
+            // Update direction arrows based on current target
+            updateDirectionArrows();
+
+            // Update movement instruction
+            updateMovementInstruction();
+
+            // Update target grid
+            const scannedCount = updateTargetGrid();
+
+            // If all areas scanned, show completion message
+            if (scannedCount >= 9) {
+                document.getElementById('movement-text').textContent = '✓ Room scan complete! Process images to generate 3D';
+                hideAllArrows();
+            }
+        }
+
+        function updateDirectionArrows() {
+            hideAllArrows();
+
+            if (!currentTargetArea) return;
+
+            const [vertical, horizontal] = currentTargetArea.split('-');
+
+            // Show arrows pointing to current target
+            if (horizontal === 'left') {
+                document.getElementById('arrow-left').classList.add('active');
+            } else if (horizontal === 'right') {
+                document.getElementById('arrow-right').classList.add('active');
+            }
+
+            if (vertical === 'top') {
+                document.getElementById('arrow-up').classList.add('active');
+            } else if (vertical === 'bottom') {
+                document.getElementById('arrow-down').classList.add('active');
+            }
+        }
+
+        function hideAllArrows() {
+            document.querySelectorAll('.direction-arrow').forEach(arrow => {
+                arrow.classList.remove('active');
+            });
+        }
+
+        function updateMovementInstruction() {
+            const textEl = document.getElementById('movement-text');
+            const iconEl = document.querySelector('.movement-instruction .icon');
+
+            if (!currentTargetArea) {
+                textEl.textContent = 'Slowly pan camera across the room';
+                return;
+            }
+
+            const instructions = {
+                'top-left': { text: 'Pan UP and LEFT - capture ceiling corner', icon: '↖️' },
+                'top-center': { text: 'Tilt UP - capture ceiling and upper walls', icon: '⬆️' },
+                'top-right': { text: 'Pan UP and RIGHT - capture ceiling corner', icon: '↗️' },
+                'middle-left': { text: 'Pan LEFT - capture left wall', icon: '⬅️' },
+                'middle-center': { text: 'Hold steady - capture center of room', icon: '🎯' },
+                'middle-right': { text: 'Pan RIGHT - capture right wall', icon: '➡️' },
+                'bottom-left': { text: 'Pan DOWN and LEFT - capture floor corner', icon: '↙️' },
+                'bottom-center': { text: 'Tilt DOWN - capture floor and furniture', icon: '⬇️' },
+                'bottom-right': { text: 'Pan DOWN and RIGHT - capture floor corner', icon: '↘️' }
+            };
+
+            const instruction = instructions[currentTargetArea] || { text: 'Pan slowly', icon: '📷' };
+            textEl.textContent = instruction.text;
+            iconEl.textContent = instruction.icon;
+        }
+
+        function markAreaCaptured(area) {
+            if (targetAreasCovered[area] !== undefined) {
+                targetAreasCovered[area] = 100;
+
+                // Move to next area in sequence
+                scanSequenceIndex++;
+                if (scanSequenceIndex < scanSequence.length) {
+                    currentTargetArea = scanSequence[scanSequenceIndex];
+                } else {
+                    currentTargetArea = null;
+                }
+
+                updateCameraGuide();
+            }
+        }
+
+        function estimateCurrentArea(frameAnalysis) {
+            // Estimate which area of the room the camera is pointing at
+            // based on what's visible in the frame
+            if (!frameAnalysis) return 'middle-center';
+
+            const { boundaries, guidance } = frameAnalysis;
+
+            // Simple heuristic based on floor/ceiling visibility
+            let vertical = 'middle';
+            let horizontal = 'center';
+
+            if (guidance) {
+                if (guidance.coverage.floor > 60) vertical = 'bottom';
+                else if (guidance.coverage.ceiling > 60) vertical = 'top';
+
+                if (guidance.coverage.wall_left > 60) horizontal = 'left';
+                else if (guidance.coverage.wall_right > 60) horizontal = 'right';
+            }
+
+            return `${vertical}-${horizontal}`;
+        }
+
+        function updateCameraGuideFromAnalysis(analysisData) {
+            if (!cameraGuideActive) return;
+
+            // Estimate which area we're looking at
+            const estimatedArea = estimateCurrentArea(analysisData);
+
+            // Increment coverage for this area
+            if (targetAreasCovered[estimatedArea] !== undefined) {
+                targetAreasCovered[estimatedArea] = Math.min(100,
+                    targetAreasCovered[estimatedArea] + 10);
+            }
+
+            // If current target is covered, advance
+            if (targetAreasCovered[currentTargetArea] >= 100) {
+                scanSequenceIndex++;
+                if (scanSequenceIndex < scanSequence.length) {
+                    currentTargetArea = scanSequence[scanSequenceIndex];
+                } else {
+                    currentTargetArea = null;
+                }
+            }
+
+            updateCameraGuide();
+        }
+
+        // ============================================
 
         async function analyzeCurrentFrame() {
             if (!cameraStream || scanMode !== 'guided') return;
@@ -1218,6 +1689,9 @@
                     updateGuidedOverlay(data);
                     drawBoundaries(data.boundaries, data.image_size);
                     lastGuidance = data;
+
+                    // Update camera movement guide
+                    updateCameraGuideFromAnalysis(data);
 
                     // Auto-capture logic
                     if (autoCapture && data.guidance.ready_to_scan) {
@@ -1411,6 +1885,11 @@
                 // Start guided analysis if in guided mode
                 if (scanMode === 'guided') {
                     startGuidedAnalysis();
+                }
+
+                // Activate camera guide for guided/fullauto modes
+                if (scanMode === 'guided' || scanMode === 'fullauto') {
+                    activateCameraGuide();
                 }
 
             } catch (err) {

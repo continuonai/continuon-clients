@@ -93,7 +93,11 @@ except ImportError:
 
 # Hailo-8 NPU Scanner - Fast neural segmentation
 try:
-    from hailo_scanner import HailoScanner, scan_with_hailo, get_hailo_scanner
+    from hailo_scanner import (
+        HailoScanner, scan_with_hailo, get_hailo_scanner,
+        scan_with_hailo_sam3, get_sam3_model,
+        scan_with_fastsam, get_fastsam_scanner
+    )
     HAS_HAILO_SCANNER = True
 except ImportError:
     HAS_HAILO_SCANNER = False
@@ -126,6 +130,12 @@ try:
 except ImportError:
     HAS_FACE_RECOGNITION = False
     print("face_recognition not available - face features disabled")
+
+try:
+    from oakd_camera import get_oakd_camera, OakDCamera, HAS_DEPTHAI
+except ImportError:
+    HAS_DEPTHAI = False
+    print("OAK-D camera module not available")
 
 # ============================================================================
 # Configuration
@@ -1098,7 +1108,10 @@ class TrainerServer:
 
     async def handle_home_scan(self, msg_type: str, data: dict, websocket: WebSocket):
         """Handle HomeScan 3D simulator messages."""
+        print(f"[HomeScan] Received: {msg_type}")
+
         if not self.home_scan or not HAS_HOME_SCAN:
+            print(f"[HomeScan] Not available: home_scan={self.home_scan}, HAS_HOME_SCAN={HAS_HOME_SCAN}")
             await websocket.send_json({
                 "type": "error",
                 "message": "HomeScan 3D simulator not available",
@@ -1108,7 +1121,9 @@ class TrainerServer:
         # Get the handler for this message type
         handler = self._home_scan_handlers.get(msg_type)
         if handler:
+            print(f"[HomeScan] Calling handler for: {msg_type}")
             result = await handler(data)
+            print(f"[HomeScan] Handler result type: {result.get('type')}")
             await websocket.send_json(result)
 
             # Broadcast state updates to all clients
@@ -1118,6 +1133,7 @@ class TrainerServer:
                     "state": result.get("state"),
                 })
         else:
+            print(f"[HomeScan] Unknown message type: {msg_type}, available handlers: {list(self._home_scan_handlers.keys())}")
             await websocket.send_json({
                 "type": "error",
                 "message": f"Unknown HomeScan message type: {msg_type}",
@@ -1130,6 +1146,9 @@ class TrainerServer:
 
 app = FastAPI(title="Brain A Trainer")
 server = TrainerServer()
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
 @app.on_event("startup")
@@ -1238,7 +1257,85 @@ async def health():
             "recording": server.home_scan.state.recording if server.home_scan else False,
             "predictor_ready": server.home_scan.state.predictor_ready if server.home_scan else False,
         },
+        "oakd": {
+            "available": HAS_DEPTHAI if 'HAS_DEPTHAI' in dir() else False,
+        },
     }
+
+
+# ============================================================================
+# OAK-D Camera Endpoints
+# ============================================================================
+
+@app.get("/oakd/devices")
+async def oakd_list_devices():
+    """List available OAK-D devices."""
+    if not HAS_DEPTHAI:
+        return {"error": "DepthAI not available", "devices": []}
+
+    camera = get_oakd_camera()
+    devices = camera.get_available_devices()
+    return {
+        "status": "ok",
+        "devices": devices,
+        "count": len(devices),
+    }
+
+
+@app.post("/oakd/start")
+async def oakd_start():
+    """Start the OAK-D camera."""
+    if not HAS_DEPTHAI:
+        return {"error": "DepthAI not available"}
+
+    camera = get_oakd_camera()
+    success = camera.start()
+    return {
+        "status": "ok" if success else "error",
+        "running": camera.is_running,
+    }
+
+
+@app.post("/oakd/stop")
+async def oakd_stop():
+    """Stop the OAK-D camera."""
+    if not HAS_DEPTHAI:
+        return {"error": "DepthAI not available"}
+
+    camera = get_oakd_camera()
+    camera.stop()
+    return {"status": "ok", "running": False}
+
+
+@app.get("/oakd/status")
+async def oakd_status():
+    """Get OAK-D camera status."""
+    if not HAS_DEPTHAI:
+        return {"available": False, "running": False}
+
+    camera = get_oakd_camera()
+    devices = camera.get_available_devices()
+    return {
+        "available": True,
+        "running": camera.is_running,
+        "devices": devices,
+    }
+
+
+@app.get("/oakd/capture")
+async def oakd_capture(include_depth: bool = True):
+    """Capture a frame from OAK-D camera."""
+    if not HAS_DEPTHAI:
+        return {"error": "DepthAI not available"}
+
+    camera = get_oakd_camera()
+    if not camera.is_running:
+        # Auto-start if not running
+        if not camera.start():
+            return {"error": "Failed to start camera"}
+
+    result = camera.capture_base64(include_depth=include_depth)
+    return result
 
 
 @app.get("/predict")
@@ -1717,10 +1814,14 @@ async def scan_room_images(request_data: dict):
     Request body:
         {
             "images": ["base64_image_data", ...],
-            "room_scale": 10.0,  # Optional, world scale factor
-            "use_sam3": true,    # Optional, use SAM3 for segmentation (slow on CPU)
-            "use_hailo": true    # Optional, use Hailo-8 NPU (fast, recommended)
+            "room_scale": 10.0,       # Optional, world scale factor
+            "use_fastsam": true,      # BEST: FastSAM on Hailo-8 (48 FPS zero-shot segmentation)
+            "use_hailo_sam3": true,   # Hailo-8 detection + SAM3 segmentation (slow)
+            "use_hailo": true,        # Optional, use Hailo-8 NPU only (fast YOLOv5)
+            "use_sam3": true,         # Optional, use SAM3 only (very slow on CPU)
         }
+
+    Priority: use_fastsam > use_hailo_sam3 > use_hailo > use_sam3 > OpenCV
 
     Returns:
         Scan result with detected objects and generated assets
@@ -1730,15 +1831,37 @@ async def scan_room_images(request_data: dict):
 
     images = request_data.get("images", [])
     room_scale = request_data.get("room_scale", 10.0)
-    use_sam3 = request_data.get("use_sam3", False)
+    use_fastsam = request_data.get("use_fastsam", False)
+    use_hailo_sam3 = request_data.get("use_hailo_sam3", False)
     use_hailo = request_data.get("use_hailo", False)
+    use_sam3 = request_data.get("use_sam3", False)
 
     if not images:
         return {"error": "No images provided", "result": None}
 
     try:
-        # Priority: Hailo > SAM3 > OpenCV
-        if use_hailo and HAS_HAILO_SCANNER:
+        # Priority: FastSAM > Hailo+SAM3 > Hailo > SAM3 > OpenCV
+        if use_fastsam and HAS_HAILO_SCANNER:
+            try:
+                print("[RoomScanner] Using FastSAM on Hailo-8 (48 FPS)")
+                result = scan_with_fastsam(images[0], room_scale)
+            except Exception as e:
+                print(f"[RoomScanner] FastSAM failed, trying YOLOv5: {e}")
+                try:
+                    result = scan_with_hailo(images[0], room_scale)
+                except Exception:
+                    result = process_room_images(images, room_scale)
+        elif use_hailo_sam3 and HAS_HAILO_SCANNER:
+            try:
+                print("[RoomScanner] Using Hailo-8 + SAM3 (hybrid)")
+                result = await scan_with_hailo_sam3(images[0], room_scale)
+            except Exception as e:
+                print(f"[RoomScanner] Hailo+SAM3 failed, trying Hailo only: {e}")
+                try:
+                    result = scan_with_hailo(images[0], room_scale)
+                except Exception:
+                    result = process_room_images(images, room_scale)
+        elif use_hailo and HAS_HAILO_SCANNER:
             try:
                 print("[RoomScanner] Using Hailo-8 NPU")
                 result = scan_with_hailo(images[0], room_scale)

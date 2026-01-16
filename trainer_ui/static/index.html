@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain A Trainer</title>
+    <title>Brain A Trainer - ContinuonXR</title>
+    <link rel="stylesheet" href="/static/shared-nav.css">
+    <script src="/static/shared-nav.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -18,18 +20,13 @@
             min-height: 100vh;
         }
 
-        .header {
+        .hardware-bar {
             background: #16213e;
-            padding: 1rem 2rem;
+            padding: 0.5rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #0f3460;
-        }
-
-        .header h1 {
-            font-size: 1.5rem;
-            color: #e94560;
+            border-bottom: 1px solid #0f3460;
         }
 
         .status {
@@ -61,7 +58,7 @@
             grid-template-columns: 1fr 300px;
             gap: 1rem;
             padding: 1rem;
-            height: calc(100vh - 70px);
+            height: calc(100vh - 100px);
         }
 
         .left-panel {
@@ -579,8 +576,8 @@
     </style>
 </head>
 <body>
-    <header class="header">
-        <h1>Brain A Trainer</h1>
+    <!-- Hardware status bar -->
+    <div class="hardware-bar">
         <div class="hardware-panel" id="hardware-panel">
             <div class="hw-item">
                 <span>🧠 Hailo:</span>
@@ -604,7 +601,7 @@
             <span id="connection-text">Disconnected</span>
             <div class="user-badge" id="user-badge">No face detected</div>
         </div>
-    </header>
+    </div>
 
     <main class="main">
         <div class="left-panel">
@@ -713,12 +710,12 @@
             </section>
 
             <section class="panel chat-section">
-                <h3>Ask Claude</h3>
+                <h3>Claude Assistant</h3>
                 <div class="chat-messages" id="chat-messages">
-                    <div class="chat-message system">Ask Claude Code for help with robot tasks...</div>
+                    <div class="chat-message system">Type a command or ask for help with robot tasks</div>
                 </div>
                 <div class="chat-input">
-                    <input type="text" id="chat-input" placeholder="Ask Claude..." onkeypress="handleChatKeypress(event)">
+                    <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleChatKeypress(event)">
                     <button onclick="sendChat()">Send</button>
                 </div>
             </section>
@@ -1142,6 +1139,11 @@
         // ============================================================
         async function initCamera() {
             try {
+                // Try to get available cameras first
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(d => d.kind === 'videoinput');
+                console.log('Available cameras:', cameras.length);
+
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'user', width: 640, height: 480 },
                     audio: false
@@ -1151,9 +1153,18 @@
 
                 // Start sending frames for face recognition
                 setInterval(sendCameraFrame, 1000);
+                console.log('Camera initialized successfully');
             } catch (err) {
                 console.error('Camera error:', err);
-                addChatMessage('system', 'Camera access denied');
+                let msg = 'Camera unavailable';
+                if (err.name === 'NotAllowedError') {
+                    msg = 'Camera access denied - please allow camera in browser settings';
+                } else if (err.name === 'NotFoundError') {
+                    msg = 'No camera detected - connect a camera and refresh';
+                } else if (err.name === 'NotReadableError') {
+                    msg = 'Camera in use by another app - close other apps and refresh';
+                }
+                addChatMessage('system', msg);
             }
         }
 

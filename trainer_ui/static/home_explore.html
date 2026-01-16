@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home Explore - 3D Navigation Trainer</title>
+    <title>Home Explore - ContinuonXR</title>
+    <link rel="stylesheet" href="/static/shared-nav.css">
+    <script src="/static/shared-nav.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -74,7 +76,7 @@
             grid-template-columns: 1fr 350px;
             gap: 1rem;
             padding: 1rem;
-            height: calc(100vh - 70px);
+            height: calc(100vh - 100px);
         }
 
         .world-section {
@@ -332,31 +334,26 @@
     </style>
 </head>
 <body>
-    <header class="header">
-        <div>
-            <h1>Home Explore <span>3D Navigation Trainer</span></h1>
+    <!-- Status bar -->
+    <div class="status-bar" style="background:#12122a;padding:0.5rem 1.5rem;border-bottom:1px solid #1a1a3a;">
+        <div class="status-item">
+            <div class="status-dot" id="connection-status"></div>
+            <span id="connection-text">Connecting...</span>
         </div>
-        <div class="status-bar">
-            <div class="status-item">
-                <div class="status-dot" id="connection-status"></div>
-                <span id="connection-text">Connecting...</span>
-            </div>
-            <div class="status-item">
-                <div class="status-dot" id="recording-status"></div>
-                <span id="recording-text">Not Recording</span>
-            </div>
-            <a href="/" class="back-link">&larr; Back to Trainer</a>
+        <div class="status-item">
+            <div class="status-dot" id="recording-status"></div>
+            <span id="recording-text">Not Recording</span>
         </div>
-    </header>
+    </div>
 
     <main class="main">
         <div class="world-section">
             <div class="world-render">
                 <div class="world-header">
-                    <h3>World View</h3>
-                    <span id="level-name" style="color:#4ade80;">No level loaded</span>
+                    <h3>3D World</h3>
+                    <span id="level-name" style="color:#4ade80;">Initializing...</span>
                 </div>
-                <div class="world-canvas" id="world-canvas">Loading...</div>
+                <div class="world-canvas" id="world-canvas">Connecting to simulator...</div>
             </div>
             <div class="controls-section">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -377,7 +374,7 @@
                     </div>
                     <div class="action-buttons" style="flex-direction:column;">
                         <button class="action-btn primary" onclick="resetLevel()">Reset Level</button>
-                        <button class="action-btn record" id="record-btn" onclick="toggleRecording()">Start Recording</button>
+                        <button class="action-btn record" id="record-btn" onclick="toggleRecording()">Stop Recording</button>
                         <button class="action-btn secondary" onclick="getPrediction()">Predict Next</button>
                     </div>
                 </div>
@@ -437,42 +434,42 @@
             </div>
 
             <div class="panel">
-                <h3>AI Prediction</h3>
+                <h3>Brain A Prediction</h3>
                 <div class="prediction-panel" id="prediction-panel">
-                    <div class="prediction-action" id="pred-action">-</div>
-                    <div class="prediction-confidence" id="pred-confidence">Request prediction</div>
+                    <div class="prediction-action" id="pred-action">—</div>
+                    <div class="prediction-confidence" id="pred-confidence">Click "Predict Next" to see suggestion</div>
                 </div>
-                <button class="action-btn secondary" onclick="executePrediction()" style="margin-top:0.5rem;width:100%;">Execute Predicted Action</button>
+                <button class="action-btn secondary" onclick="executePrediction()" style="margin-top:0.5rem;width:100%;">Run Predicted Action</button>
             </div>
 
             <div class="panel">
-                <h3>Training</h3>
+                <h3>Brain A Training</h3>
                 <div class="robot-info">
                     <div class="info-row">
-                        <span class="info-label">Episodes</span>
+                        <span class="info-label">Recorded Episodes</span>
                         <span class="info-value" id="train-episodes">0</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Total Steps</span>
+                        <span class="info-label">Total Actions</span>
                         <span class="info-value" id="train-steps">0</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Model</span>
-                        <span class="info-value" id="train-model-status">Not loaded</span>
+                        <span class="info-label">Model Status</span>
+                        <span class="info-value" id="train-model-status">Not trained</span>
                     </div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.75rem;">
-                    <button class="action-btn secondary" onclick="generateTrainingData()" id="btn-generate">Generate Data (10 eps)</button>
-                    <button class="action-btn primary" onclick="trainModel()" id="btn-train">Train Model</button>
-                    <button class="action-btn secondary" onclick="refreshTrainingStatus()">Refresh Status</button>
+                    <button class="action-btn secondary" onclick="generateTrainingData()" id="btn-generate">Generate 10 Episodes</button>
+                    <button class="action-btn primary" onclick="trainModel()" id="btn-train">Train Brain A</button>
+                    <button class="action-btn secondary" onclick="refreshTrainingStatus()">Refresh</button>
                 </div>
                 <div id="training-status" style="margin-top:0.5rem;font-size:0.8rem;color:#888;"></div>
             </div>
 
             <div class="panel">
-                <h3>Action Log</h3>
+                <h3>Activity</h3>
                 <div class="message-log" id="message-log">
-                    <div class="message info">Ready to explore...</div>
+                    <div class="message info">Use WASD keys or click arrows to navigate</div>
                 </div>
             </div>
         </div>
@@ -505,7 +502,11 @@
                 document.getElementById('connection-status').classList.add('connected');
                 document.getElementById('connection-text').textContent = 'Connected';
                 send({ type: 'home_init' });
-                setTimeout(() => send({ type: 'home_training_status' }), 200);
+                // Request render and training status after init
+                setTimeout(() => {
+                    send({ type: 'home_render' });
+                    send({ type: 'home_training_status' });
+                }, 300);
             };
 
             ws.onclose = () => {
@@ -522,13 +523,18 @@
 
         function send(data) {
             if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('[HomeScan] Sending:', data.type, data);
                 ws.send(JSON.stringify(data));
+            } else {
+                console.warn('[HomeScan] WebSocket not ready, cannot send:', data.type);
             }
         }
 
         function handleMessage(data) {
+            console.log('[HomeScan] Received:', data.type, data);
             switch (data.type) {
                 case 'home_scan_state':
+                    console.log('[HomeScan] State received, active:', data.state?.active);
                     if (data.state) {
                         homeScanState = data.state;
                         updateUI();
@@ -536,6 +542,11 @@
                     if (data.levels) {
                         availableLevels = data.levels;
                         buildLevelSelect();
+                    }
+                    // Request render immediately when state is received
+                    if (data.state?.active) {
+                        console.log('[HomeScan] Requesting render...');
+                        send({ type: 'home_render' });
                     }
                     break;
 
@@ -553,9 +564,12 @@
                         homeScanState = data.state;
                         updateUI();
                     }
+                    // Also request render on updates
+                    send({ type: 'home_render' });
                     break;
 
                 case 'home_scan_render':
+                    console.log('[HomeScan] Render received:', data.render?.substring(0, 50) + '...');
                     document.getElementById('world-canvas').textContent = data.render || 'No render available';
                     break;
 
@@ -676,10 +690,10 @@
             if (lastPrediction) {
                 actionEl.textContent = lastPrediction.action.toUpperCase();
                 const conf = Math.round(lastPrediction.confidence * 100);
-                confEl.textContent = `Confidence: ${conf}%`;
+                confEl.textContent = `${conf}% confident`;
             } else {
-                actionEl.textContent = '-';
-                confEl.textContent = 'No prediction available';
+                actionEl.textContent = '—';
+                confEl.textContent = 'Train Brain A first, then click Predict Next';
             }
         }
 
@@ -803,10 +817,20 @@
         function updateTrainingStatus(data) {
             document.getElementById('train-episodes').textContent = data.episodes || 0;
             document.getElementById('train-steps').textContent = data.total_steps || 0;
-            document.getElementById('train-model-status').textContent =
-                data.predictor_ready ? 'Ready' : (data.model_exists ? 'Not loaded' : 'Not trained');
-            document.getElementById('train-model-status').style.color =
-                data.predictor_ready ? '#4ade80' : '#fbbf24';
+            const statusEl = document.getElementById('train-model-status');
+            if (data.predictor_ready) {
+                statusEl.textContent = 'Ready';
+                statusEl.style.color = '#4ade80';
+            } else if (data.model_exists) {
+                statusEl.textContent = 'Trained (loading...)';
+                statusEl.style.color = '#fbbf24';
+            } else if (data.episodes > 0) {
+                statusEl.textContent = 'Data ready, click Train';
+                statusEl.style.color = '#fbbf24';
+            } else {
+                statusEl.textContent = 'Generate data first';
+                statusEl.style.color = '#888';
+            }
         }
 
         function initControls() {
