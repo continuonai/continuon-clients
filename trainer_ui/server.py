@@ -43,6 +43,15 @@ except ImportError:
     HAS_BRAIN_B = False
     print("Brain B integration not available")
 
+# Auto-trainer for retraining models
+try:
+    sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b"))
+    from trainer.auto_trainer import AutoTrainer, TrainingConfig, get_auto_trainer
+    HAS_AUTO_TRAINER = True
+except ImportError:
+    HAS_AUTO_TRAINER = False
+    print("Auto-trainer not available")
+
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.staticfiles import StaticFiles
@@ -1066,6 +1075,75 @@ async def get_suggestions(count: int = 3):
         "status": "ok",
         "suggestions": suggestions,
     }
+
+
+# ============================================================================
+# Training Dashboard API
+# ============================================================================
+
+@app.get("/training/status")
+async def training_status():
+    """Get current training status and metrics."""
+    if not HAS_AUTO_TRAINER:
+        return {"error": "Auto-trainer not available", "status": None}
+
+    trainer = get_auto_trainer(TrainingConfig(
+        episodes_dir=str(Path(__file__).parent.parent / "continuonbrain" / "rlds" / "episodes"),
+        models_dir=str(Path(__file__).parent.parent / "brain_b" / "brain_b_data" / "models"),
+    ))
+    return {
+        "status": "ok",
+        "training": trainer.get_status(),
+    }
+
+
+@app.get("/training/history")
+async def training_history():
+    """Get training history (loss/accuracy over epochs)."""
+    if not HAS_AUTO_TRAINER:
+        return {"error": "Auto-trainer not available", "history": []}
+
+    trainer = get_auto_trainer()
+    return {
+        "status": "ok",
+        "history": trainer.get_training_history(),
+    }
+
+
+@app.get("/training/model")
+async def training_model():
+    """Get information about the current model."""
+    if not HAS_AUTO_TRAINER:
+        return {"error": "Auto-trainer not available", "model": None}
+
+    trainer = get_auto_trainer()
+    return {
+        "status": "ok",
+        "model": trainer.get_model_info(),
+    }
+
+
+@app.post("/training/retrain")
+async def trigger_retrain(force: bool = False):
+    """
+    Trigger model retraining.
+
+    Args:
+        force: If True, train even if not enough new episodes
+
+    Returns:
+        Status of the retrain request
+    """
+    if not HAS_AUTO_TRAINER:
+        return {"error": "Auto-trainer not available", "result": None}
+
+    trainer = get_auto_trainer()
+    result = trainer.trigger_retrain(force=force)
+    return {
+        "status": "ok",
+        "result": result,
+    }
+
 
 # ============================================================================
 # Main

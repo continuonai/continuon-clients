@@ -1,12 +1,94 @@
 ---
 active: true
-iteration: 5
+iteration: 6
 max_iterations: 0
 completion_promise: null
 started_at: "2026-01-16T06:01:18Z"
 ---
 
 # Ralph Loop Progress
+
+## Iteration 6: Auto-Training Dashboard - COMPLETE
+
+### Tasks Completed
+
+1. **Created Auto-Trainer Service** ✅
+   - New file: `brain_b/trainer/auto_trainer.py`
+   - `AutoTrainer` class monitors episodes and triggers retraining
+   - Background thread for non-blocking training
+   - Tracks model versioning and training history
+
+2. **Added Training Dashboard API** ✅
+   - `GET /training/status` - Current training status
+   - `GET /training/history` - Training loss/accuracy history
+   - `GET /training/model` - Model information
+   - `POST /training/retrain` - Trigger manual retrain
+
+3. **Auto-Retrain Capability** ✅
+   - Monitors episode count vs trained count
+   - Triggers retrain when threshold reached (default: 5 new episodes)
+   - Saves model version and training status
+
+### API Endpoints
+
+```bash
+# Get training status
+curl http://localhost:8000/training/status
+
+# Get training history
+curl http://localhost:8000/training/history
+
+# Get model info
+curl http://localhost:8000/training/model
+
+# Trigger retrain
+curl -X POST "http://localhost:8000/training/retrain?force=true"
+```
+
+### Auto-Retrain Test Results
+
+```
+=== Triggering Retrain ===
+[AutoTrainer] Starting training...
+[AutoTrainer] Episodes: 9
+[AutoTrainer] Loaded 9 episodes, 83 samples
+
+Tool distribution:
+  Bash: 57
+  Write: 16
+  Edit: 10
+
+Epoch 1/5: loss=1.9443, acc=50.60%
+Epoch 5/5: loss=0.6501, acc=81.93%
+
+[AutoTrainer] Training complete!
+[AutoTrainer] Accuracy: 81.93%
+```
+
+### Files Created/Modified
+
+| File | Purpose |
+|------|---------|
+| `brain_b/trainer/auto_trainer.py` | Auto-training service |
+| `trainer_ui/server.py` | Training dashboard API endpoints |
+
+### Training Pipeline (Complete)
+
+```
+Record Episodes → RLDS Storage → Auto-Trainer Monitors
+                                        ↓
+                          Threshold Reached (5+ new)
+                                        ↓
+                              Trigger Retrain
+                                        ↓
+                          Train Model (background)
+                                        ↓
+                          Update Model + Version
+                                        ↓
+                          Predictor Uses New Model
+```
+
+---
 
 ## Iteration 5: Inference Integration - COMPLETE
 
