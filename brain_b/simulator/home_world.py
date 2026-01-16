@@ -1118,21 +1118,19 @@ def create_from_scan(scan_data: Dict) -> "HomeWorld":
 
     # Create world
     world = HomeWorld(
-        level_id="scanned_room",
         width=width,
         depth=depth,
         height=height,
-        goal_description=f"Explore scanned {room_type.value} and learn the layout",
     )
+    world.level_id = "scanned_room"
+    world.goal_description = f"Explore scanned {room_type.value} and learn the layout"
 
     # Create the scanned room
     room = Room(
         room_type=room_type,
-        bounds=(0, 0, 0, width, depth, height),
-        floor_level=0,
-        name=f"Scanned {room_type.value.replace('_', ' ').title()}"
+        bounds=(Position3D(0, 0, 0), Position3D(width, depth, height)),
     )
-    world.add_room(room)
+    world.add_room("main_room", room)
 
     # Add walls around the perimeter
     for x in range(width):
@@ -1205,7 +1203,7 @@ def create_from_scan(scan_data: Dict) -> "HomeWorld":
     }
 
     # Set robot start position (center of room)
-    world.robot_position = Position3D(width // 2, depth // 2, 0)
+    world.robot.position = Position3D(width // 2, depth // 2, 0)
     world.goal_position = Position3D(width - 2, depth - 2, 0)
 
     return world
