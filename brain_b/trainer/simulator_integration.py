@@ -18,16 +18,27 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any, Callable
 
 
+def _get_default_paths():
+    """Get default paths based on module location."""
+    brain_b_dir = Path(__file__).parent.parent
+    return {
+        "home_episodes": str(brain_b_dir / "brain_b_data" / "home_rlds_episodes"),
+        "claude_episodes": str(brain_b_dir.parent / "continuonbrain" / "rlds" / "episodes"),
+        "nav_models": str(brain_b_dir / "brain_b_data" / "home_models"),
+        "tool_models": str(brain_b_dir / "brain_b_data" / "models"),
+    }
+
+
 @dataclass
 class SimulatorTrainingConfig:
     """Configuration for simulator-based training."""
-    # Episode sources
-    home_episodes_dir: str = "./brain_b_data/home_rlds_episodes"
-    claude_episodes_dir: str = "../continuonbrain/rlds/episodes"
+    # Episode sources (use absolute paths based on module location)
+    home_episodes_dir: str = ""
+    claude_episodes_dir: str = ""
 
     # Model outputs
-    navigation_model_dir: str = "./brain_b_data/home_models"
-    tool_model_dir: str = "./brain_b_data/models"
+    navigation_model_dir: str = ""
+    tool_model_dir: str = ""
 
     # Training parameters
     navigation_epochs: int = 10
@@ -37,6 +48,18 @@ class SimulatorTrainingConfig:
     # Auto-training thresholds
     min_episodes_for_nav_train: int = 3
     min_episodes_for_tool_train: int = 5
+
+    def __post_init__(self):
+        """Fill in default paths if not provided."""
+        defaults = _get_default_paths()
+        if not self.home_episodes_dir:
+            self.home_episodes_dir = defaults["home_episodes"]
+        if not self.claude_episodes_dir:
+            self.claude_episodes_dir = defaults["claude_episodes"]
+        if not self.navigation_model_dir:
+            self.navigation_model_dir = defaults["nav_models"]
+        if not self.tool_model_dir:
+            self.tool_model_dir = defaults["tool_models"]
 
 
 @dataclass
