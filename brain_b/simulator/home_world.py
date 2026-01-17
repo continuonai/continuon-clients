@@ -1143,7 +1143,8 @@ def create_from_scan(scan_data: Dict) -> "HomeWorld":
     # Add detected objects from scan
     detected_objects = scan_data.get("objects", [])
     for obj in detected_objects:
-        obj_type_str = obj.get("type", "").lower()
+        # Support both "type" and "object_type" fields for compatibility
+        obj_type_str = (obj.get("type") or obj.get("object_type") or "").lower()
         obj_pos = obj.get("position", {})
 
         # Map common object names to ObjectType

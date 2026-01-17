@@ -2373,11 +2373,30 @@
                     depth: parseFloat(document.getElementById('room-depth')?.textContent) || 5.0
                 },
                 room_type: "living_room",  // Could be detected from objects
-                objects: lastScanResult?.detected_objects?.map(obj => ({
-                    type: obj.label || obj.type || "unknown",
-                    position: obj.position || { x: 2, y: 2, z: 0 },
-                    confidence: obj.confidence || 0.5
-                })) || [],
+                // Use generated_assets for proper 3D positions, fallback to detected_objects
+                objects: (lastScanResult?.generated_assets || [])
+                    .filter(asset => asset.asset_type !== 'floor' && asset.asset_type !== 'wall')
+                    .map(asset => ({
+                        type: asset.asset_type || "furniture",
+                        position: asset.position || { x: 2, y: 2, z: 0 },
+                        confidence: asset.metadata?.confidence || 0.5
+                    }))
+                    .concat(
+                        // Also include detected_objects with proper field mapping
+                        (lastScanResult?.detected_objects || [])
+                            .filter(obj => obj.object_type !== 'floor' && obj.object_type !== 'wall')
+                            .slice(0, 10)  // Limit to avoid overcrowding
+                            .map(obj => ({
+                                type: obj.object_type || "furniture",
+                                // Convert image center to approximate world position
+                                position: {
+                                    x: ((obj.center?.[0] || 320) / 640 - 0.5) * 5,
+                                    y: ((obj.center?.[1] || 240) / 480 - 0.5) * 5,
+                                    z: 0
+                                },
+                                confidence: obj.confidence || 0.5
+                            }))
+                    ),
                 coverage: { ...roomCoverage },
                 captured_images: capturedImages.length,
                 scan_complete: scanComplete
