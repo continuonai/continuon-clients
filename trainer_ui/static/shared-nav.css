@@ -1,0 +1,156 @@
+/* Shared Navigation Bar Styles for ContinuonXR */
+
+.continuon-nav {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    padding: 0;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.continuon-nav-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+}
+
+.continuon-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+}
+
+.continuon-logo {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.continuon-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+}
+
+.continuon-title span {
+    color: #6366f1;
+}
+
+.continuon-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.continuon-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.continuon-nav-link:hover {
+    color: #fff;
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.continuon-nav-link.active {
+    color: #fff;
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.continuon-nav-link .icon {
+    font-size: 1.1rem;
+}
+
+.continuon-nav-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(148, 163, 184, 0.2);
+    margin: 0 0.5rem;
+}
+
+/* Status indicator */
+.continuon-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-left: 1rem;
+    border-left: 1px solid rgba(148, 163, 184, 0.2);
+    margin-left: 0.5rem;
+}
+
+.continuon-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: pulse 2s infinite;
+}
+
+.continuon-status-dot.connected {
+    background: #22c55e;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.continuon-status-text {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+/* Mobile responsive */
+@media (max-width: 1024px) {
+    .continuon-nav-inner {
+        padding: 0 1rem;
+    }
+
+    .continuon-nav-link {
+        padding: 0.5rem 0.75rem;
+    }
+
+    .continuon-nav-link .link-text {
+        display: none;
+    }
+
+    .continuon-nav-link .icon {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .continuon-nav-links {
+        gap: 0;
+    }
+
+    .continuon-nav-divider {
+        display: none;
+    }
+
+    .continuon-title span {
+        display: none;
+    }
+}

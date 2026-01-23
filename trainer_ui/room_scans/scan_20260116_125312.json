@@ -1,0 +1,103 @@
+{
+  "scan_id": "scan_20260116_125312",
+  "timestamp": "2026-01-16T12:53:12.278568",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 5.0,
+    "height": 3.0,
+    "depth": 5.0
+  },
+  "processing_time_ms": 13.91291618347168,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10
+  },
+  "detected_objects": [
+    {
+      "object_type": "wall",
+      "confidence": 0.007698567708333333,
+      "bounding_box": [
+        623,
+        608,
+        28,
+        47
+      ],
+      "center": [
+        637,
+        631
+      ],
+      "area": 709.5,
+      "color_rgb": [
+        162,
+        165,
+        166
+      ],
+      "estimated_depth": 0.15555555555555556
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.1,
+        "depth": 5.0
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -2.5
+      },
+      "size": {
+        "width": 5.0,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_wall",
+      "asset_type": "wall",
+      "position": {
+        "x": -0.023437499999999778,
+        "y": 1.25,
+        "z": 3.763888888888889
+      },
+      "size": {
+        "width": 0.1,
+        "height": 1.25,
+        "depth": 1.5
+      },
+      "rotation": 5.614215941691898,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.007698567708333333,
+        "original_color": [
+          162,
+          165,
+          166
+        ],
+        "depth": 0.15555555555555556
+      }
+    }
+  ]
+}

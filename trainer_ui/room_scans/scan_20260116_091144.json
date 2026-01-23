@@ -1,0 +1,268 @@
+{
+  "scan_id": "scan_20260116_091144",
+  "timestamp": "2026-01-16T09:11:44.988211",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 10.6640625,
+    "height": 3.0,
+    "depth": 8.90625
+  },
+  "processing_time_ms": 19.69599723815918,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10.0
+  },
+  "detected_objects": [
+    {
+      "object_type": "furniture",
+      "confidence": 0.03131510416666666,
+      "bounding_box": [
+        230,
+        163,
+        163,
+        137
+      ],
+      "center": [
+        311,
+        231
+      ],
+      "area": 962.0,
+      "color_rgb": [
+        128,
+        119,
+        113
+      ],
+      "estimated_depth": 0.6604166666666667
+    },
+    {
+      "object_type": "furniture",
+      "confidence": 0.029703776041666664,
+      "bounding_box": [
+        226,
+        80,
+        108,
+        90
+      ],
+      "center": [
+        280,
+        125
+      ],
+      "area": 912.5,
+      "color_rgb": [
+        167,
+        149,
+        138
+      ],
+      "estimated_depth": 0.8333333333333334
+    },
+    {
+      "object_type": "furniture",
+      "confidence": 0.022965494791666666,
+      "bounding_box": [
+        116,
+        15,
+        71,
+        152
+      ],
+      "center": [
+        151,
+        91
+      ],
+      "area": 705.5,
+      "color_rgb": [
+        179,
+        157,
+        135
+      ],
+      "estimated_depth": 0.96875
+    },
+    {
+      "object_type": "couch",
+      "confidence": 0.017513020833333334,
+      "bounding_box": [
+        548,
+        143,
+        23,
+        33
+      ],
+      "center": [
+        559,
+        159
+      ],
+      "area": 538.0,
+      "color_rgb": [
+        91,
+        107,
+        133
+      ],
+      "estimated_depth": 0.7020833333333334
+    },
+    {
+      "object_type": "furniture",
+      "confidence": 0.017106119791666666,
+      "bounding_box": [
+        134,
+        100,
+        16,
+        69
+      ],
+      "center": [
+        142,
+        134
+      ],
+      "area": 525.5,
+      "color_rgb": [
+        153,
+        126,
+        107
+      ],
+      "estimated_depth": 0.7916666666666666
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 10.6640625,
+        "height": 0.1,
+        "depth": 8.90625
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -4.453125
+      },
+      "size": {
+        "width": 10.6640625,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_furniture",
+      "asset_type": "furniture",
+      "position": {
+        "x": -0.14062499999999978,
+        "y": 0.4,
+        "z": -0.1874999999999999
+      },
+      "size": {
+        "width": 0.75,
+        "height": 0.4,
+        "depth": 0.5
+      },
+      "rotation": 2.1688462579737333,
+      "color": 8412480,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.03131510416666666,
+        "original_color": [
+          128,
+          119,
+          113
+        ],
+        "depth": 0.6604166666666667
+      }
+    },
+    {
+      "asset_id": "asset_1_furniture",
+      "asset_type": "furniture",
+      "position": {
+        "x": -0.625,
+        "y": 0.4,
+        "z": -2.395833333333333
+      },
+      "size": {
+        "width": 0.75,
+        "height": 0.4,
+        "depth": 0.5
+      },
+      "rotation": 4.51683839910332,
+      "color": 8412480,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.029703776041666664,
+        "original_color": [
+          167,
+          149,
+          138
+        ],
+        "depth": 0.8333333333333334
+      }
+    },
+    {
+      "asset_id": "asset_2_furniture",
+      "asset_type": "furniture",
+      "position": {
+        "x": -2.640625,
+        "y": 0.4,
+        "z": -3.104166666666667
+      },
+      "size": {
+        "width": 0.75,
+        "height": 0.4,
+        "depth": 0.5
+      },
+      "rotation": 2.3268874398244233,
+      "color": 8412480,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.022965494791666666,
+        "original_color": [
+          179,
+          157,
+          135
+        ],
+        "depth": 0.96875
+      }
+    },
+    {
+      "asset_id": "asset_3_couch",
+      "asset_type": "couch",
+      "position": {
+        "x": 3.734375,
+        "y": 0.425,
+        "z": -1.6875
+      },
+      "size": {
+        "width": 1.0,
+        "height": 0.425,
+        "depth": 0.45
+      },
+      "rotation": 0.08570174648236611,
+      "color": 4878245,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.017513020833333334,
+        "original_color": [
+          91,
+          107,
+          133
+        ],
+        "depth": 0.7020833333333334
+      }
+    }
+  ]
+}

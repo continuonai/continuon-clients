@@ -1,0 +1,151 @@
+{
+  "scan_id": "scan_20260116_091056",
+  "timestamp": "2026-01-16T09:10:56.623132",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 5.0,
+    "height": 3.0,
+    "depth": 9.34375
+  },
+  "processing_time_ms": 10.72382926940918,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10.0
+  },
+  "detected_objects": [
+    {
+      "object_type": "wall",
+      "confidence": 0.91962890625,
+      "bounding_box": [
+        352,
+        52,
+        196,
+        146
+      ],
+      "center": [
+        450,
+        125
+      ],
+      "area": 28251.0,
+      "color_rgb": [
+        253,
+        253,
+        253
+      ],
+      "estimated_depth": 0.8916666666666666
+    },
+    {
+      "object_type": "wall",
+      "confidence": 0.26456705729166663,
+      "bounding_box": [
+        425,
+        202,
+        76,
+        149
+      ],
+      "center": [
+        463,
+        276
+      ],
+      "area": 8127.5,
+      "color_rgb": [
+        185,
+        171,
+        163
+      ],
+      "estimated_depth": 0.5791666666666666
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.1,
+        "depth": 9.34375
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -4.671875
+      },
+      "size": {
+        "width": 5.0,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_wall",
+      "asset_type": "wall",
+      "position": {
+        "x": 2.03125,
+        "y": 1.25,
+        "z": -2.395833333333333
+      },
+      "size": {
+        "width": 0.3361606758679545,
+        "height": 4.2020084483494315,
+        "depth": 5.042410138019317
+      },
+      "rotation": 0.1413482305516611,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.91962890625,
+        "original_color": [
+          253,
+          253,
+          253
+        ],
+        "depth": 0.8916666666666666
+      }
+    },
+    {
+      "asset_id": "asset_1_wall",
+      "asset_type": "wall",
+      "position": {
+        "x": 2.2343749999999996,
+        "y": 1.25,
+        "z": 0.7499999999999996
+      },
+      "size": {
+        "width": 0.1803052966498766,
+        "height": 2.2538162081234576,
+        "depth": 2.704579449748149
+      },
+      "rotation": 3.576716158754234,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.26456705729166663,
+        "original_color": [
+          185,
+          171,
+          163
+        ],
+        "depth": 0.5791666666666666
+      }
+    }
+  ]
+}

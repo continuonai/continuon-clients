@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PostToolUse Hook - Record actions for Brain A training
+PostToolUse Hook - Record actions for ContinuonBrain training
 
 This hook runs after each tool completes and:
 1. Records the action and outcome

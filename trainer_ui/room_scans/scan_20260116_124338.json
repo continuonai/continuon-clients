@@ -1,0 +1,103 @@
+{
+  "scan_id": "scan_20260116_124338",
+  "timestamp": "2026-01-16T12:43:38.213640",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 5.0,
+    "height": 3.0,
+    "depth": 5.0
+  },
+  "processing_time_ms": 25.355100631713867,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10
+  },
+  "detected_objects": [
+    {
+      "object_type": "wall",
+      "confidence": 0.007579210069444444,
+      "bounding_box": [
+        623,
+        605,
+        28,
+        48
+      ],
+      "center": [
+        637,
+        629
+      ],
+      "area": 698.5,
+      "color_rgb": [
+        155,
+        156,
+        154
+      ],
+      "estimated_depth": 0.1597222222222222
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.1,
+        "depth": 5.0
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -2.5
+      },
+      "size": {
+        "width": 5.0,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_wall",
+      "asset_type": "wall",
+      "position": {
+        "x": -0.023437499999999778,
+        "y": 1.25,
+        "z": 3.736111111111111
+      },
+      "size": {
+        "width": 0.1,
+        "height": 1.25,
+        "depth": 1.5
+      },
+      "rotation": 3.3015630691885196,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.007579210069444444,
+        "original_color": [
+          155,
+          156,
+          154
+        ],
+        "depth": 0.1597222222222222
+      }
+    }
+  ]
+}

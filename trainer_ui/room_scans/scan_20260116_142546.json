@@ -1,0 +1,103 @@
+{
+  "scan_id": "scan_20260116_142546",
+  "timestamp": "2026-01-16T14:25:46.228321",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 5.0,
+    "height": 3.0,
+    "depth": 5.0
+  },
+  "processing_time_ms": 28.95331382751465,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10
+  },
+  "detected_objects": [
+    {
+      "object_type": "table",
+      "confidence": 0.002707248263888889,
+      "bounding_box": [
+        1080,
+        585,
+        60,
+        20
+      ],
+      "center": [
+        1110,
+        595
+      ],
+      "area": 249.5,
+      "color_rgb": [
+        63,
+        66,
+        63
+      ],
+      "estimated_depth": 0.1875
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.1,
+        "depth": 5.0
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -2.5
+      },
+      "size": {
+        "width": 5.0,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_table",
+      "asset_type": "table",
+      "position": {
+        "x": 3.671875,
+        "y": 0.375,
+        "z": 3.2638888888888884
+      },
+      "size": {
+        "width": 0.6,
+        "height": 0.375,
+        "depth": 0.4
+      },
+      "rotation": 1.8216986032696643,
+      "color": 9127187,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.002707248263888889,
+        "original_color": [
+          63,
+          66,
+          63
+        ],
+        "depth": 0.1875
+      }
+    }
+  ]
+}

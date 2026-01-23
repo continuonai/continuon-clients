@@ -1,0 +1,199 @@
+{
+  "scan_id": "scan_20260116_091128",
+  "timestamp": "2026-01-16T09:11:28.067209",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 15.0,
+    "height": 3.0,
+    "depth": 12.5625
+  },
+  "processing_time_ms": 18.430233001708984,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10.0
+  },
+  "detected_objects": [
+    {
+      "object_type": "furniture",
+      "confidence": 0.3406575520833333,
+      "bounding_box": [
+        558,
+        78,
+        65,
+        165
+      ],
+      "center": [
+        590,
+        160
+      ],
+      "area": 10465.0,
+      "color_rgb": [
+        136,
+        101,
+        73
+      ],
+      "estimated_depth": 0.8375
+    },
+    {
+      "object_type": "furniture",
+      "confidence": 0.14080403645833334,
+      "bounding_box": [
+        0,
+        83,
+        640,
+        397
+      ],
+      "center": [
+        320,
+        281
+      ],
+      "area": 4325.5,
+      "color_rgb": [
+        179,
+        155,
+        138
+      ],
+      "estimated_depth": 0.8270833333333334
+    },
+    {
+      "object_type": "furniture",
+      "confidence": 0.0234375,
+      "bounding_box": [
+        295,
+        342,
+        111,
+        138
+      ],
+      "center": [
+        350,
+        411
+      ],
+      "area": 720.0,
+      "color_rgb": [
+        159,
+        104,
+        76
+      ],
+      "estimated_depth": 0.2875
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 15.0,
+        "height": 0.1,
+        "depth": 12.5625
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -6.28125
+      },
+      "size": {
+        "width": 15.0,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_furniture",
+      "asset_type": "furniture",
+      "position": {
+        "x": 4.21875,
+        "y": 0.4,
+        "z": -1.666666666666667
+      },
+      "size": {
+        "width": 1.5344787388556416,
+        "height": 0.8183886607230089,
+        "depth": 1.022985825903761
+      },
+      "rotation": 3.6183449921891975,
+      "color": 8412480,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.3406575520833333,
+        "original_color": [
+          136,
+          101,
+          73
+        ],
+        "depth": 0.8375
+      }
+    },
+    {
+      "asset_id": "asset_1_furniture",
+      "asset_type": "furniture",
+      "position": {
+        "x": 0.0,
+        "y": 0.4,
+        "z": 0.854166666666667
+      },
+      "size": {
+        "width": 0.9865280026436147,
+        "height": 0.5261482680765945,
+        "depth": 0.6576853350957431
+      },
+      "rotation": 0.13046115789404147,
+      "color": 8412480,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.14080403645833334,
+        "original_color": [
+          179,
+          155,
+          138
+        ],
+        "depth": 0.8270833333333334
+      }
+    },
+    {
+      "asset_id": "asset_2_furniture",
+      "asset_type": "furniture",
+      "position": {
+        "x": 0.46875,
+        "y": 0.4,
+        "z": 3.5624999999999996
+      },
+      "size": {
+        "width": 0.75,
+        "height": 0.4,
+        "depth": 0.5
+      },
+      "rotation": 1.850141559694165,
+      "color": 8412480,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.0234375,
+        "original_color": [
+          159,
+          104,
+          76
+        ],
+        "depth": 0.2875
+      }
+    }
+  ]
+}

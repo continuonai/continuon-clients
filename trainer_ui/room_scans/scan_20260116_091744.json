@@ -1,0 +1,103 @@
+{
+  "scan_id": "scan_20260116_091744",
+  "timestamp": "2026-01-16T09:17:44.186069",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 11.109375,
+    "height": 3.0,
+    "depth": 7.781250000000001
+  },
+  "processing_time_ms": 25.013208389282227,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10.0
+  },
+  "detected_objects": [
+    {
+      "object_type": "furniture",
+      "confidence": 0.01376953125,
+      "bounding_box": [
+        91,
+        230,
+        474,
+        249
+      ],
+      "center": [
+        328,
+        354
+      ],
+      "area": 423.0,
+      "color_rgb": [
+        91,
+        91,
+        88
+      ],
+      "estimated_depth": 0.5208333333333333
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 11.109375,
+        "height": 0.1,
+        "depth": 7.781250000000001
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -3.8906250000000004
+      },
+      "size": {
+        "width": 11.109375,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_furniture",
+      "asset_type": "furniture",
+      "position": {
+        "x": 0.12499999999999956,
+        "y": 0.4,
+        "z": 2.3750000000000004
+      },
+      "size": {
+        "width": 0.75,
+        "height": 0.4,
+        "depth": 0.5
+      },
+      "rotation": 6.138603457853642,
+      "color": 8412480,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.01376953125,
+        "original_color": [
+          91,
+          91,
+          88
+        ],
+        "depth": 0.5208333333333333
+      }
+    }
+  ]
+}

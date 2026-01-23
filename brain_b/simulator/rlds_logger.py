@@ -367,8 +367,10 @@ class RLDSLogger:
         with open(metadata_path, "w") as f:
             json.dump(episode_data["metadata"], f, indent=2)
 
-        # Save steps.jsonl
-        steps_path = episode_dir / "steps.jsonl"
+        # Save steps/000000.jsonl (standard RLDS v2.0 format)
+        steps_dir = episode_dir / "steps"
+        steps_dir.mkdir(exist_ok=True)
+        steps_path = steps_dir / "000000.jsonl"
         with open(steps_path, "w") as f:
             for step in episode_data["steps"]:
                 f.write(json.dumps(step) + "\n")

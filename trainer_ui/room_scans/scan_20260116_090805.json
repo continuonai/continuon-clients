@@ -1,0 +1,151 @@
+{
+  "scan_id": "scan_20260116_090805",
+  "timestamp": "2026-01-16T09:08:05.728667",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 9.421875,
+    "height": 3.0,
+    "depth": 9.75
+  },
+  "processing_time_ms": 55.18674850463867,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10.0
+  },
+  "detected_objects": [
+    {
+      "object_type": "couch",
+      "confidence": 0.9249348958333334,
+      "bounding_box": [
+        149,
+        379,
+        352,
+        82
+      ],
+      "center": [
+        325,
+        420
+      ],
+      "area": 28414.0,
+      "color_rgb": [
+        73,
+        110,
+        161
+      ],
+      "estimated_depth": 0.2104166666666667
+    },
+    {
+      "object_type": "plant",
+      "confidence": 0.49609375,
+      "bounding_box": [
+        449,
+        149,
+        102,
+        152
+      ],
+      "center": [
+        500,
+        225
+      ],
+      "area": 15240.0,
+      "color_rgb": [
+        35,
+        140,
+        36
+      ],
+      "estimated_depth": 0.6895833333333333
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 9.421875,
+        "height": 0.1,
+        "depth": 9.75
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -4.875
+      },
+      "size": {
+        "width": 9.421875,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_couch",
+      "asset_type": "couch",
+      "position": {
+        "x": 0.078125,
+        "y": 0.425,
+        "z": 3.75
+      },
+      "size": {
+        "width": 3.371290554075694,
+        "height": 1.4327984854821698,
+        "depth": 1.5170807493340623
+      },
+      "rotation": 4.218297529951989,
+      "color": 4878245,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.9249348958333334,
+        "original_color": [
+          73,
+          110,
+          161
+        ],
+        "depth": 0.2104166666666667
+      }
+    },
+    {
+      "asset_id": "asset_1_plant",
+      "asset_type": "plant",
+      "position": {
+        "x": 2.8125,
+        "y": 0.4,
+        "z": -0.3125
+      },
+      "size": {
+        "width": 0.4938015795843509,
+        "height": 0.9876031591687018,
+        "depth": 0.4938015795843509
+      },
+      "rotation": 2.6315064771454773,
+      "color": 2263842,
+      "geometry": "cone",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.49609375,
+        "original_color": [
+          35,
+          140,
+          36
+        ],
+        "depth": 0.6895833333333333
+      }
+    }
+  ]
+}

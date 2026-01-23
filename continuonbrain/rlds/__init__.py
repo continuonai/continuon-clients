@@ -1,5 +1,21 @@
 """RLDS helpers for ContinuonBrain scaffolding."""
 
+# Schema v2.0 - unified RLDS format
+from .schema import (  # noqa: F401
+    SCHEMA_VERSION,
+    RLDSEpisodeWriter,
+    RLDSEpisodeReader,
+    Step,
+    Observation,
+    Action,
+    Context,
+    RobotState,
+    EpisodeMetadata,
+    create_tool_context,
+    create_tool_action,
+    create_navigation_action,
+)
+
 from .export_pipeline import (  # noqa: F401
     PiiAnonymizationConfig,
     ExportManifest,

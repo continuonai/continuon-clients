@@ -49,25 +49,57 @@ python -m continuonbrain.startup_manager
 # API at http://localhost:8080
 ```
 
+### Learning Partner (Autonomous Learning)
+
+The Learning Partner helps the robot continuously improve by understanding its capabilities and running training autonomously.
+
+```bash
+# Check brain health and learning phase
+python scripts/compound/learning_partner.py --status
+
+# See prioritized learning goals
+python scripts/compound/learning_partner.py --goals
+
+# Run one training cycle
+python scripts/compound/learning_partner.py --train
+
+# Run continuous learning daemon
+python scripts/compound/learning_partner.py --interval 600
+```
+
+Learning Phases:
+```
+OBSERVE → SIMULATE → TRAIN → TRANSFER → DEPLOY
+   ↑___________________________________________|
+```
+
+1. **OBSERVE**: Scan home environment → 3D training world
+2. **SIMULATE**: Generate training episodes in HomeScan
+3. **TRAIN**: Train Brain B and ContinuonBrain from episodes
+4. **TRANSFER**: Adapt simulation skills to real hardware
+5. **DEPLOY**: Run learned behaviors on robot
+
 ## Project Structure
 
 ```
 ContinuonXR/
-├── brain_b/                    # Simple teachable robot brain (Option B)
+├── brain_b/                    # Simple teachable robot brain
 │   ├── actor_runtime/          # Event-sourced agent model
 │   ├── conversation/           # Natural language interface
 │   ├── hardware/               # Motor/sensor abstraction
 │   ├── sandbox/                # Cowork-style isolation gates
 │   └── main.py                 # Entry point
 │
-├── trainer_ui/                 # Web UI for training Brain A
+├── trainer_ui/                 # Web UI for training ContinuonBrain
 │   ├── server.py               # FastAPI + WebSocket server
 │   ├── static/index.html       # Single-page UI
 │   └── face_db/                # Face recognition database
 │
-├── continuonbrain/             # Full HOPE brain (Option A)
+├── continuonbrain/             # Full HOPE brain (production)
 │   ├── hope_impl/              # HOPE architecture
-│   ├── ralph/                  # Context rotation layers
+│   ├── ralph/                  # Learning loops (fast/mid/slow)
+│   ├── mambawave/              # SSM + Spectral architecture (skill)
+│   ├── wavecore/               # Spectral foundation (genesis)
 │   ├── kernel/                 # Safety kernel
 │   └── services/               # Domain services
 │
@@ -78,6 +110,12 @@ ContinuonXR/
 │       ├── validate-robot-action.py   # PreToolUse validation
 │       ├── record-for-training.py     # PostToolUse recording
 │       └── export-rlds.py      # Stop hook - RLDS export
+│
+├── scripts/
+│   └── compound/               # Autonomous learning system
+│       ├── learning_partner.py # Main learning daemon
+│       ├── analyzer.py         # Codebase analyzer
+│       └── daemon.py           # Bug-fix daemon
 │
 ├── continuonai/                # Flutter companion app
 ├── apps/continuonxr/           # Android XR app
@@ -91,18 +129,75 @@ ContinuonXR/
 | Brain | Complexity | Use Case |
 |-------|------------|----------|
 | **Brain B** | ~500 LOC | Talk to robot, teach behaviors, fast iteration |
-| **Brain A** | ~50,000 LOC | Neural network, cloud training, production |
+| **ContinuonBrain** | ~50,000 LOC | Neural network, cloud training, production |
 
 ### Training Pipeline
 
 ```
-Brain B (simple) → generates RLDS episodes → trains Brain A (complex)
+Brain B (simple) → generates RLDS episodes → trains ContinuonBrain (complex)
 ```
 
 The Claude Code hooks in `.claude/` automatically:
 1. Validate robot actions through Brain B before execution
 2. Record outcomes for training
 3. Export sessions as RLDS episodes
+
+## ContinuonBrain Components
+
+ContinuonBrain is composed of integrated skills and components:
+
+### MambaWave (Skill)
+
+MambaWave is the core neural architecture - an evolution of WaveCore that combines:
+- **WaveCore spectral design**: FFT-based filtering with learnable complex filters
+- **Mamba SSM architecture**: Efficient state space model for sequences
+
+```python
+from continuonbrain.mambawave import MambaWaveModel, MambaWaveConfig, MambaWaveSkill
+
+# Three loop variants for different compute budgets
+fast_config = MambaWaveConfig.fast_loop()   # Real-time inference (64-dim, 1 layer)
+mid_config = MambaWaveConfig.mid_loop()     # Online learning (128-dim, 4 layers)
+slow_config = MambaWaveConfig.slow_loop()   # Batch training (256-dim, 8 layers)
+
+# Use as a skill
+skill = MambaWaveSkill()
+result = skill.execute("predict_world", joint_pos=[0.1, 0.2, 0.3], joint_delta=[0.01, 0, 0])
+```
+
+**MambaWave Structure:**
+```
+continuonbrain/mambawave/
+├── config.py           # Unified config (WaveCore + Mamba SSM params)
+├── skill.py            # Skill interface for ContinuonBrain
+├── world_model.py      # State prediction for planning
+├── layers/
+│   ├── ssm_spectral.py     # Core SSM + Spectral fusion
+│   └── mamba_wave_block.py # Full block with optional attention
+└── models/
+    └── mambawave_model.py  # Full sequence model
+```
+
+### Ralph (Component)
+
+Ralph provides learning loops that help the agent learn through context rotation:
+- **Fast Loop**: Real-time inference
+- **Mid Loop**: Online learning with context
+- **Slow Loop**: Batch training and consolidation
+
+```python
+from continuonbrain.ralph import MetaRalph
+
+ralph = MetaRalph()
+# Ralph orchestrates fast/mid/slow loops
+```
+
+### WaveCore (Genesis)
+
+WaveCore is the foundational spectral architecture that MambaWave evolved from:
+- FFT-based spectral blocks
+- Hybrid attention + spectral blocks
+- Training utilities
 
 ## Claude Code Hooks
 
@@ -111,7 +206,7 @@ When you start a session in this repo, the hooks:
 1. **SessionStart** - Initializes Brain B state, loads guardrails
 2. **PreToolUse** - Validates `robot*`, `motor*` commands against safety rules
 3. **PostToolUse** - Records actions, auto-generates guardrails from failures
-4. **Stop** - Exports session as RLDS episode for Brain A training
+4. **Stop** - Exports session as RLDS episode for ContinuonBrain training
 
 ## Key Commands
 
@@ -152,6 +247,20 @@ python -m continuonbrain.trainer.local_lora_trainer \
   --episodes ./continuonbrain/rlds/episodes/
 ```
 
+### MambaWave
+
+```bash
+# Test MambaWave
+python -c "from continuonbrain.mambawave import MambaWaveModel, MambaWaveConfig; print('OK')"
+
+# Create and test model
+python -c "
+from continuonbrain.mambawave import MambaWaveModel, MambaWaveConfig
+model = MambaWaveModel(MambaWaveConfig.fast_loop())
+print(f'Parameters: {model.count_parameters():,}')
+"
+```
+
 ## Testing
 
 ```bash
@@ -179,8 +288,10 @@ pytest tests/e2e/test_full_stack_smoke.py -s
 ## Conventions
 
 - **Brain B**: Pattern-based, markdown state, fast iteration
-- **Brain A**: Neural network, RLDS training, production
-- **Hooks**: Brain B validates before Brain A learns
+- **ContinuonBrain**: Neural network, RLDS training, production
+- **MambaWave**: SSM + Spectral skill for sequence/world modeling
+- **Ralph**: Learning loop component for context rotation
+- **Hooks**: Brain B validates before ContinuonBrain learns
 - **RLDS**: Universal training data format
 
 ## Hardware

@@ -1,0 +1,54 @@
+{
+  "scan_id": "scan_20260116_142540",
+  "timestamp": "2026-01-16T14:25:40.216651",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 10.0,
+    "height": 3.0,
+    "depth": 10.0
+  },
+  "processing_time_ms": 24.18804168701172,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10
+  },
+  "detected_objects": [],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 10.0,
+        "height": 0.1,
+        "depth": 10.0
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -5.0
+      },
+      "size": {
+        "width": 10.0,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    }
+  ]
+}

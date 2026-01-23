@@ -1,0 +1,592 @@
+{
+  "scan_id": "scan_20260116_123423",
+  "timestamp": "2026-01-16T12:34:23.443526",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 12.01171875,
+    "height": 3.0,
+    "depth": 12.3125
+  },
+  "processing_time_ms": 31.180858612060547,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10
+  },
+  "detected_objects": [
+    {
+      "object_type": "floor",
+      "confidence": 0.13861219618055556,
+      "bounding_box": [
+        884,
+        396,
+        143,
+        117
+      ],
+      "center": [
+        955,
+        454
+      ],
+      "area": 12774.5,
+      "color_rgb": [
+        134,
+        138,
+        135
+      ],
+      "estimated_depth": 0.44999999999999996
+    },
+    {
+      "object_type": "wall",
+      "confidence": 0.053548177083333336,
+      "bounding_box": [
+        648,
+        430,
+        72,
+        87
+      ],
+      "center": [
+        684,
+        473
+      ],
+      "area": 4935.0,
+      "color_rgb": [
+        182,
+        177,
+        172
+      ],
+      "estimated_depth": 0.4027777777777778
+    },
+    {
+      "object_type": "wall",
+      "confidence": 0.011295572916666666,
+      "bounding_box": [
+        2,
+        74,
+        57,
+        29
+      ],
+      "center": [
+        30,
+        88
+      ],
+      "area": 1041.0,
+      "color_rgb": [
+        234,
+        203,
+        219
+      ],
+      "estimated_depth": 0.8972222222222223
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.010194227430555555,
+      "bounding_box": [
+        260,
+        388,
+        72,
+        48
+      ],
+      "center": [
+        296,
+        412
+      ],
+      "area": 939.5,
+      "color_rgb": [
+        138,
+        152,
+        152
+      ],
+      "estimated_depth": 0.46111111111111114
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.007302517361111111,
+      "bounding_box": [
+        491,
+        638,
+        32,
+        27
+      ],
+      "center": [
+        507,
+        651
+      ],
+      "area": 673.0,
+      "color_rgb": [
+        147,
+        125,
+        129
+      ],
+      "estimated_depth": 0.11388888888888893
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.0061197916666666675,
+      "bounding_box": [
+        322,
+        370,
+        155,
+        73
+      ],
+      "center": [
+        399,
+        406
+      ],
+      "area": 564.0,
+      "color_rgb": [
+        127,
+        136,
+        133
+      ],
+      "estimated_depth": 0.48611111111111116
+    },
+    {
+      "object_type": "decoration",
+      "confidence": 0.0038899739583333334,
+      "bounding_box": [
+        890,
+        598,
+        49,
+        27
+      ],
+      "center": [
+        914,
+        611
+      ],
+      "area": 358.5,
+      "color_rgb": [
+        116,
+        78,
+        82
+      ],
+      "estimated_depth": 0.1694444444444444
+    },
+    {
+      "object_type": "couch",
+      "confidence": 0.0036187065972222224,
+      "bounding_box": [
+        135,
+        494,
+        33,
+        21
+      ],
+      "center": [
+        151,
+        504
+      ],
+      "area": 333.5,
+      "color_rgb": [
+        108,
+        123,
+        139
+      ],
+      "estimated_depth": 0.3138888888888889
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.003493923611111111,
+      "bounding_box": [
+        804,
+        365,
+        31,
+        19
+      ],
+      "center": [
+        819,
+        374
+      ],
+      "area": 322.0,
+      "color_rgb": [
+        106,
+        107,
+        106
+      ],
+      "estimated_depth": 0.4930555555555556
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.00341796875,
+      "bounding_box": [
+        260,
+        386,
+        107,
+        59
+      ],
+      "center": [
+        313,
+        415
+      ],
+      "area": 315.0,
+      "color_rgb": [
+        129,
+        143,
+        142
+      ],
+      "estimated_depth": 0.4638888888888889
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.0032660590277777775,
+      "bounding_box": [
+        578,
+        585,
+        76,
+        70
+      ],
+      "center": [
+        616,
+        620
+      ],
+      "area": 301.0,
+      "color_rgb": [
+        139,
+        113,
+        114
+      ],
+      "estimated_depth": 0.1875
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.003173828125,
+      "bounding_box": [
+        295,
+        468,
+        21,
+        43
+      ],
+      "center": [
+        305,
+        489
+      ],
+      "area": 292.5,
+      "color_rgb": [
+        106,
+        115,
+        114
+      ],
+      "estimated_depth": 0.35
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.003157552083333333,
+      "bounding_box": [
+        268,
+        392,
+        187,
+        89
+      ],
+      "center": [
+        361,
+        436
+      ],
+      "area": 291.0,
+      "color_rgb": [
+        122,
+        134,
+        131
+      ],
+      "estimated_depth": 0.4555555555555556
+    },
+    {
+      "object_type": "floor",
+      "confidence": 0.002821180555555555,
+      "bounding_box": [
+        303,
+        511,
+        16,
+        30
+      ],
+      "center": [
+        311,
+        526
+      ],
+      "area": 260.0,
+      "color_rgb": [
+        106,
+        112,
+        111
+      ],
+      "estimated_depth": 0.29027777777777775
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 12.01171875,
+        "height": 0.1,
+        "depth": 12.3125
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -6.15625
+      },
+      "size": {
+        "width": 12.01171875,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_floor",
+      "asset_type": "floor",
+      "position": {
+        "x": 2.4609375,
+        "y": 0.05,
+        "z": 1.3055555555555554
+      },
+      "size": {
+        "width": 11.302433366315414,
+        "height": 0.11302433366315415,
+        "depth": 11.302433366315414
+      },
+      "rotation": 4.632872535237397,
+      "color": 2963272,
+      "geometry": "plane",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.13861219618055556,
+        "original_color": [
+          134,
+          138,
+          135
+        ],
+        "depth": 0.44999999999999996
+      }
+    },
+    {
+      "asset_id": "asset_1_wall",
+      "asset_type": "wall",
+      "position": {
+        "x": 0.34375000000000044,
+        "y": 1.25,
+        "z": 1.5694444444444444
+      },
+      "size": {
+        "width": 0.14049911031746784,
+        "height": 1.756238878968348,
+        "depth": 2.1074866547620177
+      },
+      "rotation": 4.518600105177825,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.053548177083333336,
+        "original_color": [
+          182,
+          177,
+          172
+        ],
+        "depth": 0.4027777777777778
+      }
+    },
+    {
+      "asset_id": "asset_2_wall",
+      "asset_type": "wall",
+      "position": {
+        "x": -4.765625,
+        "y": 1.25,
+        "z": -3.7777777777777777
+      },
+      "size": {
+        "width": 0.1,
+        "height": 1.25,
+        "depth": 1.5
+      },
+      "rotation": 5.00349569776393,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.011295572916666666,
+        "original_color": [
+          234,
+          203,
+          219
+        ],
+        "depth": 0.8972222222222223
+      }
+    },
+    {
+      "asset_id": "asset_3_floor",
+      "asset_type": "floor",
+      "position": {
+        "x": -2.6875,
+        "y": 0.05,
+        "z": 0.7222222222222219
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.05,
+        "depth": 5.0
+      },
+      "rotation": 1.9357657210560906,
+      "color": 2963272,
+      "geometry": "plane",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.010194227430555555,
+        "original_color": [
+          138,
+          152,
+          152
+        ],
+        "depth": 0.46111111111111114
+      }
+    },
+    {
+      "asset_id": "asset_4_floor",
+      "asset_type": "floor",
+      "position": {
+        "x": -1.0390624999999998,
+        "y": 0.05,
+        "z": 4.041666666666667
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.05,
+        "depth": 5.0
+      },
+      "rotation": 0.003595968891950479,
+      "color": 2963272,
+      "geometry": "plane",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.007302517361111111,
+        "original_color": [
+          147,
+          125,
+          129
+        ],
+        "depth": 0.11388888888888893
+      }
+    },
+    {
+      "asset_id": "asset_6_decoration",
+      "asset_type": "decoration",
+      "position": {
+        "x": 2.1406250000000004,
+        "y": 0.25,
+        "z": 3.4861111111111107
+      },
+      "size": {
+        "width": 0.25,
+        "height": 0.25,
+        "depth": 0.25
+      },
+      "rotation": 3.7478543063739416,
+      "color": 9662683,
+      "geometry": "dodecahedron",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.0038899739583333334,
+        "original_color": [
+          116,
+          78,
+          82
+        ],
+        "depth": 0.1694444444444444
+      }
+    },
+    {
+      "asset_id": "asset_7_couch",
+      "asset_type": "couch",
+      "position": {
+        "x": -3.8203125,
+        "y": 0.425,
+        "z": 1.9999999999999996
+      },
+      "size": {
+        "width": 1.0,
+        "height": 0.425,
+        "depth": 0.45
+      },
+      "rotation": 0.22661848387705336,
+      "color": 4878245,
+      "geometry": "box",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.0036187065972222224,
+        "original_color": [
+          108,
+          123,
+          139
+        ],
+        "depth": 0.3138888888888889
+      }
+    },
+    {
+      "asset_id": "asset_8_floor",
+      "asset_type": "floor",
+      "position": {
+        "x": 1.3984375000000004,
+        "y": 0.05,
+        "z": 0.19444444444444486
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.05,
+        "depth": 5.0
+      },
+      "rotation": 4.967457926115902,
+      "color": 2963272,
+      "geometry": "plane",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.003493923611111111,
+        "original_color": [
+          106,
+          107,
+          106
+        ],
+        "depth": 0.4930555555555556
+      }
+    },
+    {
+      "asset_id": "asset_11_floor",
+      "asset_type": "floor",
+      "position": {
+        "x": -2.6171875,
+        "y": 0.05,
+        "z": 1.791666666666667
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.05,
+        "depth": 5.0
+      },
+      "rotation": 0.5808232733368204,
+      "color": 2963272,
+      "geometry": "plane",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.003173828125,
+        "original_color": [
+          106,
+          115,
+          114
+        ],
+        "depth": 0.35
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "tool": "claude",
+  "reportsDir": "./reports",
+  "outputDir": "./scripts/compound",
+  "qualityChecks": [
+    "python -m py_compile brain_b/main.py",
+    "python -m py_compile trainer_ui/server.py",
+    "python -c 'from continuonbrain.startup_manager import StartupManager'",
+    "pytest continuonbrain/tests/ -x --tb=short -q"
+  ],
+  "maxIterations": 25,
+  "branchPrefix": "compound/",
+  "analyzeCommand": ""
+}

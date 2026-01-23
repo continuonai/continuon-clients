@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeScan 3D - ContinuonXR</title>
+    <link rel="stylesheet" href="/static/shared-nav.css">
+    <script src="/static/shared-nav.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(51, 255, 51, 0.04) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 10s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100%; }
+        }
+
+        .hud-text { font-family: 'Courier New', Courier, monospace; }
+        #canvas-container { width: 100%; height: 100%; position: relative; overflow: hidden; }
+        canvas { display: block; outline: none; }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .recording-indicator {
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+    <!-- Sub-header with status and tabs -->
+    <div class="bg-slate-900 border-b border-slate-700 px-4 py-2 flex justify-between items-center shrink-0 z-10">
+        <div class="flex gap-4 items-center">
+            <!-- Connection Status -->
+            <div id="connection-status" class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-red-500" id="ws-indicator"></div>
+                <span class="text-xs text-slate-400" id="ws-status">Disconnected</span>
+            </div>
+
+            <!-- Recording Status -->
+            <div id="recording-status" class="hidden flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-red-500 recording-indicator"></div>
+                <span class="text-xs text-red-400">REC</span>
+            </div>
+
+            <div class="hidden md:flex flex-col items-end">
+                <span class="text-xs text-slate-500">RLDS</span>
+                <span class="text-xs text-green-400 font-mono" id="rlds-status">READY</span>
+            </div>
+        </div>
+
+        <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+            <button onclick="switchTab('scan')" id="tab-scan" class="px-4 py-2 rounded text-sm font-medium hover:bg-slate-700 transition-colors text-blue-400 bg-slate-700">Scan</button>
+            <button onclick="switchTab('process')" id="tab-process" class="px-4 py-2 rounded text-sm font-medium hover:bg-slate-700 transition-colors text-slate-400">Process</button>
+            <button onclick="switchTab('simulate')" id="tab-simulate" class="px-4 py-2 rounded text-sm font-medium hover:bg-slate-700 transition-colors text-slate-400">Simulate</button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 relative overflow-hidden bg-slate-950">
+        <div class="scanline"></div>
+
+        <!-- VIEW: SCAN -->
+        <div id="view-scan" class="absolute inset-0 p-6 overflow-y-auto transition-opacity duration-300">
+            <div class="max-w-4xl mx-auto">
+                <div class="bg-slate-900 rounded-xl border border-slate-700 p-6 mb-6">
+                    <h2 class="text-lg font-semibold mb-4 flex items-center gap-2"><i data-lucide="camera" class="w-5 h-5"></i> Image Acquisition</h2>
+                    <p class="text-slate-400 text-sm mb-4">Upload photos of your room for 3D environment reconstruction. The simulator will use these to create training environments.</p>
+
+                    <div class="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:bg-slate-800/50 transition-colors cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                        <i data-lucide="upload-cloud" class="w-12 h-12 text-slate-500 mx-auto mb-2"></i>
+                        <p class="text-slate-300 font-medium">Click to Upload Images</p>
+                        <p class="text-slate-500 text-xs mt-1">Supports JPG, PNG (Max 24MB)</p>
+                        <input type="file" id="fileInput" multiple accept="image/*" class="hidden" onchange="handleFiles(this.files)">
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-xl border border-slate-700 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold flex items-center gap-2"><i data-lucide="image" class="w-5 h-5"></i> Session Gallery</h2>
+                        <span id="image-count" class="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">0 Images</span>
+                    </div>
+                    <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        <div class="aspect-square bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700 opacity-50">
+                            <span class="text-xs text-slate-600">No Data</span>
+                        </div>
+                    </div>
+                    <!-- Processing Options -->
+                    <div class="mt-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                        <h3 class="text-sm font-medium text-slate-300 mb-3">Processing Options</h3>
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <!-- SAM3 Toggle -->
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="sam3-toggle" onchange="state.useSam3 = this.checked"
+                                    class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-blue-600 focus:ring-blue-500">
+                                <span class="text-sm text-slate-400">Use SAM3 (Neural Segmentation)</span>
+                                <span class="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded">BETTER</span>
+                            </label>
+
+                            <!-- Room Scale -->
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-slate-400">Room Scale:</label>
+                                <input type="number" id="room-scale" value="10" min="5" max="50" step="1"
+                                    onchange="state.roomScale = parseFloat(this.value)"
+                                    class="w-16 px-2 py-1 text-sm rounded bg-slate-700 border border-slate-600 text-white">
+                                <span class="text-xs text-slate-500">units</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-2">
+                            SAM3 uses Meta's Segment Anything Model 3 for accurate object detection. Requires transformers, torch.
+                        </p>
+                    </div>
+
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="startProcessing()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium shadow-lg shadow-blue-900/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" id="btn-start-process" disabled>
+                            Start Asset Generation <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: PROCESS -->
+        <div id="view-process" class="absolute inset-0 p-6 overflow-y-auto hidden opacity-0 transition-opacity duration-300 flex flex-col items-center justify-center">
+            <div class="max-w-md w-full bg-slate-900 rounded-xl border border-slate-700 p-8 shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <i data-lucide="cpu" class="w-24 h-24 text-blue-500"></i>
+                </div>
+
+                <h2 class="text-xl font-bold mb-1 text-white">Environment Reconstruction</h2>
+                <p class="text-xs text-blue-400 font-mono mb-6">RLDS INTEGRATION: ACTIVE</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Feature Extraction</span>
+                            <span class="text-green-400 font-mono" id="status-1">WAITING</span>
+                        </div>
+                        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="bar-1" class="h-full bg-blue-500 w-0 transition-all duration-1000"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Depth Map Generation</span>
+                            <span class="text-slate-500 font-mono" id="status-2">WAITING</span>
+                        </div>
+                        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="bar-2" class="h-full bg-purple-500 w-0 transition-all duration-1000"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">Mesh Reconstruction</span>
+                            <span class="text-slate-500 font-mono" id="status-3">WAITING</span>
+                        </div>
+                        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="bar-3" class="h-full bg-emerald-500 w-0 transition-all duration-1000"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="process-log" class="mt-6 h-32 bg-black rounded p-2 font-mono text-xs text-green-500 overflow-y-auto border border-slate-800">
+                    > System ready.<br>
+                </div>
+
+                <button id="btn-to-sim" onclick="switchTab('simulate')" class="mt-6 w-full bg-slate-800 text-slate-500 cursor-not-allowed px-4 py-3 rounded-lg font-medium border border-slate-700" disabled>
+                    Launch Simulator
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEW: SIMULATE -->
+        <div id="view-simulate" class="absolute inset-0 hidden opacity-0 transition-opacity duration-300">
+            <div id="canvas-container"></div>
+
+            <!-- HUD Overlay -->
+            <div class="absolute top-4 left-4 pointer-events-none select-none">
+                <div class="bg-slate-900/80 backdrop-blur border border-slate-600 p-3 rounded text-xs hud-text text-green-400 shadow-lg">
+                    <p>ROBOT: MODEL-X1</p>
+                    <p>POS: <span id="hud-pos">0, 0, 0</span></p>
+                    <p>ROT: <span id="hud-rot">0</span></p>
+                    <p>FPS: <span id="hud-fps">60</span></p>
+                    <p>STEPS: <span id="hud-steps">0</span></p>
+                    <p>ASSETS: <span id="hud-assets">0</span></p>
+                    <p class="text-slate-400 mt-2">CONTROLS: WASD / Arrows</p>
+                </div>
+            </div>
+
+            <!-- RLDS Recording Panel -->
+            <div class="absolute top-4 right-4 pointer-events-auto flex flex-col gap-2">
+                <div class="bg-slate-900/80 backdrop-blur border border-slate-600 p-3 rounded text-xs">
+                    <p class="text-slate-400 mb-2">RLDS Recording</p>
+                    <button onclick="toggleRecording()" id="btn-record" class="w-full bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded text-sm font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="circle" class="w-4 h-4"></i> Start Recording
+                    </button>
+                </div>
+
+                <button onclick="spawnAsset()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded shadow-lg text-sm font-medium flex items-center gap-2">
+                    <i data-lucide="box"></i> Spawn Asset
+                </button>
+                <button onclick="spawnObstacle()" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded shadow-lg text-sm font-medium flex items-center gap-2">
+                    <i data-lucide="triangle"></i> Spawn Obstacle
+                </button>
+                <button onclick="resetSim()" class="bg-red-600/80 hover:bg-red-500/80 text-white px-3 py-2 rounded shadow-lg text-sm font-medium flex items-center gap-2">
+                    <i data-lucide="rotate-ccw"></i> Reset
+                </button>
+            </div>
+
+            <!-- Mobile Controls -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 pointer-events-auto">
+                <div class="grid grid-cols-3 gap-1 bg-slate-900/50 p-2 rounded-lg backdrop-blur md:hidden">
+                    <div></div>
+                    <button class="w-12 h-12 bg-slate-700/80 rounded flex items-center justify-center active:bg-blue-600" id="btn-w"><i data-lucide="arrow-up" class="w-6 h-6"></i></button>
+                    <div></div>
+                    <button class="w-12 h-12 bg-slate-700/80 rounded flex items-center justify-center active:bg-blue-600" id="btn-a"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+                    <button class="w-12 h-12 bg-slate-700/80 rounded flex items-center justify-center active:bg-blue-600" id="btn-s"><i data-lucide="arrow-down" class="w-6 h-6"></i></button>
+                    <button class="w-12 h-12 bg-slate-700/80 rounded flex items-center justify-center active:bg-blue-600" id="btn-d"><i data-lucide="arrow-right" class="w-6 h-6"></i></button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            images: [],
+            isProcessing: false,
+            simReady: false,
+            robotPos: { x: 0, y: 0, z: 0 },
+            robotRot: 0,
+            keys: { w: false, a: false, s: false, d: false },
+            recording: false,
+            stepCount: 0,
+            sessionId: `sim_${Date.now()}`,
+            ws: null,
+            connected: false,
+            // Room scanner state
+            scanResult: null,
+            generatedAssets: [],
+            useSam3: false,  // Toggle for SAM3 segmentation
+            roomScale: 10.0,
+        };
+
+        // --- Icons ---
+        lucide.createIcons();
+
+        // --- WebSocket Connection to Trainer Server ---
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            state.ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            state.ws.onopen = () => {
+                state.connected = true;
+                document.getElementById('ws-indicator').classList.remove('bg-red-500');
+                document.getElementById('ws-indicator').classList.add('bg-green-500');
+                document.getElementById('ws-status').textContent = 'Connected';
+                console.log('Connected to trainer server');
+            };
+
+            state.ws.onclose = () => {
+                state.connected = false;
+                document.getElementById('ws-indicator').classList.remove('bg-green-500');
+                document.getElementById('ws-indicator').classList.add('bg-red-500');
+                document.getElementById('ws-status').textContent = 'Disconnected';
+                console.log('Disconnected from trainer server');
+                // Reconnect after 3 seconds
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            state.ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleServerMessage(data);
+            };
+
+            state.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function handleServerMessage(data) {
+            if (data.type === 'recording') {
+                if (data.status === 'started') {
+                    document.getElementById('rlds-status').textContent = 'RECORDING';
+                    document.getElementById('rlds-status').classList.remove('text-green-400');
+                    document.getElementById('rlds-status').classList.add('text-red-400');
+                } else if (data.status === 'stopped') {
+                    document.getElementById('rlds-status').textContent = 'SAVED';
+                    document.getElementById('rlds-status').classList.remove('text-red-400');
+                    document.getElementById('rlds-status').classList.add('text-green-400');
+                    console.log('Episode saved to:', data.path);
+                }
+            }
+        }
+
+        function sendToServer(type, data) {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({ type, ...data }));
+            }
+        }
+
+        // --- Recording for RLDS ---
+        function toggleRecording() {
+            state.recording = !state.recording;
+            const btn = document.getElementById('btn-record');
+            const statusEl = document.getElementById('recording-status');
+
+            if (state.recording) {
+                btn.innerHTML = '<i data-lucide="square" class="w-4 h-4"></i> Stop Recording';
+                btn.classList.remove('bg-green-600', 'hover:bg-green-500');
+                btn.classList.add('bg-red-600', 'hover:bg-red-500');
+                statusEl.classList.remove('hidden');
+                sendToServer('start_recording', {});
+                state.stepCount = 0;
+                lucide.createIcons();
+            } else {
+                btn.innerHTML = '<i data-lucide="circle" class="w-4 h-4"></i> Start Recording';
+                btn.classList.remove('bg-red-600', 'hover:bg-red-500');
+                btn.classList.add('bg-green-600', 'hover:bg-green-500');
+                statusEl.classList.add('hidden');
+                sendToServer('stop_recording', {});
+                lucide.createIcons();
+            }
+        }
+
+        function recordSimStep(action, reward = 0) {
+            if (!state.recording) return;
+
+            state.stepCount++;
+            document.getElementById('hud-steps').textContent = state.stepCount;
+
+            // Send simulator step to trainer server for RLDS recording
+            sendToServer('sim_step', {
+                session_id: state.sessionId,
+                step_idx: state.stepCount,
+                timestamp: Date.now(),
+                action: action,
+                observation: {
+                    robot_position: state.robotPos,
+                    robot_rotation: state.robotRot,
+                    obstacle_count: obstacles.length,
+                },
+                reward: reward,
+                done: false,
+            });
+        }
+
+        // --- UI Logic ---
+        function switchTab(tabName) {
+            ['scan', 'process', 'simulate'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tabName) {
+                    btn.classList.remove('text-slate-400', 'bg-transparent');
+                    btn.classList.add('text-blue-400', 'bg-slate-700');
+                } else {
+                    btn.classList.add('text-slate-400', 'bg-transparent');
+                    btn.classList.remove('text-blue-400', 'bg-slate-700');
+                }
+
+                const view = document.getElementById(`view-${t}`);
+                if (t === tabName) {
+                    view.classList.remove('hidden');
+                    setTimeout(() => view.classList.remove('opacity-0'), 10);
+                } else {
+                    view.classList.add('opacity-0');
+                    setTimeout(() => view.classList.add('hidden'), 300);
+                }
+            });
+
+            if(tabName === 'simulate' && !window.simInitialized) {
+                initThreeJS();
+            }
+        }
+
+        function handleFiles(files) {
+            const grid = document.getElementById('gallery-grid');
+            const countLabel = document.getElementById('image-count');
+            const btn = document.getElementById('btn-start-process');
+
+            if(state.images.length === 0) grid.innerHTML = '';
+
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    state.images.push(e.target.result);
+
+                    const div = document.createElement('div');
+                    div.className = 'aspect-square bg-slate-800 rounded-lg border border-slate-600 overflow-hidden relative group';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <i data-lucide="check" class="text-green-400"></i>
+                        </div>
+                    `;
+                    grid.appendChild(div);
+                    lucide.createIcons();
+                };
+                reader.readAsDataURL(file);
+            });
+
+            setTimeout(() => {
+                countLabel.innerText = `${state.images.length} Images`;
+                if(state.images.length > 0) btn.disabled = false;
+            }, 100);
+        }
+
+        function startProcessing() {
+            switchTab('process');
+            const log = document.getElementById('process-log');
+            const appendLog = (txt) => {
+                log.innerHTML += `> ${txt}<br>`;
+                log.scrollTop = log.scrollHeight;
+            };
+
+            const updateStep = (id, status, color) => {
+                const el = document.getElementById(`status-${id}`);
+                el.innerText = status;
+                el.classList.remove("text-slate-500", "text-blue-400", "text-green-500", "animate-pulse");
+                el.classList.add(color);
+                if (color === "text-blue-400") el.classList.add("animate-pulse");
+                if (status === "COMPLETE") {
+                    document.getElementById(`bar-${id}`).style.width = '100%';
+                }
+            };
+
+            (async () => {
+                appendLog("Initializing room scanner pipeline...");
+                appendLog(`Processing ${state.images.length} images...`);
+                appendLog(`Using ${state.useSam3 ? 'SAM3 neural segmentation' : 'OpenCV contour detection'}...`);
+
+                // Step 1: Prepare images
+                updateStep(1, "PROCESSING", "text-blue-400");
+                appendLog("Step 1: Encoding images for upload...");
+                await new Promise(r => setTimeout(r, 500));
+                updateStep(1, "COMPLETE", "text-green-500");
+                appendLog(`Prepared ${state.images.length} images for processing.`);
+
+                // Step 2: Call Room Scanner API
+                updateStep(2, "PROCESSING", "text-blue-400");
+                appendLog("Step 2: Analyzing images with room scanner...");
+
+                try {
+                    const response = await fetch('/room/scan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            images: state.images,
+                            room_scale: state.roomScale,
+                            use_sam3: state.useSam3
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.error) {
+                        appendLog(`ERROR: ${data.error}`);
+                        updateStep(2, "FAILED", "text-red-500");
+                        return;
+                    }
+
+                    state.scanResult = data.result;
+                    state.generatedAssets = data.result.assets || [];
+
+                    appendLog(`Scan ID: ${data.result.scan_id}`);
+                    appendLog(`Detected ${data.result.objects_detected} objects`);
+                    appendLog(`Processing time: ${data.result.processing_time_ms?.toFixed(0)}ms`);
+
+                    updateStep(2, "COMPLETE", "text-green-500");
+
+                } catch (err) {
+                    appendLog(`Network error: ${err.message}`);
+                    appendLog("Falling back to mock asset generation...");
+
+                    // Fallback: generate mock assets
+                    state.generatedAssets = generateMockAssets();
+                    state.scanResult = { mock: true, assets: state.generatedAssets };
+                    updateStep(2, "COMPLETE", "text-green-500");
+                }
+
+                // Step 3: Generate 3D assets
+                updateStep(3, "PROCESSING", "text-blue-400");
+                appendLog("Step 3: Converting to 3D scene objects...");
+                await new Promise(r => setTimeout(r, 800));
+
+                appendLog(`Generated ${state.generatedAssets.length} 3D assets:`);
+
+                // Group assets by type for summary
+                const typeCounts = {};
+                state.generatedAssets.forEach(a => {
+                    typeCounts[a.asset_type] = (typeCounts[a.asset_type] || 0) + 1;
+                });
+                Object.entries(typeCounts).forEach(([type, count]) => {
+                    appendLog(`  - ${type}: ${count}`);
+                });
+
+                updateStep(3, "COMPLETE", "text-green-500");
+
+                appendLog("");
+                appendLog("Environment ready for simulation!");
+                appendLog("Generated assets will be loaded into 3D scene.");
+                appendLog("RLDS recording available for training data.");
+
+                const btn = document.getElementById('btn-to-sim');
+                btn.disabled = false;
+                btn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+                btn.classList.add('bg-green-600', 'text-white', 'hover:bg-green-500', 'shadow-lg');
+                btn.innerText = "Launch Simulation";
+            })();
+        }
+
+        // Fallback mock asset generation
+        function generateMockAssets() {
+            const types = ['furniture', 'table', 'chair', 'plant', 'lamp', 'decoration'];
+            const assets = [];
+
+            // Floor
+            assets.push({
+                asset_id: 'floor_main',
+                asset_type: 'floor',
+                position: { x: 0, y: 0, z: 0 },
+                size: { width: 10, height: 0.1, depth: 10 },
+                color: 0x2d3748,
+                geometry: 'box'
+            });
+
+            // Random furniture
+            for (let i = 0; i < 5 + Math.floor(Math.random() * 5); i++) {
+                const type = types[Math.floor(Math.random() * types.length)];
+                assets.push({
+                    asset_id: `mock_${type}_${i}`,
+                    asset_type: type,
+                    position: {
+                        x: (Math.random() - 0.5) * 8,
+                        y: 0.5,
+                        z: (Math.random() - 0.5) * 8
+                    },
+                    size: { width: 0.5 + Math.random(), height: 0.5 + Math.random(), depth: 0.5 + Math.random() },
+                    color: [0x805d40, 0x8b4513, 0x228b22, 0xffd700, 0x9370db][Math.floor(Math.random() * 5)],
+                    geometry: 'box'
+                });
+            }
+
+            return assets;
+        }
+
+        // --- Three.js Simulator Logic ---
+        let camera, scene, renderer, robot;
+        let obstacles = [];
+        let sceneAssets = [];  // Track loaded assets
+
+        // Load assets from room scanner into Three.js scene
+        function loadGeneratedAssets() {
+            if (!scene) return;
+
+            // Clear existing scene assets
+            sceneAssets.forEach(obj => scene.remove(obj));
+            sceneAssets = [];
+
+            // Skip if no assets generated
+            if (!state.generatedAssets || state.generatedAssets.length === 0) {
+                console.log('No generated assets to load, using defaults');
+                addDefaultObstacles();
+                return;
+            }
+
+            console.log(`Loading ${state.generatedAssets.length} assets from room scan...`);
+
+            state.generatedAssets.forEach(asset => {
+                // Skip floor - we already have a grid/plane
+                if (asset.asset_type === 'floor') return;
+
+                let geometry, material;
+                const color = asset.color || 0x808080;
+
+                // Create geometry based on type
+                switch (asset.geometry || 'box') {
+                    case 'cylinder':
+                        geometry = new THREE.CylinderGeometry(
+                            asset.size?.width / 2 || 0.5,
+                            asset.size?.width / 2 || 0.5,
+                            asset.size?.height || 1,
+                            16
+                        );
+                        break;
+                    case 'cone':
+                        geometry = new THREE.ConeGeometry(
+                            asset.size?.width / 2 || 0.5,
+                            asset.size?.height || 1,
+                            16
+                        );
+                        break;
+                    case 'dodecahedron':
+                        geometry = new THREE.DodecahedronGeometry(
+                            asset.size?.width / 2 || 0.5
+                        );
+                        break;
+                    case 'plane':
+                        geometry = new THREE.PlaneGeometry(
+                            asset.size?.width || 10,
+                            asset.size?.depth || 10
+                        );
+                        break;
+                    default:
+                        geometry = new THREE.BoxGeometry(
+                            asset.size?.width || 1,
+                            asset.size?.height || 1,
+                            asset.size?.depth || 1
+                        );
+                }
+
+                material = new THREE.MeshStandardMaterial({
+                    color: color,
+                    roughness: 0.7,
+                    metalness: 0.1
+                });
+
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(
+                    asset.position?.x || 0,
+                    asset.position?.y || 0.5,
+                    asset.position?.z || 0
+                );
+
+                if (asset.rotation) {
+                    mesh.rotation.y = asset.rotation;
+                }
+
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                // Store asset metadata for RLDS
+                mesh.userData = {
+                    asset_id: asset.asset_id,
+                    asset_type: asset.asset_type,
+                    isObstacle: ['obstacle', 'wall', 'furniture', 'table', 'chair', 'couch'].includes(asset.asset_type)
+                };
+
+                scene.add(mesh);
+                sceneAssets.push(mesh);
+
+                // Add to obstacles for collision detection
+                if (mesh.userData.isObstacle) {
+                    obstacles.push(mesh);
+                }
+            });
+
+            console.log(`Loaded ${sceneAssets.length} assets, ${obstacles.length} obstacles`);
+            updateHUD();
+        }
+
+        // Add default obstacles when no scan data available
+        function addDefaultObstacles() {
+            const defaultPositions = [
+                { x: 5, z: 5 },
+                { x: -5, z: 5 },
+                { x: 5, z: -5 },
+                { x: -5, z: -5 },
+                { x: 0, z: 8 },
+            ];
+
+            defaultPositions.forEach((pos, i) => {
+                const geo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xdc2626 });
+                const obstacle = new THREE.Mesh(geo, mat);
+                obstacle.position.set(pos.x, 0.75, pos.z);
+                obstacle.castShadow = true;
+                obstacle.userData = { asset_id: `default_obstacle_${i}`, asset_type: 'obstacle', isObstacle: true };
+                scene.add(obstacle);
+                obstacles.push(obstacle);
+                sceneAssets.push(obstacle);
+            });
+
+            console.log('Added 5 default obstacles');
+        }
+
+        function updateHUD() {
+            const assetsEl = document.getElementById('hud-assets');
+            if (assetsEl) {
+                assetsEl.textContent = sceneAssets.length;
+            }
+        }
+        let lastFrameTime = 0;
+        window.simInitialized = false;
+
+        function initThreeJS() {
+            if (window.simInitialized) return;
+            window.simInitialized = true;
+
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+            scene.fog = new THREE.Fog(0x0f172a, 10, 50);
+
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 10, 10);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            // Grid / Floor
+            const gridHelper = new THREE.GridHelper(100, 100, 0x1e293b, 0x1e293b);
+            scene.add(gridHelper);
+
+            const planeGeometry = new THREE.PlaneGeometry(100, 100);
+            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.rotation.x = -Math.PI / 2;
+            plane.receiveShadow = true;
+            scene.add(plane);
+
+            // Robot
+            const robotGroup = new THREE.Group();
+
+            const bodyGeo = new THREE.BoxGeometry(1, 0.5, 1.5);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.5;
+            body.castShadow = true;
+            robotGroup.add(body);
+
+            const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+
+            const w1 = new THREE.Mesh(wheelGeo, wheelMat);
+            w1.rotation.z = Math.PI / 2;
+            w1.position.set(0.6, 0.3, 0.5);
+            robotGroup.add(w1);
+
+            const w2 = w1.clone(); w2.position.set(-0.6, 0.3, 0.5); robotGroup.add(w2);
+            const w3 = w1.clone(); w3.position.set(0.6, 0.3, -0.5); robotGroup.add(w3);
+            const w4 = w1.clone(); w4.position.set(-0.6, 0.3, -0.5); robotGroup.add(w4);
+
+            const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.set(0, 0.9, 0.5);
+            robotGroup.add(head);
+
+            // Add arm representation
+            const armGeo = new THREE.BoxGeometry(0.1, 0.6, 0.1);
+            const armMat = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+            const arm = new THREE.Mesh(armGeo, armMat);
+            arm.position.set(0, 1.2, 0);
+            robotGroup.add(arm);
+
+            robot = robotGroup;
+            scene.add(robot);
+
+            // Load generated assets from room scanner
+            loadGeneratedAssets();
+
+            // Animation Loop with FPS counter
+            let frameCount = 0;
+            let fpsTime = 0;
+
+            function animate(time) {
+                requestAnimationFrame(animate);
+
+                const delta = (time - lastFrameTime) / 1000;
+                lastFrameTime = time;
+
+                // FPS calculation
+                frameCount++;
+                if (time - fpsTime >= 1000) {
+                    document.getElementById('hud-fps').textContent = frameCount;
+                    frameCount = 0;
+                    fpsTime = time;
+                }
+
+                // Movement Logic
+                const speed = 5 * delta;
+                const rotSpeed = 3 * delta;
+                let moved = false;
+                let action = null;
+
+                if (state.keys.w) {
+                    robot.translateX(speed);
+                    moved = true;
+                    action = { type: 'move', direction: 'forward', speed };
+                }
+                if (state.keys.s) {
+                    robot.translateX(-speed);
+                    moved = true;
+                    action = { type: 'move', direction: 'backward', speed };
+                }
+                if (state.keys.a) {
+                    robot.rotation.y += rotSpeed;
+                    moved = true;
+                    action = { type: 'rotate', direction: 'left', angle: rotSpeed };
+                }
+                if (state.keys.d) {
+                    robot.rotation.y -= rotSpeed;
+                    moved = true;
+                    action = { type: 'rotate', direction: 'right', angle: rotSpeed };
+                }
+
+                // Update state and record if moving
+                if (moved && action) {
+                    state.robotPos = {
+                        x: robot.position.x,
+                        y: robot.position.y,
+                        z: robot.position.z
+                    };
+                    state.robotRot = robot.rotation.y;
+
+                    // Check collision for reward
+                    let reward = 0.1; // Small reward for moving
+                    const collided = checkCollisions();
+                    if (collided) {
+                        reward = -1.0; // Penalty for collision
+                    }
+
+                    recordSimStep(action, reward);
+                }
+
+                // Camera Follow
+                const relativeCameraOffset = new THREE.Vector3(0, 8, -8);
+                const cameraOffset = relativeCameraOffset.applyMatrix4(robot.matrixWorld);
+                camera.position.lerp(cameraOffset, 0.1);
+                camera.lookAt(robot.position);
+
+                // Update HUD
+                const pos = robot.position;
+                document.getElementById('hud-pos').innerText = `${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`;
+                document.getElementById('hud-rot').innerText = (robot.rotation.y * 180 / Math.PI).toFixed(0) + '°';
+
+                renderer.render(scene, camera);
+            }
+            animate(0);
+
+            window.addEventListener('resize', () => {
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                renderer.setSize(w, h);
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+            });
+        }
+
+        function checkCollisions() {
+            if (!robot) return false;
+
+            const robotBox = new THREE.Box3().setFromObject(robot);
+            for (const obstacle of obstacles) {
+                const obstacleBox = new THREE.Box3().setFromObject(obstacle);
+                if (robotBox.intersectsBox(obstacleBox)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- Sim Controls ---
+        window.addEventListener('keydown', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'w': case 'arrowup': state.keys.w = true; break;
+                case 'a': case 'arrowleft': state.keys.a = true; break;
+                case 's': case 'arrowdown': state.keys.s = true; break;
+                case 'd': case 'arrowright': state.keys.d = true; break;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'w': case 'arrowup': state.keys.w = false; break;
+                case 'a': case 'arrowleft': state.keys.a = false; break;
+                case 's': case 'arrowdown': state.keys.s = false; break;
+                case 'd': case 'arrowright': state.keys.d = false; break;
+            }
+        });
+
+        // Touch Controls
+        ['w', 'a', 's', 'd'].forEach(key => {
+            const btn = document.getElementById(`btn-${key}`);
+            if(btn) {
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); state.keys[key] = true; });
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); state.keys[key] = false; });
+                btn.addEventListener('mousedown', () => state.keys[key] = true);
+                btn.addEventListener('mouseup', () => state.keys[key] = false);
+                btn.addEventListener('mouseleave', () => state.keys[key] = false);
+            }
+        });
+
+        function spawnAsset() {
+            if(!scene) return;
+
+            const type = Math.floor(Math.random() * 3);
+            let geometry, material;
+
+            if (type === 0) {
+                geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+                material = new THREE.MeshStandardMaterial({ color: 0x854d0e });
+            } else if (type === 1) {
+                geometry = new THREE.BoxGeometry(1, 4, 1);
+                material = new THREE.MeshStandardMaterial({ color: 0x475569 });
+            } else {
+                geometry = new THREE.DodecahedronGeometry(1);
+                material = new THREE.MeshStandardMaterial({ color: 0x059669, flatShading: true });
+            }
+
+            const mesh = new THREE.Mesh(geometry, material);
+
+            const spawnPos = new THREE.Vector3(0, 0, 5);
+            spawnPos.applyMatrix4(robot.matrixWorld);
+            mesh.position.copy(spawnPos);
+            mesh.position.y = 1;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            scene.add(mesh);
+            obstacles.push(mesh);
+
+            recordSimStep({ type: 'spawn_asset', asset_type: type, position: mesh.position.toArray() }, 0);
+        }
+
+        function spawnObstacle() {
+            if(!scene) return;
+
+            // Random position around robot
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 3 + Math.random() * 5;
+
+            const geometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 16);
+            const material = new THREE.MeshStandardMaterial({ color: 0xdc2626 });
+            const mesh = new THREE.Mesh(geometry, material);
+
+            mesh.position.set(
+                robot.position.x + Math.cos(angle) * distance,
+                1,
+                robot.position.z + Math.sin(angle) * distance
+            );
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            scene.add(mesh);
+            obstacles.push(mesh);
+
+            recordSimStep({ type: 'spawn_obstacle', position: mesh.position.toArray() }, 0);
+        }
+
+        function resetSim() {
+            if(robot) {
+                robot.position.set(0, 0, 0);
+                robot.rotation.set(0, 0, 0);
+                state.robotPos = { x: 0, y: 0, z: 0 };
+                state.robotRot = 0;
+            }
+            obstacles.forEach(o => scene.remove(o));
+            obstacles = [];
+
+            recordSimStep({ type: 'reset' }, 0);
+        }
+
+        // Initialize WebSocket connection
+        connectWebSocket();
+
+    </script>
+</body>
+</html>

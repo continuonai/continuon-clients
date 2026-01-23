@@ -1,20 +1,22 @@
-"""Importable alias for the `03_mamba_brain` modules.
+"""Backward compatibility alias for MambaWave.
 
-The repo keeps scaffolding under `continuonbrain/03_mamba_brain/` for ordering,
-but Python identifiers cannot start with digits, so direct imports like:
-  `from continuonbrain.03_mamba_brain import ...`
-are invalid syntax.
+The `mamba_brain` module is now superseded by `mambawave`, which combines
+WaveCore's spectral design with Mamba SSM architecture.
 
-This package provides an import-safe alias:
-  `from continuonbrain.mamba_brain import build_world_model, WorldModelState, ...`
+This module provides import aliases to maintain backward compatibility:
+    from continuonbrain.mamba_brain import build_world_model, WorldModelState
+
+New code should use mambawave directly:
+    from continuonbrain.mambawave import MambaWaveModel, MambaWaveConfig
 """
 
 from __future__ import annotations
 
-from .world_model import (  # noqa: F401
+# Import from the evolved mambawave module
+from continuonbrain.mambawave.world_model import (
     BaseWorldModel,
-    MambaWorldModel,
-    StubSSMWorldModel,
+    MambaWaveWorldModel as MambaWorldModel,
+    StubWorldModel as StubSSMWorldModel,
     WorldModelAction,
     WorldModelPredictResult,
     WorldModelState,
@@ -31,4 +33,11 @@ __all__ = [
     "build_world_model",
 ]
 
+# Deprecation notice
+import warnings as _warnings
 
+_warnings.warn(
+    "continuonbrain.mamba_brain is deprecated. Use continuonbrain.mambawave instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)

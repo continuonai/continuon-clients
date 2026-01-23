@@ -1,38 +1,50 @@
-"""Import-safe loader for the Mamba dependency helper.
+"""Backward compatibility - dependency checking now in mambawave.
 
-Loads `continuonbrain/03_mamba_brain/deps.py` under a valid module path so that
-`continuonbrain.mamba_brain.world_model` can use relative imports safely.
+MambaWave handles its own optional dependencies internally.
+This module is kept for backward compatibility with code that imports:
+    from continuonbrain.mamba_brain.deps import has_mamba, load_mamba
 """
 
 from __future__ import annotations
 
 import importlib.util
-import sys
-from pathlib import Path
-from types import ModuleType
+from dataclasses import dataclass
+from typing import Any, Optional
 
 
-def _load_impl() -> ModuleType:
-    here = Path(__file__).resolve()
-    impl_path = here.parents[1] / "03_mamba_brain" / "deps.py"
-    module_name = "continuonbrain.mamba_brain._deps_impl"
-    if module_name in sys.modules:
-        return sys.modules[module_name]
-    spec = importlib.util.spec_from_file_location(module_name, impl_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load deps impl from {impl_path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)  # type: ignore[attr-defined]
-    return module
+@dataclass(frozen=True)
+class MambaDeps:
+    """Mamba dependency status."""
+
+    available: bool
+    reason: Optional[str] = None
+    module: Optional[Any] = None
 
 
-_impl = _load_impl()
+def has_mamba() -> bool:
+    """Return True if mamba_ssm is importable."""
+    return importlib.util.find_spec("mamba_ssm") is not None
 
-MambaDeps = getattr(_impl, "MambaDeps")
-has_mamba = getattr(_impl, "has_mamba")
-load_mamba = getattr(_impl, "load_mamba")
+
+def load_mamba() -> MambaDeps:
+    """Load the Mamba dependency if present."""
+    spec = importlib.util.find_spec("mamba_ssm")
+    if spec is None:
+        return MambaDeps(
+            available=False,
+            reason="Missing optional dependency 'mamba_ssm'. MambaWave will use spectral-only mode.",
+            module=None,
+        )
+    try:
+        import mamba_ssm
+
+        return MambaDeps(available=True, module=mamba_ssm, reason=None)
+    except Exception as exc:
+        return MambaDeps(
+            available=False,
+            reason=f"Failed to import mamba_ssm: {exc}",
+            module=None,
+        )
+
 
 __all__ = ["MambaDeps", "has_mamba", "load_mamba"]
-
-

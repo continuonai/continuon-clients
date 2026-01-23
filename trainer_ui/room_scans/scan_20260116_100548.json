@@ -1,0 +1,103 @@
+{
+  "scan_id": "scan_20260116_100548",
+  "timestamp": "2026-01-16T10:05:48.335500",
+  "images_processed": 1,
+  "room_dimensions": {
+    "width": 5.0,
+    "height": 3.0,
+    "depth": 5.0
+  },
+  "processing_time_ms": 19.034147262573242,
+  "metadata": {
+    "opencv_available": true,
+    "room_scale": 10.0
+  },
+  "detected_objects": [
+    {
+      "object_type": "decoration",
+      "confidence": 0.039257812499999996,
+      "bounding_box": [
+        126,
+        91,
+        48,
+        61
+      ],
+      "center": [
+        150,
+        121
+      ],
+      "area": 1206.0,
+      "color_rgb": [
+        107,
+        124,
+        130
+      ],
+      "estimated_depth": 0.8104166666666667
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset_id": "floor_main",
+      "asset_type": "floor",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "width": 5.0,
+        "height": 0.1,
+        "depth": 5.0
+      },
+      "rotation": 0.0,
+      "color": 2963272,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "wall_back",
+      "asset_type": "wall",
+      "position": {
+        "x": 0,
+        "y": 1.5,
+        "z": -2.5
+      },
+      "size": {
+        "width": 5.0,
+        "height": 3.0,
+        "depth": 0.2
+      },
+      "rotation": 0.0,
+      "color": 4871528,
+      "geometry": "box",
+      "metadata": {}
+    },
+    {
+      "asset_id": "asset_0_decoration",
+      "asset_type": "decoration",
+      "position": {
+        "x": -2.65625,
+        "y": 0.25,
+        "z": -2.479166666666667
+      },
+      "size": {
+        "width": 0.25,
+        "height": 0.25,
+        "depth": 0.25
+      },
+      "rotation": 0.8653381524528547,
+      "color": 9662683,
+      "geometry": "dodecahedron",
+      "metadata": {
+        "source": "room_scan",
+        "confidence": 0.039257812499999996,
+        "original_color": [
+          107,
+          124,
+          130
+        ],
+        "depth": 0.8104166666666667
+      }
+    }
+  ]
+}

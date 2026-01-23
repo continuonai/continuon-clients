@@ -228,6 +228,13 @@ class StartupManager:
             default=not self._default_headless(),
         )
 
+        # Auto-training daemon: watches RLDS episodes and triggers ContinuonBrain training.
+        # Defaults to ON when background trainer is enabled.
+        self.enable_auto_trainer = self._env_flag(
+            "CONTINUON_ENABLE_AUTO_TRAINER",
+            default=self.enable_background_trainer,
+        )
+
         # Optional "curiosity" learning: run small offline Wikipedia sessions at boot if corpus is present.
         # Default is OFF unless a corpus path is explicitly configured.
         self.enable_wiki_curiosity = self._env_flag(
@@ -537,7 +544,7 @@ class StartupManager:
             watch_exit=True,  # Critical service - restart on exit
         ))
 
-        # Priority 20: Background Trainer (optional)
+        # Priority 20: Background Trainer (optional) - Legacy sidecar
         registry.register(ServiceDefinition(
             name="Nested Learning Sidecar",
             module="continuonbrain.run_trainer",
@@ -547,6 +554,18 @@ class StartupManager:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             condition=lambda: (repo_root / "continuonbrain" / "run_trainer.py").exists(),
+        ))
+
+        # Priority 25: Auto-Training Daemon (watches Brain B episodes → triggers ContinuonBrain training)
+        registry.register(ServiceDefinition(
+            name="Auto-Training Daemon",
+            module="continuonbrain.trainer.auto_trainer_daemon",
+            enabled=self.enable_auto_trainer,
+            priority=25,
+            log_file="auto_trainer_daemon.log",
+            log_mode="text",
+            args=["--config-dir", str(repo_root)],
+            condition=lambda: (repo_root / "continuonbrain" / "trainer" / "auto_trainer_daemon.py").exists(),
         ))
 
         # Priority 30: Wiki Curiosity (optional)
@@ -568,6 +587,7 @@ class StartupManager:
         self.safety_kernel_process = registry.get_process("Safety Kernel")
         self.robot_api_process = registry.get_process("Unified Brain Server")
         self.trainer_process = registry.get_process("Nested Learning Sidecar")
+        self.auto_trainer_process = registry.get_process("Auto-Training Daemon")
         self.wiki_curiosity_process = registry.get_process("Wiki Curiosity")
         
         # Store log handles for status reporting
@@ -979,12 +999,28 @@ def main():
         default=8081,
         help="Service port (default: 8081)"
     )
-    
+    parser.add_argument(
+        "--enable-auto-trainer",
+        action="store_true",
+        help="Enable auto-training daemon (watches Brain B episodes → trains ContinuonBrain)"
+    )
+    parser.add_argument(
+        "--no-auto-trainer",
+        action="store_true",
+        help="Disable auto-training daemon"
+    )
+
     args = parser.parse_args()
     
     # If --config-dir passed, set expected env var so sub-processes see it
     if args.config_dir:
         os.environ["CONTINUON_CONFIG_DIR"] = args.config_dir
+
+    # Handle auto-trainer flags via environment variable
+    if args.enable_auto_trainer:
+        os.environ["CONTINUON_ENABLE_AUTO_TRAINER"] = "1"
+    elif args.no_auto_trainer:
+        os.environ["CONTINUON_ENABLE_AUTO_TRAINER"] = "0"
 
     manager = StartupManager(
         config_dir=args.config_dir,
