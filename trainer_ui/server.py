@@ -2001,6 +2001,8 @@ async def scan_with_sam3(images: list, room_scale: float, scanner) -> dict:
     This function uses Meta's SAM3 model for open-vocabulary
     object detection and segmentation.
     """
+    start_time = time.perf_counter()
+
     try:
         from transformers import Sam3Processor, Sam3Model
         import torch
@@ -2136,7 +2138,7 @@ async def scan_with_sam3(images: list, room_scale: float, scanner) -> dict:
         "objects_detected": len(all_detected),
         "assets_generated": len(all_assets),
         "room_dimensions": room_dims,
-        "processing_time_ms": 0,  # TODO: measure
+        "processing_time_ms": int((time.perf_counter() - start_time) * 1000),
         "assets": all_assets,
         "metadata": {
             "segmentation_model": "sam3",
