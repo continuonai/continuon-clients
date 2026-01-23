@@ -541,7 +541,7 @@ class TrainerServer:
             await self.handle_home_scan(msg_type, data, websocket)
 
     async def handle_drive(self, data: dict):
-        """Handle drive command."""
+        """Handle drive command with Brain B motor control."""
         direction = data.get("direction", "stop")
         speed = data.get("speed", 0.5)
 
@@ -571,8 +571,14 @@ class TrainerServer:
             self.state.recognized_user,
         )
 
-        # TODO: Send to actual motors
-        # motor_controller.set_speed(self.state.drive_left, self.state.drive_right)
+        # Send to actual motors via Brain B
+        if self.brain_b and self.brain_b.is_available:
+            if direction == "stop":
+                self.brain_b.stop_drive()
+            else:
+                self.brain_b.set_drive(self.state.drive_left, self.state.drive_right)
+            # Record for Brain B teaching
+            self.brain_b.record_drive_action(direction, speed)
 
         await self.broadcast({"type": "state", "data": asdict(self.state)})
 
