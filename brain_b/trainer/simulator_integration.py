@@ -135,7 +135,7 @@ class SimulatorTrainingIntegration:
                 self.status.tool_model_accuracy = data.get("tool_model_accuracy", 0.0)
                 self.status.tool_episodes_trained = data.get("tool_episodes_trained", 0)
                 self.status.tool_last_trained = data.get("tool_last_trained")
-            except Exception as e:
+            except (json.JSONDecodeError, IOError, KeyError) as e:
                 print(f"[SimTrainer] Failed to load status: {e}")
 
         # Update current counts
@@ -595,8 +595,8 @@ class SimulatorTrainingIntegration:
                         successes += 1
                     if meta.get("level_id"):
                         levels.add(meta["level_id"])
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, IOError, KeyError) as e:
+                    print(f"[SimTrainer] Skipping invalid episode {episode_dir.name}: {e}")
 
         return {
             "count": count,

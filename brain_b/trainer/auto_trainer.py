@@ -94,7 +94,7 @@ class AutoTrainer:
                 self.status.episodes_trained = data.get("episodes_trained", 0)
                 self.status.samples_trained = data.get("samples_trained", 0)
                 self.status.model_version = data.get("model_version", 0)
-            except Exception as e:
+            except (json.JSONDecodeError, IOError, KeyError) as e:
                 print(f"[AutoTrainer] Failed to load status: {e}")
 
         # Count available episodes
