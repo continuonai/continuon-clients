@@ -175,9 +175,9 @@ class LevelGenerator:
         if num_lava > 0:
             self._place_lava(world, num_lava, floor_tiles, start, goal)
 
-        # Place boxes (puzzle elements)
-        # For now, skip boxes - they require careful placement
-        # TODO: Add box puzzle generation
+        # Place boxes and buttons (puzzle elements)
+        if num_boxes > 0:
+            self._place_box_puzzles(world, num_boxes, floor_tiles, start, goal)
 
         return world
 
@@ -378,6 +378,122 @@ class LevelGenerator:
                                 floor_tiles.remove((nx, ny))
                             if (nx, ny) in candidates:
                                 candidates.remove((nx, ny))
+
+    def _place_box_puzzles(
+        self,
+        world: GridWorld,
+        num_boxes: int,
+        floor_tiles: list[tuple[int, int]],
+        start: tuple[int, int],
+        goal: tuple[int, int],
+    ) -> None:
+        """
+        Place boxes and buttons to create push puzzles.
+
+        Strategy:
+        1. Find locations where a box can be pushed (not against walls)
+        2. Place a button nearby that the box should be pushed onto
+        3. Ensure the robot can reach the box and push it
+        """
+        # Find solution path to avoid blocking
+        solution = self._find_path(world, start, goal, ignore_doors=True)
+        solution_set = set(solution) if solution else set()
+
+        # Find valid box positions (not against walls in all directions)
+        valid_box_positions = []
+        for pos in floor_tiles:
+            if pos in solution_set:
+                continue
+            if pos == start or pos == goal:
+                continue
+
+            x, y = pos
+            # Box needs at least 2 opposite sides free for pushing
+            north_free = world.get_tile(x, y - 1).walkable or world.get_tile(x, y - 1) == Tile.FLOOR
+            south_free = world.get_tile(x, y + 1).walkable or world.get_tile(x, y + 1) == Tile.FLOOR
+            east_free = world.get_tile(x + 1, y).walkable or world.get_tile(x + 1, y) == Tile.FLOOR
+            west_free = world.get_tile(x - 1, y).walkable or world.get_tile(x - 1, y) == Tile.FLOOR
+
+            # Need at least one axis with both sides free (so box can be pushed through)
+            if (north_free and south_free) or (east_free and west_free):
+                valid_box_positions.append(pos)
+
+        boxes_placed = 0
+        for _ in range(num_boxes):
+            if not valid_box_positions:
+                break
+
+            # Pick a box position
+            box_pos = self.rng.choice(valid_box_positions)
+            valid_box_positions.remove(box_pos)
+
+            # Find a button position (adjacent to where box can be pushed)
+            button_pos = self._find_button_position(world, box_pos, floor_tiles, solution_set)
+
+            if button_pos:
+                # Place box and button
+                world.set_tile(box_pos[0], box_pos[1], Tile.BOX)
+                world.set_tile(button_pos[0], button_pos[1], Tile.BUTTON)
+
+                if box_pos in floor_tiles:
+                    floor_tiles.remove(box_pos)
+                if button_pos in floor_tiles:
+                    floor_tiles.remove(button_pos)
+                if button_pos in valid_box_positions:
+                    valid_box_positions.remove(button_pos)
+
+                boxes_placed += 1
+
+    def _find_button_position(
+        self,
+        world: GridWorld,
+        box_pos: tuple[int, int],
+        floor_tiles: list[tuple[int, int]],
+        solution_set: set[tuple[int, int]],
+    ) -> Optional[tuple[int, int]]:
+        """
+        Find a good position for a button relative to a box.
+
+        The button should be:
+        1. Reachable by pushing the box
+        2. Not on the solution path
+        3. 1-3 tiles away from the box
+        """
+        bx, by = box_pos
+        candidates = []
+
+        # Check positions 1-3 tiles in each cardinal direction
+        for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+            for dist in range(1, 4):
+                tx, ty = bx + dx * dist, by + dy * dist
+                target = (tx, ty)
+
+                if target not in floor_tiles:
+                    break  # Hit a wall, stop checking this direction
+
+                if target in solution_set:
+                    continue  # Don't block solution
+
+                # Check that all tiles between box and target are floor
+                path_clear = True
+                for d in range(1, dist):
+                    check_x, check_y = bx + dx * d, by + dy * d
+                    tile = world.get_tile(check_x, check_y)
+                    if not tile.walkable and tile != Tile.FLOOR:
+                        path_clear = False
+                        break
+
+                if path_clear:
+                    # Prefer positions that require some pushing (distance 2-3)
+                    priority = 2 if dist >= 2 else 1
+                    candidates.append((target, priority))
+
+        if not candidates:
+            return None
+
+        # Sort by priority and pick
+        candidates.sort(key=lambda x: -x[1])
+        return self.rng.choice([c[0] for c in candidates[:3]])
 
     def _verify_solution(self, world: GridWorld) -> bool:
         """Verify that a solution exists from start to goal."""
