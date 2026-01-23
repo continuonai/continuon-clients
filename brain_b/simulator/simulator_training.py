@@ -221,6 +221,7 @@ class SimulatorDataset:
         Args:
             max_episodes: Maximum episodes to load
             filter_prefix: Only load episodes with this prefix (e.g., "trainer_", "sim_")
+                          If empty, loads trainer_, sim_, and home3d_ prefixed episodes
         """
         count = 0
 
@@ -228,13 +229,26 @@ class SimulatorDataset:
             print(f"[SimulatorDataset] Episodes directory not found: {self.episodes_dir}")
             return 0
 
+        # Default prefixes for simulator-compatible episodes
+        valid_prefixes = [
+            "trainer_", "sim_", "home3d_",
+            # Training games prefixes
+            "nav_", "puzzle_", "explore_", "interact_",
+            "survive_", "collect_", "multi_",
+        ]
+
         for ep_dir in sorted(self.episodes_dir.iterdir()):
             if not ep_dir.is_dir():
                 continue
 
             # Apply prefix filter
-            if filter_prefix and not ep_dir.name.startswith(filter_prefix):
-                continue
+            if filter_prefix:
+                if not ep_dir.name.startswith(filter_prefix):
+                    continue
+            else:
+                # If no filter, only load simulator-compatible episodes
+                if not any(ep_dir.name.startswith(p) for p in valid_prefixes):
+                    continue
 
             if max_episodes and count >= max_episodes:
                 break
@@ -291,6 +305,30 @@ class SimulatorDataset:
         normalized_action = None
         if action_type in action_map:
             normalized_action = action_map[action_type](action_data)
+
+        # Also handle home3d and training_games format (uses "command" instead of "type")
+        if normalized_action is None and "command" in action_data:
+            command = action_data.get("command", "")
+            # Map commands to normalized action names
+            command_map = {
+                # Home3D commands
+                "forward": "move_forward",
+                "backward": "move_backward",
+                "strafe_left": "move_forward",
+                "strafe_right": "move_forward",
+                "turn_left": "rotate_left",
+                "turn_right": "rotate_right",
+                "interact": "noop",
+                # GridWorld commands
+                "left": "rotate_left",
+                "right": "rotate_right",
+                # Additional mappings
+                "move_forward": "move_forward",
+                "move_backward": "move_backward",
+                "rotate_left": "rotate_left",
+                "rotate_right": "rotate_right",
+            }
+            normalized_action = command_map.get(command)
 
         if normalized_action is None or normalized_action not in ACTION_TO_IDX:
             return None

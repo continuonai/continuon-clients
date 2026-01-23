@@ -338,6 +338,33 @@ class TrainingPipelineManager:
             logger.error(f"Auto trainer failed: {e}")
             return None
 
+    def generate_training_games(self, num_games: int = 20) -> Optional[Dict]:
+        """Generate diverse training games to enhance learning."""
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable, '-c',
+                    f'''
+from brain_b.simulator.training_games import generate_training_games
+stats = generate_training_games(
+    num_games={num_games},
+    episodes_per_game=3,
+    output_dir="continuonbrain/rlds/episodes"
+)
+print(f"Generated {{stats['episodes']}} episodes with {{stats['steps']}} steps")
+'''
+                ],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            logger.info(result.stdout)
+            return {'status': 'success' if result.returncode == 0 else 'failed', 'output': result.stdout}
+        except Exception as e:
+            logger.error(f"Training games generation failed: {e}")
+            return None
+
 
 # =============================================================================
 # Brain State Analyzer (enhanced)
@@ -667,6 +694,12 @@ Goal: Generate navigation training data."""
     def _execute_train(self, goal: LearningGoal) -> bool:
         """Execute training phase."""
         logger.info("🏋️ TRAIN phase - training models")
+
+        # First, generate more training games if needed
+        rlds_status = self.pipeline.get_rlds_status()
+        if rlds_status['episode_count'] < 100:
+            logger.info("🎮 Generating more training games...")
+            self.pipeline.generate_training_games(num_games=20)
 
         if goal.training_tool == "simulator_training":
             result = self.pipeline.run_simulator_training()

@@ -1,0 +1,48 @@
+2026-01-22 22:56:17,607 [INFO] ============================================================
+2026-01-22 22:56:17,607 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-22 22:56:17,607 [INFO] ============================================================
+2026-01-22 22:56:17,607 [INFO] Analyzing brain state...
+2026-01-22 22:56:17,679 [INFO] Current phase: train
+2026-01-22 22:56:17,679 [INFO] Generating learning goals...
+2026-01-22 22:56:17,727 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-22 22:56:17,728 [INFO]    Using tool: simulator_training
+2026-01-22 22:56:17,728 [INFO] 🏋️ TRAIN phase - training models
+2026-01-23 07:01:23,774 [INFO] ============================================================
+2026-01-23 07:01:23,774 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-23 07:01:23,774 [INFO] ============================================================
+2026-01-23 07:01:23,774 [INFO] Analyzing brain state...
+2026-01-23 07:01:23,840 [INFO] Current phase: train
+2026-01-23 07:01:23,840 [INFO] Generating learning goals...
+2026-01-23 07:01:23,905 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-23 07:01:23,905 [INFO]    Using tool: simulator_training
+2026-01-23 07:01:23,905 [INFO] 🏋️ TRAIN phase - training models
+2026-01-23 07:01:23,911 [INFO] 🎮 Generating more training games...
+2026-01-23 07:01:30,890 [INFO] 
+============================================================
+  Training Games Generator
+============================================================
+Games to create: 20
+Episodes per game: 3
+Output: continuonbrain/rlds/episodes
+============================================================
+
+
+============================================================
+  Generation Complete!
+============================================================
+Games created: 20
+Episodes generated: 60
+Total steps: 18831
+
+By game type:
+  navigation: 9 episodes
+  puzzle: 9 episodes
+  exploration: 9 episodes
+  interaction: 9 episodes
+  survival: 9 episodes
+  collection: 9 episodes
+  multi: 6 episodes
+============================================================
+
+Generated 60 episodes with 18831 steps
+
