@@ -31,6 +31,7 @@ import asyncio
 import json
 import logging
 import time
+import tracemalloc
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
@@ -574,21 +575,34 @@ class ModelValidator:
         inference_times = []
 
         for sample in test_samples:
+            # Start memory tracking
+            tracemalloc.start()
             start = time.time()
             try:
                 output = await self._run_inference(model, sample["observation"])
                 inference_time = (time.time() - start) * 1000
 
+                # Get memory usage
+                current, peak = tracemalloc.get_traced_memory()
+                tracemalloc.stop()
+                memory_mb = peak / (1024 * 1024)
+
+                # Check if output matches expected (for accuracy calculation)
+                expected = sample.get("expected_output")
+                matches = self._check_output_matches(output, expected, sample.get("expected_properties", {}))
+
                 inference_results.append(InferenceTestResult(
                     input_id=sample["id"],
-                    expected_output=sample.get("expected_output"),
+                    expected_output=expected,
                     actual_output=output,
                     inference_time_ms=inference_time,
-                    memory_used_mb=0.0,  # TODO: Measure memory
+                    memory_used_mb=memory_mb,
+                    matches_expected=matches,
                 ))
                 inference_times.append(inference_time)
 
             except Exception as e:
+                tracemalloc.stop()
                 inference_results.append(InferenceTestResult(
                     input_id=sample["id"],
                     expected_output=None,
@@ -614,9 +628,18 @@ class ModelValidator:
 
         avg_time = sum(inference_times) / len(inference_times) if inference_times else 0
         max_time = max(inference_times) if inference_times else 0
+        avg_memory = sum(r.memory_used_mb for r in successful) / len(successful) if successful else 0
+
+        # Calculate accuracy from successful inferences
+        matching = sum(1 for r in successful if r.matches_expected)
+        accuracy = matching / len(successful) if successful else 0.0
 
         result.avg_inference_time_ms = avg_time
         result.max_inference_time_ms = max_time
+
+        # Store accuracy for regression tests (attach to result for later use)
+        if not hasattr(result, '_inference_accuracy'):
+            result._inference_accuracy = accuracy
 
         # Check against thresholds
         if avg_time > self.config.max_inference_time_ms:
@@ -624,7 +647,7 @@ class ModelValidator:
             message = f"Inference time ({avg_time:.1f}ms) exceeds threshold ({self.config.max_inference_time_ms}ms)"
         else:
             status = ValidationStatus.PASSED
-            message = f"Inference tests passed ({len(successful)}/{len(inference_results)} successful, avg {avg_time:.1f}ms)"
+            message = f"Inference tests passed ({len(successful)}/{len(inference_results)} successful, avg {avg_time:.1f}ms, accuracy {accuracy*100:.1f}%)"
 
         result.checks.append(ValidationCheck(
             name="inference_tests",
@@ -634,8 +657,11 @@ class ModelValidator:
                 "total_tests": len(inference_results),
                 "successful": len(successful),
                 "failed": len(failed),
+                "matching_expected": matching,
+                "accuracy": round(accuracy, 4),
                 "avg_time_ms": round(avg_time, 2),
                 "max_time_ms": round(max_time, 2),
+                "avg_memory_mb": round(avg_memory, 2),
             },
         ))
 
@@ -663,9 +689,11 @@ class ModelValidator:
         result.baseline_version = self._baseline_version
 
         # Compare candidate metrics to baseline
+        # Use accuracy computed during inference tests
+        accuracy = getattr(result, '_inference_accuracy', 0.9)
         candidate_metrics = {
             "avg_inference_time_ms": result.avg_inference_time_ms,
-            "accuracy": 0.9,  # TODO: Compute actual accuracy from inference tests
+            "accuracy": accuracy,
         }
 
         # Check for regression
@@ -872,6 +900,71 @@ class ModelValidator:
             "confidence": 0.95,
         }
 
+    def _check_output_matches(
+        self,
+        output: Any,
+        expected_output: Optional[Any],
+        expected_properties: Dict[str, Any],
+    ) -> bool:
+        """
+        Check if model output matches expected output or properties.
+
+        Args:
+            output: Actual model output
+            expected_output: Expected output (if specified)
+            expected_properties: Expected properties to validate
+
+        Returns:
+            True if output matches expectations
+        """
+        if output is None:
+            return False
+
+        # If exact expected output is provided, compare directly
+        if expected_output is not None:
+            try:
+                # For action arrays, check approximate equality
+                if isinstance(expected_output, dict) and isinstance(output, dict):
+                    if "action" in expected_output and "action" in output:
+                        expected_action = expected_output["action"]
+                        actual_action = output["action"]
+                        if len(expected_action) != len(actual_action):
+                            return False
+                        # Check if actions are within tolerance
+                        tolerance = 0.1
+                        for e, a in zip(expected_action, actual_action):
+                            if abs(e - a) > tolerance:
+                                return False
+                        return True
+                return expected_output == output
+            except Exception:
+                return False
+
+        # Check expected properties
+        if expected_properties:
+            # Check action is bounded
+            if expected_properties.get("action_bounded", False):
+                if isinstance(output, dict) and "action" in output:
+                    action = output["action"]
+                    if isinstance(action, (list, tuple)):
+                        max_mag = self.config.max_action_magnitude
+                        if any(abs(a) > max_mag for a in action):
+                            return False
+
+            # Check reasonable magnitude
+            if expected_properties.get("reasonable_magnitude", False):
+                if isinstance(output, dict) and "action" in output:
+                    action = output["action"]
+                    if isinstance(action, (list, tuple)):
+                        # Actions should not be extreme (e.g., all zeros or all max)
+                        if all(a == 0 for a in action):
+                            pass  # Zero action is valid
+                        elif all(abs(a) >= self.config.max_action_magnitude for a in action):
+                            return False  # All saturated is suspicious
+
+        # If no specific checks, assume output is valid if it exists
+        return True
+
     async def _get_baseline_metrics(self) -> Optional[Dict[str, Any]]:
         """Get or compute baseline metrics."""
         if self._baseline_metrics and self.config.use_cached_baseline:
@@ -901,18 +994,24 @@ class ModelValidator:
             return None
 
         inference_times = []
+        matching_count = 0
+        total_count = 0
         for sample in test_samples:
             start = time.time()
             try:
-                await self._run_inference(model, sample["observation"])
+                output = await self._run_inference(model, sample["observation"])
                 inference_times.append((time.time() - start) * 1000)
+                total_count += 1
+                if self._check_output_matches(output, sample.get("expected_output"), sample.get("expected_properties", {})):
+                    matching_count += 1
             except Exception:
                 pass
 
         if inference_times:
+            accuracy = matching_count / total_count if total_count > 0 else 0.0
             self._baseline_metrics = {
                 "avg_inference_time_ms": sum(inference_times) / len(inference_times),
-                "accuracy": 0.9,  # Placeholder
+                "accuracy": accuracy,
                 "computed_at": datetime.now(timezone.utc).isoformat(),
             }
 

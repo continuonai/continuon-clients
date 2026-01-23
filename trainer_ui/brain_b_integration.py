@@ -1,10 +1,11 @@
 """
 Brain B Integration for Trainer UI
 
-Connects arm commands to Brain B for:
+Connects arm and drive commands to Brain B for:
 - Action validation (safety checks via guardrails)
-- Teaching integration (record arm movements as behaviors)
-- Conversation handling (natural language arm control)
+- Teaching integration (record movements as behaviors)
+- Conversation handling (natural language control)
+- Motor control (drive commands to actual hardware)
 """
 
 import sys
@@ -17,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b"))
 try:
     from actor_runtime import ActorRuntime
     from conversation.handler import ConversationHandler
+    from hardware import MotorController, MockMotorController
+    from hardware.motors import create_executor
     HAS_BRAIN_B = True
 except ImportError:
     HAS_BRAIN_B = False
@@ -43,40 +46,55 @@ class BrainBIntegration:
         "gripper_max": 1.0,
     }
 
-    def __init__(self, data_path: str = "./brain_b_data"):
+    # Drive safety limits
+    DRIVE_LIMITS = {
+        "max_speed": 1.0,
+        "acceleration": 0.2,  # Max speed change per update
+    }
+
+    def __init__(self, data_path: str = "./brain_b_data", use_real_motors: bool = False):
         """
         Initialize Brain B integration.
 
         Args:
             data_path: Path for Brain B data storage
+            use_real_motors: Use real GPIO motors (False = mock motors)
         """
         self.data_path = Path(data_path)
         self.data_path.mkdir(parents=True, exist_ok=True)
 
         self.runtime: Optional[ActorRuntime] = None
         self.handler: Optional[ConversationHandler] = None
+        self.motor_controller = None
         self.last_arm_state: Dict[str, Dict[str, float]] = {}
+        self.last_drive_state: Dict[str, float] = {"left": 0.0, "right": 0.0}
+        self.use_real_motors = use_real_motors
 
         if HAS_BRAIN_B:
             self._initialize_brain_b()
 
     def _initialize_brain_b(self):
-        """Initialize Brain B runtime and handler."""
+        """Initialize Brain B runtime, motor controller, and handler."""
         try:
             self.runtime = ActorRuntime(
                 data_path=str(self.data_path),
                 auto_restore=True,
             )
 
-            # Create a dummy executor for arm actions
-            def arm_executor(action: dict):
-                # This is called when Brain B wants to execute an arm action
-                # The actual execution happens in the server
-                pass
+            # Initialize motor controller
+            if self.use_real_motors:
+                self.motor_controller = MotorController()
+                print("[BrainB] Using real GPIO motors")
+            else:
+                self.motor_controller = MockMotorController(verbose=True)
+                print("[BrainB] Using mock motors")
+
+            # Create executor that uses the motor controller
+            self.motor_executor = create_executor(self.motor_controller)
 
             self.handler = ConversationHandler(
                 runtime=self.runtime,
-                executor=arm_executor,
+                executor=self.motor_executor,
                 use_ai=True,
                 prefer_gemini=True,
             )
@@ -87,6 +105,7 @@ class BrainBIntegration:
             print(f"[BrainB] Failed to initialize: {e}")
             self.runtime = None
             self.handler = None
+            self.motor_controller = None
 
     @property
     def is_available(self) -> bool:
@@ -169,6 +188,77 @@ class BrainBIntegration:
         self.last_arm_state[arm_id]["gripper"] = clamped
 
         return True, "OK", clamped
+
+    def set_drive(self, left_speed: float, right_speed: float) -> Tuple[bool, str]:
+        """
+        Set drive motor speeds.
+
+        Args:
+            left_speed: Left motor speed (-1.0 to 1.0)
+            right_speed: Right motor speed (-1.0 to 1.0)
+
+        Returns:
+            Tuple of (success, message)
+        """
+        if not self.motor_controller:
+            return False, "Motor controller not available"
+
+        # Clamp speeds
+        left_speed = max(-self.DRIVE_LIMITS["max_speed"],
+                        min(self.DRIVE_LIMITS["max_speed"], left_speed))
+        right_speed = max(-self.DRIVE_LIMITS["max_speed"],
+                         min(self.DRIVE_LIMITS["max_speed"], right_speed))
+
+        # Apply acceleration limiting
+        left_delta = left_speed - self.last_drive_state["left"]
+        right_delta = right_speed - self.last_drive_state["right"]
+        max_accel = self.DRIVE_LIMITS["acceleration"]
+
+        if abs(left_delta) > max_accel:
+            left_speed = self.last_drive_state["left"] + (max_accel if left_delta > 0 else -max_accel)
+        if abs(right_delta) > max_accel:
+            right_speed = self.last_drive_state["right"] + (max_accel if right_delta > 0 else -max_accel)
+
+        # Send to motors
+        self.motor_controller.set_motors(left_speed, right_speed)
+
+        # Update state
+        self.last_drive_state["left"] = left_speed
+        self.last_drive_state["right"] = right_speed
+
+        return True, f"Drive: L={left_speed:.2f} R={right_speed:.2f}"
+
+    def stop_drive(self) -> Tuple[bool, str]:
+        """Stop all drive motors immediately."""
+        if not self.motor_controller:
+            return False, "Motor controller not available"
+
+        self.motor_controller.stop()
+        self.last_drive_state["left"] = 0.0
+        self.last_drive_state["right"] = 0.0
+
+        return True, "Motors stopped"
+
+    def record_drive_action(self, direction: str, speed: float):
+        """
+        Record a drive action for Brain B teaching.
+
+        Args:
+            direction: Direction name (forward, backward, left, right, stop)
+            speed: Speed value
+        """
+        if not self.is_available:
+            return
+
+        action = {
+            "type": "drive",
+            "direction": direction,
+            "speed": speed,
+        }
+
+        # If teaching mode is active in Brain B, record the action
+        if self.runtime.teaching.is_recording:
+            self.runtime.teaching.record_action(action)
 
     def record_arm_action(
         self,
@@ -253,5 +343,7 @@ class BrainBIntegration:
 
     def shutdown(self):
         """Clean shutdown."""
+        if self.motor_controller:
+            self.motor_controller.stop()
         if self.runtime:
             self.runtime.shutdown()
