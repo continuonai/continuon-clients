@@ -6,6 +6,7 @@ Maps to CMS levels: Procedural (L2) > Semantic (L1) > Episodic (L0).
 """
 
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass, field
@@ -13,6 +14,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 import re
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryLevel(Enum):
@@ -183,8 +186,8 @@ class FilesystemMemory:
                 for word in query_words:
                     if word in content:
                         score += 0.3
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not read {path} for scoring: {e}")
 
         return score
 
@@ -202,7 +205,8 @@ class FilesystemMemory:
                 return lines
             else:
                 return path.read_text()
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not read file {path}: {e}")
             return None
 
     # === Write Operations ===
