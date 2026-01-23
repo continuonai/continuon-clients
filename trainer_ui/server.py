@@ -441,11 +441,17 @@ class TrainerServer:
 
     async def broadcast(self, message: dict):
         """Send message to all connected clients."""
+        disconnected = []
         for ws in self.connections:
             try:
                 await ws.send_json(message)
-            except:
-                pass
+            except Exception:
+                # Client likely disconnected, mark for removal
+                disconnected.append(ws)
+        # Clean up disconnected clients
+        for ws in disconnected:
+            if ws in self.connections:
+                self.connections.remove(ws)
 
     async def handle_message(self, websocket: WebSocket, data: dict):
         """Handle incoming WebSocket message."""
@@ -1500,8 +1506,8 @@ async def simulator_training_status():
                 "action_vocab": data.get("action_vocab", []),
                 "saved_at": data.get("saved_at", "unknown"),
             }
-        except Exception:
-            pass
+        except (json.JSONDecodeError, KeyError, IOError) as e:
+            print(f"[Server] Could not load model info: {e}")
 
     return {
         "status": "ok",
@@ -1855,7 +1861,8 @@ async def scan_room_images(request_data: dict):
                 print(f"[RoomScanner] FastSAM failed, trying YOLOv5: {e}")
                 try:
                     result = scan_with_hailo(images[0], room_scale)
-                except Exception:
+                except Exception as e2:
+                    print(f"[RoomScanner] Hailo also failed, using OpenCV: {e2}")
                     result = process_room_images(images, room_scale)
         elif use_hailo_sam3 and HAS_HAILO_SCANNER:
             try:
@@ -1865,7 +1872,8 @@ async def scan_room_images(request_data: dict):
                 print(f"[RoomScanner] Hailo+SAM3 failed, trying Hailo only: {e}")
                 try:
                     result = scan_with_hailo(images[0], room_scale)
-                except Exception:
+                except Exception as e2:
+                    print(f"[RoomScanner] Hailo also failed, using OpenCV: {e2}")
                     result = process_room_images(images, room_scale)
         elif use_hailo and HAS_HAILO_SCANNER:
             try:
@@ -1948,8 +1956,8 @@ async def get_scan_result(scan_id: str):
             with open(result_file) as f:
                 result = json.load(f)
             return {"status": "ok", "result": result}
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[RoomScanner] Error loading scan {scan_id}: {e}")
 
     return {"error": f"Scan {scan_id} not found", "result": None}
 
@@ -1988,8 +1996,8 @@ async def list_scans():
                         "assets_count": len(data.get("generated_assets", [])),
                         "source": "disk",
                     })
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, IOError) as e:
+                    print(f"[RoomScanner] Could not load {scan_file}: {e}")
 
     return {"status": "ok", "scans": scans}
 

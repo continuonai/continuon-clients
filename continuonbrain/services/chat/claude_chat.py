@@ -93,6 +93,7 @@ class ClaudeChat:
         self.temperature = temperature
         self.config_dir = config_dir
         self._client = None
+        self._async_client = None
         self._api_key = api_key
 
         # Session management (matching HopeChat interface)
@@ -140,6 +141,18 @@ class ClaudeChat:
                     "anthropic package not installed. Install with: pip install anthropic"
                 )
         return self._client
+
+    def _get_async_client(self):
+        """Lazily initialize the async Anthropic client."""
+        if self._async_client is None:
+            try:
+                import anthropic
+                self._async_client = anthropic.AsyncAnthropic(api_key=self._api_key)
+            except ImportError:
+                raise ImportError(
+                    "anthropic package not installed. Install with: pip install anthropic"
+                )
+        return self._async_client
 
     def chat(
         self,
@@ -273,10 +286,103 @@ class ClaudeChat:
         history: Optional[List[Dict]] = None,
         system_context: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Async version of chat (currently wraps sync version)."""
-        # For now, just call the sync version
-        # TODO: Implement true async with anthropic's async client
-        return self.chat(message, session_id, history, system_context)
+        """
+        Async version of chat using Anthropic's async client.
+
+        This does not block the event loop, allowing concurrent requests.
+
+        Args:
+            message: User's message text.
+            session_id: Session ID for conversation tracking.
+            history: Optional conversation history.
+            system_context: Optional system prompt override.
+
+        Returns:
+            Dict with response, session_id, and metadata.
+        """
+        start_time = time.time()
+
+        # Get or create session
+        session_id = session_id or self._default_session_id
+        if session_id not in self._sessions:
+            self._sessions[session_id] = ChatSession(session_id=session_id)
+        session = self._sessions[session_id]
+
+        # Add user message to session
+        session.add_message("user", message)
+
+        # Check API key
+        if not self._api_key:
+            response_text = "[Error: Anthropic API key not configured. Please add your API key in Settings > Claude Code & Harness.]"
+            session.add_message("assistant", response_text)
+            return {
+                "success": False,
+                "response": response_text,
+                "session_id": session_id,
+                "agent": "claude_error",
+                "duration_ms": (time.time() - start_time) * 1000,
+                "turn_count": len(session.messages),
+                "error": "API key not configured",
+            }
+
+        try:
+            client = self._get_async_client()
+
+            # Build messages from session history or provided history
+            messages = []
+            if history:
+                messages.extend(history)
+            else:
+                # Use session history (excluding the current user message)
+                for msg in session.messages[:-1]:
+                    messages.append({"role": msg.role, "content": msg.content})
+
+            # Add current user message
+            messages.append({"role": "user", "content": message})
+
+            # Build request
+            kwargs = {
+                "model": self.model_id,
+                "max_tokens": self.max_tokens,
+                "messages": messages,
+            }
+
+            # Use provided system context or default
+            kwargs["system"] = system_context or self.system_prompt
+
+            # Call API asynchronously (does not block event loop)
+            response = await client.messages.create(**kwargs)
+
+            # Extract text response
+            if response.content and len(response.content) > 0:
+                response_text = response.content[0].text
+            else:
+                response_text = "[No response from Claude]"
+
+            response_agent = f"claude_{self.model_name}"
+
+        except ImportError as e:
+            logger.error(f"Anthropic package not installed: {e}")
+            response_text = "[Error: anthropic package not installed. Install with: pip install anthropic]"
+            response_agent = "claude_error"
+        except Exception as e:
+            logger.error(f"Claude API error: {e}")
+            response_text = f"[Claude API Error: {str(e)}]"
+            response_agent = "claude_error"
+
+        # Add response to session
+        session.add_message("assistant", response_text)
+
+        duration = time.time() - start_time
+
+        return {
+            "success": True,
+            "response": response_text,
+            "session_id": session_id,
+            "agent": response_agent,
+            "duration_ms": duration * 1000,
+            "turn_count": len(session.messages),
+        }
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the current model."""
