@@ -100,6 +100,14 @@ TRAINING_TOOLS = {
         "input": "RLDS episodes",
         "output": "trained neural networks",
     },
+    "conversation_trainer": {
+        "module": "brain_b.trainer.conversation_trainer",
+        "description": "Trains natural language understanding using Claude/Gemini CLI",
+        "capabilities": ["intent_classification", "natural_language", "llm_augmentation"],
+        "input": "conversation samples, LLM generation",
+        "output": "trained conversation model",
+        "backends": ["claude", "gemini", "local"],
+    },
 }
 
 # Core capabilities the robot needs
@@ -121,7 +129,7 @@ CORE_CAPABILITIES = {
     },
     "communication": {
         "description": "Interact with humans and other robots",
-        "training_tools": [],
+        "training_tools": ["conversation_trainer"],
         "skills": ["natural_language", "intent_inference", "gesture_recognition"],
     },
     "learning": {
@@ -364,6 +372,86 @@ print(f"Generated {{stats['episodes']}} episodes with {{stats['steps']}} steps")
         except Exception as e:
             logger.error(f"Training games generation failed: {e}")
             return None
+
+    def run_conversation_training(self, epochs: int = 100, use_llm: bool = True) -> Optional[Dict]:
+        """
+        Run conversation training using Claude/Gemini CLI when available.
+
+        This trains natural language understanding so the robot can:
+        - Understand greetings and questions
+        - Parse natural navigation commands
+        - Have basic conversations
+        """
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable, '-c',
+                    f'''
+import sys
+sys.path.insert(0, "brain_b")
+from trainer.conversation_trainer import ConversationTrainer, get_llm_backend
+
+# Check LLM availability
+llm = get_llm_backend()
+print(f"LLM Backend: {{llm.backend}}")
+print(f"  Claude available: {{llm.claude_available}}")
+print(f"  Gemini available: {{llm.gemini_available}}")
+
+# Run training
+trainer = ConversationTrainer("brain_b_data")
+total = trainer.generate_training_data(count=2000, use_llm={use_llm})
+metrics = trainer.train(epochs={epochs})
+
+print(f"\\nTraining complete:")
+print(f"  Samples trained: {{metrics.samples_trained}}")
+print(f"  Intents learned: {{metrics.intents_learned}}")
+print(f"  Accuracy: {{metrics.accuracy:.2%}}")
+'''
+                ],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+
+            output = result.stdout + result.stderr
+            logger.info(f"Conversation training output: {output}")
+
+            return {
+                'status': 'success' if result.returncode == 0 else 'failed',
+                'output': output,
+            }
+        except subprocess.TimeoutExpired:
+            logger.error("Conversation training timed out")
+            return {'status': 'timeout', 'output': ''}
+        except Exception as e:
+            logger.error(f"Conversation training failed: {e}")
+            return None
+
+    def get_conversation_status(self) -> Dict:
+        """Check conversation training status."""
+        conv_model_dir = self.brain_b_data / "conversation_models"
+        conv_data_dir = self.brain_b_data / "conversations"
+
+        models = list(conv_model_dir.glob("conv_model_*.json")) if conv_model_dir.exists() else []
+        data_files = list(conv_data_dir.glob("*.json")) if conv_data_dir.exists() else []
+
+        # Count samples
+        total_samples = 0
+        for f in data_files:
+            try:
+                data = json.loads(f.read_text())
+                total_samples += len(data.get("samples", []))
+            except Exception:
+                pass
+
+        return {
+            'status': 'ready' if models else 'not_trained',
+            'models': len(models),
+            'latest_model': str(models[-1]) if models else None,
+            'training_samples': total_samples,
+            'data_files': len(data_files),
+        }
 
 
 # =============================================================================
@@ -707,6 +795,11 @@ Goal: Generate navigation training data."""
 
         if goal.training_tool == "auto_trainer":
             result = self.pipeline.run_auto_trainer()
+            return result and result.get('status') == 'success'
+
+        if goal.training_tool == "conversation_trainer":
+            logger.info("💬 Training conversation understanding...")
+            result = self.pipeline.run_conversation_training(epochs=100, use_llm=True)
             return result and result.get('status') == 'success'
 
         # Fallback to Claude Code
