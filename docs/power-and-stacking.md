@@ -197,6 +197,10 @@ Buck Conv.  Buck Conv.
 
 ## Physical Stacking Configurations
 
+> **Note:** For tall robot configurations with 6-foot human reach capability, see
+> [V-Slot Mast Design](mechanical-design/v-slot-mast-design.md) which details a 1.5m mast
+> with moving arm carriage and stability analysis.
+
 ### Configuration A: Desktop Development Stack
 
 ```
