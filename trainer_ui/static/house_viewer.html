@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House POV - ContinuonXR</title>
+    <link rel="stylesheet" href="/static/cxr-theme.css">
+    <link rel="stylesheet" href="/static/shared-nav.css">
+    <script src="/static/shared-nav.js"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #eee;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #12122a;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1a1a3a;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.3rem;
+            color: #4ade80;
+        }
+
+        .header h1 span {
+            color: #888;
+            font-weight: normal;
+            font-size: 0.85rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-links a {
+            color: #4ade80;
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            height: calc(100vh - 50px);
+            margin-top: 50px;
+        }
+
+        /* Main 3D view */
+        .pov-container {
+            position: relative;
+            background: #0a0a1a;
+        }
+
+        #pov-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .view-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #4ade80;
+        }
+
+        /* Control overlay */
+        .control-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+        }
+
+        .control-overlay button {
+            background: #1a1a3a;
+            border: 1px solid #2a2a5a;
+            color: #eee;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .control-overlay button:hover {
+            background: #2a2a5a;
+        }
+
+        .control-overlay button.active {
+            background: #4ade80;
+            color: #0a0a1a;
+        }
+
+        /* Right sidebar */
+        .sidebar {
+            background: #12122a;
+            border-left: 2px solid #1a1a3a;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Overhead map */
+        .overhead-section {
+            height: 300px;
+            border-bottom: 2px solid #1a1a3a;
+            position: relative;
+        }
+
+        #overhead-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Sensor panels */
+        .sensor-section {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .sensor-section h3 {
+            color: #4ade80;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .sensor-panel {
+            background: #1a1a3a;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .sensor-panel h4 {
+            color: #888;
+            font-size: 0.75rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .sensor-value {
+            font-family: monospace;
+            color: #4ade80;
+            font-size: 1rem;
+        }
+
+        .sensor-bar {
+            height: 8px;
+            background: #0a0a1a;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .sensor-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            transition: width 0.3s;
+        }
+
+        /* Robot info */
+        .robot-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #2a2a5a;
+        }
+
+        .info-item .label {
+            color: #888;
+            font-size: 0.75rem;
+        }
+
+        .info-item .value {
+            color: #eee;
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+
+        /* Connection status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #0a0a1a;
+            border-top: 1px solid #1a1a3a;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e94560;
+        }
+
+        .status-dot.connected {
+            background: #4ade80;
+        }
+
+        .status-text {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        /* Training mode indicator */
+        .training-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(233, 69, 96, 0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            animation: pulse 2s infinite;
+        }
+
+        .training-indicator.active {
+            background: rgba(74, 222, 128, 0.9);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Templates panel */
+        .templates-panel {
+            margin-bottom: 1rem;
+        }
+
+        .template-btn {
+            display: block;
+            width: 100%;
+            background: #1a1a3a;
+            border: 1px solid #2a2a5a;
+            color: #eee;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .template-btn:hover {
+            background: #2a2a5a;
+            border-color: #4ade80;
+        }
+
+        /* Keyboard controls hint */
+        .controls-hint {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #888;
+            display: none;
+        }
+
+        .controls-hint.visible {
+            display: block;
+        }
+
+        kbd {
+            background: #2a2a5a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 0 2px;
+        }
+
+        /* Depth view toggle */
+        .depth-canvas {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 200px;
+            height: 150px;
+            background: #000;
+            border: 2px solid #2a2a5a;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .depth-canvas.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>House 3D POV Viewer <span>| Robot Training Environment</span></h1>
+        <nav class="nav-links">
+            <a href="/">Trainer UI</a>
+            <a href="/static/room_scanner.html">Room Scanner</a>
+            <a href="/static/homescan.html">HomeScan</a>
+        </nav>
+    </header>
+
+    <div class="main-container">
+        <!-- Main POV View -->
+        <div class="pov-container">
+            <canvas id="pov-canvas"></canvas>
+            <div class="view-label">Robot POV</div>
+
+            <div class="training-indicator" id="training-indicator">
+                <span>&#9679;</span> <span id="training-status">Training: Off</span>
+            </div>
+
+            <div class="controls-hint" id="controls-hint">
+                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move |
+                <kbd>Mouse</kbd> Look |
+                <kbd>Space</kbd> Record |
+                <kbd>Esc</kbd> Exit
+            </div>
+
+            <div class="control-overlay">
+                <button id="btn-start" onclick="startExploration()">Start Exploration</button>
+                <button id="btn-reset" onclick="resetRobot()">Reset Position</button>
+                <button id="btn-record" onclick="toggleRecording()">Record Episode</button>
+                <button id="btn-depth" onclick="toggleDepthView()">Show Depth</button>
+            </div>
+
+            <canvas id="depth-canvas" class="depth-canvas"></canvas>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Overhead Map -->
+            <div class="overhead-section">
+                <canvas id="overhead-canvas"></canvas>
+                <div class="view-label">Overhead Map</div>
+            </div>
+
+            <!-- Sensor Data -->
+            <div class="sensor-section">
+                <h3>Robot State</h3>
+
+                <div class="sensor-panel">
+                    <div class="robot-info">
+                        <div class="info-item">
+                            <span class="label">X</span>
+                            <span class="value" id="pos-x">0.00</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Z</span>
+                            <span class="value" id="pos-z">0.00</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Yaw</span>
+                            <span class="value" id="pos-yaw">0&deg;</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Room</span>
+                            <span class="value" id="current-room">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sensor-panel">
+                    <h4>Forward Distance</h4>
+                    <div class="sensor-value" id="forward-dist">--</div>
+                    <div class="sensor-bar">
+                        <div class="sensor-bar-fill" id="forward-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="sensor-panel">
+                    <h4>Objects Detected</h4>
+                    <div class="sensor-value" id="objects-count">0</div>
+                </div>
+
+                <h3>Scene Templates</h3>
+                <div class="templates-panel">
+                    <button class="template-btn" onclick="loadTemplate('studio_apartment')">
+                        Studio Apartment
+                    </button>
+                    <button class="template-btn" onclick="loadTemplate('two_bedroom')">
+                        2-Bedroom Apartment
+                    </button>
+                    <button class="template-btn" onclick="loadFromScanner()">
+                        Load from Scanner
+                    </button>
+                </div>
+
+                <div class="connection-status">
+                    <div class="status-dot" id="ws-status"></div>
+                    <span class="status-text" id="ws-status-text">Disconnected</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/house_viewer.js"></script>
+</body>
+</html>

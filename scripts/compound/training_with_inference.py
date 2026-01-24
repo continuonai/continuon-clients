@@ -857,6 +857,43 @@ Be concise."""
             print(f"   Completed {self.cycle_count} cycles")
 
 
+def run_visual_training(num_episodes: int = 10, template: str = 'studio_apartment'):
+    """Run visual 3D training mode with house_3d renderer."""
+    print("\n" + "=" * 60)
+    print("🏠 Visual 3D Training Mode")
+    print("=" * 60)
+
+    try:
+        from simulator.house_3d import (
+            create_visual_training_env,
+            run_visual_training_episode,
+            generate_visual_training_batch,
+        )
+
+        print(f"\nGenerating {num_episodes} visual training episodes...")
+        print(f"Template: {template}")
+
+        results = generate_visual_training_batch(
+            num_episodes=num_episodes,
+            template=template,
+            output_dir='brain_b_data/visual_episodes',
+            save_frames=True,
+        )
+
+        print(f"\n✅ Generated {len(results)} episodes")
+        total_steps = sum(r['steps'] for r in results)
+        avg_reward = sum(r['total_reward'] for r in results) / len(results)
+        print(f"   Total steps: {total_steps}")
+        print(f"   Average reward: {avg_reward:.2f}")
+
+        return results
+
+    except ImportError as e:
+        print(f"❌ Visual training not available: {e}")
+        print("   Make sure house_3d module is installed")
+        return []
+
+
 def main():
     import argparse
 
@@ -864,10 +901,16 @@ def main():
     parser.add_argument("--test-interval", type=int, default=5, help="Run inference test every N cycles")
     parser.add_argument("--max-cycles", type=int, default=0, help="Max cycles (0 = infinite)")
     parser.add_argument("--test-only", action="store_true", help="Just run inference test")
+    parser.add_argument("--visual", action="store_true", help="Run visual 3D training mode")
+    parser.add_argument("--visual-episodes", type=int, default=10, help="Number of visual episodes to generate")
+    parser.add_argument("--template", type=str, default="studio_apartment",
+                       help="House template (studio_apartment, two_bedroom)")
 
     args = parser.parse_args()
 
-    if args.test_only:
+    if args.visual:
+        run_visual_training(num_episodes=args.visual_episodes, template=args.template)
+    elif args.test_only:
         tester = InferenceTester()
         tester.run_full_test()
     else:

@@ -1,156 +1,552 @@
-/* Shared Navigation Bar Styles for ContinuonXR */
+/* ==========================================================================
+   ContinuonXR Navigation System
+   Design: Neural Interface / Cybernetic HUD
+   ========================================================================== */
 
-.continuon-nav {
-    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-    padding: 0;
-    border-bottom: 1px solid rgba(99, 102, 241, 0.3);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+/* --------------------------------------------------------------------------
+   CSS Custom Properties - Design Tokens
+   -------------------------------------------------------------------------- */
+:root {
+    /* Core palette */
+    --cxr-void: #030508;
+    --cxr-deep: #0a0e14;
+    --cxr-surface: #111820;
+    --cxr-elevated: #1a2332;
+    --cxr-border: #243044;
+
+    /* Accent - Cyan/Teal neural glow */
+    --cxr-accent: #00f0ff;
+    --cxr-accent-dim: #00a8b3;
+    --cxr-accent-glow: rgba(0, 240, 255, 0.4);
+    --cxr-accent-subtle: rgba(0, 240, 255, 0.08);
+
+    /* Secondary - Warm amber for warnings/active states */
+    --cxr-warm: #ff9f1c;
+    --cxr-warm-glow: rgba(255, 159, 28, 0.4);
+
+    /* Status colors */
+    --cxr-success: #00ff88;
+    --cxr-danger: #ff3366;
+    --cxr-warning: #ffcc00;
+
+    /* Text hierarchy */
+    --cxr-text-primary: #e8f4f8;
+    --cxr-text-secondary: #7a8fa3;
+    --cxr-text-muted: #4a5a6a;
+
+    /* Typography */
+    --font-display: 'Orbitron', 'Rajdhani', sans-serif;
+    --font-ui: 'Rajdhani', 'Segoe UI', sans-serif;
+    --font-mono: 'Share Tech Mono', 'Consolas', monospace;
+
+    /* Spacing */
+    --nav-height: 64px;
+
+    /* Effects */
+    --glow-sm: 0 0 8px;
+    --glow-md: 0 0 16px;
+    --glow-lg: 0 0 32px;
 }
 
+/* --------------------------------------------------------------------------
+   Global Resets & Base Styles (applied when nav is present)
+   -------------------------------------------------------------------------- */
+.continuon-nav ~ * {
+    font-family: var(--font-ui);
+}
+
+/* --------------------------------------------------------------------------
+   Navigation Container
+   -------------------------------------------------------------------------- */
+.continuon-nav {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    height: var(--nav-height);
+    background:
+        linear-gradient(180deg,
+            var(--cxr-surface) 0%,
+            rgba(17, 24, 32, 0.95) 100%
+        );
+    border-bottom: 1px solid var(--cxr-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Animated top accent line */
+.continuon-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        var(--cxr-accent) 20%,
+        var(--cxr-accent) 80%,
+        transparent 100%
+    );
+    opacity: 0.8;
+}
+
+/* Subtle scan line effect */
+.continuon-nav::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 240, 255, 0.015) 2px,
+        rgba(0, 240, 255, 0.015) 4px
+    );
+    pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Navigation Inner Container
+   -------------------------------------------------------------------------- */
 .continuon-nav-inner {
-    max-width: 1600px;
+    max-width: 1800px;
     margin: 0 auto;
     padding: 0 1.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 60px;
+    height: 100%;
+    position: relative;
 }
 
+/* --------------------------------------------------------------------------
+   Brand / Logo
+   -------------------------------------------------------------------------- */
 .continuon-brand {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
     text-decoration: none;
+    position: relative;
+    padding: 0.5rem;
+    margin: -0.5rem;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.continuon-brand:hover {
+    background: var(--cxr-accent-subtle);
+}
+
+.continuon-brand:hover .continuon-logo {
+    box-shadow:
+        0 0 20px var(--cxr-accent-glow),
+        inset 0 0 20px rgba(0, 240, 255, 0.1);
+    transform: scale(1.05);
+}
+
+.continuon-brand:hover .continuon-title {
+    text-shadow: 0 0 20px var(--cxr-accent-glow);
+}
+
+/* Logo container */
 .continuon-logo {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    border-radius: 8px;
+    width: 42px;
+    height: 42px;
+    background:
+        linear-gradient(135deg,
+            var(--cxr-elevated) 0%,
+            var(--cxr-surface) 100%
+        );
+    border: 1px solid var(--cxr-accent-dim);
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1.4rem;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow:
+        0 0 12px rgba(0, 240, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* Logo glow ring */
+.continuon-logo::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: linear-gradient(135deg, var(--cxr-accent), transparent) border-box;
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    opacity: 0.5;
+}
+
+/* Brand title */
 .continuon-title {
-    font-size: 1.25rem;
+    font-family: var(--font-display);
+    font-size: 1.4rem;
     font-weight: 700;
-    color: #fff;
-    letter-spacing: -0.02em;
+    color: var(--cxr-text-primary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
 }
 
 .continuon-title span {
-    color: #6366f1;
+    color: var(--cxr-accent);
+    font-weight: 800;
 }
 
+/* --------------------------------------------------------------------------
+   Navigation Links Container
+   -------------------------------------------------------------------------- */
 .continuon-nav-links {
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    height: 100%;
 }
 
+/* --------------------------------------------------------------------------
+   Individual Navigation Links
+   -------------------------------------------------------------------------- */
 .continuon-nav-link {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    color: #94a3b8;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
+    color: var(--cxr-text-secondary);
     text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-    border-radius: 8px;
-    transition: all 0.15s ease;
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border-radius: 6px;
+    position: relative;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     white-space: nowrap;
+    text-transform: uppercase;
 }
 
+/* Link hover state */
 .continuon-nav-link:hover {
-    color: #fff;
-    background: rgba(99, 102, 241, 0.1);
+    color: var(--cxr-text-primary);
+    background: var(--cxr-accent-subtle);
 }
 
+.continuon-nav-link:hover .nav-icon {
+    color: var(--cxr-accent);
+    filter: drop-shadow(0 0 6px var(--cxr-accent-glow));
+    transform: translateY(-1px);
+}
+
+/* Active link state */
 .continuon-nav-link.active {
-    color: #fff;
-    background: rgba(99, 102, 241, 0.2);
-    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: var(--cxr-accent);
+    background: linear-gradient(135deg,
+        rgba(0, 240, 255, 0.12) 0%,
+        rgba(0, 240, 255, 0.06) 100%
+    );
 }
 
-.continuon-nav-link .icon {
-    font-size: 1.1rem;
+.continuon-nav-link.active::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 2px;
+    background: var(--cxr-accent);
+    box-shadow: 0 0 12px var(--cxr-accent-glow);
+    border-radius: 2px 2px 0 0;
 }
 
+.continuon-nav-link.active .nav-icon {
+    color: var(--cxr-accent);
+    filter: drop-shadow(0 0 8px var(--cxr-accent-glow));
+}
+
+/* Link icons */
+.continuon-nav-link .icon,
+.continuon-nav-link .nav-icon {
+    font-size: 1.15rem;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Link text */
+.continuon-nav-link .link-text {
+    position: relative;
+}
+
+/* --------------------------------------------------------------------------
+   Navigation Divider
+   -------------------------------------------------------------------------- */
 .continuon-nav-divider {
     width: 1px;
-    height: 24px;
-    background: rgba(148, 163, 184, 0.2);
-    margin: 0 0.5rem;
+    height: 28px;
+    background: linear-gradient(180deg,
+        transparent 0%,
+        var(--cxr-border) 30%,
+        var(--cxr-border) 70%,
+        transparent 100%
+    );
+    margin: 0 0.75rem;
 }
 
-/* Status indicator */
+/* --------------------------------------------------------------------------
+   Status Indicator
+   -------------------------------------------------------------------------- */
 .continuon-status {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding-left: 1rem;
-    border-left: 1px solid rgba(148, 163, 184, 0.2);
-    margin-left: 0.5rem;
+    padding-left: 1.25rem;
+    margin-left: 1rem;
+    border-left: 1px solid var(--cxr-border);
+    height: 32px;
 }
 
+/* Status dot with pulse animation */
 .continuon-status-dot {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    background: #ef4444;
-    animation: pulse 2s infinite;
+    background: var(--cxr-danger);
+    position: relative;
+    box-shadow: 0 0 8px var(--cxr-danger);
 }
 
+/* Pulse ring animation for disconnected state */
+.continuon-status-dot::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--cxr-danger);
+    animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* Connected state */
 .continuon-status-dot.connected {
-    background: #22c55e;
+    background: var(--cxr-success);
+    box-shadow: 0 0 12px rgba(0, 255, 136, 0.5);
 }
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+.continuon-status-dot.connected::before {
+    border-color: var(--cxr-success);
+    animation: statusPulseConnected 3s ease-in-out infinite;
 }
 
+@keyframes statusPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+@keyframes statusPulseConnected {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.4;
+    }
+    50% {
+        transform: scale(1.3);
+        opacity: 0;
+    }
+}
+
+/* Status text */
 .continuon-status-text {
+    font-family: var(--font-mono);
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--cxr-text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
-/* Mobile responsive */
-@media (max-width: 1024px) {
+.continuon-status-dot.connected + .continuon-status-text,
+.continuon-status-dot.connected ~ .continuon-status-text {
+    color: var(--cxr-success);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Design
+   -------------------------------------------------------------------------- */
+
+/* Tablet */
+@media (max-width: 1200px) {
     .continuon-nav-inner {
         padding: 0 1rem;
     }
 
     .continuon-nav-link {
         padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
     }
 
+    .continuon-title {
+        font-size: 1.2rem;
+    }
+}
+
+/* Mobile landscape / small tablet */
+@media (max-width: 1024px) {
     .continuon-nav-link .link-text {
         display: none;
     }
 
-    .continuon-nav-link .icon {
-        font-size: 1.25rem;
+    .continuon-nav-link {
+        padding: 0.6rem 0.8rem;
+    }
+
+    .continuon-nav-link .icon,
+    .continuon-nav-link .nav-icon {
+        font-size: 1.3rem;
+    }
+
+    .continuon-status-text {
+        display: none;
     }
 }
 
+/* Mobile */
 @media (max-width: 768px) {
+    :root {
+        --nav-height: 56px;
+    }
+
+    .continuon-nav-inner {
+        padding: 0 0.75rem;
+    }
+
+    .continuon-brand {
+        gap: 0.5rem;
+    }
+
+    .continuon-logo {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+    }
+
+    .continuon-title {
+        font-size: 1rem;
+    }
+
+    .continuon-title span {
+        display: none;
+    }
+
     .continuon-nav-links {
         gap: 0;
+    }
+
+    .continuon-nav-link {
+        padding: 0.5rem 0.6rem;
     }
 
     .continuon-nav-divider {
         display: none;
     }
 
-    .continuon-title span {
+    .continuon-status {
+        padding-left: 0.75rem;
+        margin-left: 0.5rem;
+    }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+    .continuon-title {
         display: none;
     }
+
+    .continuon-nav-link {
+        padding: 0.5rem;
+    }
+
+    .continuon-nav-link .icon,
+    .continuon-nav-link .nav-icon {
+        font-size: 1.2rem;
+    }
+}
+
+/* ==========================================================================
+   Global Page Styles (Optional - include for full theming)
+   ========================================================================== */
+
+/* Apply theme to body when nav is present */
+body:has(.continuon-nav) {
+    background: var(--cxr-void);
+    color: var(--cxr-text-primary);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+}
+
+/* Page content wrapper adjustment for sticky nav */
+.continuon-nav + * {
+    min-height: calc(100vh - var(--nav-height));
+}
+
+/* Custom scrollbar for themed pages */
+body:has(.continuon-nav)::-webkit-scrollbar {
+    width: 10px;
+}
+
+body:has(.continuon-nav)::-webkit-scrollbar-track {
+    background: var(--cxr-deep);
+}
+
+body:has(.continuon-nav)::-webkit-scrollbar-thumb {
+    background: var(--cxr-border);
+    border-radius: 5px;
+    border: 2px solid var(--cxr-deep);
+}
+
+body:has(.continuon-nav)::-webkit-scrollbar-thumb:hover {
+    background: var(--cxr-accent-dim);
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+/* Glow effects */
+.cxr-glow {
+    box-shadow: var(--glow-md) var(--cxr-accent-glow);
+}
+
+.cxr-glow-text {
+    text-shadow: var(--glow-sm) var(--cxr-accent-glow);
+}
+
+/* Panel styling */
+.cxr-panel {
+    background: var(--cxr-surface);
+    border: 1px solid var(--cxr-border);
+    border-radius: 12px;
+}
+
+.cxr-panel-elevated {
+    background: var(--cxr-elevated);
+    border: 1px solid var(--cxr-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }

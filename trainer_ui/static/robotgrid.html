@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RobotGrid - ContinuonXR</title>
+    <link rel="stylesheet" href="/static/cxr-theme.css">
+    <link rel="stylesheet" href="/static/shared-nav.css">
+    <script src="/static/shared-nav.js"></script>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --panel-bg: #16213e;
+            --accent: #0f3460;
+            --highlight: #e94560;
+            --text: #eaeaea;
+            --dim: #8b8b8b;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --error: #f87171;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--panel-bg);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid var(--accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            color: var(--highlight);
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .status-item {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .status-label {
+            color: var(--dim);
+        }
+
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .game-panel {
+            background: var(--panel-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .grid-container {
+            display: flex;
+            justify-content: center;
+            padding: 1rem;
+            background: #0a0a15;
+            border-radius: 8px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 2px;
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+        .cell {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #2a2a4a;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+
+        .cell.floor { background: #2a2a4a; }
+        .cell.wall { background: #4a4a6a; color: #6a6a8a; }
+        .cell.lava { background: #7f1d1d; color: #fca5a5; animation: lava 1s infinite; }
+        .cell.key { background: #854d0e; color: #fef08a; }
+        .cell.door { background: #1e3a5f; color: #93c5fd; }
+        .cell.goal { background: #166534; color: #86efac; animation: pulse 1s infinite; }
+        .cell.box { background: #78350f; color: #fcd34d; }
+        .cell.button { background: #4c1d95; color: #c4b5fd; }
+        .cell.robot { background: var(--highlight); color: white; font-weight: bold; }
+
+        @keyframes lava {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .command-input {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .command-input input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            font-family: inherit;
+            font-size: 1rem;
+            background: var(--accent);
+            border: 2px solid transparent;
+            border-radius: 6px;
+            color: var(--text);
+            outline: none;
+        }
+
+        .command-input input:focus {
+            border-color: var(--highlight);
+        }
+
+        .command-input button {
+            padding: 0.75rem 1.5rem;
+            font-family: inherit;
+            font-size: 1rem;
+            background: var(--highlight);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .command-input button:hover {
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            max-width: 200px;
+            margin: 0 auto;
+        }
+
+        .controls button {
+            padding: 0.75rem;
+            font-family: inherit;
+            font-size: 1.2rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .controls button:hover {
+            background: var(--highlight);
+        }
+
+        .controls button:active {
+            transform: scale(0.95);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 0.5rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px 6px 0 0;
+            color: var(--dim);
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background: var(--panel-bg);
+            color: var(--highlight);
+        }
+
+        .tab-content {
+            flex: 1;
+            background: var(--panel-bg);
+            border-radius: 0 8px 8px 8px;
+            padding: 1rem;
+            overflow: auto;
+            max-height: calc(100vh - 250px);
+        }
+
+        .messages {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .message {
+            padding: 0.5rem;
+            border-radius: 4px;
+            background: var(--accent);
+        }
+
+        .message.user {
+            background: #1e3a5f;
+            border-left: 3px solid #60a5fa;
+        }
+
+        .message.bot {
+            background: #1e3e1e;
+            border-left: 3px solid var(--success);
+        }
+
+        .message.error {
+            background: #3e1e1e;
+            border-left: 3px solid var(--error);
+        }
+
+        .message.denied {
+            background: #3e1e1e;
+            border-left: 3px solid var(--warning);
+        }
+
+        .message .label {
+            font-size: 0.7rem;
+            color: var(--dim);
+            margin-bottom: 0.25rem;
+        }
+
+        .level-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .level-btn {
+            padding: 0.5rem 1rem;
+            font-family: inherit;
+            font-size: 0.8rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 4px;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .level-btn:hover {
+            background: var(--highlight);
+        }
+
+        .level-btn.active {
+            background: var(--highlight);
+        }
+
+        .event-item {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: var(--accent);
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .event-item .time {
+            color: var(--dim);
+            font-size: 0.7rem;
+        }
+
+        .audit-item {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .audit-item.denied {
+            background: #3e1e1e;
+            border-left: 3px solid var(--error);
+        }
+
+        .audit-item.allowed {
+            background: #1e3e1e;
+            border-left: 3px solid var(--success);
+        }
+
+        .behaviors-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .behavior-item {
+            padding: 0.5rem;
+            background: var(--accent);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .behavior-item:hover {
+            background: #1e3a5f;
+        }
+
+        .behavior-item .name {
+            font-weight: bold;
+            color: var(--highlight);
+        }
+
+        .recording-indicator {
+            padding: 0.5rem 1rem;
+            background: #7f1d1d;
+            border-radius: 4px;
+            text-align: center;
+            animation: pulse 1s infinite;
+        }
+
+        .level-complete {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--panel-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 3px solid var(--success);
+            text-align: center;
+            z-index: 100;
+        }
+
+        .level-complete h2 {
+            color: var(--success);
+            margin-bottom: 1rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--accent);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>RobotGrid</h1>
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-label">Level:</span>
+                <span id="level-name">Tutorial</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Moves:</span>
+                <span id="move-count">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Inventory:</span>
+                <span id="inventory">empty</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="game-panel">
+            <div class="level-select">
+                <button class="level-btn active" data-level="tutorial">Tutorial</button>
+                <button class="level-btn" data-level="key_door">Key & Door</button>
+                <button class="level-btn" data-level="lava_maze">Lava Maze</button>
+                <button class="level-btn" data-level="box_puzzle">Box Puzzle</button>
+                <button class="level-btn" data-level="challenge">Challenge</button>
+            </div>
+
+            <div id="recording-indicator" class="recording-indicator hidden">
+                Recording: <span id="recording-name">behavior</span>
+            </div>
+
+            <div class="grid-container">
+                <div id="grid" class="grid"></div>
+            </div>
+
+            <div class="controls">
+                <button onclick="sendCommand('left')">&#8592;</button>
+                <button onclick="sendCommand('forward')">&#8593;</button>
+                <button onclick="sendCommand('right')">&#8594;</button>
+                <button onclick="sendCommand('look')">&#128065;</button>
+                <button onclick="sendCommand('backward')">&#8595;</button>
+                <button onclick="sendCommand('reset')">&#8634;</button>
+            </div>
+
+            <div class="command-input">
+                <input type="text" id="command-input" placeholder="Type command (e.g., forward, teach scout, help)..."
+                       onkeypress="if(event.key==='Enter')sendCommand()">
+                <button onclick="sendCommand()">Send</button>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item"><span class="legend-icon cell robot">^</span> Robot</div>
+                <div class="legend-item"><span class="legend-icon cell floor">.</span> Floor</div>
+                <div class="legend-item"><span class="legend-icon cell wall">#</span> Wall</div>
+                <div class="legend-item"><span class="legend-icon cell lava">~</span> Lava (restricted)</div>
+                <div class="legend-item"><span class="legend-icon cell key">K</span> Key</div>
+                <div class="legend-item"><span class="legend-icon cell door">D</span> Door</div>
+                <div class="legend-item"><span class="legend-icon cell goal">G</span> Goal</div>
+                <div class="legend-item"><span class="legend-icon cell box">B</span> Box</div>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="tabs">
+                <button class="tab active" data-tab="messages">Messages</button>
+                <button class="tab" data-tab="events">Events</button>
+                <button class="tab" data-tab="sandbox">Sandbox</button>
+                <button class="tab" data-tab="behaviors">Behaviors</button>
+            </div>
+
+            <div id="tab-messages" class="tab-content">
+                <div id="messages" class="messages"></div>
+            </div>
+
+            <div id="tab-events" class="tab-content hidden">
+                <div id="events" class="messages"></div>
+            </div>
+
+            <div id="tab-sandbox" class="tab-content hidden">
+                <div id="sandbox-audit" class="messages"></div>
+            </div>
+
+            <div id="tab-behaviors" class="tab-content hidden">
+                <div id="behaviors-list" class="behaviors-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="level-complete" class="level-complete hidden">
+        <h2>Level Complete!</h2>
+        <p>Moves: <span id="final-moves">0</span></p>
+        <button onclick="document.getElementById('level-complete').classList.add('hidden')">Continue</button>
+    </div>
+
+    <script>
+        // WebSocket connection
+        let ws = null;
+        let reconnectAttempts = 0;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                console.log('Connected to RobotGrid');
+                reconnectAttempts = 0;
+                addMessage('bot', 'Connected to RobotGrid. Type "help" for commands.');
+            };
+
+            ws.onclose = () => {
+                console.log('Disconnected');
+                if (reconnectAttempts < 5) {
+                    setTimeout(connect, 1000 * Math.pow(2, reconnectAttempts));
+                    reconnectAttempts++;
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error('WebSocket error:', err);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+        }
+
+        function handleMessage(data) {
+            console.log('Received:', data);
+
+            if (data.type === 'connected' || data.type === 'state' ||
+                data.type === 'level_loaded' || data.type === 'level_reset') {
+                updateState(data);
+            }
+
+            if (data.type === 'response') {
+                const msgType = data.sandbox_denied ? 'denied' : 'bot';
+                addMessage(msgType, data.text);
+                updateState(data);
+
+                if (data.sandbox_denied) {
+                    addSandboxAudit('DENIED', data.text);
+                }
+
+                if (data.level_complete) {
+                    showLevelComplete();
+                }
+            }
+
+            if (data.type === 'error') {
+                addMessage('error', data.message);
+            }
+        }
+
+        function updateState(data) {
+            if (data.world) {
+                renderGrid(data.world);
+            } else if (data.world_state) {
+                renderGrid(data.world_state);
+            }
+
+            if (data.level_name) {
+                document.getElementById('level-name').textContent = data.level_name;
+            }
+
+            if (data.robot) {
+                document.getElementById('move-count').textContent = data.robot.moves || 0;
+                const inv = data.robot.inventory || [];
+                document.getElementById('inventory').textContent = inv.length > 0 ? inv.join(', ') : 'empty';
+            }
+
+            // Recording indicator
+            const recordingIndicator = document.getElementById('recording-indicator');
+            if (data.recording) {
+                recordingIndicator.classList.remove('hidden');
+                document.getElementById('recording-name').textContent = data.recording_name || 'behavior';
+            } else {
+                recordingIndicator.classList.add('hidden');
+            }
+
+            // Update behaviors list
+            if (data.behaviors) {
+                updateBehaviorsList(data.behaviors);
+            }
+        }
+
+        function renderGrid(world) {
+            const gridEl = document.getElementById('grid');
+            const grid = world.grid;
+            const robot = world.robot;
+
+            const height = grid.length;
+            const width = grid[0].length;
+
+            gridEl.style.gridTemplateColumns = `repeat(${width}, 32px)`;
+            gridEl.innerHTML = '';
+
+            const tileClasses = {
+                '.': 'floor',
+                '#': 'wall',
+                '~': 'lava',
+                'K': 'key',
+                'D': 'door',
+                'G': 'goal',
+                'B': 'box',
+                'O': 'button',
+                'S': 'floor'
+            };
+
+            const dirSymbols = {
+                'NORTH': '^',
+                'EAST': '>',
+                'SOUTH': 'v',
+                'WEST': '<'
+            };
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+
+                    if (x === robot.x && y === robot.y) {
+                        cell.classList.add('robot');
+                        cell.textContent = dirSymbols[robot.direction] || '^';
+                    } else {
+                        const tile = grid[y][x];
+                        cell.classList.add(tileClasses[tile] || 'floor');
+                        cell.textContent = tile === '.' ? '' : tile;
+                    }
+
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        function sendCommand(cmd) {
+            const input = document.getElementById('command-input');
+            const command = cmd || input.value.trim();
+
+            if (!command) return;
+
+            addMessage('user', command);
+            input.value = '';
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'command', text: command }));
+            } else {
+                addMessage('error', 'Not connected. Reconnecting...');
+                connect();
+            }
+        }
+
+        function addMessage(type, text) {
+            const messages = document.getElementById('messages');
+            const msg = document.createElement('div');
+            msg.className = `message ${type}`;
+
+            const label = document.createElement('div');
+            label.className = 'label';
+            label.textContent = type === 'user' ? 'You' : type === 'denied' ? 'SANDBOX' : 'Robot';
+
+            const content = document.createElement('div');
+            content.textContent = text;
+
+            msg.appendChild(label);
+            msg.appendChild(content);
+            messages.appendChild(msg);
+            messages.scrollTop = messages.scrollHeight;
+
+            // Also add to events tab
+            addEvent(type, text);
+        }
+
+        function addEvent(type, text) {
+            const events = document.getElementById('events');
+            const event = document.createElement('div');
+            event.className = 'event-item';
+
+            const time = new Date().toLocaleTimeString();
+            event.innerHTML = `<span class="time">${time}</span> [${type.toUpperCase()}] ${text}`;
+
+            events.appendChild(event);
+            events.scrollTop = events.scrollHeight;
+        }
+
+        function addSandboxAudit(status, reason) {
+            const audit = document.getElementById('sandbox-audit');
+            const item = document.createElement('div');
+            item.className = `audit-item ${status.toLowerCase()}`;
+
+            const time = new Date().toLocaleTimeString();
+            item.innerHTML = `<strong>${status}</strong> - ${reason}<br><span class="time">${time}</span>`;
+
+            audit.appendChild(item);
+            audit.scrollTop = audit.scrollHeight;
+        }
+
+        function updateBehaviorsList(behaviors) {
+            const list = document.getElementById('behaviors-list');
+            list.innerHTML = '';
+
+            if (behaviors.length === 0) {
+                list.innerHTML = '<div style="color: var(--dim)">No behaviors learned yet. Use "teach name" to start recording.</div>';
+                return;
+            }
+
+            behaviors.forEach(name => {
+                const item = document.createElement('div');
+                item.className = 'behavior-item';
+                item.innerHTML = `<span class="name">${name}</span>`;
+                item.onclick = () => sendCommand(name);
+                list.appendChild(item);
+            });
+        }
+
+        function showLevelComplete() {
+            const moves = document.getElementById('move-count').textContent;
+            document.getElementById('final-moves').textContent = moves;
+            document.getElementById('level-complete').classList.remove('hidden');
+        }
+
+        // Level selection
+        document.querySelectorAll('.level-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const level = btn.dataset.level;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'load_level', level_id: level }));
+                }
+            });
+        });
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+                tab.classList.add('active');
+                document.getElementById(`tab-${tab.dataset.tab}`).classList.remove('hidden');
+            });
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            // Don't capture if typing in input
+            if (document.activeElement.tagName === 'INPUT') return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                    sendCommand('forward');
+                    break;
+                case 'ArrowDown':
+                case 's':
+                    sendCommand('backward');
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                    sendCommand('left');
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                    sendCommand('right');
+                    break;
+                case ' ':
+                    sendCommand('look');
+                    e.preventDefault();
+                    break;
+            }
+        });
+
+        // Connect on load
+        connect();
+    </script>
+</body>
+</html>

@@ -103,6 +103,15 @@ except ImportError:
     HAS_HAILO_SCANNER = False
     print("Hailo scanner not available")
 
+# House 3D POV Viewer API
+try:
+    from house_api import router as house_api_router
+    HAS_HOUSE_API = True
+except ImportError:
+    HAS_HOUSE_API = False
+    house_api_router = None
+    print("House 3D API not available")
+
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.staticfiles import StaticFiles
@@ -1159,6 +1168,10 @@ class TrainerServer:
 app = FastAPI(title="Brain A Trainer")
 server = TrainerServer()
 
+# Include House 3D API router
+if HAS_HOUSE_API and house_api_router:
+    app.include_router(house_api_router)
+
 # Mount static files directory
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
@@ -1191,6 +1204,12 @@ async def home_explore():
 async def room_scanner_ui():
     """Serve the Room Scanner UI for image-to-3D processing."""
     return FileResponse(Path(__file__).parent / "static" / "room_scanner.html")
+
+
+@app.get("/house-viewer")
+async def house_viewer_ui():
+    """Serve the House 3D POV Viewer for robot training."""
+    return FileResponse(Path(__file__).parent / "static" / "house_viewer.html")
 
 
 @app.get("/home-scan/status")
@@ -1273,6 +1292,60 @@ async def health():
             "available": HAS_DEPTHAI if 'HAS_DEPTHAI' in dir() else False,
         },
     }
+
+
+# ============================================================================
+# Migrated from brain_b/simulator/server.py and home_server.py
+# These endpoints were unique to the old standalone servers
+# ============================================================================
+
+@app.get("/robotgrid")
+async def robotgrid_page():
+    """2D RobotGrid puzzle game (migrated from brain_b/simulator)."""
+    return FileResponse("static/robotgrid.html")
+
+
+@app.get("/api/sandbox-audit")
+async def get_sandbox_audit():
+    """Get sandbox audit log (migrated from server.py)."""
+    if server.brain_b and hasattr(server.brain_b, 'sandbox_audit'):
+        return {"audit": server.brain_b.sandbox_audit[-50:]}
+    return {"audit": [], "note": "Brain B sandbox not active"}
+
+
+@app.get("/api/scanned_levels")
+async def list_scanned_levels():
+    """List all registered scanned levels (migrated from home_server.py)."""
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b" / "simulator"))
+        from home_world import SCANNED_LEVELS
+        return {
+            "levels": list(SCANNED_LEVELS.keys()),
+            "count": len(SCANNED_LEVELS)
+        }
+    except ImportError:
+        return {"levels": [], "count": 0, "note": "home_world not available"}
+
+
+@app.get("/api/episodes")
+async def get_episodes():
+    """Get RLDS episode list (migrated from home_server.py)."""
+    if server.home_scan and hasattr(server.home_scan, 'rlds_logger'):
+        episodes = server.home_scan.rlds_logger.list_episodes()
+        return {"episodes": episodes}
+    # Also check simulator session
+    if server.simulator_session and hasattr(server.simulator_session, 'recorder'):
+        return {"episodes": server.simulator_session.recorder.list_episodes()}
+    return {"episodes": [], "note": "No RLDS logger active"}
+
+
+@app.get("/api/observation")
+async def get_observation():
+    """Get current observation for RLDS (migrated from home_server.py)."""
+    if server.home_scan and hasattr(server.home_scan, 'world'):
+        return server.home_scan.world.get_observation()
+    return {"error": "No active world", "observation": None}
 
 
 # ============================================================================

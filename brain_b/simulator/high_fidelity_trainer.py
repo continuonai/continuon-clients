@@ -29,14 +29,24 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 import numpy as np
 
-from home_robot_games import (
-    HomeRobotGameGenerator, GameState, ActionType,
-    ObjectType, RoomType, TaskType
-)
-from perception_system import (
-    PerceptionEngine, PerceptionFrame, LightingCondition,
-    RGBImage, DepthMap, SemanticSegmentation
-)
+try:
+    from .home_robot_games import (
+        HomeRobotGameGenerator, GameState, ActionType,
+        ObjectType, RoomType, TaskType
+    )
+    from .perception_system import (
+        PerceptionEngine, PerceptionFrame, LightingCondition,
+        RGBImage, DepthMap, SemanticSegmentation
+    )
+except ImportError:
+    from home_robot_games import (
+        HomeRobotGameGenerator, GameState, ActionType,
+        ObjectType, RoomType, TaskType
+    )
+    from perception_system import (
+        PerceptionEngine, PerceptionFrame, LightingCondition,
+        RGBImage, DepthMap, SemanticSegmentation
+    )
 
 
 class EpisodeStep:
