@@ -113,14 +113,14 @@ except ImportError:
     print("House 3D API not available")
 
 try:
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import HTMLResponse, FileResponse
     import uvicorn
 except ImportError:
     print("Installing dependencies...")
     subprocess.run([sys.executable, "-m", "pip", "install", "fastapi", "uvicorn", "websockets"], check=True)
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import HTMLResponse, FileResponse
     import uvicorn
@@ -2225,6 +2225,115 @@ async def scan_with_sam3(images: list, room_scale: float, scanner) -> dict:
             "segmentation_model": "sam3",
             "room_scale": room_scale,
         }
+    }
+
+
+# ============================================================================
+# Brain Builder API - Claude Code as central brain builder
+# ============================================================================
+
+# Try to import Brain Builder
+try:
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent / "brain_b"))
+    from brain_builder import BrainBuilder, get_brain_status, get_next_actions, run_brain_action
+    HAS_BRAIN_BUILDER = True
+except ImportError:
+    HAS_BRAIN_BUILDER = False
+    print("Brain Builder not available")
+
+
+@app.get("/api/brain/status")
+async def get_brain_builder_status():
+    """Get comprehensive brain status for Claude Code interface."""
+    if not HAS_BRAIN_BUILDER:
+        return {"error": "Brain Builder not available", "status": None}
+
+    status = get_brain_status()
+    return {
+        "status": "ok",
+        "brain": status,
+    }
+
+
+@app.get("/api/brain/plan")
+async def get_brain_plan():
+    """Get recommended next actions for brain development."""
+    if not HAS_BRAIN_BUILDER:
+        return {"error": "Brain Builder not available", "plan": []}
+
+    plan = get_next_actions()
+    return {
+        "status": "ok",
+        "plan": plan,
+    }
+
+
+@app.post("/api/brain/action")
+async def execute_brain_action(request: Request):
+    """Execute a brain building action."""
+    if not HAS_BRAIN_BUILDER:
+        return {"error": "Brain Builder not available", "result": None}
+
+    data = await request.json()
+    action = data.get("action", "")
+
+    if not action:
+        return {"error": "No action specified", "result": None}
+
+    result = run_brain_action(action)
+    return {
+        "status": "ok",
+        "result": result,
+    }
+
+
+@app.get("/api/brain/capabilities")
+async def get_capabilities():
+    """Get current capabilities and their status."""
+    if not HAS_BRAIN_BUILDER:
+        return {"error": "Brain Builder not available", "capabilities": {}}
+
+    builder = BrainBuilder()
+    return {
+        "status": "ok",
+        "capabilities": {name: cap.to_dict() for name, cap in builder.capabilities.items()},
+    }
+
+
+@app.get("/api/brain/compute")
+async def get_compute_status():
+    """Get compute resource status for training decisions."""
+    if not HAS_BRAIN_BUILDER:
+        return {"error": "Brain Builder not available", "compute": {}}
+
+    builder = BrainBuilder()
+    return {
+        "status": "ok",
+        "compute": builder.compute.to_dict(),
+    }
+
+
+@app.get("/api/training/status")
+async def get_training_api_status():
+    """Get training status for UI updates."""
+    project_root = Path(__file__).parent.parent
+    rlds_dir = project_root / "continuonbrain" / "rlds" / "episodes"
+    models_dir = project_root / "brain_b_data" / "models"
+
+    episodes = len(list(rlds_dir.glob("*/metadata.json"))) if rlds_dir.exists() else 0
+    models = list(models_dir.glob("*.pt")) if models_dir.exists() else []
+
+    # Calculate score based on models
+    score = 0.5  # Base score
+    if models:
+        score = min(0.96, 0.5 + len(models) * 0.1)
+
+    return {
+        "status": "ok",
+        "episodes": episodes,
+        "models": len(models),
+        "score": score,
     }
 
 

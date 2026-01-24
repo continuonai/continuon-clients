@@ -48,16 +48,280 @@
 
         .main {
             display: grid;
-            grid-template-columns: 1fr 320px;
+            grid-template-columns: 280px 1fr 300px;
             gap: var(--space-md);
             padding: var(--space-md);
             height: calc(100vh - 120px);
         }
 
         .left-panel {
-            display: grid;
-            grid-template-rows: 1fr auto;
+            display: flex;
+            flex-direction: column;
             gap: var(--space-md);
+            overflow-y: auto;
+        }
+
+        /* CENTER PANEL - Claude Code Chat */
+        .center-panel {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .claude-chat-main {
+            flex: 1;
+            background: var(--cxr-surface);
+            border: 2px solid var(--cxr-accent-dim);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .claude-chat-main::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--cxr-accent), var(--cxr-violet), var(--cxr-accent));
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        .claude-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-md) var(--space-lg);
+            border-bottom: 1px solid var(--cxr-border);
+            background: var(--cxr-elevated);
+        }
+
+        .claude-title {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .claude-title h2 {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(135deg, var(--cxr-accent), var(--cxr-violet));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .claude-badge {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            background: var(--cxr-accent-subtle);
+            border: 1px solid var(--cxr-accent-dim);
+            border-radius: var(--radius-full);
+            color: var(--cxr-accent);
+            text-transform: uppercase;
+        }
+
+        .claude-mode-toggle {
+            display: flex;
+            gap: var(--space-xs);
+        }
+
+        .mode-btn {
+            padding: 0.4rem 0.8rem;
+            font-family: var(--font-ui);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: var(--cxr-surface);
+            border: 1px solid var(--cxr-border);
+            border-radius: var(--radius-md);
+            color: var(--cxr-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn:hover {
+            border-color: var(--cxr-accent-dim);
+            color: var(--cxr-text-primary);
+        }
+
+        .mode-btn.active {
+            background: var(--cxr-accent);
+            border-color: var(--cxr-accent);
+            color: var(--cxr-void);
+        }
+
+        .claude-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .claude-message {
+            max-width: 85%;
+            padding: var(--space-md) var(--space-lg);
+            border-radius: var(--radius-lg);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            animation: messageIn 0.3s ease-out;
+        }
+
+        @keyframes messageIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .claude-message.user {
+            align-self: flex-end;
+            background: var(--cxr-elevated);
+            border: 1px solid var(--cxr-border);
+            color: var(--cxr-text-primary);
+        }
+
+        .claude-message.assistant {
+            align-self: flex-start;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.1), rgba(168, 85, 247, 0.05));
+            border: 1px solid var(--cxr-accent-dim);
+            border-left: 3px solid var(--cxr-accent);
+        }
+
+        .claude-message.system {
+            align-self: center;
+            background: var(--cxr-deep);
+            border: 1px solid var(--cxr-border);
+            color: var(--cxr-text-muted);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-align: center;
+            max-width: 100%;
+        }
+
+        .claude-message.action {
+            align-self: center;
+            background: var(--cxr-warm-subtle);
+            border: 1px solid var(--cxr-warm);
+            color: var(--cxr-warm);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        .claude-input-area {
+            padding: var(--space-md) var(--space-lg);
+            border-top: 1px solid var(--cxr-border);
+            background: var(--cxr-elevated);
+        }
+
+        .claude-input-row {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .claude-input {
+            flex: 1;
+            padding: 0.9rem var(--space-lg);
+            font-family: var(--font-ui);
+            font-size: 1rem;
+            background: var(--cxr-deep);
+            border: 1px solid var(--cxr-border);
+            border-radius: var(--radius-lg);
+            color: var(--cxr-text-primary);
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .claude-input:focus {
+            border-color: var(--cxr-accent);
+            box-shadow: 0 0 0 3px var(--cxr-accent-subtle), 0 0 20px rgba(0, 240, 255, 0.1);
+        }
+
+        .claude-input::placeholder {
+            color: var(--cxr-text-muted);
+        }
+
+        .claude-send-btn {
+            padding: 0.9rem 1.5rem;
+            font-family: var(--font-display);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            background: linear-gradient(135deg, var(--cxr-accent), var(--cxr-accent-dim));
+            border: none;
+            border-radius: var(--radius-lg);
+            color: var(--cxr-void);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .claude-send-btn:hover {
+            background: var(--cxr-accent-bright);
+            box-shadow: 0 0 20px var(--cxr-accent-glow);
+            transform: translateY(-1px);
+        }
+
+        .claude-quick-actions {
+            display: flex;
+            gap: var(--space-xs);
+            margin-top: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .quick-action {
+            padding: 0.3rem 0.7rem;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            background: var(--cxr-surface);
+            border: 1px solid var(--cxr-border);
+            border-radius: var(--radius-full);
+            color: var(--cxr-text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .quick-action:hover {
+            border-color: var(--cxr-accent-dim);
+            color: var(--cxr-accent);
+            background: var(--cxr-accent-subtle);
+        }
+
+        /* Compact panels for sidebars */
+        .panel-compact {
+            background: var(--cxr-surface);
+            border: 1px solid var(--cxr-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-md);
+        }
+
+        .panel-compact h3 {
+            font-family: var(--font-display);
+            font-size: 0.7rem;
+            color: var(--cxr-accent);
+            margin: 0 0 var(--space-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
         .camera-section {
@@ -709,55 +973,39 @@
     </div>
 
     <main class="main">
+        <!-- LEFT PANEL: Camera & Controls -->
         <div class="left-panel">
-            <section class="camera-section">
-                <div class="camera-header">
-                    <h3>Camera</h3>
-                    <div class="action-buttons">
-                        <button class="action-btn register" onclick="openRegisterModal()">Register Face</button>
-                    </div>
-                </div>
-                <div class="camera-container">
+            <section class="panel-compact" style="flex-shrink:0;">
+                <div class="camera-container" style="height:160px;margin-bottom:var(--space-sm);">
                     <video id="camera-video" autoplay playsinline></video>
                     <canvas id="face-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
                 </div>
-            </section>
-
-            <section class="controls-section">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                    <div>
-                        <h3 style="margin-bottom:1rem;color:#888;font-size:0.9rem;">DRIVE (WASD)</h3>
-                        <div class="drive-controls">
-                            <div></div>
-                            <button class="drive-btn" id="btn-forward" data-direction="forward">↑</button>
-                            <div></div>
-                            <button class="drive-btn" id="btn-left" data-direction="left">←</button>
-                            <button class="drive-btn stop" id="btn-stop" data-direction="stop">■</button>
-                            <button class="drive-btn" id="btn-right" data-direction="right">→</button>
-                            <div></div>
-                            <button class="drive-btn" id="btn-backward" data-direction="backward">↓</button>
-                            <div></div>
-                        </div>
-                    </div>
-                    <div class="action-buttons" style="flex-direction:column;">
-                        <button class="action-btn record" id="record-btn" onclick="toggleRecording()">Start Recording</button>
-                        <button class="action-btn emergency" onclick="emergencyStop()">EMERGENCY STOP</button>
-                    </div>
+                <div style="display:flex;gap:var(--space-xs);">
+                    <button class="action-btn register" onclick="openRegisterModal()" style="flex:1;font-size:0.7rem;padding:0.4rem;">Register Face</button>
                 </div>
             </section>
-        </div>
 
-        <div class="right-panel">
-            <section class="panel">
+            <section class="panel-compact">
+                <h3>Drive (WASD)</h3>
+                <div class="drive-controls" style="max-width:150px;">
+                    <div></div>
+                    <button class="drive-btn" id="btn-forward" data-direction="forward" style="width:45px;height:45px;font-size:1.2rem;">↑</button>
+                    <div></div>
+                    <button class="drive-btn" id="btn-left" data-direction="left" style="width:45px;height:45px;font-size:1.2rem;">←</button>
+                    <button class="drive-btn stop" id="btn-stop" data-direction="stop" style="width:45px;height:45px;font-size:1rem;">■</button>
+                    <button class="drive-btn" id="btn-right" data-direction="right" style="width:45px;height:45px;font-size:1.2rem;">→</button>
+                    <div></div>
+                    <button class="drive-btn" id="btn-backward" data-direction="backward" style="width:45px;height:45px;font-size:1.2rem;">↓</button>
+                    <div></div>
+                </div>
+            </section>
+
+            <section class="panel-compact">
                 <h3>Robot Arms</h3>
-                <div class="arm-tabs" id="arm-tabs">
-                    <!-- Generated by JS based on detected arms -->
-                </div>
+                <div class="arm-tabs" id="arm-tabs" style="margin-bottom:0.5rem;"></div>
                 <div id="arm-controls-container">
-                    <div class="arm-controls" id="arm-controls">
-                        <!-- Generated by JS -->
-                    </div>
-                    <div class="gripper-control">
+                    <div class="arm-controls" id="arm-controls"></div>
+                    <div class="gripper-control" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--cxr-border);">
                         <div class="joint-control">
                             <span class="joint-label">G</span>
                             <input type="range" class="joint-slider" id="gripper-slider" min="0" max="100" value="0">
@@ -767,61 +1015,126 @@
                 </div>
             </section>
 
-            <section class="panel">
-                <h3>Poses</h3>
-                <div class="pose-buttons" id="pose-buttons">
-                    <!-- Populated by JS -->
-                </div>
-                <div class="pose-actions" style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-                    <input type="text" id="pose-name-input" placeholder="Pose name" style="flex:1;padding:0.4rem;border-radius:4px;border:1px solid #333;background:#0a1931;color:#fff;">
-                    <button class="action-btn" onclick="savePose()" style="padding:0.4rem 0.8rem;">💾 Save</button>
+            <section class="panel-compact">
+                <h3>Actions</h3>
+                <div style="display:flex;flex-direction:column;gap:0.4rem;">
+                    <button class="action-btn record" id="record-btn" onclick="toggleRecording()" style="width:100%;font-size:0.75rem;">Start Recording</button>
+                    <button class="action-btn emergency" onclick="emergencyStop()" style="width:100%;font-size:0.75rem;">EMERGENCY STOP</button>
                 </div>
             </section>
 
-            <section class="panel">
-                <h3>Teaching Mode</h3>
-                <div class="teaching-controls">
-                    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
-                        <input type="text" id="teaching-name-input" placeholder="Recording name" style="flex:1;padding:0.4rem;border-radius:4px;border:1px solid #333;background:#0a1931;color:#fff;">
-                        <button class="action-btn" id="teaching-btn" onclick="toggleTeaching()" style="padding:0.4rem 0.8rem;">⏺ Record</button>
-                    </div>
-                    <div class="teaching-list" id="teaching-list">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-            </section>
-
-            <section class="panel">
-                <h3>Dual Arm Control</h3>
-                <div class="action-buttons">
-                    <button class="action-btn" onclick="mirrorArms()">🪞 Mirror L→R</button>
-                    <button class="action-btn" onclick="syncArms()">⚡ Sync Both</button>
-                    <button class="action-btn" onclick="homeArms()">🏠 Home All</button>
-                </div>
-            </section>
-
-            <section class="panel">
+            <section class="panel-compact">
                 <h3>Voice</h3>
-                <div class="action-buttons">
-                    <button class="action-btn speak" id="listen-btn" onclick="toggleListening()">🎤 Listen</button>
-                    <button class="action-btn speak" onclick="speakTest()">🔊 Test Speaker</button>
+                <div style="display:flex;gap:0.3rem;">
+                    <button class="action-btn speak" id="listen-btn" onclick="toggleListening()" style="flex:1;font-size:0.7rem;padding:0.4rem;">🎤 Listen</button>
+                    <button class="action-btn speak" onclick="speakTest()" style="flex:1;font-size:0.7rem;padding:0.4rem;">🔊 Speak</button>
                 </div>
-                <div class="voice-indicator">
-                    <span style="font-size:0.8rem;color:#888;">Mic Level</span>
-                    <div class="voice-level">
-                        <div class="voice-level-bar" id="voice-level"></div>
+            </section>
+        </div>
+
+        <!-- CENTER PANEL: Claude Code Chat (Main Interface) -->
+        <div class="center-panel">
+            <div class="claude-chat-main">
+                <div class="claude-header">
+                    <div class="claude-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cxr-accent);">
+                            <circle cx="12" cy="8" r="5"/>
+                            <path d="M12 13v8M8 17h8M7 21h10"/>
+                        </svg>
+                        <h2>Claude Code</h2>
+                        <span class="claude-badge">Brain Interface</span>
+                    </div>
+                    <div class="claude-mode-toggle">
+                        <button class="mode-btn active" id="mode-train" onclick="setMode('train')">Training</button>
+                        <button class="mode-btn" id="mode-live" onclick="setMode('live')">Live Robot</button>
+                    </div>
+                </div>
+                <div class="claude-messages" id="chat-messages">
+                    <div class="claude-message system">
+                        Claude Code is your robot's brain interface. Ask questions, give commands, or train new behaviors.
+                        <br><br>
+                        <strong>Training Mode:</strong> Record actions, teach behaviors, generate training data
+                        <br>
+                        <strong>Live Mode:</strong> Real-time robot control with inference
+                    </div>
+                </div>
+                <div class="claude-input-area">
+                    <div class="claude-input-row">
+                        <input type="text" class="claude-input" id="chat-input" placeholder="Talk to your robot... (e.g., 'move forward', 'learn wave', 'what do you see?')" onkeypress="handleChatKeypress(event)">
+                        <button class="claude-send-btn" onclick="sendChat()">Send</button>
+                    </div>
+                    <div class="claude-quick-actions">
+                        <button class="quick-action" onclick="quickCmd('status')">status</button>
+                        <button class="quick-action" onclick="quickCmd('what do you see?')">vision</button>
+                        <button class="quick-action" onclick="quickCmd('move forward')">forward</button>
+                        <button class="quick-action" onclick="quickCmd('stop')">stop</button>
+                        <button class="quick-action" onclick="quickCmd('home position')">home</button>
+                        <button class="quick-action" onclick="quickCmd('start training')">train</button>
+                        <button class="quick-action" onclick="quickCmd('generate episode')">episode</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Status & Training -->
+        <div class="right-panel">
+            <section class="panel-compact">
+                <h3>Training Status</h3>
+                <div id="training-status" style="font-family:var(--font-mono);font-size:0.75rem;color:var(--cxr-text-secondary);">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+                        <span>Score:</span><span style="color:var(--cxr-success);">96%</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+                        <span>Episodes:</span><span id="episode-count">0</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span>Mode:</span><span id="current-mode" style="color:var(--cxr-accent);">Training</span>
                     </div>
                 </div>
             </section>
 
-            <section class="panel chat-section">
-                <h3>Claude Assistant</h3>
-                <div class="chat-messages" id="chat-messages">
-                    <div class="chat-message system">Type a command or ask for help with robot tasks</div>
+            <section class="panel-compact">
+                <h3>Poses</h3>
+                <div class="pose-buttons" id="pose-buttons" style="max-height:100px;overflow-y:auto;"></div>
+                <div style="display:flex;gap:0.3rem;margin-top:0.5rem;">
+                    <input type="text" id="pose-name-input" placeholder="Name" style="flex:1;padding:0.3rem;border-radius:4px;border:1px solid var(--cxr-border);background:var(--cxr-deep);color:var(--cxr-text-primary);font-size:0.75rem;">
+                    <button class="action-btn" onclick="savePose()" style="padding:0.3rem 0.6rem;font-size:0.7rem;">Save</button>
                 </div>
-                <div class="chat-input">
-                    <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleChatKeypress(event)">
-                    <button onclick="sendChat()">Send</button>
+            </section>
+
+            <section class="panel-compact">
+                <h3>Teaching</h3>
+                <div style="display:flex;gap:0.3rem;margin-bottom:0.5rem;">
+                    <input type="text" id="teaching-name-input" placeholder="Recording" style="flex:1;padding:0.3rem;border-radius:4px;border:1px solid var(--cxr-border);background:var(--cxr-deep);color:var(--cxr-text-primary);font-size:0.75rem;">
+                    <button class="action-btn" id="teaching-btn" onclick="toggleTeaching()" style="padding:0.3rem 0.6rem;font-size:0.7rem;">⏺ Rec</button>
+                </div>
+                <div class="teaching-list" id="teaching-list" style="max-height:80px;overflow-y:auto;font-size:0.75rem;"></div>
+            </section>
+
+            <section class="panel-compact">
+                <h3>Arm Actions</h3>
+                <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
+                    <button class="action-btn" onclick="mirrorArms()" style="font-size:0.65rem;padding:0.3rem 0.5rem;">Mirror</button>
+                    <button class="action-btn" onclick="syncArms()" style="font-size:0.65rem;padding:0.3rem 0.5rem;">Sync</button>
+                    <button class="action-btn" onclick="homeArms()" style="font-size:0.65rem;padding:0.3rem 0.5rem;">Home</button>
+                </div>
+            </section>
+
+            <section class="panel-compact">
+                <h3>Hardware</h3>
+                <div id="hardware-status" style="font-family:var(--font-mono);font-size:0.7rem;">
+                    <div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.2rem;">
+                        <span class="cxr-status-dot online" style="width:6px;height:6px;"></span>
+                        <span>Hailo-8</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.2rem;">
+                        <span class="cxr-status-dot" id="camera-status-dot" style="width:6px;height:6px;"></span>
+                        <span>Camera</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.3rem;">
+                        <span class="cxr-status-dot" id="arms-status-dot" style="width:6px;height:6px;"></span>
+                        <span>Arms</span>
+                    </div>
                 </div>
             </section>
         </div>
@@ -995,6 +1308,20 @@
 
                 case 'teaching_deleted':
                     buildTeachingList(data.teachings);
+                    break;
+
+                case 'training_status':
+                    if (data.episodes !== undefined) {
+                        updateEpisodeCount(data.episodes);
+                    }
+                    break;
+
+                case 'mode_changed':
+                    addChatMessage('system', `Mode changed to ${data.mode}`);
+                    break;
+
+                case 'action_executed':
+                    addChatMessage('action', `⚡ ${data.action}`);
                     break;
             }
         }
@@ -1509,12 +1836,59 @@
         }
 
         // ============================================================
+        // Mode Toggle (Training vs Live Robot)
+        // ============================================================
+        let currentMode = 'train';  // 'train' or 'live'
+
+        function setMode(mode) {
+            currentMode = mode;
+
+            // Update button states
+            document.getElementById('mode-train').classList.toggle('active', mode === 'train');
+            document.getElementById('mode-live').classList.toggle('active', mode === 'live');
+
+            // Update status display
+            const modeDisplay = document.getElementById('current-mode');
+            if (modeDisplay) {
+                modeDisplay.textContent = mode === 'train' ? 'Training' : 'Live Robot';
+                modeDisplay.style.color = mode === 'train' ? 'var(--cxr-accent)' : 'var(--cxr-success)';
+            }
+
+            // Update placeholder text based on mode
+            const input = document.getElementById('chat-input');
+            if (mode === 'train') {
+                input.placeholder = "Training mode: 'record action', 'generate episode', 'train model'...";
+            } else {
+                input.placeholder = "Live mode: 'move forward', 'look around', 'pick up object'...";
+            }
+
+            // Notify server of mode change
+            send({ type: 'set_mode', mode: mode });
+
+            // Add system message
+            const modeNames = {
+                'train': 'Training Mode - Recording actions for Brain training',
+                'live': 'Live Robot Mode - Real-time inference and control'
+            };
+            addChatMessage('system', `Switched to ${modeNames[mode]}`);
+        }
+
+        // ============================================================
+        // Quick Commands
+        // ============================================================
+        function quickCmd(cmd) {
+            const input = document.getElementById('chat-input');
+            input.value = cmd;
+            sendChat();
+        }
+
+        // ============================================================
         // Chat
         // ============================================================
         function addChatMessage(role, text) {
             const container = document.getElementById('chat-messages');
             const div = document.createElement('div');
-            div.className = `chat-message ${role}`;
+            div.className = `claude-message ${role}`;
             div.textContent = text;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
@@ -1526,7 +1900,8 @@
             if (!text) return;
 
             addChatMessage('user', text);
-            send({ type: 'ask_claude', prompt: text });
+            // Include current mode in the request
+            send({ type: 'ask_claude', prompt: text, mode: currentMode });
             input.value = '';
         }
 
@@ -1553,6 +1928,32 @@
         }
 
         // ============================================================
+        // Training Status Updates
+        // ============================================================
+        let episodeCount = 0;
+
+        function updateEpisodeCount(count) {
+            episodeCount = count;
+            const el = document.getElementById('episode-count');
+            if (el) el.textContent = count;
+        }
+
+        function fetchTrainingStatus() {
+            fetch('/api/training/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.episodes !== undefined) {
+                        updateEpisodeCount(data.episodes);
+                    }
+                    if (data.score !== undefined) {
+                        const scoreEl = document.querySelector('#training-status span[style*="success"]');
+                        if (scoreEl) scoreEl.textContent = `${Math.round(data.score * 100)}%`;
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // ============================================================
         // Initialize
         // ============================================================
         document.addEventListener('DOMContentLoaded', () => {
@@ -1561,6 +1962,16 @@
             initDriveControls();
             initArmControls();
             initVoice();
+
+            // Initialize mode toggle state
+            setMode('train');
+
+            // Fetch training status periodically
+            fetchTrainingStatus();
+            setInterval(fetchTrainingStatus, 10000);
+
+            // Focus chat input
+            document.getElementById('chat-input').focus();
         });
     </script>
 </body>
