@@ -200,6 +200,10 @@ Buck Conv.  Buck Conv.
 > **Note:** For tall robot configurations with 6-foot human reach capability, see
 > [V-Slot Mast Design](mechanical-design/v-slot-mast-design.md) which details a 1.5m mast
 > with moving arm carriage and stability analysis.
+>
+> The V-slot mast design uses an **EcoFlow River Max Plus (720Wh)** power station
+> which provides 8-14+ hours runtime and acts as ballast for excellent stability
+> (21° tip angle vs 13° with LiPo + outriggers).
 
 ### Configuration A: Desktop Development Stack
 

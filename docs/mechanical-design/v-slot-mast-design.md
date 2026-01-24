@@ -2,7 +2,9 @@
 
 **Target**: 6-foot human reach (~1.8-2.0m) with stable mobile base
 
-This document specifies a tall robot configuration using V-slot aluminum extrusion for the mast structure, enabling human-height manipulation tasks.
+**Power**: EcoFlow River Max Plus (720Wh portable power station)
+
+This document specifies a tall robot configuration using V-slot aluminum extrusion for the mast structure, enabling human-height manipulation tasks. The design leverages the EcoFlow River Max Plus as both power source and stability counterweight.
 
 ---
 
@@ -13,7 +15,7 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
                     │ Camera  │ ← OAK-D Lite (pan servo optional)
                     └────┬────┘
                          │
-    ═══════════════════════════════════  ← Top cross-brace (20×20, 280mm)
+    ═══════════════════════════════════  ← Top cross-brace (20×20, 320mm)
          │                         │
          │    ┌─────────────┐      │     ← Arm carriage (gantry plates)
          │    │  Shoulder   │      │       Height: 400-1500mm (motorized)
@@ -30,18 +32,22 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
          │       V-slot            │     ← 2× 20×40 uprights (1500mm each)
          │      20×40 mm           │
          │                         │
-    ─────┼─────────────────────────┼─────  ← Deck 2: Tool/hand swap deck
-         │                         │         Height: 600mm
+    ─────┼─────────────────────────┼─────  ← Deck 2: Electronics deck
+         │                         │         Height: 550mm (Pi, power dist)
          │                         │
+    ─────┼─────────────────────────┼─────  ← Deck 1: Tool/hand swap deck
+         │                         │         Height: 300mm
          │                         │
-    ─────┼─────────────────────────┼─────  ← Deck 1: Electronics deck
-         │                         │         Height: 80mm (battery, Pi, power)
-         │                         │
-    ═════╧═════════════════════════╧═════  ← Base plate (ties mast to chassis)
-         │                         │
+    ═════╧═════════════════════════╧═════  ← Base plate (ties mast to platform)
+         │       ┌───────────┐     │
+         │       │ EcoFlow   │     │     ← EcoFlow River Max Plus
+         │       │ River Max │     │       290×185×236mm, 8.0kg
+         │       │   Plus    │     │       720Wh power station
+         │       └───────────┘     │
     ┌────┴─────────────────────────┴────┐
-    │    4WD Chassis (210×83×65mm)      │  ← Metal Robot Chassis Kit
-    │    ○────○           ○────○        │     4× DC gear motors + wheels
+    │    Heavy-Duty Platform            │  ← Larger wheeled base
+    │    (400×300mm)                    │     4× caster wheels + drive motors
+    │    ○────○           ○────○        │
     └───────────────────────────────────┘
                     ↓
               ══════════════
@@ -56,39 +62,54 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| Chassis length | 210 mm | Smart-Prototyping 4WD kit |
-| Chassis width | 83 mm | Between wheel centers |
-| Chassis height | 65 mm | Ground to top of chassis plate |
-| **Effective footprint** | **280 × 200 mm** | Including outriggers |
-| Outrigger extension | 48.5 mm each side | For stability (optional) |
-| Wheel diameter | 65 mm | Standard kit wheels |
-| Ground clearance | ~15 mm | Under chassis plate |
+| Platform length | 400 mm | Custom heavy-duty base |
+| Platform width | 300 mm | Accommodates EcoFlow footprint |
+| Platform height | 50 mm | Ground to top of platform |
+| **Effective footprint** | **400 × 300 mm** | No outriggers needed |
+| Wheel diameter | 75 mm | Heavy-duty casters + 2× drive wheels |
+| Ground clearance | ~20 mm | Under platform |
+| EcoFlow position | Centered on platform | 290×185mm battery footprint |
 
-### 2.2 Mast Structure
+### 2.2 EcoFlow River Max Plus Specifications
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Dimensions | 290 × 185 × 236 mm | L × W × H |
+| Weight | 8.0 kg (17.6 lbs) | Including extra battery module |
+| Capacity | 720 Wh | 360Wh base + 360Wh extra battery |
+| AC Output | 600W (1800W X-Boost) | 3× AC outlets |
+| USB-C Output | 100W | Powers Pi 5 directly |
+| USB-A Outputs | 4× ports | For accessories |
+| DC Output | 12.6V / 8A (100.8W) | Via car charger port |
+| Charge Time | 1.6 hours (0-80%) | X-Stream fast charging |
+
+### 2.3 Mast Structure
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
 | Upright profile | 20×40 mm V-slot | 2× parallel rails |
 | Upright length | **1500 mm** | Cut to size or order |
-| Upright spacing | **200 mm** center-to-center | Matches deck width |
-| Top cross-brace | 20×20 mm, 280 mm long | Ties uprights at top |
-| Base plate | 280 × 200 × 3 mm aluminum | Bolts to chassis + uprights |
+| Upright spacing | **240 mm** center-to-center | Wider for EcoFlow clearance |
+| Top cross-brace | 20×20 mm, 320 mm long | Ties uprights at top |
+| Base plate | 400 × 300 × 5 mm aluminum | Bolts to platform + uprights |
 
-### 2.3 Deck Heights & Dimensions
+### 2.4 Deck Heights & Dimensions
 
 | Deck | Height from Ground | Size | Function |
 |------|-------------------|------|----------|
-| **Deck 1** (Electronics) | 80 mm | 250 × 180 × 3 mm | Battery, Pi 5, buck converters |
-| **Deck 2** (Tool swap) | 600 mm | 250 × 180 × 3 mm | End effector storage, quick-swap |
-| **Deck 3** (Task/Payload) | 1100 mm | 250 × 180 × 3 mm | Cargo bins, items to carry |
+| **Platform** | 0-50 mm | 400 × 300 mm | Wheels, drive motors |
+| **EcoFlow** | 50-286 mm | 290 × 185 × 236 mm | Power station (integral) |
+| **Deck 1** (Tool swap) | 300 mm | 300 × 220 × 3 mm | End effector storage |
+| **Deck 2** (Electronics) | 550 mm | 300 × 220 × 3 mm | Pi 5, power distribution |
+| **Deck 3** (Task/Payload) | 1100 mm | 300 × 220 × 3 mm | Cargo bins, items to carry |
 | **Camera mount** | 1580 mm | N/A | OAK-D Lite on pan servo |
 
-### 2.4 Arm Carriage (Moving Platform)
+### 2.5 Arm Carriage (Moving Platform)
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
 | Carriage travel range | 400 - 1500 mm | Z-axis (height) |
-| Carriage plate | 180 × 120 × 5 mm aluminum | Mounts shoulder joints |
+| Carriage plate | 200 × 140 × 5 mm aluminum | Mounts shoulder joints |
 | Gantry wheels | 4× per side (8 total) | V-slot mini wheels |
 | Lift mechanism | GT2 belt + NEMA17 stepper | Or leadscrew for precision |
 
@@ -101,9 +122,9 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
 ```
 Component                        Height Contribution
 ─────────────────────────────────────────────────────
-Ground to chassis top:                    65 mm
-Chassis to Deck 1:                        15 mm
-Deck 1 to base plate:                      0 mm (coplanar)
+Ground to platform top:                   50 mm
+EcoFlow height:                          236 mm
+Clearance above EcoFlow:                  14 mm
 Base plate to mast bottom:                 0 mm
 Mast usable height:                     1500 mm
 Arm carriage max position:              1500 mm (top of mast travel)
@@ -112,7 +133,7 @@ Upper arm length (SO-ARM101):            150 mm
 Forearm length (SO-ARM101):              150 mm
 Gripper/hand length:                     100 mm
 ─────────────────────────────────────────────────────
-MAXIMUM VERTICAL REACH:                2030 mm (6.66 ft)
+MAXIMUM VERTICAL REACH:                2050 mm (6.73 ft)
 ```
 
 ### 3.2 Horizontal Reach
@@ -132,10 +153,14 @@ MAXIMUM HORIZONTAL REACH:            500 mm from mast centerline
 
 ### 3.3 Work Envelope Summary
 
+_Definitions_: "Carriage height" refers to the shoulder/carriage position relative to ground. "End-effector height" refers to the gripper tip at full arm extension.
+
 | Metric | Value | Human Equivalent |
 |--------|-------|------------------|
-| Max vertical reach | 2030 mm | 6'8" human reach |
-| Min vertical reach | 515 mm | Knee height |
+| Max vertical reach (end-effector up) | 2050 mm | 6'9" human reach |
+| Max carriage height | 1550 mm | Over-shoulder height |
+| Min carriage height | 450 mm | Low waist height |
+| Min end-effector height (reaching down) | ~100 mm | Near-floor pickup |
 | Horizontal reach | 500 mm | Short arm span |
 | Carriage Z travel | 1100 mm | Full torso range |
 
@@ -145,81 +170,106 @@ MAXIMUM HORIZONTAL REACH:            500 mm from mast centerline
 
 ### 4.1 Mass Distribution
 
+The EcoFlow River Max Plus (8.0 kg) at the base provides exceptional stability as a low center-of-gravity counterweight.
+
 | Component | Mass (g) | Height of CG (mm) | Moment (g·mm) |
 |-----------|----------|-------------------|---------------|
-| 4WD Chassis | 760 | 35 | 26,600 |
-| Battery (3S 8000mAh) | 520 | 80 | 41,600 |
-| Deck 1 + Pi + electronics | 350 | 95 | 33,250 |
+| Platform + wheels + motors | 1,500 | 25 | 37,500 |
+| **EcoFlow River Max Plus** | **8,000** | **168** | **1,344,000** |
+| Deck 1 (plate + tools) | 300 | 300 | 90,000 |
+| Deck 2 + Pi + electronics | 450 | 565 | 254,250 |
 | Mast uprights (2× 20×40 Al) | 800 | 800 | 640,000 |
-| Deck 2 (plate + tools) | 250 | 600 | 150,000 |
 | Deck 3 (plate + payload) | 500 | 1100 | 550,000 |
 | Arm carriage + arms (2×) | 900 | 900 (avg) | 810,000 |
 | Top cross-brace + camera | 200 | 1550 | 310,000 |
-| **TOTAL** | **4280 g** | | **2,561,450** |
+| **TOTAL** | **12,650 g** | | **4,035,750** |
 
 **Overall Center of Gravity (CG):**
-- Height: 2,561,450 / 4280 = **598 mm** above ground
-- This is below Deck 2, which is good for stability
+- Height: 4,035,750 / 12,650 = **319 mm** above ground
+- This is well below Deck 2 and only slightly above Deck 1
+- The heavy EcoFlow battery lowers CG by 279 mm compared to LiPo design (598 mm → 319 mm)
 
 ### 4.2 Tip-Over Analysis
 
 For a robot not to tip, the CG must stay within the support polygon (wheel footprint).
 
-**Support polygon (with outriggers):**
-- Length: 210 mm (front-to-back wheel spacing)
-- Width: 280 mm (with outriggers) or 83 mm (without)
+**Support polygon:**
+- Length: 350 mm (front-to-back wheel spacing)
+- Width: 250 mm (left-to-right wheel spacing)
 
-**Critical tip angle (no outriggers):**
+**Critical tip angle (lateral):**
 ```
 tan(θ_tip) = (half_width) / CG_height
-           = 41.5 mm / 598 mm
-           = 0.069
-θ_tip      = 4.0°  ← VERY UNSTABLE!
+           = 125 mm / 319 mm
+           = 0.392
+θ_tip      = 21.4°  ← EXCELLENT stability!
 ```
 
-**Critical tip angle (with outriggers):**
+**Critical tip angle (fore-aft):**
 ```
-tan(θ_tip) = (half_width) / CG_height
-           = 140 mm / 598 mm
-           = 0.234
-θ_tip      = 13.2°  ← Acceptable for indoor use
+tan(θ_tip) = (half_length) / CG_height
+           = 175 mm / 319 mm
+           = 0.549
+θ_tip      = 28.8°  ← Very stable
 ```
+
+**Comparison with LiPo design:**
+| Configuration | CG Height | Tip Angle (lateral) | Rating |
+|---------------|-----------|---------------------|--------|
+| LiPo (no outriggers) | 598 mm | 4.0° | Unstable |
+| LiPo (with outriggers) | 598 mm | 13.2° | Marginal |
+| **EcoFlow design** | **319 mm** | **21.4°** | **Excellent** |
 
 ### 4.3 Stability Recommendations
 
-1. **REQUIRED: Add outriggers** - Without them, robot tips at 4° (a small bump).
-2. **Optional: Wider base chassis** - Consider 300mm+ width for outdoor use.
-3. **Arm position matters** - Keep arms near mast when moving, extend only when stationary.
-4. **Speed limits during turns:**
+1. **No outriggers required** - The heavy EcoFlow provides natural ballast
+2. **Safe for indoor and outdoor use** - 21° tip margin handles rough surfaces
+3. **Arm position less critical** - Large stability margin allows extended operation
+4. **Higher speed limits available** - See calculations below
+
+### 4.4 Maximum Safe Turn Speed
 
 ```
-Maximum safe turn speed (no tip) with outriggers:
+Maximum safe turn speed (no tip):
   v_max = sqrt(g × r × tan(θ_safe))
 
   Where:
     g = 9.81 m/s²
     r = turn radius = 0.5 m (typical indoor turn)
-    θ_safe = 8° (half of tip angle, safety margin)
+    θ_safe = 15° (half of tip angle, safety margin)
 
-  v_max = sqrt(9.81 × 0.5 × tan(8°))
-        = sqrt(9.81 × 0.5 × 0.14)
-        = 0.83 m/s = 3 km/h
+  v_max = sqrt(9.81 × 0.5 × tan(15°))
+        = sqrt(9.81 × 0.5 × 0.268)
+        = 1.15 m/s = 4.1 km/h
 ```
 
-**Recommendation:** Limit speed to **0.5 m/s** (~1.8 km/h) during turns.
+**Recommendation:** Safe speed up to **1.0 m/s** (~3.6 km/h) during turns.
 
-### 4.4 Dynamic Stability with Extended Arms
+### 4.5 Dynamic Stability with Extended Arms
 
-When arms are extended horizontally with a 500g payload each:
+When arms are extended horizontally with payload, we compute the lateral CG shift and remaining tip margin.
 
-| Condition | Added Moment | New CG Height | Tip Angle |
-|-----------|--------------|---------------|-----------|
-| Arms retracted | 0 | 598 mm | 13.2° |
-| Arms at 500mm, no load | +90,000 g·mm horiz | 598 mm | 11.8° |
-| Arms at 500mm, 1kg load | +590,000 g·mm horiz | 598 mm | 8.4° |
+**Method:** The lateral CG shift is calculated as:
+```
+Δx = M_horizontal / m_total
+```
+The remaining safe tip angle is:
+```
+θ_safe = arctan((support_half_width - Δx) / CG_height)
+```
 
-**Conclusion:** With 1kg payload at full extension, tip angle reduces to 8.4°.
-Still safe for careful operation, but avoid sudden movements.
+Assuming support half-width of 125 mm and CG height of 319 mm:
+
+| Condition | Horiz. Moment | Lateral CG Shift | Margin to Edge | Remaining Tip Angle |
+|-----------|---------------|------------------|----------------|---------------------|
+| Arms retracted | 0 | 0 mm | 125 mm | 21.4° |
+| Arms at 500mm, no load | 90,000 g·mm | 7 mm | 118 mm | 20.3° |
+| Arms at 500mm, 0.5kg/arm (1kg total) | 590,000 g·mm | 47 mm | 78 mm | 13.7° |
+| Arms at 500mm, 1kg/arm (2kg total) | 1,090,000 g·mm | 86 mm | 39 mm | 7.0° |
+
+**Conclusion:** With 1 kg total payload (500g per arm) at full 500mm extension, the robot maintains a 13.7° tip margin - still safe for normal operation. With 2 kg total payload, tip margin drops to 7° which requires careful, slow movements.
+
+**Key Insight:** The EcoFlow-based design handles extended arm payloads far better than the LiPo design due to the 279 mm lower CG.
 
 ---
 
@@ -228,12 +278,12 @@ Still safe for careful operation, but avoid sudden movements.
 ### 5.1 Shoulder Joint Configuration
 
 ```
-         Carriage Plate (180 × 120 mm)
+         Carriage Plate (200 × 140 mm)
     ┌────────────────────────────────────┐
     │                                    │
     │   ┌──────┐          ┌──────┐       │
     │   │Shoulder│        │Shoulder│     │  ← Left/Right arm bases
-    │   │ Left  │          │ Right │     │     Spacing: 120mm center-to-center
+    │   │ Left  │          │ Right │     │     Spacing: 140mm center-to-center
     │   └───┬───┘          └───┬───┘     │
     │       │                  │         │
     └───────┼──────────────────┼─────────┘
@@ -243,12 +293,12 @@ Still safe for careful operation, but avoid sudden movements.
 
 ### 5.2 Recommended Shoulder Mount Heights
 
-| Task Type | Carriage Position | Notes |
-|-----------|-------------------|-------|
-| Floor pickup | 400-500 mm | Arms reach down to ~100mm |
-| Table work | 700-900 mm | Standard desk height |
-| Counter/shelf | 1000-1200 mm | Kitchen counter height |
-| High shelf | 1300-1500 mm | Top of mast travel |
+| Task Type | Carriage Position | End-Effector Range | Notes |
+|-----------|-------------------|-------------------|-------|
+| Floor pickup | 450-550 mm | ~100-250 mm | Arms reach down |
+| Table work | 700-900 mm | 400-600 mm | Standard desk height |
+| Counter/shelf | 1000-1200 mm | 700-900 mm | Kitchen counter height |
+| High shelf | 1300-1500 mm | 1000-1200 mm | Top of mast travel |
 
 ### 5.3 Arm Specifications (SO-ARM101 Reference)
 
@@ -305,20 +355,38 @@ Still safe for careful operation, but avoid sudden movements.
 
 ## 7. Bill of Materials (BOM)
 
-### 7.1 Mobility / Base
+**Pricing convention:** All prices shown are **estimated line totals** (Qty × Unit Price) in USD.
 
-| Item | Qty | Source | Est. Price |
-|------|-----|--------|------------|
-| Metal Robot Chassis Kit (4WD) | 1 | Smart-Prototyping | $25 |
-| 20×40 V-slot outrigger bars (150mm) | 2 | OpenBuilds | $8 |
-| Outrigger feet (rubber caps) | 4 | Generic | $4 |
+### 7.1 Mobility / Base Platform
 
-### 7.2 Mast Structure (V-Slot)
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
+| Heavy-duty platform plate (400×300×5mm Al) | 1 | SendCutSend | $35 |
+| 75mm swivel casters | 2 | Amazon/McMaster | $20 |
+| 75mm fixed drive wheels + DC motors | 2 | RobotShop | $45 |
+| Motor driver (L298N or similar) | 1 | Amazon | $10 |
 
-| Item | Qty | Source | Est. Price |
-|------|-----|--------|------------|
+**Subtotal: $110**
+
+### 7.2 Power System (EcoFlow)
+
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
+| **EcoFlow River Max Plus (720Wh)** | 1 | EcoFlow / Amazon | $649 |
+| USB-C PD trigger board (20V→5V for Pi) | 1 | Adafruit | $8 |
+| 12V→6V buck converter (servo power) | 1 | Pololu | $15 |
+| DC barrel cable for EcoFlow car port | 1 | Amazon | $8 |
+| Power distribution board | 1 | Generic | $15 |
+| Cable management (velcro, clips) | 1 set | Generic | $10 |
+
+**Subtotal: $705**
+
+### 7.3 Mast Structure (V-Slot)
+
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
 | V-Slot 20×40 Linear Rail, 1500mm | 2 | OpenBuilds / Bulkman3D | $30 |
-| V-Slot 20×20 Linear Rail, 300mm | 1 | OpenBuilds | $6 |
+| V-Slot 20×20 Linear Rail, 350mm | 1 | OpenBuilds | $7 |
 | V-Slot Gantry Set 20mm (4-wheel) | 2 | ValueHobby | $20 |
 | Corner brackets (90°) | 12 | OpenBuilds | $15 |
 | Joining plates | 4 | OpenBuilds | $10 |
@@ -326,52 +394,48 @@ Still safe for careful operation, but avoid sudden movements.
 | M5×8 button head screws | 50 | Generic | $5 |
 | M5×10 button head screws | 30 | Generic | $4 |
 
-### 7.3 Deck Plates
+**Subtotal: $99**
 
-| Item | Qty | Source | Est. Price |
-|------|-----|--------|------------|
-| Aluminum plate 280×200×3mm (base) | 1 | SendCutSend / local | $15 |
-| Aluminum plate 250×180×3mm (decks) | 3 | SendCutSend / local | $36 |
+### 7.4 Deck Plates
+
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
+| Aluminum plate 300×220×3mm (decks) | 3 | SendCutSend / local | $45 |
 | M3 standoffs assorted (10-40mm) | 20 | Generic | $8 |
 | M3 screws + nuts | 50 | Generic | $5 |
 
-### 7.4 Lift Mechanism
+**Subtotal: $58**
 
-| Item | Qty | Source | Est. Price |
-|------|-----|--------|------------|
+### 7.5 Lift Mechanism
+
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
 | NEMA17 stepper motor (1.5A) | 1 | StepperOnline | $12 |
-| GT2 belt, 6mm, 3m length | 1 | Generic | $6 |
+| GT2 belt, 6mm, 3.5m length | 1 | Generic | $7 |
 | GT2 20T pulley, 5mm bore | 2 | Generic | $4 |
 | Belt tensioner/idler | 1 | OpenBuilds | $5 |
 | Stepper driver (TMC2209) | 1 | BTT / Generic | $8 |
 
-### 7.5 Power System
-
-| Item | Qty | Source | Est. Price |
-|------|-----|--------|------------|
-| 3S 8000mAh LiPo (Gens Ace/Ovonic) | 1 | Amazon / RC shop | $50 |
-| Pololu D36V50F5 (5V 5.5A) | 1 | Pololu | $15 |
-| Pololu D36V50F6 (6V 5.5A) | 1 | Pololu | $15 |
-| XT60 connectors (pair) | 2 | Generic | $3 |
-| Inline fuse holder + 15A fuse | 1 | Generic | $4 |
-| Power switch (20A) | 1 | Generic | $5 |
-| 14 AWG silicone wire (red/black) | 2m | Generic | $5 |
-| 18 AWG silicone wire (red/black) | 3m | Generic | $5 |
+**Subtotal: $36**
 
 ### 7.6 Computing & Control
 
-| Item | Qty | Source | Est. Price |
-|------|-----|--------|------------|
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
 | Raspberry Pi 5 (8GB) | 1 | Various | $80 |
 | PCA9685 servo controller | 2 | Adafruit / Generic | $12 |
 | OAK-D Lite camera | 1 | Luxonis | $150 |
 | SG90 pan servo (camera) | 1 | Generic | $3 |
 
+**Subtotal: $245**
+
 ### 7.7 Arms
 
-| Item | Qty | Source | Est. Price |
-|------|-----|--------|------------|
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
 | SO-ARM101 (or equivalent 6-DOF arm) | 2 | Various | $200 |
+
+**Subtotal: $200**
 
 ---
 
@@ -379,39 +443,82 @@ Still safe for careful operation, but avoid sudden movements.
 
 | Category | Subtotal |
 |----------|----------|
-| Mobility/Base | $37 |
-| Mast Structure | $98 |
-| Deck Plates | $64 |
-| Lift Mechanism | $35 |
-| Power System | $102 |
+| Mobility/Base Platform | $110 |
+| Power System (EcoFlow) | $705 |
+| Mast Structure | $99 |
+| Deck Plates | $58 |
+| Lift Mechanism | $36 |
 | Computing & Control | $245 |
 | Arms | $200 |
-| **TOTAL** | **~$781** |
+| **TOTAL** | **~$1,453** |
+
+**Note:** The EcoFlow River Max Plus represents 45% of the total cost but provides:
+- 720Wh capacity (8× more than 89Wh LiPo)
+- 8-14+ hours of operation
+- Safe LFP chemistry (no fire risk)
+- Built-in AC outlets for tools
+- USB-C 100W for Pi 5
+- Excellent stability as ballast
 
 ---
 
-## 8. Assembly Notes
+## 8. Power System Details
 
-### 8.1 Build Order
+### 8.1 Runtime Estimates
 
-1. **Assemble chassis** - Mount motors/wheels per kit instructions
-2. **Attach base plate** - Drill/tap holes to match chassis mounting points
-3. **Install mast uprights** - Bolt to base plate with corner brackets
-4. **Add Deck 1** - Battery, Pi, power distribution
-5. **Install lift mechanism** - Motor at bottom, belt/screw along uprights
-6. **Mount carriage** - Gantry plates on uprights, belt attachment
-7. **Add Deck 2 & 3** - Cross-bracing decks
-8. **Install arms** - Mount shoulder joints to carriage plate
-9. **Top cross-brace + camera** - Final structural element
-10. **Wire everything** - Power, I2C, servo cables
+Based on 50W typical power consumption (Pi 5 + servos active):
 
-### 8.2 Critical Alignments
+| Mode | Power Draw | Runtime (720Wh) |
+|------|------------|-----------------|
+| Idle | 20W | 36 hours |
+| Active Vision | 47W | 15 hours |
+| Peak Motion | 62W | 11 hours |
+| Typical Mixed Use | 50W | 14 hours |
+
+### 8.2 Power Distribution
+
+```
+EcoFlow River Max Plus
+├── USB-C (100W) ────────→ Raspberry Pi 5 (via USB-C PD)
+├── Car Port (12V/8A) ───→ Buck Conv (12V→6V) ───→ Servo Power Rail
+├── USB-A #1 ────────────→ OAK-D Lite Camera
+├── USB-A #2 ────────────→ Optional peripherals
+└── AC Outlet ───────────→ Power tools, charging, etc.
+```
+
+### 8.3 Charging
+
+- **Wall charging:** 0-80% in 1.6 hours via X-Stream
+- **Solar charging:** 4-8 hours with 200W panels
+- **Car charging:** 7.5 hours via 12V adapter
+
+---
+
+## 9. Assembly Notes
+
+### 9.1 Build Order
+
+1. **Assemble platform** - Mount casters and drive motors
+2. **Secure EcoFlow mount** - Velcro straps or retention bracket
+3. **Attach base plate** - Bolt to platform above EcoFlow
+4. **Install mast uprights** - Bolt to base plate with corner brackets
+5. **Add Deck 1** - Tool/hand swap deck
+6. **Install lift mechanism** - Motor at bottom, belt along uprights
+7. **Mount carriage** - Gantry plates on uprights, belt attachment
+8. **Add Deck 2** - Electronics (Pi 5, PCA9685s)
+9. **Add Deck 3** - Task/payload deck
+10. **Install arms** - Mount shoulder joints to carriage plate
+11. **Top cross-brace + camera** - Final structural element
+12. **Wire everything** - Power cables, I2C, servo cables
+
+### 9.2 Critical Alignments
 
 - Mast uprights must be **parallel** (use spacer during assembly)
 - Carriage must travel freely (no binding) - adjust V-wheels
 - Decks should be **perpendicular** to mast (acts as bracing)
+- EcoFlow must be **securely retained** (vibration + tip resistance)
 
-### 8.3 Cable Management
+### 9.3 Cable Management
 
 Route cables along mast using:
 - Cable carriers (drag chain) for moving carriage
@@ -420,9 +527,9 @@ Route cables along mast using:
 
 ---
 
-## 9. Integration with ContinuonXR Software
+## 10. Integration with ContinuonXR Software
 
-### 9.1 Hardware Detection
+### 10.1 Hardware Detection
 
 Add lift motor to `hardware-detection.md`:
 ```python
@@ -432,52 +539,61 @@ LIFT_DIR_PIN = 19
 LIFT_ENABLE_PIN = 20
 ```
 
-### 9.2 Arm Manager Updates
+### 10.2 Arm Manager Updates
 
-Update `trainer_ui/hardware/arm_manager.py` to include Z-axis:
+The existing `trainer_ui/hardware/arm_manager.py` defines `ArmController` and `DualArmManager`. For the tall mast design, create a subclass that adds Z-axis control:
+
 ```python
-class TallMastArmManager(ArmManager):
-    def __init__(self):
-        super().__init__()
-        self.lift_position = 400  # mm from ground
-        self.lift_min = 400
+from trainer_ui.hardware.arm_manager import DualArmManager
+
+class TallMastDualArmManager(DualArmManager):
+    """Extends DualArmManager with Z-axis lift control."""
+
+    def __init__(self, hw_config=None):
+        super().__init__(hw_config)
+        self.lift_position = 450  # mm from ground (carriage height)
+        self.lift_min = 450
         self.lift_max = 1500
 
     def move_to_height(self, target_mm: int, speed: float = 0.5):
         """Move arm carriage to specified height."""
         # Clamp to safe range
         target_mm = max(self.lift_min, min(self.lift_max, target_mm))
-        # ... stepper control logic
+        # Stepper control logic via TMC2209
+        # ...implementation...
+        self.lift_position = target_mm
 ```
 
-### 9.3 Safety Limits in Brain B
+### 10.3 Safety Limits in Brain B
 
 Add to `brain_b/sandbox/`:
 ```python
 TALL_MAST_GUARDRAILS = {
-    "max_speed_turning": 0.5,  # m/s
-    "arm_retract_before_move": True,
-    "lift_home_before_drive": True,
-    "max_payload_extended": 1000,  # grams
+    "max_speed_turning": 1.0,  # m/s (higher limit with EcoFlow stability)
+    "arm_retract_before_move": False,  # Not required with stable base
+    "lift_home_before_drive": False,   # Optional with good stability
+    "max_payload_per_arm": 1000,  # grams (500g safe, 1kg marginal)
+    "max_total_payload": 2000,  # grams at full extension
 }
 ```
 
 ---
 
-## 10. Future Enhancements
+## 11. Future Enhancements
 
-1. **Wider base** - Upgrade to 400mm width for outdoor stability
-2. **Active balancing** - IMU + reaction wheels (complex)
-3. **Telescoping mast** - Extend beyond 1.5m when needed
-4. **Quick-release arms** - Swap arm types without tools
-5. **Counterweight system** - Slide weight opposite to arm extension
+1. **Solar panel integration** - Mount 100W panel for outdoor extended operation
+2. **Active load monitoring** - Track EcoFlow remaining capacity via USB
+3. **Automatic docking** - Return to charging station when low
+4. **Telescoping mast** - Extend beyond 1.5m when needed
+5. **Quick-release arms** - Swap arm types without tools
+6. **Payload scale** - Weigh items before lifting for safety
 
 ---
 
 ## References
 
+- EcoFlow River Max Plus: [EcoFlow US](https://us.ecoflow.com/products/river-max-plus-portable-power-station)
 - OpenBuilds V-Slot documentation: https://openbuilds.com
-- Smart-Prototyping chassis: https://www.smart-prototyping.com
 - Pololu regulators: https://www.pololu.com
 - SO-ARM101 specs: (internal reference)
 - Power-and-stacking.md: `/docs/power-and-stacking.md`
