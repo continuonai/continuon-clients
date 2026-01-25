@@ -341,10 +341,11 @@ fun createJointDeltaCommand(jointIndex: Int, delta: Float): ControlCommand {
 
 /**
  * Create a ControlCommand for gripper.
+ * @param position Gripper position from 0.0 (closed) to 1.0 (open)
  */
 fun createGripperCommand(position: Float): ControlCommand {
     return ControlCommand.Gripper(
-        position = position,
-        mode = GripperMode.POSITION
+        mode = GripperMode.POSITION,
+        positionM = position
     )
 }
