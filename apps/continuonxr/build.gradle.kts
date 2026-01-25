@@ -90,6 +90,18 @@ dependencies {
     implementation("androidx.xr:scenecore:1.0.0-alpha04")
     implementation("org.webrtc:google-webrtc:1.0.32006")
 
+    // NexaSDK for on-device AI (Qualcomm Hexagon NPU)
+    implementation("ai.nexa:core:0.0.19")
+
+    // CameraX for camera preview and frame capture
+    val cameraxVersion = "1.3.4"
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    // ViewModel for lifecycle-aware components
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

@@ -1,31 +1,124 @@
-# Android XR App Scaffold
+# Android Robot Trainer
 
-This folder sketches the Kotlin/Jetpack XR app described in `PRD.md`. Gradle wiring ships with Jetpack XR/SceneCore dependencies enabled.
+Android app serving as "robot eyes" and trainer interface with on-device AI via NexaSDK on Qualcomm Hexagon NPU.
 
-## Status (2025-12-10)
+**Target:** [Nexa × Qualcomm On-Device Bounty](https://on-device-bounty-mobile.devpost.com/) (Deadline: Feb 15, 2026)
 
-- BLE parser + RLDS writer shipped; SceneCore/Compose XR rendering and the live bridge to the Continuon Brain runtime are in progress (see `docs/unified-roadmap.md` for phase targets).
+## Status (2026-01)
+
+- **NexaSDK integration** — VLM and ASR pipelines for vision and voice
+- **Trainer UI** — Camera preview, voice commands, joystick, arm sliders
+- **RLDS recording** — Extended with video frames, transcripts, detections
+- **BLE parser + RLDS writer** — Shipped and working
 
 ## Modules
-- `MainActivity.kt` — entry point, routes to mode-specific shells (trainer/workstation/observer).
-- `config/` - configuration loading and flags (mode, connectivity, logging, glove).
-- `connectivity/` - Continuon Brain runtime bridge client for gRPC/WebRTC streams.
-- `glove/` - BLE ingestion for Continuon Glove v0 (MTU negotiation, frame parser, diagnostics).
-- `audio/` - audio capture stub for synchronized RLDS audio logging.
-- `teleop/` - input fusion and command mapping for Mode A teleop; records RLDS steps.
-- `logging/` - RLDS schema enforcement, validation, file sink, and upload hook stubs.
-- `ui/` - UI context tracker for workstation mode logging.
 
-## Build/test quickstart
-- Requires Android Studio Koala or later (AGP 8.5) and a local Gradle install or wrapper.
-- Build app: `./gradlew :apps:continuonxr:assembleDebug`
-- Run unit tests: `./gradlew :apps:continuonxr:testDebugUnitTest`
-- Generate proto stubs: `./gradlew :apps:continuonxr:generateDebugProto`
+### Core
+- `MainActivity.kt` — Entry point, routes to mode-specific shells
+- `config/` — Configuration loading and flags
 
-## Next steps
-1. Finish the Continuon Brain runtime bridge (gRPC/WebRTC) for Pi 5, normalizing Donkey Car steering/throttle into `action.command` and logging drivetrain state into `observation.robot_state` with ≤5 ms timestamp alignment.
-2. Wire Compose XR/SceneCore inputs plus iPhone sensor proxies into `InputFusion` and `CommandMapper` so both XR and phone shells drive the same teleop surface.
-3. Keep RLDS writing aligned with `docs/rlds-schema.md` (tags: `xr_mode`, `action.source`, provenance/env IDs) and buffer uploads in the `metadata.json` + `steps/*.jsonl` layout.
-4. Expand unit tests for schema validation, BLE parsing, teleop command mapping, and OTA bundle handoff triggers once the edge bundle path is plumbed.
+### NexaSDK Integration (NEW)
+- `nexa/NexaManager.kt` — SDK lifecycle, model loading (VLM + ASR)
+- `nexa/VisionPipeline.kt` — Camera → VLM → scene descriptions + detections
+- `nexa/VoicePipeline.kt` — Audio → ASR → transcripts
 
-Conversation log: Pi5 startup/training optimization (2025-12-10) summarized at `../../docs/conversation-log.md` (headless Pi5 boot defaults, optional background trainer, tuned Pi5 training config, RLDS origin tagging).
+### Trainer UI (NEW)
+- `trainer/TrainerScreen.kt` — Main UI with camera, controls, voice
+- `trainer/TrainerController.kt` — Coordinates all trainer components
+- `trainer/DriveControls.kt` — Virtual joystick for base movement
+- `trainer/ArmControls.kt` — 6-axis sliders + gripper
+- `trainer/VoicePanel.kt` — Mic button and transcript display
+- `trainer/TrainerRldsExtensions.kt` — RLDS with video/voice data
+
+### Camera (NEW)
+- `camera/CameraPreview.kt` — CameraX composable
+- `camera/DetectionOverlay.kt` — Bounding box rendering
+
+### Voice (NEW)
+- `voice/CommandParser.kt` — Transcript → robot commands
+
+### Existing Infrastructure
+- `connectivity/` — ContinuonBrain gRPC/WebRTC bridge
+- `glove/` — BLE Continuon Glove v0
+- `audio/` — Audio capture for RLDS
+- `teleop/` — Input fusion and command mapping
+- `logging/` — RLDS schema enforcement and validation
+- `ui/` — UI context tracker
+
+## Voice Commands
+
+| Command | Action |
+|---------|--------|
+| `forward` / `back` | Drive robot |
+| `left` / `right` | Turn or strafe |
+| `stop` | Emergency stop |
+| `arm up/down` | Move arm vertically |
+| `open` / `close gripper` | Gripper control |
+| `teach [name]` | Start teaching mode |
+| `done` | Save taught behavior |
+
+## Build/Test
+
+```bash
+# Build debug APK
+./gradlew :apps:continuonxr:assembleDebug
+
+# Run unit tests
+./gradlew :apps:continuonxr:testDebugUnitTest
+
+# Generate proto stubs
+./gradlew :apps:continuonxr:generateDebugProto
+```
+
+**Requirements:**
+- Android Studio Koala+ (AGP 8.5)
+- JDK 17
+- Snapdragon 8 Gen 3+ device for NPU acceleration
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Android Device                          │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                    NexaSDK Layer                       │  │
+│  │   VLM (OmniNeural-4B)  │  ASR (Whisper-small)         │  │
+│  └───────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  VisionPipeline  │  VoicePipeline  │  TeleopController│  │
+│  └───────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │               TrainerScreen (Compose)                  │  │
+│  │  CameraPreview │ VoicePanel │ DriveControls │ Arm     │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │ gRPC
+                              ▼
+                    Robot (Pi 5 + ContinuonBrain)
+```
+
+## Bounty Checklist
+
+| Requirement | Status |
+|-------------|--------|
+| Runs on Qualcomm Hexagon NPU | ✅ NexaSDK with NPU plugin |
+| Uses NexaSDK | ✅ VLM + ASR integration |
+| Privacy-focused, local-first | ✅ All AI on-device |
+| Working Android demo | ⬜ Build APK |
+| Clear documentation | ✅ README + PRD |
+| Demo video | ⬜ Record session |
+
+## Next Steps
+
+1. **Test on device** — Install on Snapdragon 8 Gen 3+ device, verify NPU acceleration
+2. **Connect to robot** — Test gRPC connection to Pi 5 with ContinuonBrain
+3. **Record demo** — 2-3 minute video showing voice commands + robot control
+4. **Performance metrics** — Measure inference latency, FPS, power consumption
+5. **Submit to bounty** — Package APK with documentation
+
+## Related Files
+
+- `PRD_ANDROID_ROBOT_TRAINER.md` — Full product requirements
+- `CLAUDE.md` — Claude Code guidance for this app
+- `../../docs/rlds-schema.md` — RLDS episode format
+- `../../proto/continuonxr/` — Proto definitions
