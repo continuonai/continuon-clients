@@ -25,10 +25,6 @@ class TrainerController(
     private val brainClient: ContinuonBrainClient,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 ) {
-    companion object {
-        private const val TAG = "TrainerController"
-    }
-
     // Pipelines
     val visionPipeline = VisionPipeline(nexaManager)
     val voicePipeline = VoicePipeline(nexaManager)
@@ -50,6 +46,9 @@ class TrainerController(
 
     // Command history for teaching
     private val teachingBuffer = mutableListOf<ControlCommand>()
+
+    // Stored behaviors
+    private val behaviors = mutableMapOf<String, LearnedBehavior>()
 
     init {
         // Listen to voice transcripts and parse commands
@@ -90,12 +89,26 @@ class TrainerController(
     }
 
     /**
-     * Connect to the robot.
+     * Connect to the robot via ContinuonBrainClient.
      */
     private suspend fun connectToRobot() {
-        // TODO: Implement actual connection via brainClient
-        // For now, simulate connection
-        _isConnected.value = true
+        Log.d(TAG, "Connecting to robot...")
+        try {
+            // Connect the gRPC/WebRTC client
+            brainClient.connect()
+
+            // Set up robot state observation
+            brainClient.observeState { state ->
+                Log.v(TAG, "Robot state: joints=${state.jointPositions.size}, gripper=${state.gripperOpen}")
+            }
+
+            _isConnected.value = true
+            Log.d(TAG, "Connected to robot")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to connect to robot", e)
+            _isConnected.value = false
+            throw e
+        }
     }
 
     /**
@@ -219,6 +232,7 @@ class TrainerController(
             name = state.behaviorName,
             commands = teachingBuffer.toList()
         )
+        behaviors[state.behaviorName] = behavior
 
         // Update known behaviors
         _knownBehaviors.value = _knownBehaviors.value + state.behaviorName
@@ -227,7 +241,7 @@ class TrainerController(
         _teachingState.value = TeachingState.Idle
         teachingBuffer.clear()
 
-        Log.d(TAG, "Saved behavior: ${behavior.name}")
+        Log.d(TAG, "Saved behavior: ${behavior.name} with ${behavior.commands.size} commands")
     }
 
     /**
@@ -241,10 +255,61 @@ class TrainerController(
 
     /**
      * Run a previously learned behavior.
+     * Plays back the recorded commands with timing.
      */
     private fun runBehavior(name: String) {
-        Log.d(TAG, "Running behavior: $name")
-        // TODO: Implement behavior playback
+        val behavior = behaviors[name]
+        if (behavior == null) {
+            Log.w(TAG, "Unknown behavior: $name")
+            return
+        }
+
+        if (_teachingState.value !is TeachingState.Idle) {
+            Log.w(TAG, "Cannot run behavior while teaching")
+            return
+        }
+
+        Log.d(TAG, "Running behavior: $name (${behavior.commands.size} commands)")
+        _teachingState.value = TeachingState.Playing(name)
+
+        scope.launch {
+            try {
+                for (command in behavior.commands) {
+                    if (_teachingState.value !is TeachingState.Playing) {
+                        Log.d(TAG, "Behavior playback interrupted")
+                        break
+                    }
+
+                    brainClient.sendCommand(command)
+                    // Small delay between commands for smooth playback
+                    kotlinx.coroutines.delay(BEHAVIOR_COMMAND_DELAY_MS)
+                }
+
+                Log.d(TAG, "Behavior playback complete: $name")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during behavior playback", e)
+            } finally {
+                if (_teachingState.value is TeachingState.Playing) {
+                    _teachingState.value = TeachingState.Idle
+                }
+            }
+        }
+    }
+
+    /**
+     * Stop behavior playback if running.
+     */
+    fun stopBehavior() {
+        if (_teachingState.value is TeachingState.Playing) {
+            Log.d(TAG, "Stopping behavior playback")
+            _teachingState.value = TeachingState.Idle
+            handleStop()  // Send stop command to robot
+        }
+    }
+
+    companion object {
+        private const val TAG = "TrainerController"
+        private const val BEHAVIOR_COMMAND_DELAY_MS = 100L
     }
 
     /**
