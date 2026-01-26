@@ -45,9 +45,9 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
          │       │   Plus    │     │       720Wh power station
          │       └───────────┘     │
     ┌────┴─────────────────────────┴────┐
-    │    Heavy-Duty Platform            │  ← Larger wheeled base
-    │    (400×300mm)                    │     4× caster wheels + drive motors
-    │    ○────○           ○────○        │
+    │    Mecanum Drive Platform         │  ← 4WD omnidirectional base
+    │    (400×300mm)                    │     4× 100mm Mecanum + encoders
+    │    ◎────◎           ◎────◎        │
     └───────────────────────────────────┘
                     ↓
               ══════════════
@@ -62,13 +62,23 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| Platform length | 400 mm | Custom heavy-duty base |
-| Platform width | 300 mm | Accommodates EcoFlow footprint |
+| Platform length | 400 mm | Custom aluminum plate (SendCutSend) |
+| Platform width | 300 mm | Accommodates EcoFlow footprint (290mm) |
 | Platform height | 50 mm | Ground to top of platform |
 | **Effective footprint** | **400 × 300 mm** | No outriggers needed |
-| Wheel diameter | 75 mm | Heavy-duty casters + 2× drive wheels |
-| Ground clearance | ~20 mm | Under platform |
+| Wheel type | **100mm Mecanum** | 4× omnidirectional wheels |
+| Wheel diameter | 100 mm | Aluminum frame, rubber rollers |
+| Load capacity | 45 kg (wheels) | Robot total ~13kg - plenty of margin |
+| Ground clearance | ~25 mm | Under platform |
 | EcoFlow position | Centered on platform | 290×185mm battery footprint |
+| Drive motors | JGB37-520 12V encoder | 178 RPM, 6mm D-shaft, hall encoder |
+
+#### Mecanum Wheel Advantages
+
+- **Omnidirectional movement**: Strafe sideways while keeping arms/camera oriented on task
+- **Precise positioning**: No 3-point turns needed for manipulation work
+- **Encoder feedback**: Hall encoders enable odometry for autonomous navigation
+- **12V compatible**: Same voltage rail as servo power system
 
 ### 2.2 EcoFlow River Max Plus Specifications
 
@@ -357,16 +367,26 @@ Assuming support half-width of 125 mm and CG height of 319 mm:
 
 **Pricing convention:** All prices shown are **estimated line totals** (Qty × Unit Price) in USD.
 
-### 7.1 Mobility / Base Platform
+### 7.1 Mobility / Base Platform (Mecanum Drive)
 
 | Item | Qty | Source | Est. Line Total (USD) |
 |------|-----|--------|----------------------|
-| Heavy-duty platform plate (400×300×5mm Al) | 1 | SendCutSend | $35 |
-| 75mm swivel casters | 2 | Amazon/McMaster | $20 |
-| 75mm fixed drive wheels + DC motors | 2 | RobotShop | $45 |
-| Motor driver (L298N or similar) | 1 | Amazon | $10 |
+| Platform plate (400×300×5mm Al) | 1 | SendCutSend | $35 |
+| 100mm Mecanum wheels (set of 4) | 1 | Amazon (B0DL3JT2KR) | $55 |
+| JGB37-520 encoder motors 12V 178RPM | 4 | Amazon (B0CCN584JW) | $50 |
+| Motor brackets (if not included) | 4 | Amazon | $10 |
+| BTS7960 43A H-Bridge motor driver | 1 | Amazon (B07TFB22H5) | $15 |
+| 6mm shaft couplers (motor to wheel) | 4 | Amazon | $8 |
+| M5 hardware, standoffs | 1 set | Generic | $12 |
 
-**Subtotal: $110**
+**Subtotal: $185**
+
+#### Mecanum Base Part Links
+
+- **Wheels**: amazon.com/dp/B0DL3JT2KR (100mm, 45kg load, 4pcs)
+- **Motors**: amazon.com/dp/B0CCN584JW (JGB37-520 12V 178RPM w/ encoder)
+- **Driver**: amazon.com/dp/B07TFB22H5 (BTS7960 43A dual H-bridge)
+- **Alt motors**: amazon.com/dp/B0DJ2WWH59 (includes wheel kit)
 
 ### 7.2 Power System (EcoFlow)
 
@@ -443,22 +463,28 @@ Assuming support half-width of 125 mm and CG height of 319 mm:
 
 | Category | Subtotal |
 |----------|----------|
-| Mobility/Base Platform | $110 |
+| Mobility/Base Platform (Mecanum) | $185 |
 | Power System (EcoFlow) | $705 |
 | Mast Structure | $99 |
 | Deck Plates | $58 |
 | Lift Mechanism | $36 |
 | Computing & Control | $245 |
 | Arms | $200 |
-| **TOTAL** | **~$1,453** |
+| **TOTAL** | **~$1,528** |
 
-**Note:** The EcoFlow River Max Plus represents 45% of the total cost but provides:
+**Note:** The EcoFlow River Max Plus represents ~46% of the total cost but provides:
 - 720Wh capacity (8× more than 89Wh LiPo)
 - 8-14+ hours of operation
 - Safe LFP chemistry (no fire risk)
 - Built-in AC outlets for tools
 - USB-C 100W for Pi 5
-- Excellent stability as ballast
+- Excellent stability as ballast (8kg low CG)
+
+**Mecanum Base Upgrade:** The omnidirectional Mecanum drive adds $75 over caster/motor setup but enables:
+- Strafe sideways while keeping camera/arms on target
+- Precise positioning for manipulation tasks
+- No 3-point turns in tight spaces
+- Encoder feedback for odometry/mapping
 
 ---
 
