@@ -493,40 +493,70 @@ Kit includes: 97mm Mecanum wheels (4), 12V 360RPM encoder motors (4), aluminum e
 
 ### 7.3 Mast Structure (V-Slot)
 
-| Item | Qty | Source | Est. Line Total (USD) |
-|------|-----|--------|----------------------|
-| V-Slot 20×40 Linear Rail, 1500mm | 2 | OpenBuilds / Bulkman3D | $30 |
-| V-Slot 20×20 Linear Rail, 350mm | 1 | OpenBuilds | $7 |
-| V-Slot Gantry Set 20mm (4-wheel) | 2 | ValueHobby | $20 |
-| Corner brackets (90°) | 12 | OpenBuilds | $15 |
-| Joining plates | 4 | OpenBuilds | $10 |
-| M5 T-nuts (drop-in) | 50 | Generic | $8 |
-| M5×8 button head screws | 50 | Generic | $5 |
-| M5×10 button head screws | 30 | Generic | $4 |
+| Item | Qty | Source / ASIN | Est. Line Total (USD) |
+|------|-----|---------------|----------------------|
+| V-Slot 20×40 Linear Rail, 1500mm | 2 | Amazon B07ZDHFBNR | $50 |
+| V-Slot 20×20 Linear Rail, 500mm | 1 | Amazon B07ZDHN8Z1 | $10 |
+| V-Slot Gantry Plate Kit 20mm | 2 | Amazon B08L39S8QB | $24 |
+| 90° Corner Brackets (10pk) | 1 | Amazon B07GCTQ4GK | $15 |
+| M5 T-nuts drop-in (50pk) | 1 | Amazon B07H47J7C1 | $8 |
+| M5 Screw Assortment | 1 | Amazon B08P4PK77V | $12 |
 
-**Subtotal: $99**
+**Subtotal: $119**
+
+#### Mast Part Links
+
+- **V-Slot 20×40 1500mm**: amazon.com/dp/B07ZDHFBNR (×2 uprights)
+- **V-Slot 20×20 500mm**: amazon.com/dp/B07ZDHN8Z1 (cut to 320mm for cross-brace)
+- **Gantry Plate Kit**: amazon.com/dp/B08L39S8QB (includes wheels, spacers, hardware)
+- **Corner Brackets**: amazon.com/dp/B07GCTQ4GK (90° L-brackets for V-slot)
+- **T-nuts**: amazon.com/dp/B07H47J7C1 (M5 drop-in for V-slot)
+- **Screws**: amazon.com/dp/B08P4PK77V (M5 button head assortment)
 
 ### 7.4 Deck Plates
 
 | Item | Qty | Source | Est. Line Total (USD) |
 |------|-----|--------|----------------------|
-| Aluminum plate 300×220×3mm (decks) | 3 | SendCutSend / local | $45 |
-| M3 standoffs assorted (10-40mm) | 20 | Generic | $8 |
-| M3 screws + nuts | 50 | Generic | $5 |
+| Deck plate 300×220×3mm (5052 Al) | 3 | SendCutSend | $45 |
+| Carriage plate 200×140×5mm (5052 Al) | 1 | SendCutSend | $12 |
+| M5 standoffs assorted (10-40mm) | 20 | Amazon | $10 |
+| M5 screws + nuts | 50 | Amazon | $6 |
 
-**Subtotal: $58**
+**Subtotal: $73**
+
+#### Plate Design Files
+
+SVG files ready for SendCutSend upload:
+- `plates/deck-plate-300x220.svg` - Order 3× (Decks 1, 2, 3)
+- `plates/carriage-plate-200x140.svg` - Order 1× (Arm carriage)
+- `plates/README.md` - Ordering instructions
+
+**SendCutSend Order:**
+1. Go to sendcutsend.com
+2. Upload SVG file
+3. Material: **5052 Aluminum**
+4. Thickness: 3mm (decks) or 5mm (carriage)
+5. Finish: Mill finish (cheapest) or clear anodized
 
 ### 7.5 Lift Mechanism
 
-| Item | Qty | Source | Est. Line Total (USD) |
-|------|-----|--------|----------------------|
-| NEMA17 stepper motor (1.5A) | 1 | StepperOnline | $12 |
-| GT2 belt, 6mm, 3.5m length | 1 | Generic | $7 |
-| GT2 20T pulley, 5mm bore | 2 | Generic | $4 |
-| Belt tensioner/idler | 1 | OpenBuilds | $5 |
-| Stepper driver (TMC2209) | 1 | BTT / Generic | $8 |
+| Item | Qty | Source / ASIN | Est. Line Total (USD) |
+|------|-----|---------------|----------------------|
+| NEMA17 Stepper Motor 1.5A | 1 | Amazon B0787BQ7C7 | $12 |
+| GT2 Timing Belt 6mm × 5m | 1 | Amazon B07GFYLJP8 | $8 |
+| GT2 20T Pulley 5mm bore (5pk) | 1 | Amazon B07VPB54VN | $8 |
+| Idler Pulley with bearing | 2 | Amazon B07GCX7T5B | $6 |
+| TMC2209 Stepper Driver | 1 | Amazon B0D2J73TM8 | $10 |
 
-**Subtotal: $36**
+**Subtotal: $44**
+
+#### Lift Mechanism Part Links
+
+- **NEMA17 Stepper**: amazon.com/dp/B0787BQ7C7 (42mm, 1.5A, 5mm shaft)
+- **GT2 Belt**: amazon.com/dp/B07GFYLJP8 (6mm width, 5m length - cut to size)
+- **GT2 Pulleys**: amazon.com/dp/B07VPB54VN (20 tooth, 5mm bore, fits NEMA17)
+- **Idler Pulleys**: amazon.com/dp/B07GCX7T5B (with bearing for smooth belt return)
+- **TMC2209 Driver**: amazon.com/dp/B0D2J73TM8 (ultra-quiet, 2.5A max)
 
 ### 7.6 Computing & Control
 
@@ -557,25 +587,25 @@ Kit includes: 97mm Mecanum wheels (4), 12V 360RPM encoder motors (4), aluminum e
 |----------|----------|
 | Mobility/Base Platform (97mm) | $117 |
 | Power System (EcoFlow) | $705 |
-| Mast Structure | $99 |
-| Deck Plates | $58 |
-| Lift Mechanism | $36 |
+| Mast Structure (V-Slot) | $119 |
+| Deck Plates (SendCutSend) | $73 |
+| Lift Mechanism | $44 |
 | Computing & Control | $245 |
 | Arms | $200 |
-| **TOTAL** | **~$1,460** |
+| **TOTAL** | **~$1,503** |
 
-#### With DIY Custom (Premium Build)
+#### With DIY Custom Chassis (Premium Build)
 
 | Category | Subtotal |
 |----------|----------|
 | Mobility/Base Platform (DIY) | $185 |
 | Power System (EcoFlow) | $705 |
-| Mast Structure | $99 |
-| Deck Plates | $58 |
-| Lift Mechanism | $36 |
+| Mast Structure (V-Slot) | $119 |
+| Deck Plates (SendCutSend) | $73 |
+| Lift Mechanism | $44 |
 | Computing & Control | $245 |
 | Arms | $200 |
-| **TOTAL** | **~$1,528** |
+| **TOTAL** | **~$1,571** |
 
 **Savings with 97mm chassis vs DIY:** ~$68
 

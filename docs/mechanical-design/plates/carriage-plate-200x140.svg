@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Arm Carriage Plate for ContinuonXR V-Slot Mast -->
+<!-- Size: 200mm x 140mm x 5mm Aluminum -->
+<!-- M5 holes (5.5mm) for arm mounting -->
+<!-- Rides on V-slot gantry wheels -->
+<!-- SendCutSend compatible -->
+<svg xmlns="http://www.w3.org/2000/svg" 
+     width="200mm" height="140mm" 
+     viewBox="0 0 200 140">
+  
+  <!-- Outer boundary (cut line) -->
+  <rect x="0" y="0" width="200" height="140" 
+        fill="none" stroke="black" stroke-width="0.1"/>
+  
+  <!-- Gantry plate attachment holes (connect to V-slot gantry plates) -->
+  <!-- Left side gantry mount (4 holes, 20mm spacing) -->
+  <circle cx="15" cy="30" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  <circle cx="15" cy="50" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  <circle cx="15" cy="90" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  <circle cx="15" cy="110" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  
+  <!-- Right side gantry mount -->
+  <circle cx="185" cy="30" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  <circle cx="185" cy="50" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  <circle cx="185" cy="90" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  <circle cx="185" cy="110" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  
+  <!-- SO-ARM101 mounting holes -->
+  <!-- Left arm base (centered at x=50) -->
+  <!-- Standard servo mounting pattern ~40mm square -->
+  <circle cx="30" cy="50" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <circle cx="70" cy="50" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <circle cx="30" cy="90" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <circle cx="70" cy="90" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <!-- Center hole for wiring pass-through -->
+  <circle cx="50" cy="70" r="6" fill="none" stroke="blue" stroke-width="0.1"/>
+  
+  <!-- Right arm base (centered at x=150) -->
+  <circle cx="130" cy="50" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <circle cx="170" cy="50" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <circle cx="130" cy="90" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <circle cx="170" cy="90" r="2.75" fill="none" stroke="green" stroke-width="0.1"/>
+  <!-- Center hole for wiring pass-through -->
+  <circle cx="150" cy="70" r="6" fill="none" stroke="blue" stroke-width="0.1"/>
+  
+  <!-- Belt attachment hole (center top) -->
+  <circle cx="100" cy="15" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+  
+  <!-- Belt attachment hole (center bottom) -->
+  <circle cx="100" cy="125" r="2.75" fill="none" stroke="red" stroke-width="0.1"/>
+
+</svg>
