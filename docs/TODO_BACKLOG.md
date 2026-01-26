@@ -1,67 +1,155 @@
-# Continuon AI: Repository TODO Backlog
+# ContinuonXR: Active TODO Backlog
 
-This document provides a structured overview of all `TODO` and `FIXME` comments found in the ContinuonXR repository, categorized by module and prioritized by impact.
-
-## Executive Summary
-A repository-wide scan identified **21** actionable `TODO` items. 
-- **High Priority:** 6
-- **Medium Priority:** 13
-- **Low Priority:** 2
-
-The most critical gaps are in the **Brain Runtime integration** (Pi 5 sensor wiring) and **auth/ownership tokens** in the Companion App.
+**Last Updated:** 2026-01-25  
+**Source:** Chief Scientist goals + Learning Partner blockers
 
 ---
 
-## 🧠 Brain Runtime (`continuonbrain`)
+## 🔴 Critical (Blocking Training Progress)
 
-### High Priority 🔴
-- **`trainer/examples/pi5_integration.py` (L187-190):** Wire `robot_idle`, `teleop_active`, `battery_level`, and `cpu_temp` to the actual Pi 5 sensors and runtime state.
-- **`api/server.py` (L1450):** Implement actual task execution logic in the Robot API.
+### Navigation Goal Blockers
 
-### Medium Priority 🟡
-- **`trainer/CLOUD_EXPORT.md` (L42):** Replace placeholder model/tokenizer/LoRA config with real production values.
-- **`services/brain_service.py` (L1451):** Add image support to multimodal payloads.
-- **`reasoning/jax_adapter.py` (L23):** Support stateful rollout in the JAX reasoning engine.
-- **`gemma_chat.py` (L538):** Handle images for API if supported (e.g., GPT-4o).
-- **`behaviors/auto_charge.py` (L204):** Implement waypoint navigation for docking.
-- **`behaviors/auto_charge.py` (L258):** Integrate vision system distance feedback for docking.
+| Task | Location | Status |
+|------|----------|--------|
+| Room Scanner needs real scan data | `trainer_ui/room_scanner.py` | 🔴 Blocked |
+| HomeScan simulator empty scenes | `trainer_ui/house_scenes/` | 🔴 No data |
+| OAK-D depth calibration | `trainer_ui/oakd_camera.py` | 🟡 Needs tuning |
 
-### Low Priority 🟢
-- **`gemma_chat.py` (L629):** Switch to `apply_chat_template` if supported by the processor.
+**Action:** Run room scanner to capture home environment:
+```bash
+cd trainer_ui && python room_scanner.py --scan living_room
+```
 
----
+### Face Recognition Blockers
 
-## 📱 Companion App (`continuonai`)
+| Task | Location | Status |
+|------|----------|--------|
+| No family faces enrolled | `trainer_ui/face_db/` | 🔴 Empty |
+| Recognition model not trained | `brain_b/memory/faces/` | 🔴 Missing |
 
-### High Priority 🔴
-- **`lib/services/brain_client.dart` (L72):** Wire to persistent auth, subscription, and ownership tokens once the backend is ready.
-
-### Medium Priority 🟡
-- **`lib/services/brain_client.dart` (L716):** Implement a real reset endpoint (currently using a 'reflex' mode workaround).
-- **`lib/screens/robot_list_screen.dart` (L1310):** Implement actual robot ownership transfer via the API.
-- **`ios/Runner/Info.plist` (L68):** Replace placeholder `REVERSED_CLIENT_ID` with real Firebase config.
-- **`firestore.rules` (L12):** Remove hardcoded developer email once RBAC is fully mature.
-- **`android/app/build.gradle.kts` (L26):** Specify a unique Application ID for production.
-- **`android/app/build.gradle.kts` (L38):** Configure signing for release builds.
+**Action:** Enroll faces via trainer UI:
+```bash
+cd trainer_ui && python server.py
+# Open http://localhost:8000 → Faces tab → Enroll
+```
 
 ---
 
-## 👓 Android XR Shell (`apps/continuonxr`)
+## 🟡 High Priority (This Week)
 
-### Medium Priority 🟡
-- **`src/main/java/com/continuonxr/app/config/AppConfig.kt` (L57):** Implement loading app configuration from disk or flags instead of defaults.
+### Brain B Improvements
+
+- [ ] **Add spatial memory** - Remember where objects were seen
+  - Location: `brain_b/memory/spatial.py` (create)
+  - Needed for: fetch tasks, navigation
+
+- [ ] **Voice command parser** - Improve intent classification
+  - Location: `brain_b/conversation/intents.py`
+  - Current: ~60% accuracy, Target: 90%
+
+- [ ] **Behavior composition** - Chain multiple behaviors
+  - Location: `brain_b/actor_runtime/teaching.py`
+  - Example: "patrol then return" 
+
+### Hardware Integration
+
+- [ ] **Arm pose library** - Common poses (home, reach, grasp)
+  - Location: `trainer_ui/poses/`
+  - Status: 3 poses defined, need 10+
+
+- [ ] **Motor calibration** - Mecanum wheel speed tuning
+  - Location: `brain_b/hardware/motors.py`
+  - Issue: Drift during navigation
 
 ---
 
-## 📄 Documentation & Misc
+## 🟢 Medium Priority (This Month)
 
-### Low Priority 🟢
-- **`AGENTS.md` (L26):** Implement offline Wikipedia context for agents.
+### Android XR Trainer (Qualcomm Bounty)
+
+- [ ] NexaSDK voice pipeline integration
+- [ ] Real-time RLDS recording from glasses
+- [ ] Gesture recognition for arm control
+
+Location: `apps/continuonxr/src/main/java/com/continuonxr/app/trainer/`
+
+### Documentation
+
+- [x] ~~Update NEXT_STEPS.md~~ ✅ 2026-01-25
+- [x] ~~Update TODO_BACKLOG.md~~ ✅ 2026-01-25
+- [ ] Update main README.md Quick Start
+- [ ] Remove HOPE references from docs (105 instances)
+- [ ] Add Chief Scientist documentation
+
+### Testing
+
+- [ ] Fix 10 failing tests from V1 checklist
+  - Service registry: 3 tests
+  - Task library fixtures: 3 tests
+  - Wave particle tensors: 2 tests
+  - Proto schema: 1 test
+  - Safety clipping: 1 test
 
 ---
 
-## Recommended Next Tracks
-Based on this review, the following high-priority tracks are recommended:
-1. **Track: Pi 5 Sensor Integration & Telemetry:** Address the missing sensor wiring in the Brain Runtime.
-2. **Track: Robot API Task Execution:** Implement the core task execution logic in the Brain's gRPC/Web server.
-3. **Track: Secure Ownership & Token Persistence:** Implement the persistent auth and ownership flow in the Companion App.
+## 🔵 Low Priority (Backlog)
+
+### Future Features
+
+- [ ] Multi-robot coordination (L6 SWARM)
+- [ ] Cloud TPU training export
+- [ ] Public RLDS episode sharing
+- [ ] Offline Wikipedia context
+
+### Tech Debt
+
+- [ ] Remove deprecated HOPE eval flows
+- [ ] Consolidate `continuonbrain/` and `brain_b/`
+- [ ] Clean up training log files (>500MB)
+
+---
+
+## Completed (Archive)
+
+### 2026-01-25
+- ✅ Chief Scientist daemon running
+- ✅ Learning Partner 5-phase loop
+- ✅ Seed Model v4.2.0 (0.84 benchmark)
+- ✅ 124+ training cycles
+- ✅ 4,218 RLDS episodes
+
+### 2026-01-24
+- ✅ Android XR Trainer app scaffold
+- ✅ NexaSDK stubs for Qualcomm bounty
+- ✅ Mechanical design: V-slot mast updates
+
+### Earlier
+- ✅ Brain B teachable behaviors
+- ✅ Trainer UI with camera/voice
+- ✅ RLDS pipeline and export
+- ✅ OAK-D camera integration
+
+---
+
+## Quick Commands
+
+```bash
+# Check what Chief Scientist is working on
+python scripts/compound/chief_scientist.py --goals
+
+# Run a training cycle manually
+python scripts/compound/learning_partner.py --train
+
+# Check brain health
+python scripts/compound/learning_partner.py --status
+
+# Start trainer UI
+cd trainer_ui && python server.py
+
+# Run test suite
+cd continuonbrain && python -m pytest tests/ -v
+```
+
+---
+
+*Updated by documentation refresh - 2026-01-25*

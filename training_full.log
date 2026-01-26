@@ -1,0 +1,554 @@
+============================================================
+🧠 Enhanced Training Loop
+============================================================
+Test interval: every 3 cycles
+Interactive server: http://localhost:8765
+
+
+============================================================
+🏋️ Training Cycle 1
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 6448 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 6944
+Training conversation classifier...
+  Train samples: 5555
+  Test samples: 1389
+  Epoch 20: loss=0.0011, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_163236.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4126, acc=43.9%
+  Epoch 10/15: loss=1.3939, acc=43.1%
+  Epoch 15/15: loss=1.3883, acc=43.1%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_163244.json
+Perception accuracy: 41.6%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 2
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 6944 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 7440
+Training conversation classifier...
+  Train samples: 5952
+  Test samples: 1488
+  Epoch 20: loss=0.0010, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_163541.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4137, acc=43.9%
+  Epoch 10/15: loss=1.3928, acc=43.5%
+  Epoch 15/15: loss=1.3867, acc=43.1%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_163549.json
+Perception accuracy: 41.5%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 3
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 7440 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 7936
+Training conversation classifier...
+  Train samples: 6348
+  Test samples: 1588
+  Epoch 20: loss=0.0009, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_163854.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4107, acc=44.3%
+  Epoch 10/15: loss=1.3932, acc=43.2%
+  Epoch 15/15: loss=1.3895, acc=42.7%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_163901.json
+Perception accuracy: 40.9%
+
+============================================================
+🧪 INFERENCE TEST
+============================================================
+
+📊 Results:
+  Conversation: 100% accuracy (10/10)
+  Navigation:   67% reasonable (ready)
+  LLM Backend:  available (claude)
+
+  Overall Score: 83%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 4
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 7936 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 8432
+Training conversation classifier...
+  Train samples: 6745
+  Test samples: 1687
+  Epoch 20: loss=0.0009, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_164229.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4154, acc=43.9%
+  Epoch 10/15: loss=1.3915, acc=43.6%
+  Epoch 15/15: loss=1.3874, acc=42.7%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_164237.json
+Perception accuracy: 41.6%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 5
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 8432 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 8928
+Training conversation classifier...
+  Train samples: 7142
+  Test samples: 1786
+  Epoch 20: loss=0.0008, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_164556.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4127, acc=43.8%
+  Epoch 10/15: loss=1.3941, acc=43.6%
+  Epoch 15/15: loss=1.3848, acc=44.0%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_164604.json
+Perception accuracy: 39.5%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 6
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 8928 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 9424
+Training conversation classifier...
+  Train samples: 7539
+  Test samples: 1885
+  Epoch 20: loss=0.0007, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_164933.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4141, acc=44.1%
+  Epoch 10/15: loss=1.3924, acc=43.4%
+  Epoch 15/15: loss=1.3892, acc=42.4%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_164941.json
+Perception accuracy: 41.8%
+
+============================================================
+🧪 INFERENCE TEST
+============================================================
+
+📊 Results:
+  Conversation: 100% accuracy (10/10)
+  Navigation:   67% reasonable (ready)
+  LLM Backend:  available (claude)
+
+  Overall Score: 83%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 7
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 9424 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 9920
+Training conversation classifier...
+  Train samples: 7936
+  Test samples: 1984
+  Epoch 20: loss=0.0007, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_165330.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4114, acc=44.4%
+  Epoch 10/15: loss=1.3938, acc=43.2%
+  Epoch 15/15: loss=1.3871, acc=43.1%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_165338.json
+Perception accuracy: 41.6%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 8
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 9920 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 10416
+Training conversation classifier...
+  Train samples: 8332
+  Test samples: 2084
+  Epoch 20: loss=0.0007, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_165726.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4142, acc=44.0%
+  Epoch 10/15: loss=1.3919, acc=44.1%
+  Epoch 15/15: loss=1.3885, acc=43.0%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_165734.json
+Perception accuracy: 41.6%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 9
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 10416 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 10912
+Training conversation classifier...
+  Train samples: 8729
+  Test samples: 2183
+  Epoch 20: loss=0.0006, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_170124.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4111, acc=43.6%
+  Epoch 10/15: loss=1.3919, acc=43.1%
+  Epoch 15/15: loss=1.3868, acc=43.0%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_170132.json
+Perception accuracy: 41.6%
+
+============================================================
+🧪 INFERENCE TEST
+============================================================
+
+📊 Results:
+  Conversation: 100% accuracy (10/10)
+  Navigation:   67% reasonable (ready)
+  LLM Backend:  available (claude)
+
+  Overall Score: 83%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 10
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 10912 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 11408
+Training conversation classifier...
+  Train samples: 9126
+  Test samples: 2282
+  Epoch 20: loss=0.0006, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_170546.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4105, acc=44.5%
+  Epoch 10/15: loss=1.3944, acc=43.3%
+  Epoch 15/15: loss=1.3877, acc=43.4%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_170554.json
+Perception accuracy: 41.6%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 11
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 11408 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 11904
+Training conversation classifier...
+  Train samples: 9523
+  Test samples: 2381
+  Epoch 20: loss=0.0006, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_171002.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4158, acc=43.5%
+  Epoch 10/15: loss=1.3920, acc=43.6%
+  Epoch 15/15: loss=1.3871, acc=42.8%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_171010.json
+Perception accuracy: 41.8%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 12
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 11904 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 12400
+Training conversation classifier...
+  Train samples: 9920
+  Test samples: 2480
+  Epoch 20: loss=0.0005, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_171424.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4122, acc=44.3%
+  Epoch 10/15: loss=1.3939, acc=43.4%
+  Epoch 15/15: loss=1.3879, acc=42.7%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_171432.json
+Perception accuracy: 41.8%
+
+============================================================
+🧪 INFERENCE TEST
+============================================================
+
+📊 Results:
+  Conversation: 100% accuracy (10/10)
+  Navigation:   67% reasonable (ready)
+  LLM Backend:  available (claude)
+
+  Overall Score: 83%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 13
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 12400 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
+  Total samples: 12896
+Training conversation classifier...
+  Train samples: 10316
+  Test samples: 2580
+  Epoch 20: loss=0.0005, accuracy=100.00%
+  Test accuracy: 100.00%
+  Model saved to brain_b_data/conversation_models/conv_model_20260123_171910.json
+   Accuracy: 100%
+
+🎮 Training navigation model...
+   
+
+🎯 Generating high-fidelity training games...
+   
+
+👁️ Training perception model...
+   Loaded 49 high-fidelity episodes
+Prepared 4489 training samples
+
+Training perception model on 4489 samples...
+  Epoch 5/15: loss=1.4145, acc=44.3%
+  Epoch 10/15: loss=1.3956, acc=42.9%
+  Epoch 15/15: loss=1.3883, acc=42.6%
+
+Model saved to brain_b_data/perception_checkpoints/perception_model_20260123_171917.json
+Perception accuracy: 41.0%
+
+⏳ Waiting 60s before next cycle...
+
+============================================================
+🏋️ Training Cycle 14
+============================================================
+
+💬 Training conversation model...
+Generating 500 conversation samples...
+  Loaded 12896 existing samples
+  Generated 496 rule-based samples
+  Saved to brain_b_data/conversations/conversation_data.json
