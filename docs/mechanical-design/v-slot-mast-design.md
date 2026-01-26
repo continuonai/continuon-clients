@@ -4,7 +4,39 @@
 
 **Power**: EcoFlow River Max Plus (720Wh portable power station)
 
+**Last Updated**: 2026-01-26
+
 This document specifies a tall robot configuration using V-slot aluminum extrusion for the mast structure, enabling human-height manipulation tasks. The design leverages the EcoFlow River Max Plus as both power source and stability counterweight.
+
+---
+
+## ⚠️ Supplier Update (January 2026)
+
+**OpenBuilds has ceased operations.** The original V-slot supplier is no longer selling products. Use these alternative suppliers:
+
+| Component | Alternative Supplier | Amazon Link |
+|-----------|---------------------|-------------|
+| V-Slot 2040 1500mm | FAHKNS (5-pack) | amazon.com/dp/B0CF9TXKJ3 |
+| V-Slot 2020 500mm | Iverntech/generic | Search "2020 v-slot 500mm" |
+| Gantry Plates | Generic V-slot compatible | amazon.com/dp/B08L39S8QB |
+| Corner Brackets | Generic 2040 brackets | Search "2040 corner bracket" |
+| T-Nuts/Hardware | Multiple brands available | Search "M5 t-nut v-slot" |
+
+---
+
+## 🎯 Design Philosophy: Precision vs. Payload
+
+This robot separates **fine manipulation** from **cargo transport**:
+
+| System | Purpose | Weight Budget | Speed Priority |
+|--------|---------|---------------|----------------|
+| **Arm Carriage (moving)** | Precision manipulation | Light (~1.5kg + 2kg payload) | Fast, smooth |
+| **Deck 3 (fixed)** | Cargo/tool transport | Heavy (5-10kg OK) | N/A (fixed) |
+| **Deck 1 (fixed)** | Tool/gripper storage | Medium (~2kg) | N/A (fixed) |
+
+**Workflow**: Arms grab items → Place on Deck 3 → Robot drives → Arms unload
+
+This decoupling allows the lift mechanism to stay light and precise while the robot can still transport significant payloads on the fixed cargo deck.
 
 ---
 
@@ -493,24 +525,33 @@ Kit includes: 97mm Mecanum wheels (4), 12V 360RPM encoder motors (4), aluminum e
 
 ### 7.3 Mast Structure (V-Slot)
 
+> ⚠️ **Note (Jan 2026):** OpenBuilds has ceased operations. Original ASINs may be unavailable.
+> Use alternative suppliers listed below.
+
 | Item | Qty | Source / ASIN | Est. Line Total (USD) |
 |------|-----|---------------|----------------------|
-| V-Slot 20×40 Linear Rail, 1500mm | 2 | Amazon B07ZDHFBNR | $50 |
-| V-Slot 20×20 Linear Rail, 500mm | 1 | Amazon B07ZDHN8Z1 | $10 |
+| V-Slot 20×40 Linear Rail, 1500mm | 2 | FAHKNS 5-pack (B0CF9TXKJ3) | $70 |
+| V-Slot 20×20 Linear Rail, 500mm | 1 | Search "2020 v-slot 500mm" | $12 |
 | V-Slot Gantry Plate Kit 20mm | 2 | Amazon B08L39S8QB | $24 |
-| 90° Corner Brackets (10pk) | 1 | Amazon B07GCTQ4GK | $15 |
-| M5 T-nuts drop-in (50pk) | 1 | Amazon B07H47J7C1 | $8 |
+| 90° Corner Brackets (10pk) | 1 | Search "2040 corner bracket" | $15 |
+| M5 T-nuts drop-in (50pk) | 1 | Search "M5 t-nut v-slot" | $8 |
 | M5 Screw Assortment | 1 | Amazon B08P4PK77V | $12 |
 
-**Subtotal: $119**
+**Subtotal: ~$141** (includes extra rails from 5-pack)
 
-#### Mast Part Links
+#### Mast Part Links (Updated Jan 2026)
 
-- **V-Slot 20×40 1500mm**: amazon.com/dp/B07ZDHFBNR (×2 uprights)
-- **V-Slot 20×20 500mm**: amazon.com/dp/B07ZDHN8Z1 (cut to 320mm for cross-brace)
+**Primary Supplier - FAHKNS (Recommended):**
+- **V-Slot 2040 1500mm (5-pack)**: amazon.com/dp/B0CF9TXKJ3 (~$70, need 2, keep extras)
 - **Gantry Plate Kit**: amazon.com/dp/B08L39S8QB (includes wheels, spacers, hardware)
-- **Corner Brackets**: amazon.com/dp/B07GCTQ4GK (90° L-brackets for V-slot)
-- **T-nuts**: amazon.com/dp/B07H47J7C1 (M5 drop-in for V-slot)
+
+**Alternative Suppliers:**
+- **Iverntech**: amazon.com/stores/Iverntech (2040 and 2020 profiles)
+- **Generic search**: amazon.com/s?k=2040+v-slot+1500mm
+
+**Hardware (Still Available):**
+- **Corner Brackets**: Search "2040 90 degree corner bracket"
+- **T-nuts**: Search "M5 t-nut v-slot drop in"
 - **Screws**: amazon.com/dp/B08P4PK77V (M5 button head assortment)
 
 ### 7.4 Deck Plates
@@ -540,6 +581,11 @@ SVG files ready for SendCutSend upload:
 
 ### 7.5 Lift Mechanism
 
+> **Design Note:** The lift moves only the arm carriage (~1.5kg + 2kg payload max).
+> Heavy cargo goes on the fixed Deck 3, not the moving carriage.
+
+#### Option A: Standard (2-3kg lift capacity) - $44
+
 | Item | Qty | Source / ASIN | Est. Line Total (USD) |
 |------|-----|---------------|----------------------|
 | NEMA17 Stepper Motor 1.5A | 1 | Amazon B0787BQ7C7 | $12 |
@@ -548,15 +594,55 @@ SVG files ready for SendCutSend upload:
 | Idler Pulley with bearing | 2 | Amazon B07GCX7T5B | $6 |
 | TMC2209 Stepper Driver | 1 | Amazon B0D2J73TM8 | $10 |
 
-**Subtotal: $44**
+#### ★ Option B: High-Torque (5kg lift capacity) - $50 (Recommended)
+
+| Item | Qty | Source / ASIN | Est. Line Total (USD) |
+|------|-----|---------------|----------------------|
+| **NEMA17 High-Torque 2.5A** | 1 | Amazon B00PNEQI7W | $18 |
+| GT2 Timing Belt 6mm × 5m | 1 | Amazon B07GFYLJP8 | $8 |
+| GT2 20T Pulley 5mm bore (5pk) | 1 | Amazon B07VPB54VN | $8 |
+| Idler Pulley with bearing | 2 | Amazon B07GCX7T5B | $6 |
+| TMC2209 Stepper Driver | 1 | Amazon B0D2J73TM8 | $10 |
+
+#### Option C: Lead Screw (15-20kg, slower) - $55
+
+| Item | Qty | Source / ASIN | Est. Line Total (USD) |
+|------|-----|---------------|----------------------|
+| T8 Lead Screw 1500mm | 1 | Amazon B07R7PR746 | $20 |
+| Anti-backlash Nut (POM) | 1 | Amazon B07F6CGCZV | $8 |
+| Flexible Coupling 5-8mm | 1 | Amazon B07KX757MH | $7 |
+| NEMA17 Stepper 1.5A | 1 | Amazon B0787BQ7C7 | $12 |
+| TMC2209 Stepper Driver | 1 | Amazon B0D2J73TM8 | $10 |
+
+**Trade-off:** Lead screw is self-locking (holds position without power) but slower (~30mm/s vs 100mm/s).
 
 #### Lift Mechanism Part Links
 
-- **NEMA17 Stepper**: amazon.com/dp/B0787BQ7C7 (42mm, 1.5A, 5mm shaft)
-- **GT2 Belt**: amazon.com/dp/B07GFYLJP8 (6mm width, 5m length - cut to size)
-- **GT2 Pulleys**: amazon.com/dp/B07VPB54VN (20 tooth, 5mm bore, fits NEMA17)
-- **Idler Pulleys**: amazon.com/dp/B07GCX7T5B (with bearing for smooth belt return)
+- **NEMA17 Standard**: amazon.com/dp/B0787BQ7C7 (42mm, 1.5A, 0.4Nm)
+- **NEMA17 High-Torque**: amazon.com/dp/B00PNEQI7W (42mm, 2.5A, 0.65Nm) ★
+- **GT2 Belt**: amazon.com/dp/B07GFYLJP8 (6mm width, 5m length)
+- **GT2 Pulleys**: amazon.com/dp/B07VPB54VN (20 tooth, 5mm bore)
+- **Idler Pulleys**: amazon.com/dp/B07GCX7T5B (with bearing)
 - **TMC2209 Driver**: amazon.com/dp/B0D2J73TM8 (ultra-quiet, 2.5A max)
+- **Limit Switches**: amazon.com/dp/B07QQ2RBL5 (for home position)
+
+### 7.6 Cargo Deck (Deck 3) - Fixed Payload Platform
+
+> **Purpose:** Transport heavy items (5-10kg) while arms do precision work.
+
+| Item | Qty | Source | Est. Line Total (USD) |
+|------|-----|--------|----------------------|
+| Deck plate 300×220×3mm (5052 Al) | 1 | SendCutSend | $15 |
+| Storage bins (stackable, 4pk) | 1 | Amazon B07DFDS56F | $18 |
+| Anti-slip mat | 1 | Amazon | $8 |
+| Mounting brackets L-shape | 4 | Amazon | $10 |
+
+**Subtotal: $51**
+
+**Alternative Container Options:**
+- Tool organizer tray: amazon.com/dp/B07H4QJY6N (~$12)
+- Magnetic parts tray: amazon.com/dp/B000BYGC4O (~$8)
+- Custom 3D printed bins: Free (if you have printer)
 
 ### 7.6 Computing & Control
 
