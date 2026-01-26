@@ -45,9 +45,9 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
          │       │   Plus    │     │       720Wh power station
          │       └───────────┘     │
     ┌────┴─────────────────────────┴────┐
-    │    Mecanum Drive Platform         │  ← MC200 kit (435×250mm)
-    │    (MC200 or custom 400×300)      │     or DIY custom (400×300mm)
-    │    ◎────◎           ◎────◎        │     4× Mecanum + encoders
+    │    Mecanum Drive Platform         │  ← 97mm Pro chassis (330×290mm)
+    │    (330×290mm)                    │     12V 360RPM encoder motors
+    │    ◎────◎           ◎────◎        │     4× 97mm Mecanum wheels
     └───────────────────────────────────┘
                     ↓
               ══════════════
@@ -60,82 +60,96 @@ This document specifies a tall robot configuration using V-slot aluminum extrusi
 
 ### 2.1 Base & Footprint
 
-Two chassis options are supported: **MC200 Kit (Budget)** or **DIY Custom (Premium)**.
-
-#### Option A: MC200 Kit (Recommended - Budget)
+#### ★ Recommended: Professional 97mm Mecanum Chassis
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| Platform length | 435 mm | MC200 metal chassis |
-| Platform width | 250 mm | EcoFlow rotated 90° to fit |
+| Platform length | 330 mm (13") | 3-piece aluminum extrusion |
+| Platform width | 290 mm (11.42") | EcoFlow fits flat (exact match) |
 | Platform height | ~97 mm | Including wheel height |
-| **Effective footprint** | **435 × 250 mm** | Compact but stable |
-| Wheel type | **80mm Mecanum** | 4× TT motor driven |
-| Wheel diameter | 80 mm | Plastic frame, rubber rollers |
-| Load capacity | 10-15 kg | Robot total ~13kg - adequate |
-| Ground clearance | ~20 mm | Under platform |
-| EcoFlow position | **Rotated 90°** on platform | 185×290mm orientation |
-| Drive motors | TT DC encoder motors | Included in kit |
-| **Kit price** | **~$60-80** | amazon.com/dp/B09KL37P43 |
+| **Effective footprint** | **330 × 290 mm** | Compact, stable |
+| Wheel type | **97mm Mecanum** | 4× aluminum frame |
+| Wheel diameter | 97 mm | Good ground clearance |
+| Ground clearance | ~24 mm | Under platform |
+| EcoFlow position | Flat on platform | 290×185mm - fits perfectly |
+| Drive motors | **12V 360RPM** (37gb-520) | 4.8W each, 6mm shaft |
+| **Kit price** | **$99** | amazon.com/dp/B09VZV35RF |
 
-**EcoFlow Rotation Solution:**
+**Why This Chassis:**
+- ✅ **12V motors** - Direct connection to EcoFlow car port (no converter needed)
+- ✅ **97mm wheels** - Better ground clearance than 80mm
+- ✅ **360 RPM** - Faster than typical 178 RPM motors
+- ✅ **EcoFlow fits flat** - 290mm width = exact match
+- ✅ **$99 complete kit** - Best value option
+
+**Platform Layout:**
 ```
-MC200 Platform (435 × 250 mm)
-┌─────────────────────────────────────────────┐
-│                                             │
-│     ┌─────────────────────┐                 │
-│     │     EcoFlow         │  ← Rotated 90°  │
-│     │   (185 × 290 mm)    │    Fits!        │
-│     │                     │                 │
-│     └─────────────────────┘                 │
-│                                             │
-│  ◎                                     ◎    │  ← Mecanum wheels
-└─────────────────────────────────────────────┘
-     Width: 250mm (EcoFlow 185mm = 65mm margin)
-     Length: 435mm (EcoFlow 290mm = 145mm margin)
+97mm Chassis (330 × 290 mm)
+┌────────────────────────────────┐
+│  ║                        ║   │ ← V-slot mast uprights
+│  ║  ┌──────────────────┐  ║   │
+│  ║  │     EcoFlow      │  ║   │ ← Fits flat (290×185mm)
+│  ║  │  River Max Plus  │  ║   │
+│  ║  └──────────────────┘  ║   │
+│  ╚════════════════════════╝   │ ← Corner brackets
+│ ◎            ◎            ◎   │
+└────────────────────────────────┘
+     97mm Mecanum wheels (4×)
 ```
 
-**Mast Mounting on MC200:**
-- Bolt V-slot corner brackets directly to MC200 plate holes
-- Uprights straddle the EcoFlow (spaced ~200mm apart)
+**EcoFlow Mounting:**
+- Heavy-duty velcro pad on platform + retention strap over top
+- Or: 4× aluminum L-brackets at corners bolted to chassis holes
+- EcoFlow sits flat (290×185mm) centered on 290mm wide platform
+
+**Mast Mounting:**
+- V-slot 90° corner brackets bolt to chassis plate holes
+- 20×40mm uprights attach to corner brackets
+- Uprights positioned at edges, straddling EcoFlow (~240mm spacing)
 - No custom fabrication needed
 
-#### Option B: DIY Custom (Premium)
+---
+
+#### Alternative Options
+
+**Option B: MC200 Kit (Budget - Lower Capacity)**
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| Platform length | 400 mm | Custom aluminum plate (SendCutSend) |
-| Platform width | 300 mm | Accommodates EcoFlow flat (290mm) |
-| Platform height | 50 mm | Ground to top of platform |
-| **Effective footprint** | **400 × 300 mm** | Wider stance, more stable |
-| Wheel type | **100mm Mecanum** | 4× omnidirectional wheels |
-| Wheel diameter | 100 mm | Aluminum frame, rubber rollers |
-| Load capacity | 45 kg (wheels) | Robot total ~13kg - plenty of margin |
-| Ground clearance | ~25 mm | Under platform |
-| EcoFlow position | Centered flat | 290×185mm battery footprint |
-| Drive motors | JGB37-520 12V encoder | 178 RPM, 6mm D-shaft, hall encoder |
-| **DIY cost** | **~$185** | Custom assembly required |
+| Platform | 435 × 250 mm | EcoFlow must rotate 90° |
+| Wheels | 80mm Mecanum | Smaller |
+| Motors | TT encoder | Lower torque |
+| Load capacity | 10-15 kg | ⚠️ Tight for 12.6kg build |
+| **Price** | ~$70 | amazon.com/dp/B09KL37P43 |
+
+**Option C: DIY Custom (Premium - Maximum Capacity)**
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Platform | 400 × 300 mm | Custom plate |
+| Wheels | 100mm Mecanum | Largest |
+| Motors | JGB37-520 12V | High torque |
+| Load capacity | 45 kg | Overkill margin |
+| **Price** | ~$185 | Custom assembly |
 
 #### Comparison
 
-| Factor | MC200 Kit | DIY Custom |
-|--------|-----------|------------|
-| **Cost** | ~$70 | ~$185 |
-| **Assembly** | Minimal | Moderate |
-| **Wheels** | 80mm | 100mm |
-| **Load capacity** | 10-15kg | 45kg |
-| **Platform width** | 250mm | 300mm |
-| **Tip stability** | Good | Better |
-| **Encoders** | Yes | Yes |
+| Factor | 97mm Pro ★ | MC200 | DIY Custom |
+|--------|------------|-------|------------|
+| **Cost** | **$99** | $70 | $185 |
+| **Motors** | **12V 360RPM** | TT 6V | 12V 178RPM |
+| **Wheels** | **97mm** | 80mm | 100mm |
+| **EcoFlow fit** | **Flat** | Rotated | Flat |
+| **Assembly** | **Minimal** | Minimal | Moderate |
 
-**Recommendation:** Start with MC200 for budget build. Upgrade to DIY custom later if needed.
+**Recommendation:** The 97mm Professional chassis ($99) is the best balance of price, features, and EcoFlow compatibility.
 
-#### Mecanum Wheel Advantages (Both Options)
+#### Mecanum Wheel Advantages
 
 - **Omnidirectional movement**: Strafe sideways while keeping arms/camera oriented on task
 - **Precise positioning**: No 3-point turns needed for manipulation work
 - **Encoder feedback**: Hall encoders enable odometry for autonomous navigation
-- **12V compatible**: Same voltage rail as servo power system
+- **12V compatible**: Direct connection to EcoFlow car port
 
 ### 2.2 EcoFlow River Max Plus Specifications
 
@@ -426,20 +440,21 @@ Assuming support half-width of 125 mm and CG height of 319 mm:
 
 ### 7.1 Mobility / Base Platform (Mecanum Drive)
 
-#### Option A: MC200 Kit (Budget - Recommended)
+#### ★ Recommended: Professional 97mm Chassis Kit
 
 | Item | Qty | Source | Est. Line Total (USD) |
 |------|-----|--------|----------------------|
-| **MC200 Mecanum Chassis Kit** | 1 | Amazon (B09KL37P43) | $70 |
-| L298N motor driver (if not included) | 1 | Amazon | $8 |
+| **Professional 97mm Mecanum Chassis** | 1 | Amazon (B09VZV35RF) | $99 |
+| Heavy-duty velcro straps (EcoFlow) | 1 | Amazon | $8 |
+| L-brackets for EcoFlow retention | 4 | Amazon/hardware store | $10 |
 
-**Subtotal: $78**
+**Subtotal: $117**
 
-Kit includes: 80mm Mecanum wheels (4), TT encoder motors (4), metal chassis plate, mounting hardware.
+Kit includes: 97mm Mecanum wheels (4), 12V 360RPM encoder motors (4), aluminum extrusion chassis, mounting hardware.
 
-**MC200 Purchase Link:** amazon.com/dp/B09KL37P43
+**Purchase Link:** amazon.com/dp/B09VZV35RF
 
-#### Option B: DIY Custom (Premium)
+#### Alternative: DIY Custom (Maximum Capacity)
 
 | Item | Qty | Source | Est. Line Total (USD) |
 |------|-----|--------|----------------------|
@@ -453,12 +468,15 @@ Kit includes: 80mm Mecanum wheels (4), TT encoder motors (4), metal chassis plat
 
 **Subtotal: $185**
 
-#### DIY Part Links
+#### Part Links
 
+**97mm Chassis (Recommended):**
+- **Chassis kit**: amazon.com/dp/B09VZV35RF ($99, complete with 12V motors)
+
+**DIY Parts (Alternative):**
 - **Wheels**: amazon.com/dp/B0DL3JT2KR (100mm, 45kg load, 4pcs)
 - **Motors**: amazon.com/dp/B0CCN584JW (JGB37-520 12V 178RPM w/ encoder)
 - **Driver**: amazon.com/dp/B07TFB22H5 (BTS7960 43A dual H-bridge)
-- **Alt motors**: amazon.com/dp/B0DJ2WWH59 (includes wheel kit)
 
 ### 7.2 Power System (EcoFlow)
 
@@ -533,18 +551,18 @@ Kit includes: 80mm Mecanum wheels (4), TT encoder motors (4), metal chassis plat
 
 ### Total Estimated Cost
 
-#### With MC200 Kit (Budget Build)
+#### ★ With 97mm Professional Chassis (Recommended)
 
 | Category | Subtotal |
 |----------|----------|
-| Mobility/Base Platform (MC200) | $78 |
+| Mobility/Base Platform (97mm) | $117 |
 | Power System (EcoFlow) | $705 |
 | Mast Structure | $99 |
 | Deck Plates | $58 |
 | Lift Mechanism | $36 |
 | Computing & Control | $245 |
 | Arms | $200 |
-| **TOTAL** | **~$1,421** |
+| **TOTAL** | **~$1,460** |
 
 #### With DIY Custom (Premium Build)
 
@@ -559,7 +577,7 @@ Kit includes: 80mm Mecanum wheels (4), TT encoder motors (4), metal chassis plat
 | Arms | $200 |
 | **TOTAL** | **~$1,528** |
 
-**Savings with MC200:** ~$107
+**Savings with 97mm chassis vs DIY:** ~$68
 
 **Note:** The EcoFlow River Max Plus represents ~46% of the total cost but provides:
 - 720Wh capacity (8× more than 89Wh LiPo)
@@ -569,13 +587,14 @@ Kit includes: 80mm Mecanum wheels (4), TT encoder motors (4), metal chassis plat
 - USB-C 100W for Pi 5
 - Excellent stability as ballast (8kg low CG)
 
-**MC200 Kit Recommended:** The MC200 Mecanum chassis kit provides complete omnidirectional drive for ~$78:
-- Strafe sideways while keeping camera/arms on target
-- Precise positioning for manipulation tasks
-- No 3-point turns in tight spaces
+**97mm Professional Chassis Recommended:** The Professional 97mm Mecanum chassis ($99) provides the best value:
+- **12V 360RPM motors** - Direct connection to EcoFlow, faster than budget options
+- **97mm wheels** - Better ground clearance than 80mm alternatives
+- **EcoFlow fits flat** - 290mm platform width matches EcoFlow exactly
+- Omnidirectional movement for precise positioning
 - Encoder feedback for odometry/mapping
-- EcoFlow fits when rotated 90° (185×290mm in 250×435mm platform)
-- Easy mast mounting via existing plate holes
+- Easy mast mounting via chassis plate holes
+- Complete kit - minimal assembly required
 
 ---
 
