@@ -25,6 +25,14 @@
 
 ## 🔄 In Progress / Next to Buy
 
+### Phase 2.5: Mounting Hardware (~$33)
+- [ ] 3M Dual Lock strips (1"×10ft)
+  - Amazon: B07D2M6Z21 (~$10)
+- [ ] Ratchet/Velcro Strap (EcoFlow retention)
+  - Amazon: B07TVRXQPF (~$8)
+- [ ] 90° Corner Brackets for 2040 (4pk)
+  - Search: "2040 corner bracket L" (~$15)
+
 ### Phase 3: Mast Structure (~$141)
 - [ ] V-Slot 2040 Rails 1500mm (×2) - FAHKNS 5-pack
   - Amazon: B0CF9TXKJ3 (~$70)
@@ -101,14 +109,15 @@
 |-------|-------------|-----------|--------|
 | 1 | Chassis | $99 | ✅ Done |
 | 2 | Power (EcoFlow) | $649 | ✅ Done |
+| 2.5 | Mounting Hardware | $33 | 🔄 Next |
 | 3 | Mast Structure | $141 | 🔄 Next |
 | 4 | Power Distribution | $56 | Pending |
 | 5 | Lift Mechanism | $50 | Pending |
 | 6 | Deck Plates | $88 | Pending |
 | 7 | Computing | $245 | Pending |
 | 8 | Arms | $200 | Pending |
-| **TOTAL** | | **$1,528** | |
-| **Remaining** | | **$780** | |
+| **TOTAL** | | **$1,561** | |
+| **Remaining** | | **$813** | |
 
 ---
 

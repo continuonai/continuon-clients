@@ -3542,3 +3542,23 @@ Training conversation classifier...
 2026-01-26 14:17:20,365 [INFO]    Using tool: simulator_training
 2026-01-26 14:17:20,365 [INFO] 🏋️ TRAIN phase - training models
 2026-01-26 14:17:23,319 [INFO] Cycle result: success
+2026-01-26 14:22:23,319 [INFO] ============================================================
+2026-01-26 14:22:23,319 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:22:23,320 [INFO] ============================================================
+2026-01-26 14:22:23,320 [INFO] Analyzing brain state...
+2026-01-26 14:22:23,398 [INFO] Current phase: train
+2026-01-26 14:22:23,398 [INFO] Generating learning goals...
+2026-01-26 14:22:23,468 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:22:23,468 [INFO]    Using tool: simulator_training
+2026-01-26 14:22:23,468 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:22:25,836 [INFO] Cycle result: success
+2026-01-26 14:27:25,838 [INFO] ============================================================
+2026-01-26 14:27:25,838 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:27:25,839 [INFO] ============================================================
+2026-01-26 14:27:25,839 [INFO] Analyzing brain state...
+2026-01-26 14:27:25,932 [INFO] Current phase: train
+2026-01-26 14:27:25,933 [INFO] Generating learning goals...
+2026-01-26 14:27:26,054 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:27:26,055 [INFO]    Using tool: simulator_training
+2026-01-26 14:27:26,056 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:27:28,298 [INFO] Cycle result: success
