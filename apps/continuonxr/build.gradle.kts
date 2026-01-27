@@ -31,6 +31,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = "upload"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "continuonxr2024"
+            storeFile = file("upload-keystore.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "continuonxr2024"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
     buildFeatures {
         compose = true
     }
