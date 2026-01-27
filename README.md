@@ -1,3 +1,5 @@
+> ⚠️ **This repository is being reorganized.** See [MIGRATION.md](MIGRATION.md) for details. ContinuonXR will become the XR client only.
+
 # Continuon AI: Self-Learning Robotics Ecosystem
 
 **Transforming personal robots into continuously learning assistants through the "One Brain, Many Shells" architecture.**
