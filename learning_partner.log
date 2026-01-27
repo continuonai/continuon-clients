@@ -3562,3 +3562,897 @@ Training conversation classifier...
 2026-01-26 14:27:26,055 [INFO]    Using tool: simulator_training
 2026-01-26 14:27:26,056 [INFO] 🏋️ TRAIN phase - training models
 2026-01-26 14:27:28,298 [INFO] Cycle result: success
+2026-01-26 14:32:28,298 [INFO] ============================================================
+2026-01-26 14:32:28,299 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:32:28,299 [INFO] ============================================================
+2026-01-26 14:32:28,299 [INFO] Analyzing brain state...
+2026-01-26 14:32:28,371 [INFO] Current phase: train
+2026-01-26 14:32:28,371 [INFO] Generating learning goals...
+2026-01-26 14:32:28,442 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:32:28,442 [INFO]    Using tool: simulator_training
+2026-01-26 14:32:28,442 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:32:32,022 [INFO] Cycle result: success
+2026-01-26 14:37:32,022 [INFO] ============================================================
+2026-01-26 14:37:32,022 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:37:32,022 [INFO] ============================================================
+2026-01-26 14:37:32,022 [INFO] Analyzing brain state...
+2026-01-26 14:37:32,101 [INFO] Current phase: train
+2026-01-26 14:37:32,101 [INFO] Generating learning goals...
+2026-01-26 14:37:32,192 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:37:32,192 [INFO]    Using tool: simulator_training
+2026-01-26 14:37:32,192 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:37:34,409 [INFO] Cycle result: success
+2026-01-26 14:42:34,409 [INFO] ============================================================
+2026-01-26 14:42:34,410 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:42:34,410 [INFO] ============================================================
+2026-01-26 14:42:34,410 [INFO] Analyzing brain state...
+2026-01-26 14:42:34,495 [INFO] Current phase: train
+2026-01-26 14:42:34,495 [INFO] Generating learning goals...
+2026-01-26 14:42:34,589 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:42:34,589 [INFO]    Using tool: simulator_training
+2026-01-26 14:42:34,589 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:42:37,166 [INFO] Cycle result: success
+2026-01-26 14:47:37,167 [INFO] ============================================================
+2026-01-26 14:47:37,167 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:47:37,167 [INFO] ============================================================
+2026-01-26 14:47:37,167 [INFO] Analyzing brain state...
+2026-01-26 14:47:37,241 [INFO] Current phase: train
+2026-01-26 14:47:37,241 [INFO] Generating learning goals...
+2026-01-26 14:47:37,323 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:47:37,323 [INFO]    Using tool: simulator_training
+2026-01-26 14:47:37,323 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:47:39,571 [INFO] Cycle result: success
+2026-01-26 14:52:39,572 [INFO] ============================================================
+2026-01-26 14:52:39,572 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:52:39,572 [INFO] ============================================================
+2026-01-26 14:52:39,572 [INFO] Analyzing brain state...
+2026-01-26 14:52:39,647 [INFO] Current phase: train
+2026-01-26 14:52:39,647 [INFO] Generating learning goals...
+2026-01-26 14:52:39,718 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:52:39,718 [INFO]    Using tool: simulator_training
+2026-01-26 14:52:39,719 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:52:41,980 [INFO] Cycle result: success
+2026-01-26 14:57:41,980 [INFO] ============================================================
+2026-01-26 14:57:41,981 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 14:57:41,982 [INFO] ============================================================
+2026-01-26 14:57:41,983 [INFO] Analyzing brain state...
+2026-01-26 14:57:42,089 [INFO] Current phase: train
+2026-01-26 14:57:42,090 [INFO] Generating learning goals...
+2026-01-26 14:57:42,186 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 14:57:42,187 [INFO]    Using tool: simulator_training
+2026-01-26 14:57:42,187 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 14:57:44,900 [INFO] Cycle result: success
+2026-01-26 15:02:44,903 [INFO] ============================================================
+2026-01-26 15:02:44,904 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:02:44,904 [INFO] ============================================================
+2026-01-26 15:02:44,905 [INFO] Analyzing brain state...
+2026-01-26 15:02:44,976 [INFO] Current phase: train
+2026-01-26 15:02:44,976 [INFO] Generating learning goals...
+2026-01-26 15:02:45,060 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:02:45,060 [INFO]    Using tool: simulator_training
+2026-01-26 15:02:45,061 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:02:47,605 [INFO] Cycle result: success
+2026-01-26 15:07:47,606 [INFO] ============================================================
+2026-01-26 15:07:47,606 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:07:47,606 [INFO] ============================================================
+2026-01-26 15:07:47,606 [INFO] Analyzing brain state...
+2026-01-26 15:07:47,678 [INFO] Current phase: train
+2026-01-26 15:07:47,678 [INFO] Generating learning goals...
+2026-01-26 15:07:47,750 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:07:47,750 [INFO]    Using tool: simulator_training
+2026-01-26 15:07:47,750 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:07:50,344 [INFO] Cycle result: success
+2026-01-26 15:12:50,344 [INFO] ============================================================
+2026-01-26 15:12:50,345 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:12:50,345 [INFO] ============================================================
+2026-01-26 15:12:50,345 [INFO] Analyzing brain state...
+2026-01-26 15:12:50,414 [INFO] Current phase: train
+2026-01-26 15:12:50,415 [INFO] Generating learning goals...
+2026-01-26 15:12:50,484 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:12:50,484 [INFO]    Using tool: simulator_training
+2026-01-26 15:12:50,484 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:12:53,123 [INFO] Cycle result: success
+2026-01-26 15:17:53,123 [INFO] ============================================================
+2026-01-26 15:17:53,124 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:17:53,124 [INFO] ============================================================
+2026-01-26 15:17:53,124 [INFO] Analyzing brain state...
+2026-01-26 15:17:53,195 [INFO] Current phase: train
+2026-01-26 15:17:53,196 [INFO] Generating learning goals...
+2026-01-26 15:17:53,266 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:17:53,267 [INFO]    Using tool: simulator_training
+2026-01-26 15:17:53,267 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:17:55,541 [INFO] Cycle result: success
+2026-01-26 15:22:55,542 [INFO] ============================================================
+2026-01-26 15:22:55,543 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:22:55,544 [INFO] ============================================================
+2026-01-26 15:22:55,545 [INFO] Analyzing brain state...
+2026-01-26 15:22:55,647 [INFO] Current phase: train
+2026-01-26 15:22:55,647 [INFO] Generating learning goals...
+2026-01-26 15:22:55,742 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:22:55,743 [INFO]    Using tool: simulator_training
+2026-01-26 15:22:55,743 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:22:58,492 [INFO] Cycle result: success
+2026-01-26 15:22:08,540 [INFO] 🤝 Learning Partner starting in continuous mode
+2026-01-26 15:22:08,558 [INFO]    Interval: 300 seconds
+2026-01-26 15:22:08,558 [INFO] ============================================================
+2026-01-26 15:22:08,558 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:22:08,558 [INFO] ============================================================
+2026-01-26 15:22:08,558 [INFO] Analyzing brain state...
+2026-01-26 15:22:11,453 [INFO] Current phase: train
+2026-01-26 15:22:11,453 [INFO] Generating learning goals...
+2026-01-26 15:22:11,522 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:22:11,530 [INFO]    Using tool: simulator_training
+2026-01-26 15:22:11,530 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:22:22,809 [INFO] Cycle result: success
+2026-01-26 15:22:09,380 [INFO] 🤝 Learning Partner starting in continuous mode
+2026-01-26 15:22:09,391 [INFO]    Interval: 300 seconds
+2026-01-26 15:22:09,391 [INFO] ============================================================
+2026-01-26 15:22:09,392 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:22:09,392 [INFO] ============================================================
+2026-01-26 15:22:09,392 [INFO] Analyzing brain state...
+2026-01-26 15:22:12,243 [INFO] Current phase: train
+2026-01-26 15:22:12,243 [INFO] Generating learning goals...
+2026-01-26 15:22:12,315 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:22:12,315 [INFO]    Using tool: simulator_training
+2026-01-26 15:22:12,315 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:22:23,972 [INFO] Cycle result: success
+2026-01-26 15:31:24,852 [INFO] ============================================================
+2026-01-26 15:31:24,852 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:31:24,852 [INFO] ============================================================
+2026-01-26 15:31:24,852 [INFO] Analyzing brain state...
+2026-01-26 15:31:24,956 [INFO] Current phase: train
+2026-01-26 15:31:24,957 [INFO] Generating learning goals...
+2026-01-26 15:31:25,024 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:31:25,024 [INFO]    Using tool: simulator_training
+2026-01-26 15:31:25,024 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:31:27,052 [INFO] Cycle result: success
+2026-01-26 15:36:27,052 [INFO] ============================================================
+2026-01-26 15:36:27,053 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:36:27,053 [INFO] ============================================================
+2026-01-26 15:36:27,053 [INFO] Analyzing brain state...
+2026-01-26 15:36:27,149 [INFO] Current phase: train
+2026-01-26 15:36:27,149 [INFO] Generating learning goals...
+2026-01-26 15:36:27,216 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:36:27,216 [INFO]    Using tool: simulator_training
+2026-01-26 15:36:27,216 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:36:29,244 [INFO] Cycle result: success
+2026-01-26 15:41:29,244 [INFO] ============================================================
+2026-01-26 15:41:29,245 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:41:29,245 [INFO] ============================================================
+2026-01-26 15:41:29,245 [INFO] Analyzing brain state...
+2026-01-26 15:41:29,332 [INFO] Current phase: train
+2026-01-26 15:41:29,333 [INFO] Generating learning goals...
+2026-01-26 15:41:29,399 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:41:29,399 [INFO]    Using tool: simulator_training
+2026-01-26 15:41:29,399 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:41:31,442 [INFO] Cycle result: success
+2026-01-26 15:46:31,442 [INFO] ============================================================
+2026-01-26 15:46:31,442 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:46:31,442 [INFO] ============================================================
+2026-01-26 15:46:31,442 [INFO] Analyzing brain state...
+2026-01-26 15:46:31,538 [INFO] Current phase: train
+2026-01-26 15:46:31,538 [INFO] Generating learning goals...
+2026-01-26 15:46:31,604 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:46:31,605 [INFO]    Using tool: simulator_training
+2026-01-26 15:46:31,605 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:46:33,645 [INFO] Cycle result: success
+2026-01-26 15:51:33,645 [INFO] ============================================================
+2026-01-26 15:51:33,645 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:51:33,645 [INFO] ============================================================
+2026-01-26 15:51:33,646 [INFO] Analyzing brain state...
+2026-01-26 15:51:33,742 [INFO] Current phase: train
+2026-01-26 15:51:33,742 [INFO] Generating learning goals...
+2026-01-26 15:51:33,808 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:51:33,809 [INFO]    Using tool: simulator_training
+2026-01-26 15:51:33,809 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:51:35,837 [INFO] Cycle result: success
+2026-01-26 15:56:35,837 [INFO] ============================================================
+2026-01-26 15:56:35,837 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 15:56:35,837 [INFO] ============================================================
+2026-01-26 15:56:35,837 [INFO] Analyzing brain state...
+2026-01-26 15:56:35,939 [INFO] Current phase: train
+2026-01-26 15:56:35,939 [INFO] Generating learning goals...
+2026-01-26 15:56:36,006 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 15:56:36,006 [INFO]    Using tool: simulator_training
+2026-01-26 15:56:36,006 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 15:56:38,034 [INFO] Cycle result: success
+2026-01-26 16:01:38,034 [INFO] ============================================================
+2026-01-26 16:01:38,035 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:01:38,035 [INFO] ============================================================
+2026-01-26 16:01:38,035 [INFO] Analyzing brain state...
+2026-01-26 16:01:38,139 [INFO] Current phase: train
+2026-01-26 16:01:38,139 [INFO] Generating learning goals...
+2026-01-26 16:01:38,207 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:01:38,207 [INFO]    Using tool: simulator_training
+2026-01-26 16:01:38,207 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:01:40,241 [INFO] Cycle result: success
+2026-01-26 16:06:40,241 [INFO] ============================================================
+2026-01-26 16:06:40,241 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:06:40,241 [INFO] ============================================================
+2026-01-26 16:06:40,242 [INFO] Analyzing brain state...
+2026-01-26 16:06:40,345 [INFO] Current phase: train
+2026-01-26 16:06:40,345 [INFO] Generating learning goals...
+2026-01-26 16:06:40,411 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:06:40,412 [INFO]    Using tool: simulator_training
+2026-01-26 16:06:40,412 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:06:42,447 [INFO] Cycle result: success
+2026-01-26 16:11:42,447 [INFO] ============================================================
+2026-01-26 16:11:42,448 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:11:42,448 [INFO] ============================================================
+2026-01-26 16:11:42,448 [INFO] Analyzing brain state...
+2026-01-26 16:11:42,552 [INFO] Current phase: train
+2026-01-26 16:11:42,552 [INFO] Generating learning goals...
+2026-01-26 16:11:42,618 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:11:42,618 [INFO]    Using tool: simulator_training
+2026-01-26 16:11:42,618 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:11:44,648 [INFO] Cycle result: success
+2026-01-26 16:16:44,648 [INFO] ============================================================
+2026-01-26 16:16:44,648 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:16:44,648 [INFO] ============================================================
+2026-01-26 16:16:44,648 [INFO] Analyzing brain state...
+2026-01-26 16:16:44,737 [INFO] Current phase: train
+2026-01-26 16:16:44,738 [INFO] Generating learning goals...
+2026-01-26 16:16:44,804 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:16:44,804 [INFO]    Using tool: simulator_training
+2026-01-26 16:16:44,804 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:16:46,837 [INFO] Cycle result: success
+2026-01-26 16:21:46,837 [INFO] ============================================================
+2026-01-26 16:21:46,837 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:21:46,837 [INFO] ============================================================
+2026-01-26 16:21:46,837 [INFO] Analyzing brain state...
+2026-01-26 16:21:46,931 [INFO] Current phase: train
+2026-01-26 16:21:46,931 [INFO] Generating learning goals...
+2026-01-26 16:21:47,015 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:21:47,015 [INFO]    Using tool: simulator_training
+2026-01-26 16:21:47,015 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:21:49,070 [INFO] Cycle result: success
+2026-01-26 16:26:49,071 [INFO] ============================================================
+2026-01-26 16:26:49,071 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:26:49,071 [INFO] ============================================================
+2026-01-26 16:26:49,071 [INFO] Analyzing brain state...
+2026-01-26 16:26:49,175 [INFO] Current phase: train
+2026-01-26 16:26:49,175 [INFO] Generating learning goals...
+2026-01-26 16:26:49,242 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:26:49,242 [INFO]    Using tool: simulator_training
+2026-01-26 16:26:49,242 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:26:51,272 [INFO] Cycle result: success
+2026-01-26 16:31:51,273 [INFO] ============================================================
+2026-01-26 16:31:51,273 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:31:51,273 [INFO] ============================================================
+2026-01-26 16:31:51,273 [INFO] Analyzing brain state...
+2026-01-26 16:31:51,366 [INFO] Current phase: train
+2026-01-26 16:31:51,366 [INFO] Generating learning goals...
+2026-01-26 16:31:51,443 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:31:51,443 [INFO]    Using tool: simulator_training
+2026-01-26 16:31:51,443 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:31:53,475 [INFO] Cycle result: success
+2026-01-26 16:36:53,475 [INFO] ============================================================
+2026-01-26 16:36:53,475 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:36:53,475 [INFO] ============================================================
+2026-01-26 16:36:53,475 [INFO] Analyzing brain state...
+2026-01-26 16:36:53,578 [INFO] Current phase: train
+2026-01-26 16:36:53,578 [INFO] Generating learning goals...
+2026-01-26 16:36:53,651 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:36:53,651 [INFO]    Using tool: simulator_training
+2026-01-26 16:36:53,651 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:36:55,684 [INFO] Cycle result: success
+2026-01-26 16:41:55,684 [INFO] ============================================================
+2026-01-26 16:41:55,684 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:41:55,685 [INFO] ============================================================
+2026-01-26 16:41:55,685 [INFO] Analyzing brain state...
+2026-01-26 16:41:55,779 [INFO] Current phase: train
+2026-01-26 16:41:55,779 [INFO] Generating learning goals...
+2026-01-26 16:41:55,845 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:41:55,846 [INFO]    Using tool: simulator_training
+2026-01-26 16:41:55,846 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:41:57,886 [INFO] Cycle result: success
+2026-01-26 16:46:57,886 [INFO] ============================================================
+2026-01-26 16:46:57,886 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:46:57,886 [INFO] ============================================================
+2026-01-26 16:46:57,886 [INFO] Analyzing brain state...
+2026-01-26 16:46:57,984 [INFO] Current phase: train
+2026-01-26 16:46:57,984 [INFO] Generating learning goals...
+2026-01-26 16:46:58,050 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:46:58,051 [INFO]    Using tool: simulator_training
+2026-01-26 16:46:58,051 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:47:00,075 [INFO] Cycle result: success
+2026-01-26 16:52:00,075 [INFO] ============================================================
+2026-01-26 16:52:00,075 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:52:00,075 [INFO] ============================================================
+2026-01-26 16:52:00,075 [INFO] Analyzing brain state...
+2026-01-26 16:52:00,175 [INFO] Current phase: train
+2026-01-26 16:52:00,175 [INFO] Generating learning goals...
+2026-01-26 16:52:00,245 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:52:00,245 [INFO]    Using tool: simulator_training
+2026-01-26 16:52:00,245 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:52:02,281 [INFO] Cycle result: success
+2026-01-26 16:57:02,281 [INFO] ============================================================
+2026-01-26 16:57:02,281 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 16:57:02,281 [INFO] ============================================================
+2026-01-26 16:57:02,281 [INFO] Analyzing brain state...
+2026-01-26 16:57:02,372 [INFO] Current phase: train
+2026-01-26 16:57:02,372 [INFO] Generating learning goals...
+2026-01-26 16:57:02,438 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 16:57:02,438 [INFO]    Using tool: simulator_training
+2026-01-26 16:57:02,438 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 16:57:04,490 [INFO] Cycle result: success
+2026-01-26 17:02:04,490 [INFO] ============================================================
+2026-01-26 17:02:04,491 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:02:04,491 [INFO] ============================================================
+2026-01-26 17:02:04,491 [INFO] Analyzing brain state...
+2026-01-26 17:02:04,595 [INFO] Current phase: train
+2026-01-26 17:02:04,595 [INFO] Generating learning goals...
+2026-01-26 17:02:04,662 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:02:04,662 [INFO]    Using tool: simulator_training
+2026-01-26 17:02:04,662 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:02:06,686 [INFO] Cycle result: success
+2026-01-26 17:07:06,687 [INFO] ============================================================
+2026-01-26 17:07:06,687 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:07:06,687 [INFO] ============================================================
+2026-01-26 17:07:06,687 [INFO] Analyzing brain state...
+2026-01-26 17:07:06,778 [INFO] Current phase: train
+2026-01-26 17:07:06,778 [INFO] Generating learning goals...
+2026-01-26 17:07:06,845 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:07:06,845 [INFO]    Using tool: simulator_training
+2026-01-26 17:07:06,845 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:07:08,891 [INFO] Cycle result: success
+2026-01-26 17:12:08,891 [INFO] ============================================================
+2026-01-26 17:12:08,891 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:12:08,891 [INFO] ============================================================
+2026-01-26 17:12:08,891 [INFO] Analyzing brain state...
+2026-01-26 17:12:08,995 [INFO] Current phase: train
+2026-01-26 17:12:08,995 [INFO] Generating learning goals...
+2026-01-26 17:12:09,062 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:12:09,062 [INFO]    Using tool: simulator_training
+2026-01-26 17:12:09,062 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:12:11,085 [INFO] Cycle result: success
+2026-01-26 17:17:11,085 [INFO] ============================================================
+2026-01-26 17:17:11,085 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:17:11,085 [INFO] ============================================================
+2026-01-26 17:17:11,085 [INFO] Analyzing brain state...
+2026-01-26 17:17:11,181 [INFO] Current phase: train
+2026-01-26 17:17:11,181 [INFO] Generating learning goals...
+2026-01-26 17:17:11,261 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:17:11,261 [INFO]    Using tool: simulator_training
+2026-01-26 17:17:11,261 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:17:13,289 [INFO] Cycle result: success
+2026-01-26 17:22:13,289 [INFO] ============================================================
+2026-01-26 17:22:13,289 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:22:13,289 [INFO] ============================================================
+2026-01-26 17:22:13,289 [INFO] Analyzing brain state...
+2026-01-26 17:22:13,384 [INFO] Current phase: train
+2026-01-26 17:22:13,384 [INFO] Generating learning goals...
+2026-01-26 17:22:13,461 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:22:13,462 [INFO]    Using tool: simulator_training
+2026-01-26 17:22:13,462 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:22:15,509 [INFO] Cycle result: success
+2026-01-26 17:27:15,509 [INFO] ============================================================
+2026-01-26 17:27:15,510 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:27:15,510 [INFO] ============================================================
+2026-01-26 17:27:15,510 [INFO] Analyzing brain state...
+2026-01-26 17:27:15,600 [INFO] Current phase: train
+2026-01-26 17:27:15,600 [INFO] Generating learning goals...
+2026-01-26 17:27:15,666 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:27:15,666 [INFO]    Using tool: simulator_training
+2026-01-26 17:27:15,666 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:27:17,706 [INFO] Cycle result: success
+2026-01-26 17:32:17,706 [INFO] ============================================================
+2026-01-26 17:32:17,707 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:32:17,707 [INFO] ============================================================
+2026-01-26 17:32:17,707 [INFO] Analyzing brain state...
+2026-01-26 17:32:17,801 [INFO] Current phase: train
+2026-01-26 17:32:17,801 [INFO] Generating learning goals...
+2026-01-26 17:32:17,878 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:32:17,878 [INFO]    Using tool: simulator_training
+2026-01-26 17:32:17,879 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:32:19,914 [INFO] Cycle result: success
+2026-01-26 17:37:19,914 [INFO] ============================================================
+2026-01-26 17:37:19,914 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:37:19,914 [INFO] ============================================================
+2026-01-26 17:37:19,915 [INFO] Analyzing brain state...
+2026-01-26 17:37:19,981 [INFO] Current phase: train
+2026-01-26 17:37:19,982 [INFO] Generating learning goals...
+2026-01-26 17:37:20,048 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:37:20,048 [INFO]    Using tool: simulator_training
+2026-01-26 17:37:20,048 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:37:22,122 [INFO] Cycle result: success
+2026-01-26 17:42:22,122 [INFO] ============================================================
+2026-01-26 17:42:22,122 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:42:22,122 [INFO] ============================================================
+2026-01-26 17:42:22,122 [INFO] Analyzing brain state...
+2026-01-26 17:42:22,212 [INFO] Current phase: train
+2026-01-26 17:42:22,212 [INFO] Generating learning goals...
+2026-01-26 17:42:22,279 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:42:22,279 [INFO]    Using tool: simulator_training
+2026-01-26 17:42:22,279 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:42:24,306 [INFO] Cycle result: success
+2026-01-26 17:47:24,306 [INFO] ============================================================
+2026-01-26 17:47:24,307 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:47:24,307 [INFO] ============================================================
+2026-01-26 17:47:24,307 [INFO] Analyzing brain state...
+2026-01-26 17:47:24,402 [INFO] Current phase: train
+2026-01-26 17:47:24,402 [INFO] Generating learning goals...
+2026-01-26 17:47:24,478 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:47:24,478 [INFO]    Using tool: simulator_training
+2026-01-26 17:47:24,478 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:47:26,530 [INFO] Cycle result: success
+2026-01-26 17:52:26,530 [INFO] ============================================================
+2026-01-26 17:52:26,530 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:52:26,530 [INFO] ============================================================
+2026-01-26 17:52:26,530 [INFO] Analyzing brain state...
+2026-01-26 17:52:26,625 [INFO] Current phase: train
+2026-01-26 17:52:26,625 [INFO] Generating learning goals...
+2026-01-26 17:52:26,704 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:52:26,704 [INFO]    Using tool: simulator_training
+2026-01-26 17:52:26,704 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:52:28,746 [INFO] Cycle result: success
+2026-01-26 17:57:28,746 [INFO] ============================================================
+2026-01-26 17:57:28,746 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 17:57:28,746 [INFO] ============================================================
+2026-01-26 17:57:28,747 [INFO] Analyzing brain state...
+2026-01-26 17:57:28,848 [INFO] Current phase: train
+2026-01-26 17:57:28,848 [INFO] Generating learning goals...
+2026-01-26 17:57:28,914 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 17:57:28,915 [INFO]    Using tool: simulator_training
+2026-01-26 17:57:28,915 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 17:57:30,962 [INFO] Cycle result: success
+2026-01-26 18:02:30,962 [INFO] ============================================================
+2026-01-26 18:02:30,962 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:02:30,962 [INFO] ============================================================
+2026-01-26 18:02:30,962 [INFO] Analyzing brain state...
+2026-01-26 18:02:31,054 [INFO] Current phase: train
+2026-01-26 18:02:31,054 [INFO] Generating learning goals...
+2026-01-26 18:02:31,130 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:02:31,131 [INFO]    Using tool: simulator_training
+2026-01-26 18:02:31,131 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:02:33,183 [INFO] Cycle result: success
+2026-01-26 18:07:33,183 [INFO] ============================================================
+2026-01-26 18:07:33,183 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:07:33,183 [INFO] ============================================================
+2026-01-26 18:07:33,183 [INFO] Analyzing brain state...
+2026-01-26 18:07:33,270 [INFO] Current phase: train
+2026-01-26 18:07:33,270 [INFO] Generating learning goals...
+2026-01-26 18:07:33,336 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:07:33,337 [INFO]    Using tool: simulator_training
+2026-01-26 18:07:33,337 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:07:35,386 [INFO] Cycle result: success
+2026-01-26 18:12:35,386 [INFO] ============================================================
+2026-01-26 18:12:35,386 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:12:35,386 [INFO] ============================================================
+2026-01-26 18:12:35,386 [INFO] Analyzing brain state...
+2026-01-26 18:12:35,491 [INFO] Current phase: train
+2026-01-26 18:12:35,491 [INFO] Generating learning goals...
+2026-01-26 18:12:35,557 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:12:35,557 [INFO]    Using tool: simulator_training
+2026-01-26 18:12:35,558 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:12:37,609 [INFO] Cycle result: success
+2026-01-26 18:17:37,609 [INFO] ============================================================
+2026-01-26 18:17:37,609 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:17:37,609 [INFO] ============================================================
+2026-01-26 18:17:37,609 [INFO] Analyzing brain state...
+2026-01-26 18:17:37,711 [INFO] Current phase: train
+2026-01-26 18:17:37,711 [INFO] Generating learning goals...
+2026-01-26 18:17:37,777 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:17:37,778 [INFO]    Using tool: simulator_training
+2026-01-26 18:17:37,778 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:17:39,829 [INFO] Cycle result: success
+2026-01-26 18:22:39,829 [INFO] ============================================================
+2026-01-26 18:22:39,830 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:22:39,830 [INFO] ============================================================
+2026-01-26 18:22:39,830 [INFO] Analyzing brain state...
+2026-01-26 18:22:39,934 [INFO] Current phase: train
+2026-01-26 18:22:39,934 [INFO] Generating learning goals...
+2026-01-26 18:22:40,001 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:22:40,001 [INFO]    Using tool: simulator_training
+2026-01-26 18:22:40,001 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:22:42,049 [INFO] Cycle result: success
+2026-01-26 18:27:42,049 [INFO] ============================================================
+2026-01-26 18:27:42,049 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:27:42,049 [INFO] ============================================================
+2026-01-26 18:27:42,049 [INFO] Analyzing brain state...
+2026-01-26 18:27:42,146 [INFO] Current phase: train
+2026-01-26 18:27:42,146 [INFO] Generating learning goals...
+2026-01-26 18:27:42,224 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:27:42,224 [INFO]    Using tool: simulator_training
+2026-01-26 18:27:42,225 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:27:44,267 [INFO] Cycle result: success
+2026-01-26 18:32:44,267 [INFO] ============================================================
+2026-01-26 18:32:44,267 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:32:44,267 [INFO] ============================================================
+2026-01-26 18:32:44,268 [INFO] Analyzing brain state...
+2026-01-26 18:32:44,372 [INFO] Current phase: train
+2026-01-26 18:32:44,372 [INFO] Generating learning goals...
+2026-01-26 18:32:44,438 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:32:44,438 [INFO]    Using tool: simulator_training
+2026-01-26 18:32:44,439 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:32:46,464 [INFO] Cycle result: success
+2026-01-26 18:37:46,464 [INFO] ============================================================
+2026-01-26 18:37:46,464 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:37:46,464 [INFO] ============================================================
+2026-01-26 18:37:46,464 [INFO] Analyzing brain state...
+2026-01-26 18:37:46,568 [INFO] Current phase: train
+2026-01-26 18:37:46,568 [INFO] Generating learning goals...
+2026-01-26 18:37:46,634 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:37:46,635 [INFO]    Using tool: simulator_training
+2026-01-26 18:37:46,635 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:37:48,663 [INFO] Cycle result: success
+2026-01-26 18:42:48,663 [INFO] ============================================================
+2026-01-26 18:42:48,663 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:42:48,663 [INFO] ============================================================
+2026-01-26 18:42:48,663 [INFO] Analyzing brain state...
+2026-01-26 18:42:48,753 [INFO] Current phase: train
+2026-01-26 18:42:48,753 [INFO] Generating learning goals...
+2026-01-26 18:42:48,819 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:42:48,819 [INFO]    Using tool: simulator_training
+2026-01-26 18:42:48,820 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:42:50,839 [INFO] Cycle result: success
+2026-01-26 18:47:50,840 [INFO] ============================================================
+2026-01-26 18:47:50,840 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:47:50,840 [INFO] ============================================================
+2026-01-26 18:47:50,840 [INFO] Analyzing brain state...
+2026-01-26 18:47:50,933 [INFO] Current phase: train
+2026-01-26 18:47:50,933 [INFO] Generating learning goals...
+2026-01-26 18:47:51,011 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:47:51,012 [INFO]    Using tool: simulator_training
+2026-01-26 18:47:51,012 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:47:53,054 [INFO] Cycle result: success
+2026-01-26 18:52:53,054 [INFO] ============================================================
+2026-01-26 18:52:53,054 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:52:53,055 [INFO] ============================================================
+2026-01-26 18:52:53,055 [INFO] Analyzing brain state...
+2026-01-26 18:52:53,160 [INFO] Current phase: train
+2026-01-26 18:52:53,160 [INFO] Generating learning goals...
+2026-01-26 18:52:53,226 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:52:53,226 [INFO]    Using tool: simulator_training
+2026-01-26 18:52:53,226 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:52:55,257 [INFO] Cycle result: success
+2026-01-26 18:57:55,258 [INFO] ============================================================
+2026-01-26 18:57:55,258 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 18:57:55,258 [INFO] ============================================================
+2026-01-26 18:57:55,258 [INFO] Analyzing brain state...
+2026-01-26 18:57:55,350 [INFO] Current phase: train
+2026-01-26 18:57:55,350 [INFO] Generating learning goals...
+2026-01-26 18:57:55,416 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 18:57:55,416 [INFO]    Using tool: simulator_training
+2026-01-26 18:57:55,416 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 18:57:57,445 [INFO] Cycle result: success
+2026-01-26 19:02:57,445 [INFO] ============================================================
+2026-01-26 19:02:57,445 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:02:57,445 [INFO] ============================================================
+2026-01-26 19:02:57,445 [INFO] Analyzing brain state...
+2026-01-26 19:02:57,534 [INFO] Current phase: train
+2026-01-26 19:02:57,535 [INFO] Generating learning goals...
+2026-01-26 19:02:57,601 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:02:57,601 [INFO]    Using tool: simulator_training
+2026-01-26 19:02:57,602 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:02:59,626 [INFO] Cycle result: success
+2026-01-26 19:07:59,626 [INFO] ============================================================
+2026-01-26 19:07:59,626 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:07:59,626 [INFO] ============================================================
+2026-01-26 19:07:59,626 [INFO] Analyzing brain state...
+2026-01-26 19:07:59,725 [INFO] Current phase: train
+2026-01-26 19:07:59,725 [INFO] Generating learning goals...
+2026-01-26 19:07:59,822 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:07:59,823 [INFO]    Using tool: simulator_training
+2026-01-26 19:07:59,823 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:08:01,856 [INFO] Cycle result: success
+2026-01-26 19:13:01,856 [INFO] ============================================================
+2026-01-26 19:13:01,856 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:13:01,856 [INFO] ============================================================
+2026-01-26 19:13:01,856 [INFO] Analyzing brain state...
+2026-01-26 19:13:01,960 [INFO] Current phase: train
+2026-01-26 19:13:01,960 [INFO] Generating learning goals...
+2026-01-26 19:13:02,027 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:13:02,027 [INFO]    Using tool: simulator_training
+2026-01-26 19:13:02,028 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:13:04,052 [INFO] Cycle result: success
+2026-01-26 19:18:04,053 [INFO] ============================================================
+2026-01-26 19:18:04,053 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:18:04,053 [INFO] ============================================================
+2026-01-26 19:18:04,053 [INFO] Analyzing brain state...
+2026-01-26 19:18:04,145 [INFO] Current phase: train
+2026-01-26 19:18:04,146 [INFO] Generating learning goals...
+2026-01-26 19:18:04,212 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:18:04,212 [INFO]    Using tool: simulator_training
+2026-01-26 19:18:04,212 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:18:06,261 [INFO] Cycle result: success
+2026-01-26 19:23:06,262 [INFO] ============================================================
+2026-01-26 19:23:06,262 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:23:06,262 [INFO] ============================================================
+2026-01-26 19:23:06,262 [INFO] Analyzing brain state...
+2026-01-26 19:23:06,361 [INFO] Current phase: train
+2026-01-26 19:23:06,362 [INFO] Generating learning goals...
+2026-01-26 19:23:06,460 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:23:06,460 [INFO]    Using tool: simulator_training
+2026-01-26 19:23:06,460 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:23:08,496 [INFO] Cycle result: success
+2026-01-26 19:28:08,496 [INFO] ============================================================
+2026-01-26 19:28:08,496 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:28:08,496 [INFO] ============================================================
+2026-01-26 19:28:08,496 [INFO] Analyzing brain state...
+2026-01-26 19:28:08,590 [INFO] Current phase: train
+2026-01-26 19:28:08,590 [INFO] Generating learning goals...
+2026-01-26 19:28:08,667 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:28:08,668 [INFO]    Using tool: simulator_training
+2026-01-26 19:28:08,668 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:28:10,693 [INFO] Cycle result: success
+2026-01-26 19:33:10,693 [INFO] ============================================================
+2026-01-26 19:33:10,693 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:33:10,694 [INFO] ============================================================
+2026-01-26 19:33:10,694 [INFO] Analyzing brain state...
+2026-01-26 19:33:10,792 [INFO] Current phase: train
+2026-01-26 19:33:10,792 [INFO] Generating learning goals...
+2026-01-26 19:33:10,863 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:33:10,863 [INFO]    Using tool: simulator_training
+2026-01-26 19:33:10,864 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:33:12,886 [INFO] Cycle result: success
+2026-01-26 19:38:12,886 [INFO] ============================================================
+2026-01-26 19:38:12,886 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:38:12,886 [INFO] ============================================================
+2026-01-26 19:38:12,886 [INFO] Analyzing brain state...
+2026-01-26 19:38:12,990 [INFO] Current phase: train
+2026-01-26 19:38:12,991 [INFO] Generating learning goals...
+2026-01-26 19:38:13,058 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:38:13,058 [INFO]    Using tool: simulator_training
+2026-01-26 19:38:13,059 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:38:15,081 [INFO] Cycle result: success
+2026-01-26 19:43:15,081 [INFO] ============================================================
+2026-01-26 19:43:15,081 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:43:15,082 [INFO] ============================================================
+2026-01-26 19:43:15,082 [INFO] Analyzing brain state...
+2026-01-26 19:43:15,177 [INFO] Current phase: train
+2026-01-26 19:43:15,177 [INFO] Generating learning goals...
+2026-01-26 19:43:15,254 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:43:15,254 [INFO]    Using tool: simulator_training
+2026-01-26 19:43:15,254 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:43:17,303 [INFO] Cycle result: success
+2026-01-26 19:48:17,303 [INFO] ============================================================
+2026-01-26 19:48:17,303 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:48:17,303 [INFO] ============================================================
+2026-01-26 19:48:17,303 [INFO] Analyzing brain state...
+2026-01-26 19:48:17,402 [INFO] Current phase: train
+2026-01-26 19:48:17,402 [INFO] Generating learning goals...
+2026-01-26 19:48:17,473 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:48:17,473 [INFO]    Using tool: simulator_training
+2026-01-26 19:48:17,473 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:48:19,494 [INFO] Cycle result: success
+2026-01-26 19:53:19,494 [INFO] ============================================================
+2026-01-26 19:53:19,495 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:53:19,495 [INFO] ============================================================
+2026-01-26 19:53:19,495 [INFO] Analyzing brain state...
+2026-01-26 19:53:19,599 [INFO] Current phase: train
+2026-01-26 19:53:19,599 [INFO] Generating learning goals...
+2026-01-26 19:53:19,666 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:53:19,666 [INFO]    Using tool: simulator_training
+2026-01-26 19:53:19,666 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:53:21,697 [INFO] Cycle result: success
+2026-01-26 19:58:21,697 [INFO] ============================================================
+2026-01-26 19:58:21,697 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 19:58:21,697 [INFO] ============================================================
+2026-01-26 19:58:21,697 [INFO] Analyzing brain state...
+2026-01-26 19:58:21,798 [INFO] Current phase: train
+2026-01-26 19:58:21,798 [INFO] Generating learning goals...
+2026-01-26 19:58:21,865 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 19:58:21,865 [INFO]    Using tool: simulator_training
+2026-01-26 19:58:21,865 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 19:58:23,916 [INFO] Cycle result: success
+2026-01-26 20:03:23,916 [INFO] ============================================================
+2026-01-26 20:03:23,916 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:03:23,917 [INFO] ============================================================
+2026-01-26 20:03:23,917 [INFO] Analyzing brain state...
+2026-01-26 20:03:24,009 [INFO] Current phase: train
+2026-01-26 20:03:24,009 [INFO] Generating learning goals...
+2026-01-26 20:03:24,087 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:03:24,087 [INFO]    Using tool: simulator_training
+2026-01-26 20:03:24,087 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:03:26,133 [INFO] Cycle result: success
+2026-01-26 20:08:26,133 [INFO] ============================================================
+2026-01-26 20:08:26,134 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:08:26,134 [INFO] ============================================================
+2026-01-26 20:08:26,134 [INFO] Analyzing brain state...
+2026-01-26 20:08:26,228 [INFO] Current phase: train
+2026-01-26 20:08:26,229 [INFO] Generating learning goals...
+2026-01-26 20:08:26,295 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:08:26,295 [INFO]    Using tool: simulator_training
+2026-01-26 20:08:26,295 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:08:28,345 [INFO] Cycle result: success
+2026-01-26 20:13:28,345 [INFO] ============================================================
+2026-01-26 20:13:28,345 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:13:28,345 [INFO] ============================================================
+2026-01-26 20:13:28,345 [INFO] Analyzing brain state...
+2026-01-26 20:13:28,412 [INFO] Current phase: train
+2026-01-26 20:13:28,412 [INFO] Generating learning goals...
+2026-01-26 20:13:28,479 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:13:28,479 [INFO]    Using tool: simulator_training
+2026-01-26 20:13:28,479 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:13:30,509 [INFO] Cycle result: success
+2026-01-26 20:18:30,509 [INFO] ============================================================
+2026-01-26 20:18:30,510 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:18:30,510 [INFO] ============================================================
+2026-01-26 20:18:30,510 [INFO] Analyzing brain state...
+2026-01-26 20:18:30,606 [INFO] Current phase: train
+2026-01-26 20:18:30,606 [INFO] Generating learning goals...
+2026-01-26 20:18:30,684 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:18:30,684 [INFO]    Using tool: simulator_training
+2026-01-26 20:18:30,684 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:18:32,718 [INFO] Cycle result: success
+2026-01-26 20:23:32,718 [INFO] ============================================================
+2026-01-26 20:23:32,718 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:23:32,718 [INFO] ============================================================
+2026-01-26 20:23:32,718 [INFO] Analyzing brain state...
+2026-01-26 20:23:32,818 [INFO] Current phase: train
+2026-01-26 20:23:32,818 [INFO] Generating learning goals...
+2026-01-26 20:23:32,885 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:23:32,885 [INFO]    Using tool: simulator_training
+2026-01-26 20:23:32,885 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:23:34,936 [INFO] Cycle result: success
+2026-01-26 20:28:34,936 [INFO] ============================================================
+2026-01-26 20:28:34,936 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:28:34,936 [INFO] ============================================================
+2026-01-26 20:28:34,937 [INFO] Analyzing brain state...
+2026-01-26 20:28:35,041 [INFO] Current phase: train
+2026-01-26 20:28:35,041 [INFO] Generating learning goals...
+2026-01-26 20:28:35,108 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:28:35,108 [INFO]    Using tool: simulator_training
+2026-01-26 20:28:35,108 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:28:37,140 [INFO] Cycle result: success
+2026-01-26 20:33:37,141 [INFO] ============================================================
+2026-01-26 20:33:37,141 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:33:37,141 [INFO] ============================================================
+2026-01-26 20:33:37,141 [INFO] Analyzing brain state...
+2026-01-26 20:33:37,233 [INFO] Current phase: train
+2026-01-26 20:33:37,233 [INFO] Generating learning goals...
+2026-01-26 20:33:37,300 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:33:37,300 [INFO]    Using tool: simulator_training
+2026-01-26 20:33:37,300 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:33:39,346 [INFO] Cycle result: success
+2026-01-26 20:38:39,347 [INFO] ============================================================
+2026-01-26 20:38:39,347 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:38:39,347 [INFO] ============================================================
+2026-01-26 20:38:39,347 [INFO] Analyzing brain state...
+2026-01-26 20:38:39,443 [INFO] Current phase: train
+2026-01-26 20:38:39,443 [INFO] Generating learning goals...
+2026-01-26 20:38:39,509 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:38:39,510 [INFO]    Using tool: simulator_training
+2026-01-26 20:38:39,510 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:38:41,542 [INFO] Cycle result: success
+2026-01-26 20:43:41,542 [INFO] ============================================================
+2026-01-26 20:43:41,542 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:43:41,542 [INFO] ============================================================
+2026-01-26 20:43:41,542 [INFO] Analyzing brain state...
+2026-01-26 20:43:41,632 [INFO] Current phase: train
+2026-01-26 20:43:41,632 [INFO] Generating learning goals...
+2026-01-26 20:43:41,698 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:43:41,698 [INFO]    Using tool: simulator_training
+2026-01-26 20:43:41,699 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:43:43,743 [INFO] Cycle result: success
+2026-01-26 20:48:43,743 [INFO] ============================================================
+2026-01-26 20:48:43,743 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:48:43,743 [INFO] ============================================================
+2026-01-26 20:48:43,744 [INFO] Analyzing brain state...
+2026-01-26 20:48:43,838 [INFO] Current phase: train
+2026-01-26 20:48:43,838 [INFO] Generating learning goals...
+2026-01-26 20:48:43,915 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:48:43,915 [INFO]    Using tool: simulator_training
+2026-01-26 20:48:43,915 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:48:45,947 [INFO] Cycle result: success
+2026-01-26 20:53:45,948 [INFO] ============================================================
+2026-01-26 20:53:45,948 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:53:45,948 [INFO] ============================================================
+2026-01-26 20:53:45,948 [INFO] Analyzing brain state...
+2026-01-26 20:53:46,053 [INFO] Current phase: train
+2026-01-26 20:53:46,053 [INFO] Generating learning goals...
+2026-01-26 20:53:46,120 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:53:46,120 [INFO]    Using tool: simulator_training
+2026-01-26 20:53:46,120 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:53:48,177 [INFO] Cycle result: success
+2026-01-26 20:58:48,177 [INFO] ============================================================
+2026-01-26 20:58:48,177 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 20:58:48,177 [INFO] ============================================================
+2026-01-26 20:58:48,177 [INFO] Analyzing brain state...
+2026-01-26 20:58:48,273 [INFO] Current phase: train
+2026-01-26 20:58:48,273 [INFO] Generating learning goals...
+2026-01-26 20:58:48,346 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 20:58:48,346 [INFO]    Using tool: simulator_training
+2026-01-26 20:58:48,346 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 20:58:50,401 [INFO] Cycle result: success
+2026-01-26 21:03:50,402 [INFO] ============================================================
+2026-01-26 21:03:50,402 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:03:50,402 [INFO] ============================================================
+2026-01-26 21:03:50,402 [INFO] Analyzing brain state...
+2026-01-26 21:03:50,506 [INFO] Current phase: train
+2026-01-26 21:03:50,506 [INFO] Generating learning goals...
+2026-01-26 21:03:50,572 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:03:50,572 [INFO]    Using tool: simulator_training
+2026-01-26 21:03:50,572 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:03:52,630 [INFO] Cycle result: success
+2026-01-26 21:08:52,630 [INFO] ============================================================
+2026-01-26 21:08:52,630 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:08:52,630 [INFO] ============================================================
+2026-01-26 21:08:52,630 [INFO] Analyzing brain state...
+2026-01-26 21:08:52,731 [INFO] Current phase: train
+2026-01-26 21:08:52,731 [INFO] Generating learning goals...
+2026-01-26 21:08:52,797 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:08:52,797 [INFO]    Using tool: simulator_training
+2026-01-26 21:08:52,797 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:08:54,851 [INFO] Cycle result: success
+2026-01-26 21:13:54,852 [INFO] ============================================================
+2026-01-26 21:13:54,852 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:13:54,852 [INFO] ============================================================
+2026-01-26 21:13:54,852 [INFO] Analyzing brain state...
+2026-01-26 21:13:54,947 [INFO] Current phase: train
+2026-01-26 21:13:54,948 [INFO] Generating learning goals...
+2026-01-26 21:13:55,024 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:13:55,024 [INFO]    Using tool: simulator_training
+2026-01-26 21:13:55,024 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:13:57,077 [INFO] Cycle result: success
+2026-01-26 21:18:57,077 [INFO] ============================================================
+2026-01-26 21:18:57,077 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:18:57,077 [INFO] ============================================================
+2026-01-26 21:18:57,077 [INFO] Analyzing brain state...
+2026-01-26 21:18:57,171 [INFO] Current phase: train
+2026-01-26 21:18:57,171 [INFO] Generating learning goals...
+2026-01-26 21:18:57,247 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:18:57,247 [INFO]    Using tool: simulator_training
+2026-01-26 21:18:57,247 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:18:59,299 [INFO] Cycle result: success
+2026-01-26 21:23:59,299 [INFO] ============================================================
+2026-01-26 21:23:59,300 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:23:59,300 [INFO] ============================================================
+2026-01-26 21:23:59,300 [INFO] Analyzing brain state...
+2026-01-26 21:23:59,395 [INFO] Current phase: train
+2026-01-26 21:23:59,396 [INFO] Generating learning goals...
+2026-01-26 21:23:59,471 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:23:59,471 [INFO]    Using tool: simulator_training
+2026-01-26 21:23:59,471 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:24:01,510 [INFO] Cycle result: success
+2026-01-26 21:29:01,510 [INFO] ============================================================
+2026-01-26 21:29:01,510 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:29:01,510 [INFO] ============================================================
+2026-01-26 21:29:01,510 [INFO] Analyzing brain state...
+2026-01-26 21:29:01,599 [INFO] Current phase: train
+2026-01-26 21:29:01,599 [INFO] Generating learning goals...
+2026-01-26 21:29:01,665 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:29:01,666 [INFO]    Using tool: simulator_training
+2026-01-26 21:29:01,666 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:29:03,701 [INFO] Cycle result: success
+2026-01-26 21:34:03,702 [INFO] ============================================================
+2026-01-26 21:34:03,702 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:34:03,702 [INFO] ============================================================
+2026-01-26 21:34:03,702 [INFO] Analyzing brain state...
+2026-01-26 21:34:03,769 [INFO] Current phase: train
+2026-01-26 21:34:03,769 [INFO] Generating learning goals...
+2026-01-26 21:34:03,835 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:34:03,836 [INFO]    Using tool: simulator_training
+2026-01-26 21:34:03,836 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:34:05,915 [INFO] Cycle result: success
+2026-01-26 21:39:05,915 [INFO] ============================================================
+2026-01-26 21:39:05,915 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:39:05,915 [INFO] ============================================================
+2026-01-26 21:39:05,915 [INFO] Analyzing brain state...
+2026-01-26 21:39:06,008 [INFO] Current phase: train
+2026-01-26 21:39:06,009 [INFO] Generating learning goals...
+2026-01-26 21:39:06,084 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:39:06,084 [INFO]    Using tool: simulator_training
+2026-01-26 21:39:06,084 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:39:08,111 [INFO] Cycle result: success
+2026-01-26 21:44:08,111 [INFO] ============================================================
+2026-01-26 21:44:08,113 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:44:08,113 [INFO] ============================================================
+2026-01-26 21:44:08,113 [INFO] Analyzing brain state...
+2026-01-26 21:44:08,195 [INFO] Current phase: train
+2026-01-26 21:44:08,196 [INFO] Generating learning goals...
+2026-01-26 21:44:08,286 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:44:08,286 [INFO]    Using tool: simulator_training
+2026-01-26 21:44:08,287 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:44:10,363 [INFO] Cycle result: success
+2026-01-26 21:49:10,364 [INFO] ============================================================
+2026-01-26 21:49:10,364 [INFO] 🧠 Learning Partner - Starting cycle
+2026-01-26 21:49:10,364 [INFO] ============================================================
+2026-01-26 21:49:10,364 [INFO] Analyzing brain state...
+2026-01-26 21:49:10,455 [INFO] Current phase: train
+2026-01-26 21:49:10,455 [INFO] Generating learning goals...
+2026-01-26 21:49:10,522 [INFO] 🎯 Working on: Train action prediction from simulator episodes
+2026-01-26 21:49:10,522 [INFO]    Using tool: simulator_training
+2026-01-26 21:49:10,523 [INFO] 🏋️ TRAIN phase - training models
+2026-01-26 21:49:12,561 [INFO] Cycle result: success
