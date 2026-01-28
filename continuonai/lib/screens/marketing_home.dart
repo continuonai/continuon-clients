@@ -5,12 +5,14 @@ import '../widgets/marketing/problem_solution_section.dart';
 import '../widgets/marketing/manifesto_section.dart';
 import '../widgets/marketing/tech_stack_section.dart';
 import '../widgets/marketing/cta_section.dart';
+import '../widgets/marketing/downloads_section.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/layout/continuon_drawer.dart';
 import 'research_screen.dart';
 import 'youtube_import_screen.dart';
 import 'robot_list_screen.dart';
+import 'downloads_screen.dart';
 import 'login_screen.dart';
 
 class MarketingHomeScreen extends StatefulWidget {
@@ -74,6 +76,12 @@ class _MarketingHomeScreenState extends State<MarketingHomeScreen> {
                   style: _navStyle(context),
                   child: const Text('Import'),
                 ),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(
+                      context, DownloadsScreen.routeName),
+                  style: _navStyle(context),
+                  child: const Text('Downloads'),
+                ),
                 const SizedBox(width: 16),
                 if (user == null)
                   ElevatedButton(
@@ -114,6 +122,9 @@ class _MarketingHomeScreenState extends State<MarketingHomeScreen> {
 
           // 4. The Continuon Stack & Architecture
           const SliverToBoxAdapter(child: TechStackSection()),
+
+          // 5.5 Download Our Apps
+          const SliverToBoxAdapter(child: DownloadsSection()),
 
           // 6. Join the Mission
           const SliverToBoxAdapter(child: CallToActionSection()),

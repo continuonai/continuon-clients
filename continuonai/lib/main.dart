@@ -15,6 +15,7 @@ import 'screens/robot_portal_screen.dart';
 import 'screens/pair_robot_screen.dart';
 import 'screens/research_screen.dart';
 import 'screens/youtube_import_screen.dart';
+import 'screens/downloads_screen.dart';
 import 'screens/robot_detail_screen.dart';
 import 'screens/robot_init_wizard_screen.dart';
 import 'screens/seed_model_update_screen.dart';
@@ -102,6 +103,7 @@ class MyApp extends StatelessWidget {
         },
         PairRobotScreen.routeName: (context) => const PairRobotScreen(),
         YoutubeImportScreen.routeName: (context) => const YoutubeImportScreen(),
+        DownloadsScreen.routeName: (context) => const DownloadsScreen(),
         PublicEpisodesScreen.routeName: (context) =>
             const PublicEpisodesScreen(),
         PublicEpisodeDetailScreen.routeName: (context) {

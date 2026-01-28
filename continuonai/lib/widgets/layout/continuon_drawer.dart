@@ -6,6 +6,7 @@ import '../../screens/research_screen.dart';
 import '../../screens/youtube_import_screen.dart';
 import '../../screens/robot_list_screen.dart';
 import '../../screens/login_screen.dart';
+import '../../screens/downloads_screen.dart';
 import '../../services/brain_client.dart';
 import '../../screens/dashboard_screen.dart';
 
@@ -118,6 +119,12 @@ class _ContinuonDrawerState extends State<ContinuonDrawer> {
                   label: 'Import',
                   onTap: () => Navigator.pushNamed(
                       context, YoutubeImportScreen.routeName),
+                ),
+                _DrawerItem(
+                  icon: Icons.download_outlined,
+                  label: 'Downloads',
+                  onTap: () => Navigator.pushNamed(
+                      context, DownloadsScreen.routeName),
                 ),
                 const Divider(),
                 if (user != null) ...[
