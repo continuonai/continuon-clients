@@ -58,7 +58,7 @@ class DownloadsScreen extends StatelessWidget {
                     'XR spatial input',
                   ],
                   downloadUrl:
-                      'https://github.com/continuonai/ContinuonXR/releases/latest/download/ContinuonXR.apk',
+                      'https://github.com/continuonai/ContinuonXR/releases/latest/download/app-release.apk',
                 ),
                 const SizedBox(height: 24),
                 _AppCard(
@@ -74,7 +74,7 @@ class DownloadsScreen extends StatelessWidget {
                     'NPU-accelerated ASR inference',
                   ],
                   downloadUrl:
-                      'https://github.com/craigm26/LiveCaptionsXR/releases/latest/download/LiveCaptionsXR.apk',
+                      'https://github.com/craigm26/LiveCaptionsXR/releases/latest/download/app-release.apk',
                 ),
                 const SizedBox(height: 40),
                 Card(
