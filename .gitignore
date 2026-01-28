@@ -118,3 +118,4 @@ brain_b_data/
 *.jks
 service-account.json
 *.json.bak
+.env
