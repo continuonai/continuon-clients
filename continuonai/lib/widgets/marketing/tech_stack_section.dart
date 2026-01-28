@@ -40,7 +40,7 @@ class TechStackSection extends StatelessWidget {
                     title: 'ContinuonBrain',
                     subtitle: 'On-Device World Model',
                     description:
-                        'A wave–particle hybrid brain that runs on Pi, Jetson, phones, and XR devices. Linear-time, memory-aware, and capable of local learning.',
+                        'A wave–particle hybrid runtime that runs on Pi, Jetson, phones, and XR devices. Linear-time, memory-aware, and capable of local learning.',
                     assetPath:
                         'assets/branding/continuon_brain_logo_text_transparent.png',
                     accentColor: ContinuonColors.cmsViolet,
@@ -50,7 +50,7 @@ class TechStackSection extends StatelessWidget {
                     title: 'ContinuonCloud',
                     subtitle: 'Cloud Trainer & Skill Hub',
                     description:
-                        'Where robots upload experience, get their skills validated, and receive new compressed brains as OTA updates.',
+                        'Where robots upload experience, get their skills validated, and receive new compressed models as OTA updates.',
                     assetPath:
                         'assets/branding/continuon_cloud_logo_text_transparent.png',
                     accentColor: ContinuonColors.waveBlueStart,

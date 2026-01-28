@@ -45,7 +45,7 @@ class ProblemSolutionSection extends StatelessWidget {
                 context,
                 title: 'Hardware is ready',
                 description:
-                    'Pi 5, Jetson, and XR devices can host real brains — if the architecture is right.',
+                    'Pi 5, Jetson, and XR devices can run real AI — if the architecture is right.',
                 icon: Icons.memory_outlined,
               ),
             ],

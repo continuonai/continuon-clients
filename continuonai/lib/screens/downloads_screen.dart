@@ -49,7 +49,7 @@ class DownloadsScreen extends StatelessWidget {
                   title: 'ContinuonXR — Android Robot Trainer',
                   description:
                       'On-device AI robot training via Nexa SDK on Qualcomm NPU. '
-                      'Train robots in the real world using your Android device as the brain.',
+                      'Train robots in the real world using your Android device as the control hub.',
                   features: const [
                     'Camera-based VLM scene understanding',
                     'Voice commands via on-device ASR',

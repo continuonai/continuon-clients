@@ -324,7 +324,7 @@ class _RobotInitWizardScreenState extends State<RobotInitWizardScreen> {
         ),
         const SizedBox(height: ContinuonTokens.s16),
         Text(
-          'Let\'s get your robot ready. This wizard will guide you through claiming ownership, naming your robot, and installing the AI brain.',
+          'Let\'s get your robot ready. This wizard will guide you through claiming ownership, naming your robot, and installing the AI runtime.',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: isDark ? ContinuonColors.gray400 : ContinuonColors.gray500,
               ),
@@ -478,14 +478,14 @@ class _RobotInitWizardScreenState extends State<RobotInitWizardScreen> {
         ),
         const SizedBox(height: ContinuonTokens.s24),
         Text(
-          alreadyInstalled ? 'AI Brain Installed' : 'Install AI Brain',
+          alreadyInstalled ? 'AI Runtime Installed' : 'Install AI Runtime',
           style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: ContinuonTokens.s16),
         Text(
           alreadyInstalled
-              ? 'The AI brain is already installed on this robot. You\'re ready to go!'
+              ? 'The AI runtime is already installed on this robot. You\'re ready to go!'
               : 'Install the seed AI model that gives your robot its initial intelligence. This enables basic perception and control.',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: isDark ? ContinuonColors.gray400 : ContinuonColors.gray500,
@@ -510,7 +510,7 @@ class _RobotInitWizardScreenState extends State<RobotInitWizardScreen> {
         if (_state.seedInstallSuccess || alreadyInstalled)
           _buildStatusCard(
             icon: Icons.check_circle,
-            label: 'AI Brain',
+            label: 'AI Runtime',
             value: 'Installed successfully',
             isGood: true,
             isDark: isDark,
@@ -572,7 +572,7 @@ class _RobotInitWizardScreenState extends State<RobotInitWizardScreen> {
         const SizedBox(height: ContinuonTokens.s12),
         _buildStatusCard(
           icon: Icons.psychology,
-          label: 'AI Brain',
+          label: 'AI Runtime',
           value: 'Installed',
           isGood: true,
           isDark: isDark,

@@ -69,7 +69,7 @@ class CreatorDashboard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                'Brain Orchestration',
+                                'Runtime Orchestration',
                                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -144,7 +144,7 @@ class CreatorDashboard extends StatelessWidget {
                         if (state.thoughts.isEmpty) {
                           return const Center(
                             child: Text(
-                              'Awaiting brain signals...',
+                              'Awaiting runtime signals...',
                               style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic),
                             ),
                           );
