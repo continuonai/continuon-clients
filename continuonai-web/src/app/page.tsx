@@ -27,8 +27,8 @@ export default function LandingPage() {
             <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
               Features
             </Link>
-            <Link href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
+            <Link href="/downloads" className="text-muted-foreground hover:text-foreground transition-colors">
+              Downloads
             </Link>
             <Link href="/docs" className="text-muted-foreground hover:text-foreground transition-colors">
               Docs
@@ -209,14 +209,14 @@ export default function LandingPage() {
               <span className="font-bold">ContinuonAI</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <Link href="/privacy" className="hover:text-foreground transition-colors">
-                Privacy
-              </Link>
-              <Link href="/terms" className="hover:text-foreground transition-colors">
-                Terms
+              <Link href="/downloads" className="hover:text-foreground transition-colors">
+                Downloads
               </Link>
               <Link href="/docs" className="hover:text-foreground transition-colors">
                 Documentation
+              </Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy
               </Link>
               <Link href="https://github.com/continuonai" className="hover:text-foreground transition-colors">
                 GitHub
