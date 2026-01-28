@@ -115,3 +115,4 @@ hailort*.log
 # MkDocs build output (prevent accidental builds)
 site/
 brain_b_data/
+*.jks
