@@ -27,14 +27,14 @@ class DownloadsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Download Our Apps',
+                  'Download ContinuonXR',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'On-device AI apps powered by Nexa SDK on Qualcomm NPU.',
+                  'On-device AI robot training powered by Nexa SDK on Qualcomm NPU.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Theme.of(context)
                             .textTheme
@@ -59,22 +59,6 @@ class DownloadsScreen extends StatelessWidget {
                   ],
                   downloadUrl:
                       'https://github.com/continuonai/ContinuonXR/releases/latest/download/app-release.apk',
-                ),
-                const SizedBox(height: 24),
-                _AppCard(
-                  icon: Icons.closed_caption_outlined,
-                  title: 'LiveCaptionsXR — AI Accessibility Captions',
-                  description:
-                      'Real-time spatially-aware closed captioning powered by Nexa SDK NPU. '
-                      'Privacy-first, fully on-device speech recognition.',
-                  features: const [
-                    'Spatial AR captions anchored in 3D',
-                    'On-device privacy-first processing',
-                    'Hybrid localization support',
-                    'NPU-accelerated ASR inference',
-                  ],
-                  downloadUrl:
-                      'https://github.com/craigm26/LiveCaptionsXR/releases/latest/download/app-release.apk',
                 ),
                 const SizedBox(height: 40),
                 Card(

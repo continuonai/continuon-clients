@@ -11,7 +11,7 @@ class DownloadsSection extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Download Our Apps',
+            'Download ContinuonXR',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -21,7 +21,7 @@ class DownloadsSection extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
             child: Text(
-              'On-device AI apps running on Qualcomm NPU via Nexa SDK. No cloud required.',
+              'On-device AI robot training running on Qualcomm NPU via Nexa SDK. No cloud required.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontSize: 18,
@@ -32,26 +32,12 @@ class DownloadsSection extends StatelessWidget {
           const SizedBox(height: 48),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
-            child: Wrap(
-              spacing: 24,
-              runSpacing: 24,
-              alignment: WrapAlignment.center,
-              children: [
-                _MiniAppCard(
-                  icon: Icons.smart_toy_outlined,
-                  title: 'ContinuonXR',
-                  subtitle: 'Android Robot Trainer',
-                  description:
-                      'Train robots with on-device AI — camera VLM, voice commands, RLDS recording.',
-                ),
-                _MiniAppCard(
-                  icon: Icons.closed_caption_outlined,
-                  title: 'LiveCaptionsXR',
-                  subtitle: 'AI Accessibility Captions',
-                  description:
-                      'Real-time spatial captions powered by NPU-accelerated on-device ASR.',
-                ),
-              ],
+            child: _MiniAppCard(
+              icon: Icons.smart_toy_outlined,
+              title: 'ContinuonXR',
+              subtitle: 'Android Robot Trainer',
+              description:
+                  'Train robots with on-device AI — camera VLM, voice commands, RLDS recording.',
             ),
           ),
           const SizedBox(height: 40),
