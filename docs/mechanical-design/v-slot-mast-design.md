@@ -746,6 +746,183 @@ EcoFlow River Max Plus
 
 ---
 
+## 8.5 Arm Carriage & Belt System - Detailed Assembly
+
+This section explains how the arm carriage connects to the mast frame and how the belt pulley system drives vertical movement.
+
+### 8.5.1 System Overview
+
+The arm carriage is a moving platform that:
+- Rides on V-slot rails via gantry wheels
+- Is pulled up/down by a GT2 belt loop
+- Holds both arm shoulder joints
+
+**Key Components:**
+| Part | Function |
+|------|----------|
+| Carriage Plate (200×140×5mm) | Mounting surface for arm shoulders |
+| Gantry Plates (2×) | Hold V-wheels, attach to carriage plate |
+| V-Wheels (8 total) | Ride in V-slot groove for smooth motion |
+| GT2 Belt (6mm × ~3.5m) | Closed loop connecting motor to carriage |
+| Belt Clamp | Attaches belt to carriage plate |
+| NEMA17 + 20T Pulley | Drives the belt (bottom of mast) |
+| Idler Pulley | Redirects belt at top of mast |
+
+### 8.5.2 Side View - How Components Connect
+
+```
+       ┌─── Idler Pulley (top, mounted to cross-brace)
+       │
+       │    BELT PATH (closed loop)
+       │    ════════════════════
+    ┌──┼──────────────────────┐
+    │  │                      │
+    │  ↓                      ↑    ← Belt runs on both sides
+    │  │    ┌──────────┐      │       of the carriage
+    │  │    │          │      │
+    │ ◎│────│ CARRIAGE │──────│◎   ← V-wheels (4 per side)
+    │ ◎│────│  PLATE   │──────│◎     ride in V-slot groove
+    │  │    │          │      │
+    │  │    │ ══╪══    │      │    ← Belt clamp grips belt here
+    │  │    │   │      │      │
+    │  │    └───┼──────┘      │
+    │  │        │             │
+    │  ↓       Arms           ↑
+    │  │        ↓             │
+    │  │                      │
+    │  V-Slot    V-Slot       │
+    │  Rail      Rail         │
+    │  (20×40)   (20×40)      │
+    │  │                      │
+    └──┼──────────────────────┘
+       │
+       └─── Motor + 20T Pulley (bottom, mounted to base)
+```
+
+### 8.5.3 Front View - Gantry Plate Detail
+
+```
+              V-Slot Rail (20×40mm)
+                    │
+         ┌──────────┼──────────┐
+         │          │          │
+    ─────┤  ◎ ◎ ◎ ◎ │ ◎ ◎ ◎ ◎  ├─────   ← 4 V-wheels per gantry plate
+         │    └─────┼─────┘    │          (2 plates = 8 wheels total)
+         │   Gantry │ Gantry   │
+         │   Plate  │  Plate   │
+         │     └────┴────┘     │
+         │          │          │
+         │   ┌──────┴──────┐   │
+         │   │   Carriage  │   │   ← 200×140mm aluminum plate
+         │   │    Plate    │   │
+         │   │             │   │
+         │   │ ┌───┐ ┌───┐ │   │
+         │   │ │ L │ │ R │ │   │   ← Arm shoulder mounts
+         │   │ │Arm│ │Arm│ │   │     (140mm spacing)
+         │   │ └─┬─┘ └─┬─┘ │   │
+         │   └───┼─────┼───┘   │
+         │       │     │       │
+         └───────┼─────┼───────┘
+                 ↓     ↓
+              Arms extend down
+```
+
+### 8.5.4 Top-Down View - Belt Routing
+
+```
+                Motor Pulley
+                    ║
+    ┌───────────────╫───────────────┐
+    │               ║               │
+    │    V-Slot ════╬════ V-Slot    │
+    │    Rail       ║       Rail    │
+    │       │       ║       │       │
+    │       │   ┌───╫───┐   │       │
+    │       │   │ Belt  │   │       │   ← Belt passes BEHIND
+    │       │   │ Clamp │   │       │     the carriage plate
+    │       └───┤       ├───┘       │
+    │           │Carriage           │
+    │           │ Plate │           │
+    │           └───────┘           │
+    │                               │
+    └───────────────────────────────┘
+                    ↑
+              Front of robot
+```
+
+### 8.5.5 Belt Attachment Detail
+
+The belt clamp sandwiches the GT2 belt to the back of the carriage plate:
+
+```
+    CARRIAGE PLATE (side view)
+    ═══════════════════════════
+           │
+           │   ┌─────┐
+           │   │Belt │ ← GT2 belt (teeth face inward)
+           │   │     │
+           ├───┤Clamp├───   ← Aluminum bracket with M3 screws
+           │   │     │        squeezes belt against plate
+           │   └─────┘
+           │
+    ═══════════════════════════
+
+    Option A: Dedicated belt clamp bracket
+    Option B: 3D printed clamp block
+    Option C: Two small aluminum pieces with bolts through belt
+```
+
+### 8.5.6 Assembly Sequence for Carriage
+
+1. **Prepare Gantry Plates**
+   - Install V-wheels with eccentric spacers
+   - Adjust wheels so they spin freely but grip V-slot
+
+2. **Attach Gantry Plates to Carriage**
+   - Bolt gantry plates to sides of 200×140mm carriage plate
+   - Ensure plates are parallel and square
+
+3. **Install Carriage on Rails**
+   - Slide assembly onto V-slot uprights from top
+   - Test movement - should glide smoothly
+
+4. **Mount Belt Hardware**
+   - Install motor + 20T pulley at mast bottom
+   - Install idler pulley at mast top (on cross-brace)
+   - Route belt in closed loop
+
+5. **Attach Belt to Carriage**
+   - Position carriage at mid-height
+   - Clamp belt to back of carriage plate
+   - Tension belt (slight deflection when pressed)
+
+6. **Install Arm Shoulders**
+   - Mount left/right shoulder joints to carriage plate
+   - 140mm center-to-center spacing
+   - Verify arms clear mast during full range of motion
+
+### 8.5.7 Recommended Parts for Assembly
+
+| Part | Recommended Product | Link |
+|------|---------------------|------|
+| Gantry Plate Kit | Generic V-slot kit w/ wheels | amazon.com/dp/B08L39S8QB |
+| Extra V-Wheels | Polycarbonate w/ bearings | amazon.com/dp/B08TQWX7S4 |
+| Eccentric Spacers | 6mm bore | amazon.com/dp/B07PMS32CT |
+| Belt Clamp | Aluminum GT2 clamp | amazon.com/dp/B07D3F67FV |
+| GT2 Belt | 6mm × 5m open ended | amazon.com/dp/B07GFYLJP8 |
+
+### 8.5.8 Troubleshooting
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Carriage binds/sticks | V-wheels too tight | Adjust eccentric spacers |
+| Carriage wobbles | V-wheels too loose | Tighten eccentric spacers |
+| Belt slips on pulley | Insufficient tension | Add tensioner or shorten belt |
+| Belt skips teeth | Pulley misaligned | Realign motor mount |
+| Carriage drifts when stopped | Stepper not holding | Enable TMC2209 hold current |
+
+---
+
 ## 9. Assembly Notes
 
 ### 9.1 Build Order
